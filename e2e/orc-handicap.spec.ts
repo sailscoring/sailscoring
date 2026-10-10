@@ -516,7 +516,7 @@ test('ORC fleet: a constructed course at the wind the committee recorded', async
   const chunks: Buffer[] = [];
   for await (const chunk of stream) chunks.push(Buffer.from(chunk));
   const html = Buffer.concat(chunks).toString('utf-8');
-  expect(html).toContain('Scored on ORC performance curves at the recorded wind');
+  expect(html).toContain('Scored on ORC constructed course at the recorded wind');
   expect(html).toContain('Wind 14.00 kt');
   expect(html).toContain('Time-on-time');
   expect(html).toContain('Legs: 2.09 NM @ 162°T, wind 160°T at 14 kt');

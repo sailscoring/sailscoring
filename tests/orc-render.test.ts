@@ -158,9 +158,9 @@ describe('published ORC transparency', () => {
         }],
       }),
     );
-    expect(html).toContain('Constructed course');
-    expect(html).toContain('8.11 NM');
-    expect(html).toContain('2 legs');
+    // Performance curves over a constructed course: the course part names
+    // it, since the lead doesn't.
+    expect(html).toContain('Scored on ORC performance curves &middot; Constructed course &middot; 8.11 NM &middot; 2 legs');
     // Nothing places the course — no marks, no venue — so the figures are
     // true, and say so.
     expect(html).toContain('Legs: 2.09 NM @ 162°T, wind 160°T');
@@ -639,9 +639,12 @@ describe('published transparency for a recorded-wind race', () => {
 
   it('names the wind as recorded, the correction applied, and no implied wind', () => {
     const html = renderSeriesHtml(assemble({ orc: totCalc, raceStarts: starts(legs) }));
-    expect(html).toContain('Scored on ORC performance curves at the recorded wind');
-    expect(html).toContain('Wind 9.00 kt');
-    expect(html).toContain('Time-on-time');
+    // The lead names the constructed course, so the course part doesn't
+    // repeat it.
+    expect(html).toContain(
+      'Scored on ORC constructed course at the recorded wind &middot; 2.28 NM &middot; 2 legs &middot; Wind 9.00 kt &middot; Time-on-time',
+    );
+    expect(html).not.toContain('Constructed course &middot;');
     // Nothing was derived from how the boats sailed, so nothing claims to be.
     expect(html).not.toContain('implied wind');
     expect(html).not.toContain('<th>Implied wind</th>');
@@ -777,7 +780,7 @@ describe('published transparency for a recorded-wind race', () => {
   it('legs recorded at different wind speeds get no mix', () => {
     const mixed = legs.map((leg, i) => ({ ...leg, windSpeedKts: i === 0 ? 8 : 14 }));
     const html = renderSeriesHtml(assemble({ orc: totCalc, raceStarts: starts(mixed), certs: true }));
-    expect(html).toContain('Scored on ORC performance curves at the recorded wind');
+    expect(html).toContain('Scored on ORC constructed course at the recorded wind');
     expect(html).not.toContain('Show handicap mix');
   });
 

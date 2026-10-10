@@ -2412,9 +2412,14 @@ function renderRaceTable(
         const h = race.orcHeader;
         const parts: string[] = [];
         if (h.distanceNm != null) {
+          const legCount = h.legs?.length ? ` &middot; ${h.legs.length} legs` : '';
+          // A recorded-wind race names the constructed course in its lead, so
+          // the course part carries only the distance and legs.
           parts.push(
-            h.courseModel === 'CC'
-              ? `Constructed course &middot; ${h.distanceNm.toFixed(2)} NM${h.legs?.length ? ` &middot; ${h.legs.length} legs` : ''}`
+            h.courseModel === 'CC' && h.windRecorded
+              ? `${h.distanceNm.toFixed(2)} NM${legCount}`
+              : h.courseModel === 'CC'
+              ? `Constructed course &middot; ${h.distanceNm.toFixed(2)} NM${legCount}`
               : h.courseModel
                 ? `${h.courseModel === 'WL' ? 'Windward/leeward' : h.courseModel === 'CR' ? 'All-purpose' : 'Coastal'} course model &middot; ${h.distanceNm.toFixed(2)} NM`
                 : `Course ${h.distanceNm.toFixed(2)} NM`,
@@ -2440,9 +2445,12 @@ function renderRaceTable(
         // Performance curves always correct time-on-distance (rule 402.9), so
         // only the recorded-wind options leave the correction to say.
         if (h.windRecorded) parts.push(h.appliedAsTot ? 'Time-on-time' : 'Time-on-distance');
+        // The recorded-wind options are the constructed-course ones. They
+        // read the certificate's curves too, but ORC treats them as their own
+        // scoring option, and "performance curves" would read as PCS.
         const lead =
           h.windRecorded
-            ? 'Scored on ORC performance curves at the recorded wind'
+            ? 'Scored on ORC constructed course at the recorded wind'
             : h.scoringWind != null
               ? 'Scored on ORC performance curves'
               : h.scratchTod != null
