@@ -191,6 +191,18 @@ export function SplitFleetsSection() {
         only sit unused. A fleet any race has actually used is never offered.
       </p>
       <p>
+        A committed round can still be corrected without dealing it again.{' '}
+        <strong className="text-foreground">Move an entry…</strong> on the round’s card moves
+        one entry to another of its fleets, or places an entry who is in none of them. Anyone
+        added to the entry list after a round was committed is in none of its fleets, and is
+        scored nowhere until you place her; the latest round says how many there are. Each move
+        is recorded on the round as made by hand. Once the round has raced, a move changes
+        results already in, because she is scored in her new fleet for those races too: the
+        dialog then says which of her results stop counting, and where she now scores DNC until
+        she is added to that fleet’s sheet. To change fleets only for the races still to come,
+        assign the next round instead.
+      </p>
+      <p>
         {capitaliseStage(article(q.raceNoun))}{' '}
         <strong className="text-foreground">counts only once every fleet has completed it</strong>{' '}
         — until then its column is greyed in the standings, matching the abandon-and-cancel
@@ -388,6 +400,15 @@ export function SplitFleetBoatsSection() {
         each fleet. Each entry keeps her own number too — shown as{' '}
         <strong className="text-foreground">Entry</strong> — and it is what the standings list
         her under.
+      </p>
+      <p>
+        Moving an entry to another fleet (<strong className="text-foreground">Move an
+        entry…</strong>) takes her boat with her, and asks for her boat in the fleet she joins.
+        If that number is already another entry’s in that fleet, the dialog offers to{' '}
+        <strong className="text-foreground">swap</strong> the two, each taking the other’s fleet
+        and boat. That is how to correct two entries on the same boat number that were put in
+        each other’s fleets, which can happen when a draw sheet lists two helms on one boat in
+        one fleet and you have to guess which of them belongs in the other.
       </p>
       <p>
         On a race, the numbers are the boats: type the number the race committee hails and it
