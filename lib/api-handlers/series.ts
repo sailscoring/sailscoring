@@ -1,5 +1,5 @@
 import 'server-only';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, sql, type SQL } from 'drizzle-orm';
 
 import {
   ArchivedError,
@@ -33,6 +33,7 @@ import {
   buildSeriesFile,
   openSeriesFromFile,
   parseSeriesFile,
+  remapPrizes,
   updateSeriesFromFile,
   type SeriesFileRepos,
 } from '@/lib/series-file';
@@ -742,6 +743,12 @@ export async function putSeriesFile(
   return { id: seriesId, created: !existing };
 }
 
+/** An insert row that names every column of the table, with `undefined`
+ *  taking the column's default. */
+type EveryColumn<T extends { $inferInsert: object }> = {
+  [K in keyof Required<T['$inferInsert']>]: T['$inferInsert'][K] | SQL;
+};
+
 /**
  * Create a follow-on series in the same workspace — the next series of a
  * season, rolled over from a finished one. Copies the source's
@@ -755,6 +762,11 @@ export async function putSeriesFile(
  * Archived sources are allowed: this never writes the source, and
  * archiving the finished series before rolling it over is the natural
  * order of operations.
+ *
+ * Unlike a copy, a follow-on is built column by column rather than through
+ * the series file, since it keeps only part of the source. Each row below is
+ * typed to name every column, so a column added to the schema doesn't compile
+ * until it is either carried or left behind here on purpose.
  */
 export async function createFollowOnSeries(
   workspace: WorkspaceContext,
@@ -820,7 +832,7 @@ export async function createFollowOnSeries(
   }
 
   let seededCount = 0;
-  const competitorRows = sourceCompetitors.map((c) => {
+  const competitorRows = sourceCompetitors.map((c): EveryColumn<typeof schema.competitors> => {
     const nhcSeed = seededTcf(c, 'nhc');
     const echoSeed = seededTcf(c, 'echo');
     if (nhcSeed !== undefined) seededCount++;
@@ -831,6 +843,17 @@ export async function createFollowOnSeries(
       workspaceId: workspace.workspaceId,
       fleetIds: c.fleetIds.map((fid) => fleetIdMap.get(fid) ?? fid),
       sailNumber: c.sailNumber,
+      // The boat's other identities carry, as the boat does.
+      bowNumber: c.bowNumber ?? null,
+      alternativeSailNumbers: c.alternativeSailNumbers?.length ? c.alternativeSailNumbers : null,
+      worldSailingId: c.worldSailingId ?? null,
+      tallyNumber: c.tallyNumber ?? null,
+      // A championship's entry list: drawn boats, registration numbers, and
+      // seeding belong to the one event.
+      fleetSailNumbers: undefined,
+      entryNumber: undefined,
+      seed: undefined,
+      initialFleet: undefined,
       boatName: c.boatName ?? null,
       boatClass: c.boatClass ?? null,
       names: c.names,
@@ -850,6 +873,13 @@ export async function createFollowOnSeries(
       nhcStartingTcf: nhcSeed ?? c.nhcStartingTcf ?? null,
       echoStartingTcf: echoSeed ?? c.echoStartingTcf ?? null,
       orcCert: c.orcCert ?? null,
+      ircCert: c.ircCert ?? null,
+      // A boat on the roster that isn't entered stays that way: the roster
+      // is the season's, and the scorer enters it when it turns up.
+      excluded: c.excluded ?? false,
+      version: undefined,
+      updatedAt: undefined,
+      updatedBy: undefined,
     };
   });
 
@@ -858,7 +888,7 @@ export async function createFollowOnSeries(
   await db.transaction(async (tx) => {
     // Series — publishing/file-tracking state resets like a copy, but the
     // category carries: the follow-on belongs to the same season's bucket.
-    await tx.insert(schema.series).values({
+    const seriesRow: EveryColumn<typeof schema.series> = {
       id: newSeriesId,
       workspaceId: workspace.workspaceId,
       name: newName,
@@ -869,6 +899,8 @@ export async function createFollowOnSeries(
       eventLogoUrl: source.eventLogoUrl,
       venueUrl: source.venueUrl,
       eventUrl: source.eventUrl,
+      // Same venue: magnetic variation is read at the same position.
+      venuePosition: source.venuePosition ?? null,
       createdAt: now,
       lastSavedAt: null,
       lastModifiedAt: now,
@@ -880,10 +912,22 @@ export async function createFollowOnSeries(
           }))
         : null,
       discardThresholds: source.discardThresholds,
+      proportionalDiscard: source.proportionalDiscard ?? null,
       dnfScoring: source.dnfScoring,
+      excludeDncOnlyCompetitors: source.excludeDncOnlyCompetitors ?? false,
+      // Race-level, and no races come along.
+      raceFleetExclusions: undefined,
+      // Publishing destinations stay behind, as on a copy: two series must
+      // not publish to the same remote path or rrs.org event.
+      ftpServerId: null,
       ftpHost: '',
       ftpPath: '',
       ftpPaths: {},
+      ftpPagesExcluded: null,
+      publishMode: undefined,
+      ftpLastUploadedAt: null,
+      ftpUploadedVersion: null,
+      rrsOrgPush: null,
       includeJsonExport: source.includeJsonExport,
       publishRatingCalculations: source.publishRatingCalculations ?? true,
       showPerRaceRatingsInSummary: source.showPerRaceRatingsInSummary ?? true,
@@ -894,27 +938,47 @@ export async function createFollowOnSeries(
       })),
       publishIndividualFleetPages: source.publishIndividualFleetPages ?? true,
       publishDetail: source.publishDetail ?? 'full',
-      // Same SIs, next series of the season: the limit config rolls over;
-      // the fresh series is provisional by construction.
+      // The prize list follows its fleets through the remap.
+      prizes: remapPrizes(source.prizes, fleetIdMap),
+      // Notes describe the source's publications, not the season.
+      seriesNote: undefined,
+      pageNotes: undefined,
+      // The fresh series is provisional by construction.
+      resultsStatus: undefined,
+      finalisedAt: null,
+      // Same SIs, next series of the season: the limit config rolls over.
       protestTimeLimit: source.protestTimeLimit ?? null,
       // Same club, next series of the season: the standing team rolls over
       // like the rest of the config, and rotates by editing.
       officials: source.officials ?? [],
       publishOfficials: source.publishOfficials ?? false,
+      publishTrackData: source.publishTrackData ?? false,
+      // ORC's names for the certificate fields the boats carry. They are
+      // stored only when certificates are downloaded, and the certificates
+      // carry, so the names must too.
+      orcScoringOptions: source.orcScoringOptions ?? null,
+      // A split-fleet championship's stages are its own; no rounds carry.
+      qfConfig: null,
       enabledCompetitorFields: source.enabledCompetitorFields,
       multiPersonFields: source.multiPersonFields?.length ? source.multiPersonFields : null,
       primaryPersonLabel: source.primaryPersonLabel,
       subdivisionAxes: source.subdivisionAxes,
       categoryId: source.categoryId ?? null,
       archived: false,
+      asPublished: false,
+      asPublishedHash: null,
       source: null,
       previousSeriesId: sourceSeriesId,
       displayOrder: sql<number>`(select coalesce(max(${schema.series.displayOrder}) + 1, 0) from ${schema.series} where ${schema.series.workspaceId} = ${workspace.workspaceId})`,
-    });
+      version: undefined,
+      updatedAt: undefined,
+      updatedBy: undefined,
+    };
+    await tx.insert(schema.series).values(seriesRow);
 
     if (sourceFleets.length > 0) {
       await tx.insert(schema.fleets).values(
-        sourceFleets.map((f) => ({
+        sourceFleets.map((f): EveryColumn<typeof schema.fleets> => ({
           id: fleetIdMap.get(f.id)!,
           seriesId: newSeriesId,
           workspaceId: workspace.workspaceId,
@@ -926,6 +990,15 @@ export async function createFollowOnSeries(
           nhcProfile: f.nhcProfile ?? null,
           orcProfile: f.orcProfile ?? null,
           ratingVariant: f.ratingVariant ?? null,
+          // The next import rejoins the same fleets.
+          importGroups: f.importGroups ?? null,
+          // A split-fleet round's fleet and its colour belong to the round,
+          // which doesn't carry.
+          splitRoundId: null,
+          color: null,
+          version: undefined,
+          updatedAt: undefined,
+          updatedBy: undefined,
         })),
       );
     }

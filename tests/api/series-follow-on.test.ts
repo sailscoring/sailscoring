@@ -235,6 +235,76 @@ describe.skipIf(skip)('createFollowOnSeries', () => {
     await removeSeries(ctx, srcId);
   });
 
+  test('carries the season’s configuration and each boat’s certificates', async () => {
+    const srcId = uuid();
+    await series.putSeries(ctx, srcId, { ...sampleSeries(srcId), name: 'Autumn League 1' });
+    const fleetId = uuid();
+    await fleets.putFleet(ctx, srcId, fleetId, {
+      id: fleetId, seriesId: srcId, name: 'Class 1', displayOrder: 0,
+      scoringSystem: 'orc' as const,
+      orcProfile: { option: 'IRL_AP_M_TOT', kind: 'tot' as const },
+      importGroups: ['Cruiser 1'],
+    });
+    const orcScoringOptions = {
+      IRL_AP_M_TOT: { name: '5-Band All Purpose Med', kind: 'tot' as const, countryId: 'IRL' },
+    };
+    await series.putSeries(ctx, srcId, {
+      ...sampleSeries(srcId),
+      name: 'Autumn League 1',
+      venuePosition: { lat: 51.8, lng: -8.3 },
+      orcScoringOptions,
+      proportionalDiscard: { firstAt: 4, everyRaces: 4 },
+      excludeDncOnlyCompetitors: true,
+      publishTrackData: true,
+      prizes: [{
+        id: uuid(), name: 'Class 1 1st', recipientCount: 1,
+        clauses: [{ kind: 'fleet' as const, fleetId }],
+      }],
+      seriesNote: 'Corrected 16:40',
+    });
+    const compId = uuid();
+    const orcCert = {
+      record: { RefNo: '051800048LU', YachtName: 'IMPETUOUS', IRL_AP_M_TOT: 0.9631 },
+      importedAt: Date.now(),
+    };
+    const ircCert = { certNumber: '2951', tcc: 0.932, appliedAt: Date.now() };
+    await competitors.putCompetitor(ctx, srcId, compId, {
+      id: compId, seriesId: srcId, fleetIds: [fleetId],
+      sailNumber: 'IRL 2507', names: ['Helm'], clubs: ['RCYC'],
+      gender: '' as const, age: null, createdAt: Date.now(),
+      bowNumber: '12', alternativeSailNumbers: ['IRL 2508'], tallyNumber: 'T17',
+      orcCert, ircCert, excluded: true,
+    });
+
+    const { id: newId } = await series.createFollowOnSeries(ctx, srcId, {});
+
+    const created = await series.getSeries(ctx, newId);
+    const [newFleet] = await fleets.listFleets(ctx, newId);
+    expect(created).toMatchObject({
+      venuePosition: { lat: 51.8, lng: -8.3 },
+      // The names for the certificate fields the boats carry: without them the
+      // pickers and published pages show raw field names.
+      orcScoringOptions,
+      proportionalDiscard: { firstAt: 4, everyRaces: 4 },
+      excludeDncOnlyCompetitors: true,
+      publishTrackData: true,
+    });
+    expect(created.prizes).toEqual([
+      expect.objectContaining({ name: 'Class 1 1st', clauses: [{ kind: 'fleet', fleetId: newFleet.id }] }),
+    ]);
+    expect(created.seriesNote ?? '').toBe('');
+    expect(newFleet.importGroups).toEqual(['Cruiser 1']);
+
+    const [c] = await competitors.listCompetitors(ctx, newId);
+    expect(c).toMatchObject({
+      bowNumber: '12', alternativeSailNumbers: ['IRL 2508'], tallyNumber: 'T17',
+      orcCert, ircCert, excluded: true,
+    });
+
+    await removeSeries(ctx, newId);
+    await removeSeries(ctx, srcId);
+  });
+
   test('a source with no scored races seeds nothing and keeps starting TCFs', async () => {
     const srcId = uuid();
     await series.putSeries(ctx, srcId, { ...sampleSeries(srcId), name: 'Frostbites' });

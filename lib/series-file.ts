@@ -1587,7 +1587,7 @@ function remapPublishingGroups(
  *  removing the clause would *widen* its eligibility, which is worse than
  *  losing the prize (the scorer re-adds it in the editor). Axis ids are stable
  *  across round-trips, so axis clauses travel verbatim. */
-function remapPrizes(
+export function remapPrizes(
   prizes: Prize[] | undefined,
   fleetIdMap: Map<string, string>,
 ): Prize[] {

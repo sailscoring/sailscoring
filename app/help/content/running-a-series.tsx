@@ -701,7 +701,7 @@ export default function RunningASeries() {
           For progressive-handicap fleets (NHC, ECHO), each boat’s starting handicap in the new
           series is its handicap after the old series’ last scored race, so the ratings pick up
           exactly where they left off. Boats that never raced keep the starting handicap they had.
-          Static ratings (IRC, PY, VPRS) carry over unchanged. The Competitors tab of the new series
+          Static ratings (IRC, PY, VPRS) and ORC certificates carry over unchanged. The Competitors tab of the new series
           notes which series it was carried forward from; if handicaps in the old series change
           later (a reinstated boat, a corrected finish), use{' '}
           <strong className="text-foreground">Update handicaps</strong> to re-pull them.
