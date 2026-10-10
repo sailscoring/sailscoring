@@ -83,7 +83,12 @@ export class UpstreamApiError extends ApiError {
 }
 
 export class ValidationApiError extends ApiError {
-  constructor(public readonly issues?: unknown) {
+  constructor(
+    public readonly issues?: unknown,
+    /** The server's own sentence for why, when it wrote one — a refusal meant
+     *  for the scorer rather than a list of malformed fields. */
+    public readonly detail?: string,
+  ) {
     super('invalid', 400);
     this.name = 'ValidationApiError';
   }
@@ -169,7 +174,7 @@ export async function apiFetch<T = unknown>(
   }
 
   if (!res.ok) {
-    const errBody = parsed as { error?: string; reason?: string; resource?: string; issues?: unknown; detail?: unknown; retryAfter?: number } | string | undefined;
+    const errBody = parsed as { error?: string; reason?: string; resource?: string; issues?: unknown; detail?: unknown; message?: unknown; retryAfter?: number } | string | undefined;
     if (res.status === 404 && opts.allow404) return undefined as T;
     if (res.status === 401) throw new AuthError();
     if (res.status === 403) throw new ForbiddenApiError(typeof errBody === 'object' ? errBody?.reason : undefined);
@@ -181,7 +186,13 @@ export async function apiFetch<T = unknown>(
         reason === 'series-as-published' || reason === 'series-final' ? reason : undefined,
       );
     }
-    if (res.status === 400) throw new ValidationApiError(typeof errBody === 'object' ? errBody?.issues : undefined);
+    if (res.status === 400) {
+      const message = typeof errBody === 'object' ? errBody?.message : undefined;
+      throw new ValidationApiError(
+        typeof errBody === 'object' ? errBody?.issues : undefined,
+        typeof message === 'string' ? message : undefined,
+      );
+    }
     if (res.status === 429) {
       const retryAfter = typeof errBody === 'object' ? errBody?.retryAfter : undefined;
       throw new RateLimitedApiError(typeof retryAfter === 'number' ? retryAfter : undefined);

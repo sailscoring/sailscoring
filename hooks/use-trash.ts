@@ -19,11 +19,13 @@ export function useTrash() {
 }
 
 /** Recover a trashed series. It returns to the (archived) active list, so both
- *  the series list and the Trash list are invalidated. */
+ *  the series list and the Trash list are invalidated. A failure is reported
+ *  on the Trash row it was for, not the generic banner. */
 export function useRestoreFromTrash() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (tombstoneId: string) => restoreFromTrash(tombstoneId),
+    meta: { errorShownToUser: true },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.trash.list() });
       qc.invalidateQueries({ queryKey: queryKeys.series.list() });

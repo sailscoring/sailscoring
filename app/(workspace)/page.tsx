@@ -27,6 +27,8 @@ import { usePublicationStatus } from '@/hooks/use-published';
 import { useCategories } from '@/hooks/use-categories';
 import { useRecentActivity } from '@/hooks/use-activity';
 import { formatRelativeTime } from '@/lib/relative-time';
+import { ValidationApiError } from '@/lib/api-client';
+import { describeWriteFailure } from '@/lib/write-failure';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useShortcuts } from '@/hooks/use-keyboard-shortcut';
@@ -223,6 +225,16 @@ function SeriesCard({
   );
 }
 
+/** Why a Recover failed, for the Trash row. A series refused on the way back —
+ *  it scores with a setting that no longer exists — comes with the server's
+ *  sentence naming that setting, which says more than any generic wording. */
+function describeRecoverFailure(err: unknown): string {
+  if (err instanceof ValidationApiError && err.detail) {
+    return `Couldn’t recover this series. ${err.detail}`;
+  }
+  return describeWriteFailure(err);
+}
+
 /** One soft-deleted series in the Trash. A trashed series can't be opened — the
  *  only actions are Recover (back to the archived list) and a guarded permanent
  *  delete. */
@@ -231,11 +243,14 @@ function TrashRow({
   onRecover,
   onDeleteForever,
   busy,
+  recoverError,
 }: {
   entry: DeletedSeriesEntry;
   onRecover: (entry: DeletedSeriesEntry) => void;
   onDeleteForever: (entry: DeletedSeriesEntry) => void;
   busy: boolean;
+  /** Why the last Recover of this entry failed, if it did. */
+  recoverError?: string;
 }) {
   const { can } = useWorkspacePermissions();
   const who = entry.actor?.displayName ?? entry.actor?.email ?? 'someone';
@@ -250,6 +265,11 @@ function TrashRow({
           <div className="text-xs text-muted-foreground mt-1">
             Its published results page is still online but disconnected.
           </div>
+        )}
+        {recoverError && (
+          <p role="alert" className="text-sm text-destructive mt-1">
+            {recoverError}
+          </p>
         )}
       </div>
       {can('manage-series') && (
@@ -303,6 +323,8 @@ export default function HomePage() {
   const [showHelp, setShowHelp] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [showTrash, setShowTrash] = useState(false);
+  // The Trash entry whose last Recover failed, and why.
+  const [recoverFailure, setRecoverFailure] = useState<{ id: string; message: string } | null>(null);
   const openFlow = useOpenSeriesFile();
 
   // Whether the series queued for deletion has a live published page — drives
@@ -320,7 +342,10 @@ export default function HomePage() {
   }
 
   function handleRecover(entry: DeletedSeriesEntry) {
-    restoreFromTrash.mutate(entry.id);
+    setRecoverFailure(null);
+    restoreFromTrash.mutate(entry.id, {
+      onError: (err) => setRecoverFailure({ id: entry.id, message: describeRecoverFailure(err) }),
+    });
   }
 
   async function handleConfirmPurge() {
@@ -511,6 +536,7 @@ export default function HomePage() {
                       onRecover={handleRecover}
                       onDeleteForever={setPendingPurge}
                       busy={restoreFromTrash.isPending || purgeFromTrash.isPending}
+                      recoverError={recoverFailure?.id === entry.id ? recoverFailure.message : undefined}
                     />
                   ))}
                 </div>

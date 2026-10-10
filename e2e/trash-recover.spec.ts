@@ -40,6 +40,41 @@ test('recover a deleted series brings it back archived', async ({ page }) => {
   await expect(page.getByText('Recoverable Series', { exact: true })).toBeVisible();
 });
 
+test('a recover the server refuses says why on the Trash row', async ({ page }) => {
+  await createSeriesQuick(page, { name: 'Refused Series' });
+  await page.goto('/');
+  await archiveAndDelete(page, 'Refused Series');
+
+  // A tombstone that scores with a setting that no longer exists is refused
+  // with a sentence naming it; the DB test covers the server producing it.
+  const refusal =
+    'This championship is scored with split-fleet settings this version of Sail Scoring no longer supports: how scores carry ("net-plus-net").';
+  await page.route('**/api/v1/trash/*/restore', (route) =>
+    route.fulfill({
+      status: 400,
+      contentType: 'application/json',
+      body: JSON.stringify({ error: 'invalid', message: refusal }),
+    }),
+  );
+
+  await page.getByRole('button', { name: /Trash \(1\)/ }).click();
+  await page.getByRole('button', { name: 'Recover', exact: true }).click();
+
+  // The reason sits on the row it was for, and the series stays in the Trash.
+  // Filtered by text: Next's route announcer is an empty `alert` too.
+  const reason = page.getByRole('alert').filter({ hasText: 'Couldn’t recover this series.' });
+  await expect(reason).toContainText('how scores carry ("net-plus-net")');
+  await expect(page.getByTestId('notice')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /Trash \(1\)/ })).toBeVisible();
+
+  // With the server accepting it, the same button recovers it and the reason
+  // goes with the row.
+  await page.unroute('**/api/v1/trash/*/restore');
+  await page.getByRole('button', { name: 'Recover', exact: true }).click();
+  await expect(page.getByRole('button', { name: /Trash/ })).toBeHidden();
+  await expect(reason).toHaveCount(0);
+});
+
 test('permanent delete requires typing the series name', async ({ page }) => {
   await createSeriesQuick(page, { name: 'Doomed Series' });
   await page.goto('/');
