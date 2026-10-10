@@ -1373,6 +1373,19 @@ export function applySplitOverride(
   });
 }
 
+/** Two entries of a qualifying round exchange fleets, and boats where they
+ *  are drawn. */
+export function swapSplitRoundEntries(
+  seriesId: string,
+  roundId: string,
+  payload: { competitorIds: [string, string] },
+): Promise<{ warning: string | null }> {
+  return apiFetch(`/api/v1/series/${seriesId}/split-fleets/rounds/${roundId}/swaps`, {
+    method: 'POST',
+    body: payload,
+  });
+}
+
 /** Promote boats into the medal fleet after it was selected, from the
  *  repêchage or from the ranking they were cut from. */
 export function promoteIntoMedalFleet(

@@ -177,6 +177,14 @@ export const splitOverrideSchema = z.object({
   boat: z.string().trim().max(40).nullable().optional(),
 });
 
+/** Body for POST …/rounds/:roundId/swaps — two entries of a qualifying
+ *  round, in different fleets, to exchange fleets and boats. */
+export const splitSwapSchema = z.object({
+  competitorIds: z
+    .tuple([uuidSchema, uuidSchema])
+    .refine(([a, b]) => a !== b, 'a swap takes two different entries'),
+});
+
 /** Body for POST …/split-fleets/promotions — boats promoted into the medal
  *  fleet after it was selected, and where their seats came from. */
 export const splitPromotionSchema = z.object({

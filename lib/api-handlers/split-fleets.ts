@@ -36,6 +36,7 @@ import {
   splitOverrideSchema,
   splitRoundCommitSchema,
   splitStageRacesSchema,
+  splitSwapSchema,
 } from '@/lib/validation/split-fleets';
 
 type SplitRoundRow = typeof schema.splitRounds.$inferSelect;
@@ -954,33 +955,6 @@ export async function applySplitOverride(
   }
   if (input.boat?.trim()) await assertDrawsBoats(workspace, seriesId);
 
-  // Post-racing promotion check: any completed race in this round's own
-  // stage? Stage identity lives on the starts, so a race is the stage's when
-  // any of its starts is. A medal-stage promotion after a medal race is at
-  // least as consequential as a final-stage one after a final race, so both
-  // stages carry the warning, each keyed on its own races.
-  let warning: string | null = null;
-  if (round.stage !== 'qualifying') {
-    const [sailed] = await getDb()
-      .select({ id: schema.finishes.id })
-      .from(schema.finishes)
-      .innerJoin(schema.races, eq(schema.races.id, schema.finishes.raceId))
-      .innerJoin(schema.raceStarts, eq(schema.raceStarts.raceId, schema.races.id))
-      .where(and(eq(schema.races.seriesId, seriesId), eq(schema.raceStarts.stage, round.stage)))
-      .limit(1);
-    if (sailed) {
-      warning =
-        round.stage === 'medal'
-          ? 'A race of this stage has already been completed: the promoted ' +
-            'boat has no score in it. Record how the protest committee ' +
-            'directs her to be scored there — this move only changes the ' +
-            'assignment.'
-          : 'Final racing has started: the boat already has scores in her ' +
-            'current fleet. Record how the protest committee directs those ' +
-            'scores to be treated — this move only changes the assignment.';
-    }
-  }
-
   const fleetName = await roundFleetNames(round);
   let placed!: Placement;
   await getDb().transaction(async (tx) => {
@@ -999,15 +973,16 @@ export async function applySplitOverride(
     );
     await txRepos.series.touch(seriesId, workspace.userId);
   });
-  if (round.stage === 'qualifying') {
-    warning = await qualifyingPlacementWarning(
-      workspace,
-      seriesId,
-      round,
-      [{ competitorId: input.competitorId, sailNumber: placed.sailNumber, toFleetId }],
-      fleetName,
-    );
-  }
+  const warning =
+    round.stage === 'qualifying'
+      ? await qualifyingPlacementWarning(
+          workspace,
+          seriesId,
+          round,
+          [{ competitorId: input.competitorId, sailNumber: placed.sailNumber, toFleetId }],
+          fleetName,
+        )
+      : await laterStageWarning(seriesId, round.stage);
 
   await trackChange(workspace, {
     action: 'split-fleets.round-committed',
@@ -1021,6 +996,110 @@ export async function applySplitOverride(
     sessionKey: 'split-fleets',
   });
   return { warning };
+}
+
+/**
+ * Two entries of a qualifying round exchange places: each takes the other's
+ * fleet and, where boats are drawn, the other's boat there. It is how two
+ * entries dealt the wrong way round are put right, and where they hold the
+ * same boat number it is the only way: as two moves, the first clashes with
+ * the second entry's boat until she has moved too.
+ */
+export async function swapSplitRoundEntries(
+  workspace: WorkspaceContext,
+  seriesId: string,
+  roundId: string,
+  body: unknown,
+): Promise<{ warning: string | null }> {
+  await assertSeriesWritable(workspace, seriesId);
+  const input = splitSwapSchema.parse(body);
+  const repos = createRepos({ workspaceId: workspace.workspaceId });
+  const round = await repos.splitRounds.get(roundId);
+  if (!round || round.seriesId !== seriesId) throw new NotFoundError('round');
+  if (round.stage !== 'qualifying') {
+    throw new BadRequestError('only the entries of a qualifying round can be swapped');
+  }
+  const competitors = await repos.competitors.listBySeries(seriesId);
+  const [a, b] = input.competitorIds.map((id) => {
+    const c = competitors.find((x) => x.id === id);
+    if (!c) throw new NotFoundError('competitor');
+    return { ...c, roundFleetId: round.fleetIds.find((fid) => c.fleetIds.includes(fid)) ?? null };
+  });
+  if (!a.roundFleetId || !b.roundFleetId || a.roundFleetId === b.roundFleetId) {
+    throw new BadRequestError('a swap takes two entries in different fleets of the round');
+  }
+  const [aFleet, bFleet] = [a.roundFleetId, b.roundFleetId];
+  const aBoat = a.fleetSailNumbers?.[aFleet] ?? null;
+  const bBoat = b.fleetSailNumbers?.[bFleet] ?? null;
+
+  const fleetName = await roundFleetNames(round);
+  await getDb().transaction(async (tx) => {
+    const place = (competitorId: string, toFleetId: string, boat: string | null) =>
+      placeInRound(tx, workspace.workspaceId, seriesId, {
+        competitorId,
+        roundFleetIds: round.fleetIds,
+        toFleetId,
+        boat,
+        fleetName,
+      });
+    // A arrives with no boat, so B's boat is still hers; then B takes A's
+    // boat, which A has left; then A takes B's, which B has left.
+    await place(a.id, bFleet, null);
+    await place(b.id, aFleet, aBoat);
+    await place(a.id, bFleet, bBoat);
+    const txRepos = createRepos({ db: tx, workspaceId: workspace.workspaceId });
+    await txRepos.splitRounds.setOverrides(
+      roundId,
+      { ...(round.overrides ?? {}), [a.id]: bFleet, [b.id]: aFleet },
+      { updatedBy: workspace.userId },
+    );
+    await txRepos.series.touch(seriesId, workspace.userId);
+  });
+
+  const warning = await qualifyingPlacementWarning(
+    workspace,
+    seriesId,
+    round,
+    [
+      { competitorId: a.id, sailNumber: a.sailNumber, toFleetId: bFleet },
+      { competitorId: b.id, sailNumber: b.sailNumber, toFleetId: aFleet },
+    ],
+    fleetName,
+  );
+  await trackChange(workspace, {
+    action: 'split-fleets.round-committed',
+    seriesId,
+    summary: `Swapped ${a.sailNumber} and ${b.sailNumber} between ${fleetName(aFleet)} and ${fleetName(bFleet)}`,
+    sessionKey: 'split-fleets',
+  });
+  return { warning };
+}
+
+/**
+ * A placement on a final or medal round once that stage has raced: any
+ * completed race in the round's own stage. Stage identity lives on the
+ * starts, so a race is the stage's when any of its starts is. A medal-stage
+ * promotion after a medal race is at least as consequential as a final-stage
+ * one after a final race, so both stages carry the warning, each keyed on its
+ * own races.
+ */
+async function laterStageWarning(seriesId: string, stage: SplitRound['stage']): Promise<string | null> {
+  const [sailed] = await getDb()
+    .select({ id: schema.finishes.id })
+    .from(schema.finishes)
+    .innerJoin(schema.races, eq(schema.races.id, schema.finishes.raceId))
+    .innerJoin(schema.raceStarts, eq(schema.raceStarts.raceId, schema.races.id))
+    .where(and(eq(schema.races.seriesId, seriesId), eq(schema.raceStarts.stage, stage)))
+    .limit(1);
+  if (!sailed) return null;
+  return stage === 'medal'
+    ? 'A race of this stage has already been completed: the promoted ' +
+        'boat has no score in it. Record how the protest committee ' +
+        'directs her to be scored there — this move only changes the ' +
+        'assignment.'
+    : 'Final racing has started: the boat already has scores in her ' +
+        'current fleet. Record how the protest committee directs those ' +
+        'scores to be treated — this move only changes the assignment.';
 }
 
 /**

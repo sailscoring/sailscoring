@@ -15,6 +15,7 @@ import {
   promoteIntoMedalFleet,
   putSplitFleetConfig,
   setSplitFleetBoats,
+  swapSplitRoundEntries,
   withdrawPromotion,
   type SplitFleetStateDto,
   type SplitRoundCommit,
@@ -133,6 +134,15 @@ export function useApplySplitOverride(seriesId: string) {
         toFleetId: input.toFleetId,
         ...(input.boat !== undefined ? { boat: input.boat } : {}),
       }),
+    onSuccess: () => invalidateSplitFleetScope(qc, seriesId),
+  });
+}
+
+export function useSwapSplitRoundEntries(seriesId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { roundId: string; competitorIds: [string, string] }) =>
+      swapSplitRoundEntries(seriesId, input.roundId, { competitorIds: input.competitorIds }),
     onSuccess: () => invalidateSplitFleetScope(qc, seriesId),
   });
 }

@@ -42,6 +42,7 @@ import {
   putSplitFleetConfig,
   putSplitFleetState,
   setSplitFleetBoats,
+  swapSplitRoundEntries,
 } from '@/lib/api-handlers/split-fleets';
 import { defaultSplitFleetConfig } from '@/lib/split-fleets';
 import { requireWorkspace } from '@/lib/auth/require-workspace';
@@ -801,6 +802,58 @@ describe.skipIf(skip)('commitSplitRound race shape', () => {
         boat: null,
       });
       expect(await boatsOf([competitorIds[0]])).toEqual([null]);
+    });
+
+    test('two entries on one boat, dealt the wrong way round, swap fleets and boats', async () => {
+      const { seriesId, competitorIds, round } = await drawnRound();
+      const [yellow, blue] = round.fleetIds;
+      // Entry 0 sails 401 in Yellow, entry 1 sails 401 in Blue. As two moves
+      // the first clashes with the other's boat.
+      await expect(
+        applySplitOverride(ctx, seriesId, round.id, {
+          competitorId: competitorIds[0],
+          toFleetId: blue,
+          boat: '401',
+        }),
+      ).rejects.toThrow(/already drawn/);
+      const res = await swapSplitRoundEntries(ctx, seriesId, round.id, {
+        competitorIds: [competitorIds[0], competitorIds[1]],
+      });
+      expect(res.warning).toBeNull();
+      expect(await fleetsOf([competitorIds[0], competitorIds[1]])).toEqual([[blue], [yellow]]);
+      expect(await boatsOf([competitorIds[0], competitorIds[1]])).toEqual([
+        { [blue]: '401' },
+        { [yellow]: '401' },
+      ]);
+      const state = await getSplitFleetState(ctx, seriesId);
+      expect(state.rounds[0].overrides).toEqual({ [competitorIds[0]]: blue, [competitorIds[1]]: yellow });
+    });
+
+    test('a swap exchanges different boats too', async () => {
+      const { seriesId, competitorIds, round } = await drawnRound();
+      const [yellow, , red] = round.fleetIds;
+      // Entry 3 sails 402 in Yellow; entry 8 sails 403 in Red.
+      await swapSplitRoundEntries(ctx, seriesId, round.id, {
+        competitorIds: [competitorIds[3], competitorIds[8]],
+      });
+      expect(await boatsOf([competitorIds[3], competitorIds[8]])).toEqual([
+        { [red]: '403' },
+        { [yellow]: '402' },
+      ]);
+    });
+
+    test('a swap refuses two entries of one fleet, and one entry twice', async () => {
+      const { seriesId, competitorIds, round } = await drawnRound();
+      await expect(
+        swapSplitRoundEntries(ctx, seriesId, round.id, {
+          competitorIds: [competitorIds[0], competitorIds[3]],
+        }),
+      ).rejects.toThrow(/different fleets/);
+      await expect(
+        swapSplitRoundEntries(ctx, seriesId, round.id, {
+          competitorIds: [competitorIds[0], competitorIds[0]],
+        }),
+      ).rejects.toThrow();
     });
   });
 });
