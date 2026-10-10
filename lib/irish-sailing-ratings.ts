@@ -44,6 +44,10 @@ export interface IrishSailingRatings {
   /** The "last updated DD/MM/YYYY @ HH:MM" stamp from the page, verbatim, or
    *  `null` if absent. Surfaced for provenance in the UI. */
   updatedAt: string | null;
+  /** When Sail Scoring fetched the listing, as an ISO timestamp. Stated
+   *  where the source gives no date of its own; absent on a listing cached
+   *  before it was recorded. */
+  fetchedAt?: string;
   records: IrishSailingRating[];
 }
 
@@ -235,5 +239,5 @@ export async function fetchIrishSailingRatings(): Promise<IrishSailingRatings> {
   if (!res.ok) {
     throw new Error(`Irish Sailing ratings fetch failed: HTTP ${res.status}`);
   }
-  return parseIrishSailingRatings(await res.text());
+  return { ...parseIrishSailingRatings(await res.text()), fetchedAt: new Date().toISOString() };
 }

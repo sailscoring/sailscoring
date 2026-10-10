@@ -7,7 +7,7 @@ import { RateLimitedApiError } from '@/lib/api-client';
 import { useWorkspacePermissions } from '@/hooks/use-workspace-permissions';
 
 /**
- * "Refresh from source" beside a feed's as-of stamp (#594).
+ * "Refresh from source" beside a feed's as-of stamp.
  *
  * The external rating feeds are cached for six hours, which is right for the
  * ordinary case and wrong for the one that matters: ORC amends certificates
@@ -72,5 +72,54 @@ export function RefreshSource({
         </span>
       )}
     </>
+  );
+}
+
+/** A fetch time as `HH:MM on DD/MM/YYYY`, in the scorer's own time zone. */
+function formatFetchedAt(iso: string): string | null {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${pad(d.getHours())}:${pad(d.getMinutes())} on ${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+}
+
+/**
+ * The line under a source's preview: how current the listing is, and
+ * {@link RefreshSource} beside it.
+ *
+ * It says the source's own date where the source gives one, and otherwise
+ * when Sail Scoring fetched the listing, so the scorer can tell how stale the
+ * cache might be. The refresh link doesn't wait on either: data.orc.org sends
+ * no Last-Modified, and hiding the link behind a date meant ORC never had one.
+ */
+export function SourceAsOf({
+  label,
+  updatedAt,
+  fetchedAt,
+  onRefresh,
+  what,
+}: {
+  /** What the listing holds, opening the sentence: "ORC certificates". */
+  label: string;
+  /** The source's own date for the listing, or null when it gives none. */
+  updatedAt: string | null;
+  /** When Sail Scoring fetched the listing, as an ISO timestamp. */
+  fetchedAt?: string;
+  onRefresh: () => Promise<unknown>;
+  what: string;
+}) {
+  const { can } = useWorkspacePermissions();
+  const fetched = fetchedAt ? formatFetchedAt(fetchedAt) : null;
+  const stamp = updatedAt
+    ? `${label} as of ${updatedAt}.`
+    : fetched
+      ? `${label} fetched at ${fetched}.`
+      : null;
+  if (!stamp && !can('manage-workspace')) return null;
+  return (
+    <p className="text-xs text-muted-foreground" data-testid="source-as-of">
+      {stamp && <>{stamp} </>}
+      <RefreshSource what={what} onRefresh={onRefresh} />
+    </p>
   );
 }

@@ -25,7 +25,7 @@ import { defaultSailCountry } from '@/lib/rating-match';
 import { planVprsUpdates, type PreviewRow } from '@/lib/source-handicaps';
 
 import { PreviewSection } from './preview-section';
-import { RefreshSource } from './refresh-source';
+import { SourceAsOf } from './refresh-source';
 import {
   FleetVariantSelector,
   MatchByNameCheckbox,
@@ -203,21 +203,19 @@ export function VprsSourceStep({
                   sourceFleetById={new Map()}
                 />
 
-                {vprsRatings.data.updatedAt && (
-                  <p className="text-xs text-muted-foreground">
-                    VPRS ratings as of {vprsRatings.data.updatedAt}.{' '}
-                    <RefreshSource
-                      what="this club's VPRS list"
-                      onRefresh={async () => {
-                        const fresh = await loadVprsClubRatings(vprsClubId!, { refresh: true });
-                        queryClient.setQueryData(
-                          queryKeys.vprsClubRatings.byClub(vprsClubId!),
-                          fresh,
-                        );
-                      }}
-                    />
-                  </p>
-                )}
+                <SourceAsOf
+                  label="VPRS ratings"
+                  updatedAt={vprsRatings.data.updatedAt}
+                  fetchedAt={vprsRatings.data.fetchedAt}
+                  what="this club's VPRS list"
+                  onRefresh={async () => {
+                    const fresh = await loadVprsClubRatings(vprsClubId!, { refresh: true });
+                    queryClient.setQueryData(
+                      queryKeys.vprsClubRatings.byClub(vprsClubId!),
+                      fresh,
+                    );
+                  }}
+                />
 
                 {errorMsg && <p className="text-sm text-destructive">{errorMsg}</p>}
               </>

@@ -195,6 +195,49 @@ test('non-spinnaker fleet: a boat with no NS certificate gets its standard one',
   await expect(page.getByRole('button', { name: 'Apply 0' })).toBeDisabled();
 });
 
+test('Refresh from source is offered though data.orc.org gives no date', async ({ page }) => {
+  // data.orc.org sends no Last-Modified, so the listing has no date of its
+  // own: the line says when Sail Scoring fetched it instead. Mojo's
+  // certificate is new since the cached copy.
+  const cached = {
+    ...LISTING_FIXTURE,
+    updatedAt: null,
+    fetchedAt: '2026-10-10T12:00:00.000Z',
+    records: [cert('IMPETUOUS')],
+  };
+  const refreshed = { ...LISTING_FIXTURE, updatedAt: null, fetchedAt: '2026-10-11T12:00:00.000Z' };
+  const asked: string[] = [];
+  await page.route('**/api/v1/handicap-sources/orc?*', (route) => {
+    const url = new URL(route.request().url());
+    asked.push(url.searchParams.get('refresh') ?? '');
+    return route.fulfill({ json: url.searchParams.get('refresh') ? refreshed : cached });
+  });
+
+  await createSeriesQuick(page, { name: 'ORC Refresh Test 2026' });
+  await setUpOrcFleet(page, [
+    { sailNumber: 'IRL 2507', name: 'Impetuous' },
+    { sailNumber: 'IRL 1551', name: 'Mojo' },
+  ]);
+
+  await page.getByRole('button', { name: 'Update handicaps' }).click();
+  await page.getByText('ORC certificates', { exact: true }).click();
+  await page.getByRole('button', { name: 'Next' }).click();
+
+  await expect(page.getByTestId('source-as-of')).toContainText(
+    /ORC certificates fetched at \d\d:\d\d on 10\/10\/2026\./,
+  );
+  await expect(page.getByRole('cell', { name: '— → 0.9631' })).toBeVisible();
+  await expect(page.getByRole('cell', { name: '— → 1.0089' })).toHaveCount(0);
+
+  await page.getByTestId('refresh-source').click();
+  await expect(page.getByTestId('refresh-source-message')).toHaveText('Refreshed.');
+  await expect(page.getByTestId('source-as-of')).toContainText(/fetched at \d\d:\d\d on 11\/10\/2026\./);
+  await expect(page.getByRole('cell', { name: '— → 1.0089' })).toBeVisible();
+
+  expect(asked.at(0)).toBe('');
+  expect(asked.at(-1)).toBe('1');
+});
+
 test('add to fleet: both divisions are offered, and the fleet picks the certificate', async ({ page }) => {
   await createSeriesQuick(page, { name: 'ORC Add Test 2026' });
 

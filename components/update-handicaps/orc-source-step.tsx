@@ -42,7 +42,7 @@ import {
 import type { Fleet } from '@/lib/types';
 
 import { AddToFleetSection } from './add-to-fleet-section';
-import { RefreshSource } from './refresh-source';
+import { SourceAsOf } from './refresh-source';
 import { RemoveFromFleetSection } from './remove-from-fleet-section';
 import { PreviewSection } from './preview-section';
 import {
@@ -217,6 +217,7 @@ export function OrcSourceStep({
       const next = mergeOrcScoringOptions(series?.orcScoringOptions, options);
       updateSeries.mutate({
         id: seriesId,
+        // eslint-disable-next-line react-hooks/purity -- Date.now() runs inside an async event handler, not render.
         patch: { orcScoringOptions: next, lastModifiedAt: Date.now() },
       });
     }
@@ -231,7 +232,13 @@ export function OrcSourceStep({
     );
   }
 
-  const updatedAt = needed.map(({ q }) => q.data?.updatedAt).find((d) => d != null);
+  const updatedAt = needed.map(({ q }) => q.data?.updatedAt).find((d) => d != null) ?? null;
+  // The stalest of the families' fetches, since that is how old the listing
+  // the scorer is looking at might be.
+  const fetchedAt = needed
+    .map(({ q }) => q.data?.fetchedAt)
+    .filter((d): d is string => d != null)
+    .sort()[0];
 
   return (
     <>
@@ -349,27 +356,25 @@ export function OrcSourceStep({
               targetCompetitorById={targetCompetitorById}
             />
 
-            {updatedAt && (
-              <p className="text-xs text-muted-foreground">
-                ORC certificates as of {updatedAt}.{' '}
-                <RefreshSource
-                  what={`ORC certificates for ${countryId}`}
-                  onRefresh={async () => {
-                    // Every family this series needs, since they are one
-                    // listing to the scorer even though the cache keys them
-                    // apart — and the throttle is per family, so refreshing
-                    // the set is one action rather than three refusals.
-                    for (const family of familiesNeeded) {
-                      const fresh = await loadOrcCertificates(countryId, family, { refresh: true });
-                      queryClient.setQueryData(
-                        queryKeys.orcCertificates.byCountryFamily(countryId, family),
-                        fresh,
-                      );
-                    }
-                  }}
-                />
-              </p>
-            )}
+            <SourceAsOf
+              label="ORC certificates"
+              updatedAt={updatedAt}
+              fetchedAt={fetchedAt}
+              what={`ORC certificates for ${countryId}`}
+              onRefresh={async () => {
+                // Every family this series needs, since they are one
+                // listing to the scorer even though the cache keys them
+                // apart — and the throttle is per family, so refreshing
+                // the set is one action rather than three refusals.
+                for (const family of familiesNeeded) {
+                  const fresh = await loadOrcCertificates(countryId, family, { refresh: true });
+                  queryClient.setQueryData(
+                    queryKeys.orcCertificates.byCountryFamily(countryId, family),
+                    fresh,
+                  );
+                }
+              }}
+            />
 
             {errorMsg && <p className="text-sm text-destructive">{errorMsg}</p>}
           </>

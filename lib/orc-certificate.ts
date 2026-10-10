@@ -81,8 +81,13 @@ export interface OrcCertEntry {
 }
 
 export interface OrcCertListing {
-  /** `DD/MM/YYYY` from the HTTP Last-Modified header, or null. */
+  /** `DD/MM/YYYY` from the HTTP Last-Modified header, or null — which in
+   *  practice it always is: data.orc.org sends no Last-Modified. */
   updatedAt: string | null;
+  /** When Sail Scoring fetched the listing, as an ISO timestamp. Stated
+   *  where the source gives no date of its own; absent on a listing cached
+   *  before it was recorded. */
+  fetchedAt?: string;
   countryId: string;
   family: OrcFamily;
   records: OrcCertEntry[];
@@ -472,6 +477,7 @@ export async function fetchOrcCertificates(
 
   return {
     updatedAt: formatLastModified(res.headers.get('last-modified')),
+    fetchedAt: new Date().toISOString(),
     countryId,
     family,
     records: mergeOrcFeeds(rms, index),

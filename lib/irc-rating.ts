@@ -68,6 +68,10 @@ export interface IrcRatings {
    *  header formatted `DD/MM/YYYY`, or `null` if unavailable. Surfaced for
    *  provenance in the UI. */
   updatedAt: string | null;
+  /** When Sail Scoring fetched the listing, as an ISO timestamp. Stated
+   *  where the source gives no date of its own; absent on a listing cached
+   *  before it was recorded. */
+  fetchedAt?: string;
   records: IrcRatingRecord[];
 }
 
@@ -219,5 +223,9 @@ export async function fetchIrcRatings(): Promise<IrcRatings> {
     throw new Error(`IRC ratings fetch failed: HTTP ${res.status}`);
   }
   const records = parseClubListing(await res.text());
-  return { updatedAt: formatLastModified(res.headers.get('last-modified')), records };
+  return {
+    updatedAt: formatLastModified(res.headers.get('last-modified')),
+    fetchedAt: new Date().toISOString(),
+    records,
+  };
 }

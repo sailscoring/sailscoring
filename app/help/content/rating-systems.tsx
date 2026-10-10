@@ -826,10 +826,11 @@ export default function RatingSystems() {
           not-on-the-list sections work as they do for IRC.
         </p>
         <p>
-          Certificates are fetched once and reused for six hours, and the preview names the date
-          it planned against. ORC amends certificates through the season, so this is the source
-          the wait matters most for:{' '}
-          <strong className="text-foreground">Refresh from source</strong> beside the date fetches
+          Certificates are fetched once and reused for six hours. The ORC database gives its
+          listings no date of their own, so the preview says when Sail Scoring fetched the ones it
+          planned against. ORC amends certificates through the season, so this is the source the
+          wait matters most for:{' '}
+          <strong className="text-foreground">Refresh from source</strong> beside that time fetches
           the chosen country and family again — leaving any other country you have already pulled
           alone — and re-plans against what comes back. It is for workspace administrators, and
           limited to once a minute per country and family.

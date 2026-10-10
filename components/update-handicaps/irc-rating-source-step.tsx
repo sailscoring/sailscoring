@@ -24,7 +24,7 @@ import {
 } from '@/lib/source-handicaps';
 
 import { AddToFleetSection } from './add-to-fleet-section';
-import { RefreshSource } from './refresh-source';
+import { SourceAsOf } from './refresh-source';
 import { RemoveFromFleetSection } from './remove-from-fleet-section';
 import { PreviewSection } from './preview-section';
 import {
@@ -221,18 +221,16 @@ export function IrcRatingSourceStep({
               targetCompetitorById={targetCompetitorById}
             />
 
-            {ircRatings.data.updatedAt && (
-              <p className="text-xs text-muted-foreground">
-                IRC ratings as of {ircRatings.data.updatedAt}.{' '}
-                <RefreshSource
-                  what="the IRC rating list"
-                  onRefresh={async () => {
-                    const fresh = await loadIrcRatings({ refresh: true });
-                    queryClient.setQueryData(queryKeys.ircRatings.all, fresh);
-                  }}
-                />
-              </p>
-            )}
+            <SourceAsOf
+              label="IRC ratings"
+              updatedAt={ircRatings.data.updatedAt}
+              fetchedAt={ircRatings.data.fetchedAt}
+              what="the IRC rating list"
+              onRefresh={async () => {
+                const fresh = await loadIrcRatings({ refresh: true });
+                queryClient.setQueryData(queryKeys.ircRatings.all, fresh);
+              }}
+            />
 
             {errorMsg && <p className="text-sm text-destructive">{errorMsg}</p>}
           </>

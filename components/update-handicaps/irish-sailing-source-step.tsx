@@ -20,7 +20,7 @@ import {
 } from '@/lib/source-handicaps';
 
 import { AddToFleetSection } from './add-to-fleet-section';
-import { RefreshSource } from './refresh-source';
+import { SourceAsOf } from './refresh-source';
 import { PreviewSection } from './preview-section';
 import {
   MatchByNameCheckbox,
@@ -149,18 +149,16 @@ export function IrishSailingSourceStep({
               seriesHasRaces={seriesHasRaces}
             />
 
-            {irishRatings.data.updatedAt && (
-              <p className="text-xs text-muted-foreground">
-                Irish Sailing ratings as of {irishRatings.data.updatedAt}.{' '}
-                <RefreshSource
-                  what="the Irish Sailing ECHO list"
-                  onRefresh={async () => {
-                    const fresh = await loadIrishSailingRatings({ refresh: true });
-                    queryClient.setQueryData(queryKeys.irishSailingRatings.all, fresh);
-                  }}
-                />
-              </p>
-            )}
+            <SourceAsOf
+              label="Irish Sailing ratings"
+              updatedAt={irishRatings.data.updatedAt}
+              fetchedAt={irishRatings.data.fetchedAt}
+              what="the Irish Sailing ECHO list"
+              onRefresh={async () => {
+                const fresh = await loadIrishSailingRatings({ refresh: true });
+                queryClient.setQueryData(queryKeys.irishSailingRatings.all, fresh);
+              }}
+            />
 
             {errorMsg && <p className="text-sm text-destructive">{errorMsg}</p>}
           </>

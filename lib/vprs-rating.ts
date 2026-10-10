@@ -57,6 +57,10 @@ export interface VprsRatings {
   /** When the source page was last regenerated, from the HTTP `Last-Modified`
    *  header formatted `DD/MM/YYYY`, or `null` if unavailable. */
   updatedAt: string | null;
+  /** When Sail Scoring fetched the listing, as an ISO timestamp. Stated
+   *  where the source gives no date of its own; absent on a listing cached
+   *  before it was recorded. */
+  fetchedAt?: string;
   records: VprsRatingRecord[];
 }
 
@@ -217,7 +221,11 @@ export async function fetchVprsRatings(listingUrl: string): Promise<VprsRatings>
     throw new Error(`VPRS ratings fetch failed: HTTP ${res.status}`);
   }
   const records = parseVprsListing(await res.text());
-  return { updatedAt: formatLastModified(res.headers.get('last-modified')), records };
+  return {
+    updatedAt: formatLastModified(res.headers.get('last-modified')),
+    fetchedAt: new Date().toISOString(),
+    records,
+  };
 }
 
 // ─── Club index parsing ───────────────────────────────────────────────────────
