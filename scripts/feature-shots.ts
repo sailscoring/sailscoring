@@ -823,7 +823,7 @@ const SHOTS: Shot[] = [
       // The document at the top, then what was made of it.
       await panel.evaluate((el) => el.scrollIntoView({ block: 'start' }));
       await settle(page);
-      await shot('course-import.png', { helpOnly: true });
+      await shot('course-import.png');
       await page.keyboard.press('Escape');
     },
   },
