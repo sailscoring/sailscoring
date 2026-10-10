@@ -1,0 +1,17 @@
+{
+  "format": "orc-constructed-course",
+  "version": 1,
+  "name": "Autumn League, Sun 4 Oct 2026, Race 1, Start 1",
+  "series": "Autumn League",
+  "north": "magnetic",
+  "anchor": { "lat": 51.785760, "lng": -8.240614 },
+  "legs": [
+    { "name": "Start - Windward", "distance": 0.66, "course": 233, "windDirection": 241, "windSpeed": 12 },
+    { "name": "Windward - Leeward", "distance": 0.84, "course": 42, "windDirection": 241, "windSpeed": 12 },
+    { "name": "Leeward - Windward", "distance": 0.84, "course": 222, "windDirection": 241, "windSpeed": 12 },
+    { "name": "Windward - Leeward", "distance": 0.84, "course": 42, "windDirection": 241, "windSpeed": 12 },
+    { "name": "Leeward - Windward", "distance": 0.84, "course": 222, "windDirection": 241, "windSpeed": 12 },
+    { "name": "Windward - Leeward", "distance": 0.84, "course": 42, "windDirection": 241, "windSpeed": 12 },
+    { "name": "Leeward - Finish", "distance": 0.23, "course": 192, "windDirection": 241, "windSpeed": 12 }
+  ]
+}

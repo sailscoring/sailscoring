@@ -3,6 +3,7 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { toMagnetic, variationAt } from '@/lib/bearings';
 import {
   constructedCourseLength,
   constructedCourseSummary,
@@ -46,6 +47,33 @@ describe('reading a document', () => {
     expect(r.course.legs[0]).toEqual({ name: 'Start – 1', distance: 2.09, course: 162, windDirection: 160 });
     expect(constructedCourseLength(r.course)).toBe(8.11);
     expect(constructedCourseSummary(r.course)).toBe('7 legs · 8.11 NM · wind direction on every leg · no position');
+  });
+
+  it("reads a course page's document for a Royal Cork race, converted at its anchor", () => {
+    const r = parseConstructedCourse(fixture('constructed-course-rcyc-2026-10-04.json'));
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const course = r.course;
+    // The page's own `series` field is not part of the format, and is left behind.
+    expect(Object.keys(course).sort()).toEqual(['anchor', 'legs', 'name']);
+    expect(course.name).toBe('Autumn League, Sun 4 Oct 2026, Race 1, Start 1');
+    expect(course.anchor).toEqual({ lat: 51.78576, lng: -8.240614 });
+    expect(course.legs).toHaveLength(7);
+    expect(constructedCourseLength(course)).toBe(5.09);
+    expect(constructedCourseSummary(course)).toBe('7 legs · 5.09 NM · wind direction and speed on every leg · placed on the water');
+
+    const variation = variationAt(course.anchor!, '2026-10-04');
+    const legs = importedCourseLegs(course, variation);
+    // Cork Harbour: magnetic north a degree or two west of true.
+    expect(variation.deg).toBeLessThan(0);
+    expect(variation.deg).toBeGreaterThan(-4);
+    for (const [i, l] of legs.entries()) {
+      expect(toMagnetic(l.bearingDeg, variation)).toBeCloseTo(course.legs[i].course, 9);
+      expect(l.name).toBe(course.legs[i].name);
+    }
+    const snapshot = snapshotOfImportedCourse(course, legs);
+    expect(snapshot.windSpeedKts).toBe(12);
+    expect(toMagnetic(snapshot.windDirectionDeg!, variation)).toBeCloseTo(241, 9);
   });
 
   it("reads every example in the format's own documentation", () => {
