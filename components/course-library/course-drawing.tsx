@@ -19,7 +19,9 @@ import { routedDrawing } from '@/lib/course-geometry';
  * kilobytes, and waiting for it would mean waiting to show the marks.
  *
  * `variation` labels the legs' bearings in magnetic, as the figures beside
- * the drawing are; without it they are labelled true.
+ * the drawing are; without it they are labelled true. A course kept in
+ * magnetic (`north="magnetic"`) has nothing to convert by: its legs are
+ * drawn as their figures are, so magnetic north is up, and labelled °M.
  *
  * Where the set has a routing overlay, a leg it routes round an obstruction
  * is drawn through the passage, lettered as the legs it is scored as. A
@@ -39,6 +41,7 @@ export function CourseDrawing({
   variation,
   scoredLegs,
   route = true,
+  north,
 }: {
   marks: DrawnMark[];
   course?: DrawnCourseMark[];
@@ -50,6 +53,7 @@ export function CourseDrawing({
   variation?: Variation;
   scoredLegs?: number;
   route?: boolean;
+  north?: 'magnetic';
 }) {
   // Held with the set it belongs to, so switching sets draws on plain ground
   // until the new chart is in rather than briefly on the old club's water.
@@ -76,10 +80,10 @@ export function CourseDrawing({
       ...(drawn.highlight ? { highlight: drawn.highlight } : {}),
       ...(title ? { title } : {}),
       ...(background ? { background } : {}),
-      ...(variation ? { magneticVariationDeg: variation.deg } : {}),
+      ...(variation ? { magneticVariationDeg: variation.deg } : north === 'magnetic' ? { magneticVariationDeg: 0 } : {}),
       ...(drawn.routing ? { routing: drawn.routing } : {}),
     });
-  }, [marks, course, highlight, width, title, background, variation, set, scoredLegs, route]);
+  }, [marks, course, highlight, width, title, background, variation, north, set, scoredLegs, route]);
   if (!svg) {
     return (
       <div

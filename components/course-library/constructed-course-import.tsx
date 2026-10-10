@@ -22,9 +22,10 @@ import {
  * reaches the start, and a document that can't be read says why.
  *
  * The document's directions are magnetic and the start stores true, so it
- * needs a variation: at the course's anchor, or the venue on the race's
- * day. The caller says what that is; with neither, the course can't be
- * used, and the panel says what to set.
+ * takes a variation: at the course's anchor, or the venue on the race's
+ * day. The caller says what that is. With neither, the course is still
+ * used, kept in magnetic as the document gives it, and the panel says so
+ * and what to set to have it converted instead.
  */
 export function ConstructedCourseImport({
   variationAt,
@@ -37,7 +38,8 @@ export function ConstructedCourseImport({
   variationAt: (anchor: { lat: number; lng: number } | undefined) => Variation | undefined;
   /** The series' own chart, preferred under an anchored course. */
   librarySet?: string;
-  onUse: (course: ConstructedCourse, variation: Variation) => void;
+  /** `variation` is undefined where the course is kept in magnetic. */
+  onUse: (course: ConstructedCourse, variation: Variation | undefined) => void;
   onCancel: () => void;
 }) {
   const [text, setText] = useState('');
@@ -48,8 +50,9 @@ export function ConstructedCourseImport({
   const course = read?.ok ? read.course : undefined;
   const variation = useMemo(() => (course ? variationAt(course.anchor) : undefined), [course, variationAt]);
   const drawing = useMemo(() => {
-    if (!course || !variation) return null;
-    return drawnStartCourse(snapshotOfImportedCourse(course, importedCourseLegs(course, variation)), librarySet);
+    if (!course) return null;
+    const legs = importedCourseLegs(course, variation);
+    return drawnStartCourse(snapshotOfImportedCourse(course, legs, variation ? undefined : 'magnetic'), librarySet);
   }, [course, variation, librarySet]);
 
   async function pickFile(file: File | undefined) {
@@ -97,10 +100,11 @@ export function ConstructedCourseImport({
               : `${course!.name ? `${course!.name} · ` : ''}${constructedCourseSummary(course!)}`)}
       </p>
       {course && !variation && (
-        <p className="text-xs text-destructive" data-testid="import-course-no-variation">
+        <p className="text-xs text-amber-600 dark:text-amber-500" data-testid="import-course-no-variation">
           Its directions are magnetic, and there is nowhere to read the variation at: the course
-          has no anchor, and the series has no venue position. Set the venue position on the
-          Courses tab.
+          has no anchor, and the series has no venue position. The start will keep them in
+          magnetic, and draw the course with magnetic north up; it scores the same either way.
+          To have them converted to true, set the venue position on the Courses tab first.
         </p>
       )}
       {drawing && (
@@ -110,6 +114,7 @@ export function ConstructedCourseImport({
           set={drawing.set}
           route={false}
           variation={variation}
+          north={variation ? undefined : 'magnetic'}
           width={440}
           title="Drawing of the course to import"
         />
@@ -122,8 +127,8 @@ export function ConstructedCourseImport({
           type="button"
           variant="outline"
           size="sm"
-          disabled={!course || !variation}
-          onClick={() => { if (course && variation) onUse(course, variation); }}
+          disabled={!course}
+          onClick={() => { if (course) onUse(course, variation); }}
           data-testid="import-course-use"
         >
           Use this course

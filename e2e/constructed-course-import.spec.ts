@@ -1,6 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import type { Page } from '@playwright/test';
+
 import { signedInTest as test, expect } from './fixtures';
 import { createFleets, createSeriesQuick, downloadFleetHtml, enableFeatures, setScoringMode } from './helpers';
 
@@ -46,13 +48,19 @@ const COURSE = {
   ],
 };
 
+/** The same course with nothing to say where it is. */
+const { anchor: _anchor, ...UNPLACED } = COURSE;
+
 test.beforeEach(async ({ page, signedInEmail }) => {
   await enableFeatures(page, signedInEmail, ['orc']);
   await page.route('**/api/v1/handicap-sources/orc?*', (route) => route.fulfill({ json: LISTING_FIXTURE }));
 });
 
-test('an ORC constructed course imported into a start, and drawn where it sits', async ({ page }) => {
-  await createSeriesQuick(page, { name: 'Imported Course 2026' });
+/** A series with an ORC fleet scored over a constructed course at the
+ *  recorded wind, two certificated boats, and a race whose new start has its
+ *  gun time and fleet: the dialog open, ready for a course. */
+async function openStartOnConstructedCourse(page: Page, seriesName: string) {
+  await createSeriesQuick(page, { name: seriesName });
   await createFleets(page, ['Class 1']);
   await setScoringMode(page, 'handicap');
   await page.locator('h2', { hasText: 'Fleets' }).locator('..').locator('button').click();
@@ -85,6 +93,27 @@ test('an ORC constructed course imported into a start, and drawn where it sits',
   await page.getByRole('button', { name: 'Add start' }).click();
   await page.getByPlaceholder('14:05', { exact: true }).fill('11:12:00');
   await page.getByRole('checkbox', { name: 'Class 1' }).check();
+}
+
+/** Both boats home, then the fleet's published page, as HTML. */
+async function finishAndPublish(page: Page): Promise<string> {
+  for (const { sailNumber, finishTime } of [
+    { sailNumber: 'IRL 1551', finishTime: '11:45:00' },
+    { sailNumber: 'IRL 2507', finishTime: '11:47:00' },
+  ]) {
+    await page.getByLabel('Sail number').fill(sailNumber);
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
+    await page.getByRole('textbox', { name: 'Finish time', exact: true }).fill(finishTime);
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
+  }
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+  await page.getByRole('link', { name: 'Standings' }).click();
+  const download = await downloadFleetHtml(page);
+  return readFileSync(await download.path(), 'utf-8');
+}
+
+test('an ORC constructed course imported into a start, and drawn where it sits', async ({ page }) => {
+  await openStartOnConstructedCourse(page, 'Imported Course 2026');
 
   // The paste box is gone from a start: a course comes in as a document.
   await expect(page.getByTestId('paste-legs-disclosure')).toHaveCount(0);
@@ -98,14 +127,13 @@ test('an ORC constructed course imported into a start, and drawn where it sits',
   await expect(use).toBeDisabled();
 
   // One with no anchor, in a series with no venue position, has nowhere to
-  // read the variation its magnetic figures need.
-  const { anchor: _anchor, ...unplaced } = COURSE;
-  await page.getByLabel('Course to import', { exact: true }).fill(JSON.stringify(unplaced));
+  // read the variation at; it can still be used, kept in magnetic.
+  await page.getByLabel('Course to import', { exact: true }).fill(JSON.stringify(UNPLACED));
   await expect(preview).toHaveText(
     'Autumn League, Race 3, Class 1 · 3 legs · 2.18 NM · wind direction and speed on every leg · no position',
   );
-  await expect(page.getByTestId('import-course-no-variation')).toBeVisible();
-  await expect(use).toBeDisabled();
+  await expect(page.getByTestId('import-course-no-variation')).toContainText('The start will keep them in magnetic');
+  await expect(use).toBeEnabled();
 
   // The anchored one, picked as the file its app saved.
   await page.getByLabel('Course file').setInputFiles({
@@ -162,22 +190,37 @@ test('an ORC constructed course imported into a start, and drawn where it sits',
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByRole('dialog')).toBeHidden();
 
-  for (const { sailNumber, finishTime } of [
-    { sailNumber: 'IRL 1551', finishTime: '11:45:00' },
-    { sailNumber: 'IRL 2507', finishTime: '11:47:00' },
-  ]) {
-    await page.getByLabel('Sail number').fill(sailNumber);
-    await page.getByRole('button', { name: 'Add', exact: true }).click();
-    await page.getByRole('textbox', { name: 'Finish time', exact: true }).fill(finishTime);
-    await page.getByRole('button', { name: 'Add', exact: true }).click();
-  }
-  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
-
   // Published: each leg under its name, and the course on the chart.
-  await page.getByRole('link', { name: 'Standings' }).click();
-  const download = await downloadFleetHtml(page);
-  const html = readFileSync(await download.path(), 'utf-8');
+  const html = await finishAndPublish(page);
   expect(html).toMatch(/Start – Windward 0\.67 NM @ 282°M \(\d+(\.\d)?°T\)/);
   expect(html).toContain('href="#course-chart-');
   expect(html).toContain('from where the first leg starts');
+});
+
+test('a course with nowhere to read the variation at, kept in magnetic', async ({ page }) => {
+  await openStartOnConstructedCourse(page, 'Magnetic Course 2026');
+  await page.getByTestId('import-course-disclosure').click();
+  await page.getByLabel('Course to import', { exact: true }).fill(JSON.stringify(UNPLACED));
+  await expect(page.getByTestId('import-course-no-variation')).toBeVisible();
+  await expect(page.getByTestId('import-course').getByTestId('course-drawing')).toBeVisible();
+  await page.getByTestId('import-course-use').click();
+
+  // The figures read as the document gave them, and stay in magnetic: with
+  // no variation there is no choice of north to offer.
+  await expect(page.getByLabel('Leg 1 bearing')).toHaveValue('282');
+  await expect(page.getByLabel('Leg 3 bearing')).toHaveValue('48');
+  await expect(page.getByLabel('Leg 3 wind direction')).toHaveValue('285');
+  await expect(page.getByTestId('bearing-ref')).toContainText('Bearings in °M');
+  await expect(page.getByRole('radio', { name: '°T' })).toHaveCount(0);
+  await expect(page.getByTestId('course-drawing-caption')).toContainText('Magnetic north is up');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('dialog')).toBeHidden();
+
+  // Reopened, still magnetic, and nothing has moved.
+  await page.getByRole('button', { name: 'Edit start' }).click();
+  await page.getByTestId('legs-disclosure').click();
+  await expect(page.getByLabel('Leg 1 bearing')).toHaveValue('282');
+  await expect(page.getByTestId('bearing-ref')).toContainText('Bearings in °M');
+  await page.getByRole('button', { name: 'Cancel' }).click();
+  await expect(page.getByRole('dialog')).toBeHidden();
 });

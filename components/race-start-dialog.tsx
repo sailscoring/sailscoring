@@ -29,6 +29,7 @@ import {
   rowBearingTrue,
   rowWindTrue,
   rowsInRef,
+  storedFigure,
   type BearingDisplay,
   type KeptFigure,
   type LegTableRow,
@@ -41,7 +42,7 @@ import { useSeries } from '@/hooks/use-series';
 import { OrcOptionItems, OrcOptionValue } from '@/components/orc-option-items';
 import { useRacesBySeries } from '@/hooks/use-races';
 import { seriesMarkRepo } from '@/lib/api-repository';
-import { courseVariation, enteredTrue, todayIso, type BearingRef, type Variation } from '@/lib/bearings';
+import { courseVariation, todayIso, type BearingRef, type Variation } from '@/lib/bearings';
 import { ratingSystemLabel } from '@/lib/competitor-ratings';
 import { loadCourseCard } from '@/lib/course-cards';
 import {
@@ -197,11 +198,17 @@ function RaceStartDialogInner({
     (!orcOptionValue && orcFleetOptions.some(orcRecordedWindOption));
   // Bearings and winds are stored true and shown in magnetic, at the
   // variation where the course is — its marks, else the venue — on the
-  // race's day. A start with neither stays in true.
+  // race's day. A start with neither stays in true, unless its course was
+  // imported in magnetic, when it stays in magnetic: either way there is
+  // nothing to convert by, and the figures are shown as stored.
   const raceDate = race?.date || todayIso();
   const [bearingRef, setBearingRef] = useState<BearingRef>('M');
   const displayAt = (v: Variation | undefined): BearingDisplay => (v ? { ref: bearingRef, variation: v } : { ref: 'T' });
-  const [seedDisplay] = useState(() => displayAt(courseVariation(startCoursePositions(seed?.course), venuePosition, raceDate)));
+  const [seedDisplay] = useState<BearingDisplay>(() =>
+    seed?.course?.north === 'magnetic'
+      ? { ref: 'M' }
+      : displayAt(courseVariation(startCoursePositions(seed?.course), venuePosition, raceDate)),
+  );
   const [legRows, setLegRows] = useState<LegTableRow[]>(() =>
     (seed?.courseLegs ?? []).map((leg) => {
       const b = figureField(leg.bearingDeg, seedDisplay);
@@ -295,12 +302,16 @@ function RaceStartDialogInner({
     ),
     [snapshotWaypoints, snapshotAnchor, venuePosition, raceDate],
   );
+  // A course kept in magnetic stays in magnetic, even once a venue position
+  // would give a variation: its figures were never converted, and
+  // converting them now would be at a place nobody recorded.
+  const magnetic = snapshot?.north === 'magnetic';
   const display = useMemo<BearingDisplay>(
-    () => (variation ? { ref: bearingRef, variation } : { ref: 'T' }),
-    [variation, bearingRef],
+    () => (magnetic ? { ref: 'M' } : variation ? { ref: bearingRef, variation } : { ref: 'T' }),
+    [magnetic, variation, bearingRef],
   );
-  // The course's wind, in true: null where the field doesn't read.
-  const windTrue = windInput.trim() ? enteredTrue(windInput, display.ref, display.variation, windKept) : undefined;
+  // The course's wind as stored: null where the field doesn't read.
+  const windTrue = windInput.trim() ? storedFigure(windInput, display, windKept) : undefined;
   const windDeg = windTrue ?? undefined;
   const windValid = windTrue !== null;
   const windKt = windSpeedInput.trim() ? Number(windSpeedInput.trim()) : undefined;
@@ -352,8 +363,9 @@ function RaceStartDialogInner({
   /** Fill the leg table from an imported ORC constructed course, as the
    *  start's course: the document is the course, so there is no library
    *  entry behind it and nothing to recompute from. Legs already in the
-   *  table are replaced, which the scorer is asked about first. */
-  async function applyImportedCourse(course: ConstructedCourse, v: Variation) {
+   *  table are replaced, which the scorer is asked about first. With no
+   *  variation, the course is kept in magnetic as the document gives it. */
+  async function applyImportedCourse(course: ConstructedCourse, v: Variation | undefined) {
     const filled = legRows.filter((r) => r.distance.trim() || r.bearing.trim()).length;
     if (filled > 0) {
       const ok = await confirm({
@@ -364,8 +376,8 @@ function RaceStartDialogInner({
       if (!ok) return;
     }
     const legs = importedCourseLegs(course, v);
-    const next = snapshotOfImportedCourse(course, legs);
-    const at = displayAt(v);
+    const next = snapshotOfImportedCourse(course, legs, v ? undefined : 'magnetic');
+    const at: BearingDisplay = v ? displayAt(v) : { ref: 'M' };
     setSnapshot(next);
     const w = next.windDirectionDeg != null ? figureField(next.windDirectionDeg, at) : undefined;
     setWindInput(w?.text ?? '');
@@ -395,6 +407,23 @@ function RaceStartDialogInner({
 
   async function pickCourse(courseId: string, fresh?: { course: SeriesCourse; marks: ReadonlyMap<string, SeriesMark> }) {
     if (courseId === '__none__') {
+      if (magnetic) {
+        // Its legs are magnetic with nothing to convert them by, so they
+        // can't stay on as legs the start would store in true.
+        const ok = await confirm({
+          title: 'Remove the imported course?',
+          description: `The legs of ${snapshot?.name ?? 'the imported course'} are in magnetic, with no variation to convert them to true, so they are removed with it.`,
+          confirmLabel: 'Remove',
+        });
+        if (!ok) return;
+        setLegRows([]);
+        setWindInput('');
+        setWindKept(undefined);
+        setShowLegNames(false);
+        setSnapshot(undefined);
+        setLegsOpen(true);
+        return;
+      }
       // Off the course's marks, the figures are the venue's to convert.
       redisplay(displayAt(courseVariation([], venuePosition, raceDate)));
       setSnapshot(undefined);
@@ -404,8 +433,9 @@ function RaceStartDialogInner({
     const course = fresh?.course ?? (libraryCourses ?? []).find((c) => c.id === courseId);
     if (!course) return;
     // Where a card lays the course out for a wind, offer it — unless the
-    // scorer has already said what the wind was.
-    let wind = windDeg;
+    // scorer has already said what the wind was. A wind given in magnetic,
+    // for a course kept in magnetic, has nothing to bring it into true.
+    let wind = magnetic ? undefined : windDeg;
     if (wind == null && course.card) {
       try {
         const { cardFile } = await loadCourseCard(course.card.set, course.card.cardId);
@@ -422,7 +452,7 @@ function RaceStartDialogInner({
   function changeWind(value: string) {
     setWindInput(value);
     setError('');
-    const w = value.trim() ? enteredTrue(value, display.ref, display.variation, windKept) : null;
+    const w = value.trim() ? storedFigure(value, display, windKept) : null;
     if (!snapshot) return;
     setSnapshot({ ...snapshot, ...(w != null ? { windDirectionDeg: w } : { windDirectionDeg: undefined }) });
     if (!legsEdited && w != null) {
@@ -518,7 +548,9 @@ function RaceStartDialogInner({
         redisplay({ ...display, ref });
         setBearingRef(ref);
       }}
-      missing="Set the venue position on the Courses tab, or pick a course built from marks, to enter them in magnetic."
+      missing={magnetic
+        ? 'The course was imported in magnetic with nowhere to read the variation at, so this start keeps it in magnetic.'
+        : 'Set the venue position on the Courses tab, or pick a course built from marks, to enter them in magnetic.'}
     />
   );
 
@@ -819,6 +851,7 @@ function RaceStartDialogInner({
                     route={!drawing.fromLegs}
                     scoredLegs={drawing.scoredLegs}
                     variation={display.ref === 'M' ? display.variation : undefined}
+                    north={magnetic ? 'magnetic' : undefined}
                     width={440}
                     title="Course drawing"
                   />
@@ -832,6 +865,7 @@ function RaceStartDialogInner({
                     <p className="text-xs text-muted-foreground" data-testid="course-drawing-caption">
                       Drawn from the legs — the shape and the direction
                       are the committee&apos;s; there are no positions behind it.
+                      {magnetic && ' Magnetic north is up.'}
                     </p>
                   )}
                 </>

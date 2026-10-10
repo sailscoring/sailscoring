@@ -8,6 +8,7 @@ import {
   bearingFigure,
   describeVariation,
   enteredTrue,
+  parseBearing,
   toTrue,
   type BearingRef,
   type Variation,
@@ -31,7 +32,8 @@ import { legDistance, parseLegTable } from '@/lib/course-geometry';
  * leaves alone then saves back exactly, rather than through a rounding.
  */
 
-/** A stored (true) figure and the text a field was filled with from it. */
+/** A stored figure and the text a field was filled with from it. Stored
+ *  figures are true, except on a start whose course is kept in magnetic. */
 export interface KeptFigure {
   text: string;
   trueDeg: number;
@@ -60,10 +62,23 @@ export function emptyLegRow(defaults?: Partial<LegTableRow>): LegTableRow {
 }
 
 /** Which north a table's bearings and winds are shown and typed in, and the
- *  variation that converts them. No variation means true, and no choice. */
+ *  variation that converts them to the true they are stored in. With no
+ *  variation there is no choice: the figures are shown and typed in the
+ *  north they are stored in — true, or magnetic on a start whose course is
+ *  kept in magnetic (`RaceStartCourse.north`). */
 export interface BearingDisplay {
   ref: BearingRef;
   variation?: Variation;
+}
+
+/** A field's text as the figure to store, or null when it is not a bearing
+ *  or can't be stored as one. With no variation, a figure marked in the
+ *  other north has nothing to convert it by. */
+export function storedFigure(text: string, display: BearingDisplay, kept?: KeptFigure): number | null {
+  if (display.variation) return enteredTrue(text, display.ref, display.variation, kept);
+  if (kept && kept.text.trim() === text.trim()) return kept.trueDeg;
+  const parsed = parseBearing(text, display.ref);
+  return parsed && parsed.ref === display.ref ? parsed.deg : null;
 }
 
 /** A field filled from a stored (true) figure. */
@@ -72,15 +87,15 @@ export function figureField(trueDeg: number, display: BearingDisplay): { text: s
   return { text, kept: { text, trueDeg } };
 }
 
-/** A row's bearing in true, or null when it is not one (or is magnetic with
- *  nothing to convert it by). */
+/** A row's bearing as stored (see `storedFigure`), or null when it is not
+ *  one. */
 export function rowBearingTrue(row: LegTableRow, display: BearingDisplay): number | null {
-  return enteredTrue(row.bearing, display.ref, display.variation, row.bearingKept);
+  return storedFigure(row.bearing, display, row.bearingKept);
 }
 
-/** A row's wind direction in true, likewise. */
+/** A row's wind direction as stored, likewise. */
 export function rowWindTrue(row: LegTableRow, display: BearingDisplay): number | null {
-  return enteredTrue(row.wind, display.ref, display.variation, row.windKept);
+  return storedFigure(row.wind, display, row.windKept);
 }
 
 /** The rows re-shown in another reference. A figure that does not read is
@@ -106,8 +121,9 @@ export function rowsInRef(rows: LegTableRow[], from: BearingDisplay, to: Bearing
 
 /**
  * The dialog-level choice of reference, with the variation it applies — so
- * a reader knows what was used, and when. Without a variation the figures
- * are true and there is no choice: `missing` says why.
+ * a reader knows what was used, and when. Without a variation there is no
+ * choice, and the figures are in the north they are stored in: `missing`
+ * says why.
  */
 export function BearingRefControl({
   display,
@@ -120,7 +136,7 @@ export function BearingRefControl({
   missing: ReactNode;
 }) {
   if (!display.variation) {
-    return <p className="text-xs text-muted-foreground" data-testid="bearing-ref">Bearings in °T. {missing}</p>;
+    return <p className="text-xs text-muted-foreground" data-testid="bearing-ref">Bearings in °{display.ref}. {missing}</p>;
   }
   return (
     <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground" data-testid="bearing-ref">
