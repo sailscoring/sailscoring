@@ -1,13 +1,12 @@
 import 'server-only';
 
-import { BadRequestError, NotFoundError } from '@/app/api/v1/_lib/handler';
+import { NotFoundError } from '@/app/api/v1/_lib/handler';
 import { recordActivity } from '@/lib/activity-log';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
 import {
   listTombstones,
   purgeTombstone,
   restoreTombstone,
-  TombstoneRefusedError,
 } from '@/lib/deleted-series';
 import type { DeletedSeriesEntry } from '@/lib/types';
 
@@ -34,16 +33,10 @@ export async function restoreFromTrash(
   workspace: WorkspaceContext,
   tombstoneId: string,
 ): Promise<{ seriesId: string }> {
-  let restored;
-  try {
-    restored = await restoreTombstone(
-      { workspaceId: workspace.workspaceId, userId: workspace.userId },
-      tombstoneId,
-    );
-  } catch (err) {
-    if (err instanceof TombstoneRefusedError) throw new BadRequestError(err.message);
-    throw err;
-  }
+  const restored = await restoreTombstone(
+    { workspaceId: workspace.workspaceId, userId: workspace.userId },
+    tombstoneId,
+  );
   if (!restored) throw new NotFoundError('deleted-series');
 
   // No revision capture: the tombstone embeds the series' whole revision

@@ -22,7 +22,7 @@ import { captureRevision, listRevisions } from '@/lib/revision-log';
 import { deleteSeries } from '@/lib/api-handlers/series';
 import { listTrash, purgeFromTrash, restoreFromTrash } from '@/lib/api-handlers/trash';
 import { listTombstones, sweepDeletedSeries } from '@/lib/deleted-series';
-import { BadRequestError } from '@/app/api/v1/_lib/handler';
+import { RefusedSettingError } from '@/lib/refused-setting-error';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
 import type { Competitor, Fleet, Race, Series } from '@/lib/types';
 
@@ -263,7 +263,7 @@ describe.skipIf(skip)('soft delete / Trash', () => {
     });
 
     const attempt = restoreFromTrash(ctx(), entry.id);
-    await expect(attempt).rejects.toBeInstanceOf(BadRequestError);
+    await expect(attempt).rejects.toBeInstanceOf(RefusedSettingError);
     await expect(attempt).rejects.toThrow(/how scores carry \("net-plus-net"\)/);
 
     expect(await repos.series.get(seriesId)).toBeUndefined();

@@ -9,6 +9,8 @@
  *
  * Skipped when DATABASE_URL is unset.
  */
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, test, vi } from 'vitest';
 import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { eq } from 'drizzle-orm';
@@ -239,6 +241,35 @@ describe.skipIf(skip)('series import (ADR-009 M2)', () => {
     await expect(
       series.importSeries(ctx, { content: JSON.stringify({ formatVersion: 999 }) }),
     ).rejects.toBeInstanceOf(BadRequestError);
+  });
+
+  // ADR-013: a published championship scored with a split-fleet setting that
+  // is gone is refused by name. That is the file, not the server, so it is a
+  // 400 carrying the reason — not a 500 inviting a retry that can't help.
+  test('refuses published results scored with a setting that is gone with a 400 naming it', async () => {
+    const ilca6 = JSON.parse(
+      readFileSync(
+        join(__dirname, '../fixtures/split-fleets-published/ilca6-women-worlds-2026.sailscoring.json'),
+        'utf-8',
+      ),
+    );
+    ilca6.splitFleets.config.carry = 'net-plus-net';
+
+    const res = await importRoute(
+      new Request('http://localhost/api/v1/series/import', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ content: JSON.stringify(ilca6), format: 'public-export' }),
+      }) as Parameters<typeof importRoute>[0],
+      { params: Promise.resolve({}) },
+    );
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: string; message: string };
+    expect(body.error).toBe('invalid');
+    expect(body.message).toMatch(/how scores carry \("net-plus-net"\)/);
+
+    const names = await seriesFileReposFor({ workspaceId }).listSeriesNames();
+    expect(names.some((n) => n.includes('ILCA 6'))).toBe(false);
   });
 
   test('Idempotency-Key replay imports the file only once', async () => {

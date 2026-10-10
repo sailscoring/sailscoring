@@ -42,30 +42,13 @@ function pack(file: SeriesFile): Buffer {
   return zstdCompressSync(Buffer.from(JSON.stringify(file)));
 }
 
-/**
- * The tombstone's snapshot can't be brought up to the current format: it
- * scores with a setting that no longer exists, which the upgrader refuses by
- * name rather than rescore. The message is the upgrader's, written for the
- * scorer.
- */
-export class TombstoneRefusedError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'TombstoneRefusedError';
-  }
-}
-
 /** Decode a tombstone's snapshot, brought up to the current format version.
  *  The snapshot was packed at whatever version was current when the series
  *  was deleted, so it has to be brought forward before the writers see it —
  *  the file-import path gets this from `parseSeriesFile`. */
 function unpack(blob: Buffer): SeriesFile {
   const file = JSON.parse(zstdDecompressSync(blob).toString('utf-8')) as SeriesFile;
-  try {
-    migrateSeriesFileObject(file as unknown as Record<string, unknown>);
-  } catch (err) {
-    throw new TombstoneRefusedError(err instanceof Error ? err.message : String(err));
-  }
+  migrateSeriesFileObject(file as unknown as Record<string, unknown>);
   return file;
 }
 
@@ -150,8 +133,8 @@ export async function listTombstones(workspaceId: string): Promise<DeletedSeries
  * Recover a tombstoned series: re-create it under its original id (archived,
  * since delete is archive-gated) and drop the tombstone. Returns the restored
  * series' id and name, or null if the tombstone doesn't exist in the workspace.
- * Throws `TombstoneRefusedError` if the snapshot can't be brought up to the
- * current format; the tombstone stays in the Trash.
+ * Throws `RefusedSettingError` if the snapshot scores with a setting that no
+ * longer exists; the tombstone stays in the Trash.
  */
 export async function restoreTombstone(
   actor: Actor,

@@ -12,6 +12,7 @@ import {
   type WorkspaceContext,
 } from '@/lib/auth/require-workspace';
 import { ConflictError } from '@/lib/repository';
+import { RefusedSettingError } from '@/lib/refused-setting-error';
 
 import {
   lookupIdempotency,
@@ -30,7 +31,8 @@ export { ConflictError };
  * - Awaits Next.js 16's Promise-shaped `params` once at the top so route
  *   logic stays sync about its inputs.
  * - Maps thrown errors to canonical HTTP responses: 401 unauthenticated,
- *   403 forbidden, 404 not-found, 409 conflict, 400 invalid (Zod issues).
+ *   403 forbidden, 404 not-found, 409 conflict, 400 invalid (Zod issues, or
+ *   a stored series the upgrader refused).
  * - A handler that returns `undefined` becomes a 204 No Content; any other
  *   value becomes a JSON 200.
  */
@@ -197,6 +199,11 @@ export function errorToResponse(err: unknown): Response {
   }
   if (err instanceof BadRequestError) {
     return Response.json({ error: 'invalid', issues: err.issues, message: err.message }, { status: 400 });
+  }
+  // A stored series the upgrader refused, from whichever entry point read it:
+  // retrying won't help, and the message names the setting for the scorer.
+  if (err instanceof RefusedSettingError) {
+    return Response.json({ error: 'invalid', message: err.message }, { status: 400 });
   }
   if (err instanceof UpstreamError) {
     return Response.json({ error: 'upstream', source: err.source, message: err.message }, { status: 502 });

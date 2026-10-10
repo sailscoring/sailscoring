@@ -44,6 +44,7 @@ import {
 import { isFleetRatingVariant } from './fleet-rating-variant';
 import { fleetIdFromPageKey, fleetPageKey } from './publish-pages';
 import { hasConditions } from './race-conditions';
+import { RefusedSettingError } from './refused-setting-error';
 import {
   refusedSplitFleetConfigMessage,
   splitFleetUpgradeContext,
@@ -1402,7 +1403,7 @@ function upgradeSplitFleetsBlock(obj: Record<string, unknown>): void {
     block.config,
     splitFleetUpgradeContext({ races: obj.races, rounds: block.rounds }),
   );
-  if (!result.ok) throw new Error(refusedSplitFleetConfigMessage(result.reasons));
+  if (!result.ok) throw new RefusedSettingError(refusedSplitFleetConfigMessage(result.reasons));
   upgradeSplitFleetRaceNames(obj.races, block.config, result.config);
   block.config = result.config;
 }

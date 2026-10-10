@@ -47,6 +47,7 @@ import {
 import { calculateFleetStandings, calculateRaceScores, buildRaceFleetExclusionMap, startKeyResolver } from './scoring';
 import { loadSeriesSnapshot, type SeriesSnapshot } from './series-snapshot';
 import type { SeriesFileSplitRound } from './series-file';
+import { RefusedSettingError } from './refused-setting-error';
 import {
   refusedSplitFleetConfigMessage,
   splitFleetUpgradeContext,
@@ -1781,7 +1782,7 @@ function upgradeExportSplitFleets(data: PublicSeriesExport): PublicSeriesExport 
     data.splitFleets.config,
     splitFleetUpgradeContext({ races, rounds: data.splitFleets.rounds }),
   );
-  if (!result.ok) throw new Error(refusedSplitFleetConfigMessage(result.reasons));
+  if (!result.ok) throw new RefusedSettingError(refusedSplitFleetConfigMessage(result.reasons));
   upgradeSplitFleetRaceNames(races, data.splitFleets.config, result.config);
   return { ...data, races, splitFleets: { ...data.splitFleets, config: result.config } };
 }
