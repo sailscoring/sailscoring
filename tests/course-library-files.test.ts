@@ -490,4 +490,31 @@ describe('an imported constructed course round-trips', () => {
     expect(savedStarts[0].courseLegs).toEqual(legs);
     expect(savedStarts[0].course?.anchor).toEqual(anchor);
   });
+
+  // One imported with nowhere to read the variation at: no anchor, and its
+  // figures kept in magnetic as the document gave them.
+  const magnetic: RaceStart = {
+    ...imported,
+    id: 'st-mag',
+    courseLegs: legs.map((l) => ({ ...l, bearingDeg: 282, windDirectionDeg: 280 })),
+    course: { name: 'Thursday, Race 2', waypoints: [], legs: [{ distanceNm: 0.67, bearingDeg: 282 }], north: 'magnetic', windDirectionDeg: 280 },
+  };
+  const magSnap: SeriesSnapshot = { ...snapshot, marks: [], courses: [], raceStarts: [magnetic] };
+
+  it('kept in magnetic, through the series file', async () => {
+    const built = await buildSeriesFile('s1', makeRecordingRepos(magSnap).repos);
+    const { repos, savedStarts } = makeRecordingRepos();
+    await openSeriesFromFile(parseSeriesFile(JSON.stringify(built)), repos);
+    expect(savedStarts[0].course?.north).toBe('magnetic');
+    expect(savedStarts[0].courseLegs?.[0].bearingDeg).toBe(282);
+  });
+
+  it('kept in magnetic, through the public export', async () => {
+    const data = buildPublicExportFromSnapshot(magSnap)!;
+    expect(data.races[0].starts[0].course?.north).toBe('magnetic');
+    const { repos, savedStarts } = makeRecordingRepos();
+    await importPublicExport(data, repos);
+    expect(savedStarts[0].course?.north).toBe('magnetic');
+    expect(savedStarts[0].course?.windDirectionDeg).toBe(280);
+  });
 });

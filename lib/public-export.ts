@@ -177,9 +177,10 @@ export interface PublicSeriesExport {
    *  fleet; v7 adds the repêchage (a `repechage` round and race-start stage)
    *  and why a boat was placed in a round by hand; v8 adds the choice to
    *  rank an undivided championship's fleets each on its own
-   *  (`splitFleets.config.fleetRanking`, `medal.fromEachFleet`). Readers
-   *  accept them all. */
-  version: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+   *  (`splitFleets.config.fleetRanking`, `medal.fromEachFleet`); v9 adds
+   *  `course.north` on a start whose directions are magnetic rather than
+   *  true. Readers accept them all. */
+  version: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
   exportedAt: string;
   series: {
     name: string;
@@ -435,7 +436,8 @@ export interface PublicSeriesExport {
       orcScoringWind?: number;
       /** Constructed-course legs (ORC 402.5) — the course record competitors
        *  check their tracks against, so it belongs in public results.
-       *  Bearings and wind directions are degrees true. A leg carries the
+       *  Bearings and wind directions are degrees true — or magnetic, on a
+       *  start whose `course.north` says so. A leg carries the
        *  race committee's `name` for it where the course arrived with one. */
       courseLegs?: import('./types').OrcCourseLeg[];
       /** Where those legs came from: the course as it was when the start
@@ -476,12 +478,19 @@ export interface PublicSeriesExport {
         }[];
         /** The leg table the course gave, on a course defined by legs —
          *  which has no waypoints to snapshot. Bearings are degrees true,
-         *  as is every bearing and wind direction in this file. */
+         *  as is every bearing and wind direction in this file, except on
+         *  a start whose course says `north` is magnetic. */
         legs?: { distanceNm: number; bearingDeg: number }[];
         /** Where the first leg starts, on a course defined by legs that
          *  arrived with one: its only recorded position. */
         anchor?: { lat: number; lng: number };
-        /** Degrees true. */
+        /** `"magnetic"` where this start's directions are magnetic rather
+         *  than true — its legs' bearings, winds and currents in
+         *  `courseLegs`, the legs above, and the wind here: a course
+         *  imported in magnetic with nowhere to read the variation at.
+         *  Absent, they are true. */
+        north?: 'magnetic';
+        /** Degrees true, or magnetic where `north` says so. */
         windDirectionDeg?: number;
         windSpeedKts?: number;
         legsEdited?: boolean;
@@ -940,6 +949,7 @@ function exportStartCourse(
     }),
     ...(course.legs?.length ? { legs: course.legs } : {}),
     ...(course.anchor ? { anchor: { lat: course.anchor.lat, lng: course.anchor.lng } } : {}),
+    ...(course.north === 'magnetic' ? { north: 'magnetic' as const } : {}),
     ...(course.windDirectionDeg != null ? { windDirectionDeg: course.windDirectionDeg } : {}),
     ...(course.windSpeedKts != null ? { windSpeedKts: course.windSpeedKts } : {}),
     ...(course.legsEdited ? { legsEdited: true } : {}),
@@ -1413,7 +1423,7 @@ export function buildPublicExportFromSnapshot(
     : undefined;
 
   return {
-    version: 8 as const,
+    version: 9 as const,
     exportedAt: (opts?.exportedAt ?? new Date()).toISOString(),
     series: {
       name: series.name,
@@ -1677,7 +1687,7 @@ export function buildPublicExportFromSnapshot(
 /** Export format versions this build can read. A file written by a newer
  *  build is refused rather than half-read: the version is what says which
  *  fields mean what. Mirrors `SUPPORTED_FORMAT_VERSIONS` on the file side. */
-const SUPPORTED_EXPORT_VERSIONS = [1, 2, 3, 4, 5, 6, 7, 8];
+const SUPPORTED_EXPORT_VERSIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 
 /**
  * Parse the text of a published `.sailscoring.json` data file.
@@ -2045,6 +2055,7 @@ export async function importPublicExport(
       }),
       ...(c.legs?.length ? { legs: c.legs } : {}),
       ...(c.anchor ? { anchor: { lat: c.anchor.lat, lng: c.anchor.lng } } : {}),
+      ...(c.north === 'magnetic' ? { north: 'magnetic' as const } : {}),
       ...(c.windDirectionDeg != null ? { windDirectionDeg: c.windDirectionDeg } : {}),
       ...(c.windSpeedKts != null ? { windSpeedKts: c.windSpeedKts } : {}),
       ...(c.legsEdited ? { legsEdited: true } : {}),

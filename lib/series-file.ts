@@ -592,9 +592,18 @@ export interface SeriesFileRepos {
  *  the race committee's label for each leg, and where the first leg starts.
  *  An older build reading a v68 file drops them, which loses the labels on
  *  the published legs and draws the course unlocated; names are never
- *  scored, so it scores identically. */
-export const FORMAT_VERSION = 68;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68];
+ *  scored, so it scores identically.
+ *
+ *  v69 adds optional `starts[*].course.north: 'magnetic'`, on a start whose
+ *  course was imported in magnetic with nowhere to read the variation at (no
+ *  anchor, and no venue position): its `courseLegs` bearings, winds and
+ *  currents, and the course's `windDirectionDeg`, are then the document's
+ *  magnetic figures rather than true. An older build reading a v69 file
+ *  drops it and labels those figures true, off by the variation; ORC scores
+ *  each leg's wind and current relative to its course, so it scores
+ *  identically. */
+export const FORMAT_VERSION = 69;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -807,7 +816,7 @@ interface SeriesFileRaceStart {
   distanceNm?: number;  // v40+; course length in NM (time-on-distance scoring input)
   orcScoringWind?: number;  // v40+; RC PCS scoring-wind override in kt (ORC 402.12)
   courseLegs?: OrcCourseLeg[];  // v40+; constructed-course legs (ORC 402.5), carrying v51+ per-leg wind speeds and v68+ leg names
-  course?: RaceStartCourse;  // v45+; the library course those legs came from, as a snapshot (v57+ waypoints name their data set; v66+ a laid mark's card mark; v67+ a line's two ends; v68+ an imported course's anchor)
+  course?: RaceStartCourse;  // v45+; the library course those legs came from, as a snapshot (v57+ waypoints name their data set; v66+ a laid mark's card mark; v67+ a line's two ends; v68+ an imported course's anchor; v69+ its north, where magnetic)
   orcOption?: string;  // v40+; the ORC scoring option for this start's races
 }
 

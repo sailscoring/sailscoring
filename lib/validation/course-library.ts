@@ -139,6 +139,7 @@ export const raceStartCourseSchema = z.object({
     .max(MAX_COURSE_MARKS),
   legs: z.array(seriesCourseLegSchema).max(MAX_COURSE_LEGS).optional(),
   anchor: z.object({ lat: latSchema, lng: lngSchema }).optional(),
+  north: z.literal('magnetic').optional(),
   windDirectionDeg: bearingSchema.optional(),
   windSpeedKts: z.number().positive().max(99).optional(),
   legsEdited: z.boolean().optional(),

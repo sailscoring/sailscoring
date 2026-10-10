@@ -66,8 +66,12 @@ results, and beyond that nothing that is not in the published HTML**:
   waypoint at its midpoint carries both `ends`, starboard first. A course
   imported as an ORC constructed course carries the race committee's label
   for each leg (`courseLegs[*].name`) and, where it came with one, the
-  position the first leg starts from (`course.anchor`). Course facts are what
-  competitors check their tracks against.
+  position the first leg starts from (`course.anchor`). Where nothing said
+  where such a course was — no anchor, and no venue position — its figures
+  are kept as the document gave them, and `course.north` is `"magnetic"`:
+  that start's leg bearings, winds and currents, and its course wind, are
+  magnetic rather than true. Course facts are what competitors check their
+  tracks against.
 - Unresolved finish entries (a crossing recorded but matched to no
   competitor) are the scorer's work in progress and are not exported.
 - `standings` is what the published pages show, scored by the engine that
@@ -112,6 +116,7 @@ version up to their own; writers write the current one.
 | 6 | Each competitor carries a `ref`, unique within the file, and finishes (`competitorRef`), split-fleet round `overrides` (now keyed by `ref`) and sub-series `competitorOverrides` (`competitorRef`) point at it: a sail number need not name one boat. Competitors gain `fleetSailNumbers`, the boat drawn for them in each fleet. A reader matches a v1–v5 export by sail number, as before. |
 | 7 | The repêchage: `repechage` as a split-fleet round's `stage` and a race start's `stage`. It is a short series for boats who missed the medal cut, ranked on its own races alone, and nothing it scores counts in the championship. Rounds gain `overrideReasons` (competitor `ref` → `redress`, `repechage` or `cut-ranking`), saying how a boat placed in a round by hand got there; absent means redress. |
 | 8 | `splitFleets.config` gains `fleetRanking` (`combined` or `per-fleet`): whether an undivided championship with more than one fleet ranks its fleets as one list or each on its own — each boat ranked within her fleet, a race counting for a fleet once that fleet has sailed it, a non-finisher scored from her own fleet — and `medal.fromEachFleet`, how many of each fleet's leaders go through directly. Absent is `combined`. |
+| 9 | A race start's `course` gains `north`: `"magnetic"` where that start's directions — its `courseLegs` bearings, winds and currents, and the course's wind — are magnetic rather than true. It marks a constructed course imported in magnetic with nowhere to read the variation at. Absent, every direction is true, as before. ORC scores a leg on its wind and current relative to its course, so either north scores the same; an older reader would label the figures wrongly, so the version changes. |
 
 The format is a public API surface: field removals or meaning changes
 bump the version; purely additive optional fields may not. The

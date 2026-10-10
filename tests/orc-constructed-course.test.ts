@@ -193,5 +193,34 @@ describe('what a start stores', () => {
     expect(snapshot.name).toBe('Imported course');
     expect(snapshot.windDirectionDeg).toBeUndefined();
     expect(snapshot.anchor).toBeUndefined();
+    expect(snapshot.north).toBeUndefined();
+  });
+
+  it('keeps every direction in magnetic where there is no variation to convert by', () => {
+    const course = read({
+      ...base,
+      legs: [
+        { name: 'Start – Windward', distance: 0.674, course: 282, windDirection: 280, currentDirection: 5, currentSpeed: 1 },
+        { name: 'Windward – Start', distance: 0.67, course: 360, windDirection: 280 },
+      ],
+    });
+    const legs = importedCourseLegs(course, undefined);
+    expect(legs[0]).toEqual({
+      name: 'Start – Windward',
+      distanceNm: 0.67,
+      bearingDeg: 282,
+      windDirectionDeg: 280,
+      currentDirectionDeg: 5,
+      currentSpeedKts: 1,
+    });
+    // 360 reads as 0, as a converted figure would.
+    expect(legs[1].bearingDeg).toBe(0);
+    const snapshot = snapshotOfImportedCourse(course, legs, 'magnetic');
+    expect(snapshot.north).toBe('magnetic');
+    expect(snapshot.windDirectionDeg).toBe(280);
+    expect(snapshot.legs).toEqual([
+      { distanceNm: 0.67, bearingDeg: 282 },
+      { distanceNm: 0.67, bearingDeg: 0 },
+    ]);
   });
 });

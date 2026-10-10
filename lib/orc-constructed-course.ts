@@ -12,7 +12,9 @@
  * holding the document, because they are shown as they stand.
  *
  * The start stores true, so the conversion takes the variation where the
- * course is on the race's day. Pure and client-safe.
+ * course is on the race's day. Where nothing says where the course is — no
+ * anchor, and no venue position — the start keeps the figures in magnetic
+ * as the document gave them, and its course says so. Pure and client-safe.
  */
 
 import { toTrue, type Variation } from './bearings';
@@ -189,9 +191,11 @@ export function constructedCourseSummary(course: ConstructedCourse): string {
 export type ImportedLeg = Omit<OrcCourseLeg, 'windDirectionDeg'> & { windDirectionDeg?: number };
 
 /** The document's legs converted to true at the variation where the course
- *  is, on the race's day. */
-export function importedCourseLegs(course: ConstructedCourse, variation: Variation): ImportedLeg[] {
-  const trueDeg = (deg: number) => toTrue(deg, 'M', variation);
+ *  is, on the race's day — or, with no variation to convert by, kept in
+ *  magnetic as the document gives them, for a start whose course is then
+ *  marked magnetic (`snapshotOfImportedCourse`). */
+export function importedCourseLegs(course: ConstructedCourse, variation: Variation | undefined): ImportedLeg[] {
+  const trueDeg = (deg: number) => (variation ? toTrue(deg, 'M', variation) : deg % 360);
   return course.legs.map((l) => ({
     distanceNm: legDistance(l.distance),
     bearingDeg: trueDeg(l.course),
@@ -216,8 +220,13 @@ function shared(values: (number | undefined)[]): number | undefined {
  * anchor. No waypoints and no library course: the document is the course.
  * Where every leg shares one wind, that is the course's wind, as a library
  * course's would be; where they differ there is no one figure to show.
+ * `north` marks legs `importedCourseLegs` kept in magnetic.
  */
-export function snapshotOfImportedCourse(course: ConstructedCourse, legs: ImportedLeg[]): RaceStartCourse {
+export function snapshotOfImportedCourse(
+  course: ConstructedCourse,
+  legs: ImportedLeg[],
+  north?: 'magnetic',
+): RaceStartCourse {
   const wind = shared(legs.map((l) => l.windDirectionDeg));
   const speed = shared(legs.map((l) => l.windSpeedKts));
   return {
@@ -225,6 +234,7 @@ export function snapshotOfImportedCourse(course: ConstructedCourse, legs: Import
     waypoints: [],
     legs: legs.map((l) => ({ distanceNm: l.distanceNm, bearingDeg: l.bearingDeg })),
     ...(course.anchor ? { anchor: course.anchor } : {}),
+    ...(north ? { north } : {}),
     ...(wind !== undefined ? { windDirectionDeg: wind } : {}),
     ...(speed !== undefined ? { windSpeedKts: speed } : {}),
   };

@@ -222,7 +222,7 @@ describe('public export — importing the split-fleet block', () => {
       medal: { ...data.config.medal!, fromEachFleet: 2 },
     };
     const out = exportOf(data, { config, rounds: data.rounds });
-    expect(out.version).toBe(8);
+    expect(out.version).toBe(9);
     expect(out.splitFleets!.config.fleetRanking).toBe('per-fleet');
     const { repos, read } = makeRecordingRepos();
     await importPublicExport(out, repos);

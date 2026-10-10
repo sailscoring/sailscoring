@@ -661,6 +661,9 @@ export interface Fleet {
  * the course library's, a laid mark's, a start's wind. Magnetic is how they
  * are shown and entered, converted at the race's place and date
  * (`lib/bearings.ts`); stored, a magnetic figure would carry a date in it.
+ * The one exception is a start whose course says `north: 'magnetic'` (see
+ * RaceStartCourse): there was nowhere to read the variation at, so its legs
+ * are kept as the race committee gave them.
  */
 export interface OrcCourseLeg {
   distanceNm: number;
@@ -834,7 +837,16 @@ export interface RaceStartCourse {
    *  so it places the drawing on a chart and the variation, and nothing
    *  else is stored. */
   anchor?: { lat: number; lng: number };
-  windDirectionDeg?: number;  // true, like every stored direction
+  /** The start's directions are magnetic rather than true: every leg's
+   *  bearing, wind and current, and the course wind here. Set on a course
+   *  imported in magnetic with nowhere to read the variation at — no anchor,
+   *  and no venue position for the series — so the figures are kept as the
+   *  document gave them rather than converted at a guess. ORC scores a leg
+   *  on its wind and current relative to its course, so it scores the same
+   *  in either north; what changes is how the figures are labelled and
+   *  drawn. Absent, they are true. */
+  north?: 'magnetic';
+  windDirectionDeg?: number;  // true, like every stored direction, unless `north` says otherwise
   /** The wind speed (kt) the scorer gave for the whole course, where the
    *  option scores at the recorded wind. Held so a recompute puts it back
    *  on every leg rather than dropping it and leaving the race unscored. */

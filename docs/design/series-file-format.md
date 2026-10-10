@@ -160,7 +160,11 @@ it, so the published drawing shows the line. A start whose course was
 imported as an [ORC constructed course](orc/constructed-course-format.md)
 (v68+) keeps the race committee's label for each leg as
 `courseLegs[*].name`, and where the document gave one, the position the
-first leg starts from as `course.anchor`.
+first leg starts from as `course.anchor`. Where nothing said where such a
+course was — no anchor, and no venue position — its figures are kept as the
+document gave them, in magnetic, and `course.north` is `"magnetic"` (v69+):
+that start's leg bearings, winds and currents, and its course wind, are then
+magnetic rather than true.
 
 ---
 
