@@ -86,7 +86,9 @@ recorded:
   that stores true converts at the anchor, or at whatever else it knows
   about where the course is, on the race's date. Scoring does not depend
   on the north: ORC computes each leg's wind angle as `windDirection −
-  course`.
+  course`. So a reader that knows nothing about where the course is can
+  keep the figures in magnetic as given, rather than refuse them or
+  convert at a guess; Sail Scoring does.
 - **A leg split on a wind shift is two legs** (rule 402.5's sub-legs).
   Nothing groups them; they may share a name.
 - **The course length is the sum of the legs.** A producer writes each

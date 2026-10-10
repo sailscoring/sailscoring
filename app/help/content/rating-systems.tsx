@@ -592,8 +592,13 @@ export default function RatingSystems() {
           The figures read on the start as the document gave them, in magnetic, and
           are stored in true like every other bearing. The variation is read where
           the first leg starts, when the document says, and otherwise at the venue
-          position — so for a course with neither, set the venue position on the
-          Courses tab first. A course that carries the wind fills each leg’s; one
+          position. A course with neither can still be used: the start keeps it in
+          magnetic, as the document gave it, with no <em>°M / °T</em> choice. Its
+          drawing has magnetic north up, and the published page prints its legs in
+          °M alone, saying no variation was recorded. It scores the same either
+          way, because ORC scores each leg on its wind relative to its course. To
+          have it converted to true instead, set the venue position on the Courses
+          tab before importing. A course that carries the wind fills each leg’s; one
           that doesn’t takes the start’s course wind, as a course from the library
           does. The course is the start’s own: the picker shows it as{' '}
           <em>(imported)</em>, there is no library course to recompute it from, and

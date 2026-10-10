@@ -214,7 +214,11 @@ by default (what a compass reads), with every figure labelled, converted
 in `lib/bearings.ts` at the World Magnetic Model's variation (`magvar`, MIT)
 where the course is (its marks' centre, else `Series.venuePosition`) on the
 race's day. Nothing places a leg table in a series with no venue position, so
-its figures stay true and the dialogs say so. An entry field left untouched
+its figures stay true and the dialogs say so. The exception is an imported
+ORC constructed course with no anchor there: it is magnetic, and with nothing
+to convert it by, the start keeps it in magnetic (`RaceStartCourse.north`)
+and shows, publishes and draws it that way. ORC scores a leg's wind relative
+to its course, so the north never changes a result. An entry field left untouched
 saves back its stored figure exactly, so opening and saving never drifts a
 bearing.
 
