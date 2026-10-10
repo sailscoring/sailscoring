@@ -1,12 +1,13 @@
 import 'server-only';
 
-import { NotFoundError } from '@/app/api/v1/_lib/handler';
+import { BadRequestError, NotFoundError } from '@/app/api/v1/_lib/handler';
 import { recordActivity } from '@/lib/activity-log';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
 import {
   listTombstones,
   purgeTombstone,
   restoreTombstone,
+  TombstoneRefusedError,
 } from '@/lib/deleted-series';
 import type { DeletedSeriesEntry } from '@/lib/types';
 
@@ -26,15 +27,23 @@ export async function listTrash(
 }
 
 /** Recover a trashed series: re-create it (archived) under its original id and
- *  drop the tombstone. 404 if the tombstone isn't in the workspace. */
+ *  drop the tombstone. 404 if the tombstone isn't in the workspace; 400, with
+ *  the upgrader's reason, if its snapshot scores with a setting that no longer
+ *  exists. */
 export async function restoreFromTrash(
   workspace: WorkspaceContext,
   tombstoneId: string,
 ): Promise<{ seriesId: string }> {
-  const restored = await restoreTombstone(
-    { workspaceId: workspace.workspaceId, userId: workspace.userId },
-    tombstoneId,
-  );
+  let restored;
+  try {
+    restored = await restoreTombstone(
+      { workspaceId: workspace.workspaceId, userId: workspace.userId },
+      tombstoneId,
+    );
+  } catch (err) {
+    if (err instanceof TombstoneRefusedError) throw new BadRequestError(err.message);
+    throw err;
+  }
   if (!restored) throw new NotFoundError('deleted-series');
 
   // No revision capture: the tombstone embeds the series' whole revision

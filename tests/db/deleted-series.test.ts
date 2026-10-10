@@ -8,6 +8,9 @@
  *
  * Skipped when DATABASE_URL is unset; CI and `pnpm test:unit:db` provide it.
  */
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { zstdCompressSync, zstdDecompressSync } from 'node:zlib';
 import { describe, test, expect, beforeAll, afterAll } from 'vitest';
 import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { and, eq } from 'drizzle-orm';
@@ -19,6 +22,7 @@ import { captureRevision, listRevisions } from '@/lib/revision-log';
 import { deleteSeries } from '@/lib/api-handlers/series';
 import { listTrash, purgeFromTrash, restoreFromTrash } from '@/lib/api-handlers/trash';
 import { listTombstones, sweepDeletedSeries } from '@/lib/deleted-series';
+import { BadRequestError } from '@/app/api/v1/_lib/handler';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
 import type { Competitor, Fleet, Race, Series } from '@/lib/types';
 
@@ -130,6 +134,24 @@ describe.skipIf(skip)('soft delete / Trash', () => {
     };
   }
 
+  /** Rewrite a tombstone's snapshot in place, as if the series had been
+   *  deleted while an older format version was current. */
+  async function rewriteSnapshot(
+    tombstoneId: string,
+    edit: (file: Record<string, unknown>) => void,
+  ): Promise<void> {
+    const [row] = await db
+      .select({ snapshotGz: schema.deletedSeries.snapshotGz })
+      .from(schema.deletedSeries)
+      .where(eq(schema.deletedSeries.id, tombstoneId));
+    const file = JSON.parse(zstdDecompressSync(row.snapshotGz).toString('utf-8'));
+    edit(file);
+    await db
+      .update(schema.deletedSeries)
+      .set({ snapshotGz: zstdCompressSync(Buffer.from(JSON.stringify(file))) })
+      .where(eq(schema.deletedSeries.id, tombstoneId));
+  }
+
   async function activityActions(): Promise<string[]> {
     const rows = await db
       .select({ action: schema.activityLog.action })
@@ -187,6 +209,65 @@ describe.skipIf(skip)('soft delete / Trash', () => {
     const actions = await activityActions();
     expect(actions).toContain('series.deleted');
     expect(actions).toContain('series.restored');
+  });
+
+  test('recover brings a snapshot from an older format version forward', async () => {
+    const repos = createRepos({ workspaceId });
+    const seriesId = uuid();
+    await repos.series.save(makeSeries(seriesId));
+    const fleet = makeFleet(seriesId);
+    await repos.fleets.save(fleet);
+    await repos.competitors.save({ ...makeCompetitor(seriesId, [fleet.id], 'A1'), clubs: ['HYC'] });
+    await deleteSeries(ctx(), seriesId);
+
+    // A v46 file stored one `club` per competitor; v47 reads it as `clubs`.
+    const entry = (await listTombstones(workspaceId)).find((t) => t.seriesId === seriesId)!;
+    await rewriteSnapshot(entry.id, (file) => {
+      file.formatVersion = 46;
+      for (const c of file.competitors as Record<string, unknown>[]) {
+        c.club = (c.clubs as string[])[0];
+        delete c.clubs;
+      }
+    });
+
+    await restoreFromTrash(ctx(), entry.id);
+
+    const [comp] = await repos.competitors.listBySeries(seriesId);
+    expect(comp.clubs).toEqual(['HYC']);
+  });
+
+  test('recover refuses a snapshot that scores with a setting that is gone, and keeps it in the Trash', async () => {
+    const repos = createRepos({ workspaceId });
+    const seriesId = uuid();
+    await repos.series.save(makeSeries(seriesId));
+    await deleteSeries(ctx(), seriesId);
+
+    // A v57 split-fleet series, partway through qualifying, carrying scores
+    // in a way v58 no longer supports.
+    const ilca7 = JSON.parse(
+      readFileSync(
+        join(__dirname, '../fixtures/split-fleets-published/ilca7-men-worlds-2026.sailscoring.json'),
+        'utf-8',
+      ),
+    );
+    const entry = (await listTombstones(workspaceId)).find((t) => t.seriesId === seriesId)!;
+    await rewriteSnapshot(entry.id, (file) => {
+      file.formatVersion = 57;
+      file.races = [
+        { name: 'Q1 · Yellow', starts: [{ stage: 'qualifying', stageRaceNumber: 1 }], finishes: [{}] },
+      ];
+      file.splitFleets = {
+        config: { ...ilca7.splitFleets.config, carry: 'net-plus-net' },
+        rounds: [{ stage: 'qualifying' }],
+      };
+    });
+
+    const attempt = restoreFromTrash(ctx(), entry.id);
+    await expect(attempt).rejects.toBeInstanceOf(BadRequestError);
+    await expect(attempt).rejects.toThrow(/how scores carry \("net-plus-net"\)/);
+
+    expect(await repos.series.get(seriesId)).toBeUndefined();
+    expect((await listTombstones(workspaceId)).some((t) => t.id === entry.id)).toBe(true);
   });
 
   test('permanent delete drops the tombstone for good', async () => {
