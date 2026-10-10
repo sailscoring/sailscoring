@@ -31,6 +31,7 @@ vi.mock('@/lib/auth/require-workspace', async (importOriginal) => {
 });
 
 import * as competitors from '@/lib/api-handlers/competitors';
+import * as finishes from '@/lib/api-handlers/finishes';
 import * as series from '@/lib/api-handlers/series';
 import {
   addStageRaces,
@@ -569,6 +570,68 @@ describe.skipIf(skip)('commitSplitRound race shape', () => {
       await expect(
         applySplitOverride(ctx, seriesId, round.id, { competitorId: uuid(), toFleetId: round.fleetIds[0] }),
       ).rejects.toThrow(/competitor/);
+    });
+
+    /** Finishes in crossing order on a race's sheet. */
+    async function finish(raceId: string, competitorIds: string[]) {
+      for (const [i, competitorId] of competitorIds.entries()) {
+        const id = uuid();
+        await finishes.putFinish(ctx, raceId, id, {
+          id, raceId, competitorId, sortOrder: i + 1,
+          tiedWithPrevious: false, resultCode: null, startPresent: null,
+          penaltyCode: null, penaltyOverride: null, redressMethod: null,
+          redressExcludeRaceIds: null, redressIncludeRaceIds: null,
+          redressIncludeAllLater: false, redressPoints: null,
+        });
+      }
+    }
+
+    test('before anything is sailed a move carries no warning', async () => {
+      const { seriesId, competitorIds } = await seedSeries();
+      const round = await commit(seriesId, competitorIds, [1]);
+      const res = await applySplitOverride(ctx, seriesId, round.id, {
+        competitorId: competitorIds[0],
+        toFleetId: round.fleetIds[1],
+      });
+      expect(res.warning).toBeNull();
+    });
+
+    test('on one combined sheet, a move after racing re-ranks her result in her new fleet', async () => {
+      const { seriesId, competitorIds } = await seedSeries();
+      const round = await commit(seriesId, competitorIds, [1], [], 'combined');
+      const [q1] = await racesWithStarts(seriesId);
+      await finish(q1.id, competitorIds.slice(0, 6));
+      const res = await applySplitOverride(ctx, seriesId, round.id, {
+        competitorId: competitorIds[0],
+        toFleetId: round.fleetIds[1],
+      });
+      expect(res.warning).toBe(
+        'Racing in this round has started, and the change applies to the qualifying races ' +
+          'it has already sailed. IRL 1 is now scored in Blue.',
+      );
+    });
+
+    test("with a sheet per fleet, a move after racing names the results it strands and the DNCs it makes", async () => {
+      const { seriesId, competitorIds } = await seedSeries();
+      const round = await commit(seriesId, competitorIds, [1, 2], [], 'per-fleet');
+      const [yellow, blue] = round.fleetIds;
+      const races = await racesWithStarts(seriesId);
+      const raceOf = (fleetId: string, n: number) =>
+        races.find((r) => r.starts.some((st) => st.fleetIds.includes(fleetId) && st.stageRaceNumber === n))!;
+      // Q1 sailed by both fleets, IRL 1 in Yellow's; Q2 by Blue only so far.
+      await finish(raceOf(yellow, 1).id, [competitorIds[0], competitorIds[3]]);
+      await finish(raceOf(blue, 1).id, [competitorIds[1], competitorIds[4]]);
+      await finish(raceOf(blue, 2).id, [competitorIds[4], competitorIds[1]]);
+      const res = await applySplitOverride(ctx, seriesId, round.id, {
+        competitorId: competitorIds[0],
+        toFleetId: blue,
+      });
+      expect(res.warning).toBe(
+        'Racing in this round has started, and the change applies to the qualifying races ' +
+          "it has already sailed. IRL 1 is now scored in Blue. Her result in Q1 is on another " +
+          "fleet's sheet and no longer counts. She is not on Blue's sheet in Q1, Q2, so scores " +
+          'DNC there until she is added.',
+      );
     });
 
     test('a boat is refused where the championship does not draw them', async () => {

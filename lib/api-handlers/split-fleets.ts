@@ -999,6 +999,15 @@ export async function applySplitOverride(
     );
     await txRepos.series.touch(seriesId, workspace.userId);
   });
+  if (round.stage === 'qualifying') {
+    warning = await qualifyingPlacementWarning(
+      workspace,
+      seriesId,
+      round,
+      [{ competitorId: input.competitorId, sailNumber: placed.sailNumber, toFleetId }],
+      fleetName,
+    );
+  }
 
   await trackChange(workspace, {
     action: 'split-fleets.round-committed',
@@ -1012,6 +1021,82 @@ export async function applySplitOverride(
     sessionKey: 'split-fleets',
   });
   return { warning };
+}
+
+/**
+ * What placing entries on a qualifying round does to the races it has
+ * already sailed. Membership decides which fleet scores her in every race of
+ * the round, the sailed ones included, so once a sheet has rows a placement
+ * rewrites them: a result on the sheet of a race her new fleet didn't sail
+ * stops counting, and a sailed race of her new fleet that she isn't on scores
+ * her DNC. Null while the round has sailed nothing.
+ */
+async function qualifyingPlacementWarning(
+  workspace: WorkspaceContext,
+  seriesId: string,
+  round: SplitRound,
+  placements: { competitorId: string; sailNumber: string; toFleetId: string }[],
+  fleetName: (fleetId: string) => string,
+): Promise<string | null> {
+  const starts = (
+    await getDb()
+      .select({
+        raceId: schema.raceStarts.raceId,
+        fleetIds: schema.raceStarts.fleetIds,
+        stageRaceNumber: schema.raceStarts.stageRaceNumber,
+      })
+      .from(schema.raceStarts)
+      .innerJoin(schema.races, eq(schema.races.id, schema.raceStarts.raceId))
+      .where(and(eq(schema.races.seriesId, seriesId), eq(schema.raceStarts.stage, 'qualifying')))
+  ).filter((s) => s.fleetIds.some((fid) => round.fleetIds.includes(fid)));
+  if (starts.length === 0) return null;
+  const rows = await getDb()
+    .select({ raceId: schema.finishes.raceId, competitorId: schema.finishes.competitorId })
+    .from(schema.finishes)
+    .where(
+      and(
+        inArray(schema.finishes.raceId, [...new Set(starts.map((s) => s.raceId))]),
+        sql`(${schema.finishes.sortOrder} is not null or ${schema.finishes.resultCode} is not null)`,
+      ),
+    );
+  const sailed = new Set(rows.map((r) => r.raceId));
+  if (sailed.size === 0) return null;
+
+  const series = await getSeriesRow(workspace, seriesId);
+  const config = normalizeSplitFleetConfig((series.qfConfig ?? {}) as Partial<SplitFleetConfig>);
+  const labels = (raceIds: Iterable<string>) =>
+    [
+      ...new Set(
+        [...raceIds].flatMap((raceId) =>
+          starts.filter((s) => s.raceId === raceId).map((s) => s.stageRaceNumber ?? 0),
+        ),
+      ),
+    ]
+      .sort((a, b) => a - b)
+      .map((n) => stageRaceLabel(config, 'qualifying', n))
+      .join(', ');
+  const parts = [
+    `Racing in this round has started, and the change applies to the ` +
+      `${resolveVocabulary(config).stages.qualifying.raceNoun}s it has already sailed.`,
+  ];
+  for (const p of placements) {
+    const hers = new Set(rows.filter((r) => r.competitorId === p.competitorId).map((r) => r.raceId));
+    const sailedByNewFleet = new Set(
+      starts.filter((s) => s.fleetIds.includes(p.toFleetId)).map((s) => s.raceId),
+    );
+    const stranded = [...hers].filter((raceId) => !sailedByNewFleet.has(raceId));
+    const missing = [...sailedByNewFleet].filter((raceId) => sailed.has(raceId) && !hers.has(raceId));
+    const to = fleetName(p.toFleetId);
+    let sentence = `${p.sailNumber} is now scored in ${to}.`;
+    if (stranded.length > 0) {
+      sentence += ` Her result in ${labels(stranded)} is on another fleet's sheet and no longer counts.`;
+    }
+    if (missing.length > 0) {
+      sentence += ` She is not on ${to}'s sheet in ${labels(missing)}, so scores DNC there until she is added.`;
+    }
+    parts.push(sentence);
+  }
+  return parts.join(' ');
 }
 
 /** A round's fleets by name, for refusals and the activity log. */
