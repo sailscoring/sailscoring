@@ -200,8 +200,8 @@ drawing. It goes in before the move because both models need it.
   day's page is today's series Courses tab plus the schedule.
 - The start dialog picks from days. Snapshots carry `{day, course}`.
 - A new `manage-courses` permission, which owners, admins and scorers all
-  get. Today a scorer can't save a course made from the start dialog,
-  because the library needs `manage-series` (#665).
+  get. It replaces `score`, which the series library's write routes take
+  today so a scorer can save a course made from the start dialog (#665).
 - Migration: each series library becomes days. A course goes to the race
   date of the starts that used it, and an unused entry goes to the series'
   first race date. A dry-run report is a named script. Scores can't move,
