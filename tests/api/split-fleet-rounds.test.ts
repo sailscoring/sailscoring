@@ -34,6 +34,7 @@ import * as competitors from '@/lib/api-handlers/competitors';
 import * as series from '@/lib/api-handlers/series';
 import {
   addStageRaces,
+  applySplitOverride,
   commitSplitRound,
   deleteSplitFleetConfig,
   getSplitFleetState,
@@ -526,6 +527,63 @@ describe.skipIf(skip)('commitSplitRound race shape', () => {
     return ids.map((id) => byId.get(id) ?? null);
   }
 
+  /** Each entry's fleet memberships, in the order given. */
+  async function fleetsOf(ids: string[]) {
+    const rows = await db
+      .select({ id: schema.competitors.id, fleetIds: schema.competitors.fleetIds })
+      .from(schema.competitors)
+      .where(inArray(schema.competitors.id, ids));
+    const byId = new Map(rows.map((r) => [r.id, r.fleetIds]));
+    return ids.map((id) => byId.get(id) ?? null);
+  }
+
+  describe('placing an entry by hand after the commit', () => {
+    test('a move to another fleet of a qualifying round is recorded on the round', async () => {
+      const { seriesId, competitorIds } = await seedSeries();
+      const round = await commit(seriesId, competitorIds, []);
+      const [yellow, blue] = round.fleetIds;
+      // Entry 0 was dealt into Yellow.
+      await applySplitOverride(ctx, seriesId, round.id, { competitorId: competitorIds[0], toFleetId: blue });
+      expect(await fleetsOf([competitorIds[0]])).toEqual([[blue]]);
+      const state = await getSplitFleetState(ctx, seriesId);
+      expect(state.rounds[0].overrides).toEqual({ [competitorIds[0]]: blue });
+      expect(yellow).not.toBe(blue);
+    });
+
+    test('an entry in no fleet of the round is placed in one', async () => {
+      const { seriesId, competitorIds } = await seedSeries();
+      const round = await commit(seriesId, competitorIds, []);
+      const lateId = uuid();
+      await competitors.putCompetitor(ctx, seriesId, lateId, {
+        id: lateId, seriesId, fleetIds: [],
+        sailNumber: 'IRL 10', names: ['Late Entry'], clubs: [],
+        gender: '' as const, age: null, createdAt: Date.now(),
+      });
+      await applySplitOverride(ctx, seriesId, round.id, { competitorId: lateId, toFleetId: round.fleetIds[2] });
+      expect(await fleetsOf([lateId])).toEqual([[round.fleetIds[2]]]);
+    });
+
+    test('refuses an entry the series does not have', async () => {
+      const { seriesId, competitorIds } = await seedSeries();
+      const round = await commit(seriesId, competitorIds, []);
+      await expect(
+        applySplitOverride(ctx, seriesId, round.id, { competitorId: uuid(), toFleetId: round.fleetIds[0] }),
+      ).rejects.toThrow(/competitor/);
+    });
+
+    test('a boat is refused where the championship does not draw them', async () => {
+      const { seriesId, competitorIds } = await seedSeries();
+      const round = await commit(seriesId, competitorIds, []);
+      await expect(
+        applySplitOverride(ctx, seriesId, round.id, {
+          competitorId: competitorIds[0],
+          toFleetId: round.fleetIds[1],
+          boat: '401',
+        }),
+      ).rejects.toThrow(/does not draw boats/);
+    });
+  });
+
   describe('boats drawn per fleet', () => {
     test('a commit draws boats for the fleet each entry is placed in, shared across fleets', async () => {
       const { seriesId, competitorIds } = await seedSeries();
@@ -615,6 +673,71 @@ describe.skipIf(skip)('commitSplitRound race shape', () => {
           boats: { [competitorIds[1]]: '405' },
         }),
       ).rejects.toThrow(/not in this fleet/);
+    });
+
+    /** A three-fleet round with boats drawn: entries 0, 3, 6 in Yellow on
+     *  401–403; 1, 4, 7 in Blue and 2, 5, 8 in Red, on the same boats. */
+    async function drawnRound() {
+      const { seriesId, competitorIds } = await seedSeries();
+      await putSplitFleetConfig(ctx, seriesId, { ...defaultSplitFleetConfig(3), boatAssignments: true });
+      const round = await commitSplitRound(ctx, seriesId, {
+        stage: 'qualifying',
+        fromStageRace: 1,
+        method: 'manual',
+        fleets: FLEETS,
+        assignments: Object.fromEntries(competitorIds.map((id, i) => [id, i % 3])),
+        boats: Object.fromEntries(competitorIds.map((id, i) => [id, String(401 + Math.floor(i / 3))])),
+      });
+      return { seriesId, competitorIds, round };
+    }
+
+    test('a move leaves her boat behind and draws the one given in the fleet she joins', async () => {
+      const { seriesId, competitorIds, round } = await drawnRound();
+      const [yellow, blue] = round.fleetIds;
+      await applySplitOverride(ctx, seriesId, round.id, {
+        competitorId: competitorIds[0],
+        toFleetId: blue,
+        boat: ' 409 ',
+      });
+      expect(await fleetsOf([competitorIds[0]])).toEqual([[blue]]);
+      expect(await boatsOf([competitorIds[0]])).toEqual([{ [blue]: '409' }]);
+      // Moved back with no boat given, she has none drawn there yet: the
+      // Yellow boat she left does not come back with her.
+      await applySplitOverride(ctx, seriesId, round.id, { competitorId: competitorIds[0], toFleetId: yellow });
+      expect(await boatsOf([competitorIds[0]])).toEqual([null]);
+    });
+
+    test("a move refuses a boat another entry of the fleet holds, and changes nothing", async () => {
+      const { seriesId, competitorIds, round } = await drawnRound();
+      const [yellow, blue] = round.fleetIds;
+      await expect(
+        applySplitOverride(ctx, seriesId, round.id, {
+          competitorId: competitorIds[0],
+          toFleetId: blue,
+          boat: '401',
+        }),
+      ).rejects.toThrow(/Blue: boat 401 is already drawn for IRL 2/);
+      expect(await fleetsOf([competitorIds[0]])).toEqual([[yellow]]);
+      expect(await boatsOf([competitorIds[0]])).toEqual([{ [yellow]: '401' }]);
+    });
+
+    test('placing her in the fleet she is in redraws her boat there, and keeps it when none is given', async () => {
+      const { seriesId, competitorIds, round } = await drawnRound();
+      const [yellow] = round.fleetIds;
+      await applySplitOverride(ctx, seriesId, round.id, { competitorId: competitorIds[0], toFleetId: yellow });
+      expect(await boatsOf([competitorIds[0]])).toEqual([{ [yellow]: '401' }]);
+      await applySplitOverride(ctx, seriesId, round.id, {
+        competitorId: competitorIds[0],
+        toFleetId: yellow,
+        boat: '410',
+      });
+      expect(await boatsOf([competitorIds[0]])).toEqual([{ [yellow]: '410' }]);
+      await applySplitOverride(ctx, seriesId, round.id, {
+        competitorId: competitorIds[0],
+        toFleetId: yellow,
+        boat: null,
+      });
+      expect(await boatsOf([competitorIds[0]])).toEqual([null]);
     });
   });
 });

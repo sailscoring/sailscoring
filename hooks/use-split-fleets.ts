@@ -122,10 +122,16 @@ export function useAddSplitStageRaces(seriesId: string) {
 export function useApplySplitOverride(seriesId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: { roundId: string; competitorId: string; toFleetId: string | null }) =>
+    mutationFn: (input: {
+      roundId: string;
+      competitorId: string;
+      toFleetId: string | null;
+      boat?: string | null;
+    }) =>
       applySplitOverride(seriesId, input.roundId, {
         competitorId: input.competitorId,
         toFleetId: input.toFleetId,
+        ...(input.boat !== undefined ? { boat: input.boat } : {}),
       }),
     onSuccess: () => invalidateSplitFleetScope(qc, seriesId),
   });

@@ -1365,7 +1365,7 @@ export async function abandonSplitStart(
 export function applySplitOverride(
   seriesId: string,
   roundId: string,
-  payload: { competitorId: string; toFleetId: string | null },
+  payload: { competitorId: string; toFleetId: string | null; boat?: string | null },
 ): Promise<{ warning: string | null }> {
   return apiFetch(`/api/v1/series/${seriesId}/split-fleets/rounds/${roundId}/overrides`, {
     method: 'POST',

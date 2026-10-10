@@ -924,10 +924,11 @@ export async function deleteSplitRound(
 /**
  * Manual placement on a round: late entry, RC/jury move, wrong-fleet
  * correction, or (on the final round) a redress promotion. Moves the boat's
- * membership between the round's fleets and records the override on the
- * round. Promotion after final racing has begun is allowed but flagged —
- * the response carries `warning` so the UI routes the scorer to the
- * jury-shaped resolution (the boat already has scores in the old fleet).
+ * membership between the round's fleets, with her drawn boat where the
+ * championship draws them, and records the override on the round. Promotion
+ * after final racing has begun is allowed but flagged — the response carries
+ * `warning` so the UI routes the scorer to the jury-shaped resolution (the
+ * boat already has scores in the old fleet).
  */
 export async function applySplitOverride(
   workspace: WorkspaceContext,
@@ -941,7 +942,7 @@ export async function applySplitOverride(
   const round = await repos.splitRounds.get(roundId);
   if (!round || round.seriesId !== seriesId) throw new NotFoundError('round');
   if (round.stage === 'repechage') {
-    await editRepechageMembership(workspace, seriesId, round, input.competitorId, input.toFleetId);
+    await editRepechageMembership(workspace, seriesId, round, input.competitorId, input.toFleetId, input.boat);
     return { warning: null };
   }
   if (input.toFleetId === null) {
@@ -951,6 +952,7 @@ export async function applySplitOverride(
   if (!round.fleetIds.includes(toFleetId)) {
     throw new BadRequestError('target fleet is not part of this round');
   }
+  if (input.boat?.trim()) await assertDrawsBoats(workspace, seriesId);
 
   // Post-racing promotion check: any completed race in this round's own
   // stage? Stage identity lives on the starts, so a race is the stage's when
@@ -979,40 +981,17 @@ export async function applySplitOverride(
     }
   }
 
+  const fleetName = await roundFleetNames(round);
+  let placed!: Placement;
   await getDb().transaction(async (tx) => {
     const txRepos = createRepos({ db: tx, workspaceId: workspace.workspaceId });
-    // Move membership: drop the round's other fleets, add the target.
-    for (const fid of round.fleetIds) {
-      if (fid === toFleetId) continue;
-      await tx
-        .update(schema.competitors)
-        .set({
-          fleetIds: sql`array_remove(${schema.competitors.fleetIds}, ${fid}::uuid)`,
-          version: sql`${schema.competitors.version} + 1`,
-          updatedAt: sql`now()`,
-        })
-        .where(
-          and(
-            eq(schema.competitors.id, input.competitorId),
-            eq(schema.competitors.seriesId, seriesId),
-            eq(schema.competitors.workspaceId, workspace.workspaceId),
-          ),
-        );
-    }
-    await tx
-      .update(schema.competitors)
-      .set({
-        fleetIds: sql`array_append(array_remove(${schema.competitors.fleetIds}, ${toFleetId}::uuid), ${toFleetId}::uuid)`,
-        version: sql`${schema.competitors.version} + 1`,
-        updatedAt: sql`now()`,
-      })
-      .where(
-        and(
-          eq(schema.competitors.id, input.competitorId),
-          eq(schema.competitors.seriesId, seriesId),
-          eq(schema.competitors.workspaceId, workspace.workspaceId),
-        ),
-      );
+    placed = await placeInRound(tx, workspace.workspaceId, seriesId, {
+      competitorId: input.competitorId,
+      roundFleetIds: round.fleetIds,
+      toFleetId,
+      boat: input.boat,
+      fleetName,
+    });
     await txRepos.splitRounds.setOverrides(
       roundId,
       { ...(round.overrides ?? {}), [input.competitorId]: toFleetId },
@@ -1024,10 +1003,129 @@ export async function applySplitOverride(
   await trackChange(workspace, {
     action: 'split-fleets.round-committed',
     seriesId,
-    summary: 'Manual fleet placement recorded',
+    summary:
+      placed.fromFleetId === null
+        ? `Placed ${placed.sailNumber} in ${fleetName(toFleetId)}`
+        : placed.fromFleetId === toFleetId
+          ? `Redrew ${placed.sailNumber}'s boat in ${fleetName(toFleetId)}`
+          : `Moved ${placed.sailNumber} from ${fleetName(placed.fromFleetId)} to ${fleetName(toFleetId)}`,
     sessionKey: 'split-fleets',
   });
   return { warning };
+}
+
+/** A round's fleets by name, for refusals and the activity log. */
+async function roundFleetNames(round: SplitRound): Promise<(fleetId: string) => string> {
+  const rows = await getDb()
+    .select({ id: schema.fleets.id, name: schema.fleets.name })
+    .from(schema.fleets)
+    .where(inArray(schema.fleets.id, round.fleetIds));
+  const names = new Map(rows.map((r) => [r.id, r.name]));
+  return (fleetId) => names.get(fleetId) ?? 'another fleet';
+}
+
+/** A boat drawn for a fleet is only meaningful where the championship
+ *  supplies its boats and draws them. */
+async function assertDrawsBoats(workspace: WorkspaceContext, seriesId: string): Promise<void> {
+  const series = await getSeriesRow(workspace, seriesId);
+  const config = normalizeSplitFleetConfig((series.qfConfig ?? {}) as Partial<SplitFleetConfig>);
+  if (!config.boatAssignments) {
+    throw new BadRequestError('this championship does not draw boats');
+  }
+}
+
+interface Placement {
+  sailNumber: string;
+  /** The round's fleet she was in before, or null if she was in none. */
+  fromFleetId: string | null;
+}
+
+/**
+ * Put one entry in one fleet of a round, or (`toFleetId` null) in none of
+ * them. She leaves the round's other fleets and her boat in each goes with
+ * her: a boat left behind would come back, unchecked, if she were ever placed
+ * there again. A `boat` names the boat drawn for her in the fleet she joins,
+ * checked against the boats its other entries hold; null or blank clears it,
+ * and with none given she keeps her boat where she stays and has none drawn
+ * yet where she arrives.
+ */
+async function placeInRound(
+  tx: Tx,
+  workspaceId: string,
+  seriesId: string,
+  move: {
+    competitorId: string;
+    roundFleetIds: readonly string[];
+    toFleetId: string | null;
+    boat?: string | null;
+    fleetName: (fleetId: string) => string;
+  },
+): Promise<Placement> {
+  const { competitorId, roundFleetIds, toFleetId } = move;
+  const [row] = await tx
+    .select({
+      sailNumber: schema.competitors.sailNumber,
+      fleetIds: schema.competitors.fleetIds,
+      fleetSailNumbers: schema.competitors.fleetSailNumbers,
+    })
+    .from(schema.competitors)
+    .where(
+      and(
+        eq(schema.competitors.id, competitorId),
+        eq(schema.competitors.seriesId, seriesId),
+        eq(schema.competitors.workspaceId, workspaceId),
+      ),
+    );
+  if (!row) throw new NotFoundError('competitor');
+
+  const fromFleetId = roundFleetIds.find((fid) => row.fleetIds.includes(fid)) ?? null;
+  const stays = toFleetId !== null && row.fleetIds.includes(toFleetId);
+  const fleetIds = row.fleetIds.filter((fid) => fid === toFleetId || !roundFleetIds.includes(fid));
+  if (toFleetId !== null && !stays) fleetIds.push(toFleetId);
+
+  const boats = { ...(row.fleetSailNumbers ?? {}) };
+  for (const fid of roundFleetIds) if (fid !== toFleetId) delete boats[fid];
+  if (toFleetId !== null) {
+    const boat = move.boat?.trim();
+    if (boat) {
+      const others = await tx
+        .select({
+          sailNumber: schema.competitors.sailNumber,
+          fleetSailNumbers: schema.competitors.fleetSailNumbers,
+        })
+        .from(schema.competitors)
+        .where(
+          and(
+            eq(schema.competitors.seriesId, seriesId),
+            eq(schema.competitors.workspaceId, workspaceId),
+            sql`${toFleetId}::uuid = any(${schema.competitors.fleetIds})`,
+            sql`${schema.competitors.id} <> ${competitorId}::uuid`,
+          ),
+        );
+      const holder = others.find(
+        (o) => duplicateBoats([o.fleetSailNumbers?.[toFleetId], boat]).length > 0,
+      );
+      if (holder) {
+        throw new BadRequestError(
+          `${move.fleetName(toFleetId)}: boat ${boat} is already drawn for ${holder.sailNumber}`,
+        );
+      }
+      boats[toFleetId] = boat;
+    } else if (move.boat !== undefined || !stays) {
+      delete boats[toFleetId];
+    }
+  }
+
+  await tx
+    .update(schema.competitors)
+    .set({
+      fleetIds,
+      fleetSailNumbers: Object.keys(boats).length ? boats : null,
+      version: sql`${schema.competitors.version} + 1`,
+      updatedAt: sql`now()`,
+    })
+    .where(eq(schema.competitors.id, competitorId));
+  return { sailNumber: row.sailNumber, fromFleetId };
 }
 
 /**
@@ -1133,6 +1231,7 @@ async function editRepechageMembership(
   round: SplitRound,
   competitorId: string,
   toFleetId: string | null,
+  boat?: string | null,
 ): Promise<void> {
   if (toFleetId !== null && !round.fleetIds.includes(toFleetId)) {
     throw new BadRequestError('target fleet is not part of this round');
@@ -1148,45 +1247,23 @@ async function editRepechageMembership(
   }
   const competitor = competitors.find((c) => c.id === competitorId);
   if (!competitor) throw new NotFoundError('competitor');
+  const config = normalizeSplitFleetConfig((series.qfConfig ?? {}) as Partial<SplitFleetConfig>);
+  if (boat?.trim() && !config.boatAssignments) {
+    throw new BadRequestError('this championship does not draw boats');
+  }
   const joining = !round.fleetIds.some((fid) => competitor.fleetIds.includes(fid));
   if (toFleetId !== null && joining) {
-    const config = normalizeSplitFleetConfig(series.qfConfig as Partial<SplitFleetConfig>);
     assertEligible({ config, rounds, competitors }, [competitorId]);
   }
+  const fleetName = await roundFleetNames(round);
   await getDb().transaction(async (tx) => {
-    for (const fid of round.fleetIds) {
-      if (fid === toFleetId) continue;
-      await tx
-        .update(schema.competitors)
-        .set({
-          fleetIds: sql`array_remove(${schema.competitors.fleetIds}, ${fid}::uuid)`,
-          version: sql`${schema.competitors.version} + 1`,
-          updatedAt: sql`now()`,
-        })
-        .where(
-          and(
-            eq(schema.competitors.id, competitorId),
-            eq(schema.competitors.seriesId, seriesId),
-            eq(schema.competitors.workspaceId, workspace.workspaceId),
-          ),
-        );
-    }
-    if (toFleetId !== null) {
-      await tx
-        .update(schema.competitors)
-        .set({
-          fleetIds: sql`array_append(array_remove(${schema.competitors.fleetIds}, ${toFleetId}::uuid), ${toFleetId}::uuid)`,
-          version: sql`${schema.competitors.version} + 1`,
-          updatedAt: sql`now()`,
-        })
-        .where(
-          and(
-            eq(schema.competitors.id, competitorId),
-            eq(schema.competitors.seriesId, seriesId),
-            eq(schema.competitors.workspaceId, workspace.workspaceId),
-          ),
-        );
-    }
+    await placeInRound(tx, workspace.workspaceId, seriesId, {
+      competitorId,
+      roundFleetIds: round.fleetIds,
+      toFleetId,
+      boat,
+      fleetName,
+    });
     await createRepos({ db: tx, workspaceId: workspace.workspaceId }).series.touch(seriesId, workspace.userId);
   });
   await trackChange(workspace, {

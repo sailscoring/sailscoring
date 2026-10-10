@@ -171,6 +171,10 @@ export const splitOverrideSchema = z.object({
   /** Null takes a boat out of the repêchage (the only round whose
    *  membership is a list the scorer keeps by hand). */
   toFleetId: uuidSchema.nullable(),
+  /** Where boats are drawn: her boat in the fleet she joins. Null or blank
+   *  clears it; absent keeps it where she stays and leaves it undrawn where
+   *  she arrives. */
+  boat: z.string().trim().max(40).nullable().optional(),
 });
 
 /** Body for POST …/split-fleets/promotions — boats promoted into the medal
