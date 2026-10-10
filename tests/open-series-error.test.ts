@@ -56,6 +56,15 @@ describe('describeOpenSeriesError', () => {
     expect(msg).toContain('and 3 more');
   });
 
+  it('gives the server’s own reason when a 400 carries one instead of issues', () => {
+    const msg = describeOpenSeriesError(
+      new ValidationApiError(undefined, 'Unsupported results data version: 9'),
+    );
+    expect(msg).toContain('Unsupported results data version: 9');
+    expect(msg).not.toMatch(/didn't pass validation/i);
+    expect(msg).not.toMatch(/try again/i);
+  });
+
   it('falls back to a generic non-retry message when a 400 carries no issues', () => {
     const msg = describeOpenSeriesError(new ValidationApiError(undefined));
     expect(msg).toMatch(/didn't pass validation/i);

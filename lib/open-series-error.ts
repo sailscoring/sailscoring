@@ -24,7 +24,9 @@ export const READ_ONLY_MESSAGES = {
  *  - **Validation rejection (400).** The file reached the server but a field is
  *    missing or malformed — typically a sparse file from an external tool. This
  *    is deterministic: retrying does nothing. We name the offending fields so a
- *    user's report is self-diagnosing, and we don't offer a retry.
+ *    user's report is self-diagnosing, and we don't offer a retry. Where the
+ *    server instead wrote a sentence for the scorer — an unsupported version,
+ *    a scoring setting that no longer exists — that sentence is the reason.
  *  - **Server / network failure (5xx, fetch reject).** Genuinely transient —
  *    here "try again" is honest advice.
  *  - **Anything else.** Surface the underlying message if we have one, but don't
@@ -44,6 +46,7 @@ export function describeOpenSeriesError(err: unknown): string {
     if (fields.length > 0) {
       return `This file can't be opened: it's missing or has invalid values for ${formatFieldList(fields)}. It may have been produced by an incompatible tool or an older version of Sail Scoring.`;
     }
+    if (err.detail) return `This file can't be opened. ${err.detail}`;
     return "This file can't be opened: it didn't pass validation. It may have been produced by an incompatible tool or an older version of Sail Scoring.";
   }
 
