@@ -456,7 +456,7 @@ setting. The live read path and the explicitly provisional publication remain op
 
 ## Course data from the water
 
-[`course-days.md`](course-days.md) proposes where this lives: a
+[`orc/course-days.md`](orc/course-days.md) proposes where this lives: a
 workspace-level course day rather than the series libraries. It also draws
 the line between scoring and race management, and orders the work below
 into steps.
