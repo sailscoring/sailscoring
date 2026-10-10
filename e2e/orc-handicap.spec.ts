@@ -238,6 +238,51 @@ test('Refresh from source is offered though data.orc.org gives no date', async (
   expect(asked.at(-1)).toBe('1');
 });
 
+test('opening the ORC step gives a series back the option names it lost', async ({ page }) => {
+  // The certificates come in without ORC's catalog, as on a series whose
+  // copy dropped the names.
+  let listing: typeof LISTING_FIXTURE = { ...LISTING_FIXTURE, scoringOptions: [] };
+  await page.route('**/api/v1/handicap-sources/orc?*', (route) => route.fulfill({ json: listing }));
+
+  await createSeriesQuick(page, { name: 'ORC Names Test 2026' });
+  await setUpOrcFleet(page, [
+    { sailNumber: 'IRL 2507', name: 'Impetuous' },
+    { sailNumber: 'IRL 1551', name: 'Mojo' },
+  ]);
+  await importCertificates(page, 2);
+
+  const openFleetOptions = async () => {
+    await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+    await expect(page.locator('h2', { hasText: 'Fleets' })).toBeVisible();
+    await page.locator('h2', { hasText: 'Fleets' }).locator('..').locator('button').click();
+    await page.locator('[data-testid^="orc-option-"]').click();
+  };
+  const named = page.getByRole('option', { name: '5-Band 50-50 Windward/Leeward Med · time-on-time' });
+
+  // With no names, the fleet's picker offers raw field names.
+  await openFleetOptions();
+  await expect(page.getByRole('option', { name: 'IRL_5B_WL_M_TOT' })).toBeVisible();
+  await expect(named).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  // Every certificate is current, so there is nothing to apply; opening the
+  // step is enough to store the names.
+  // A fresh page load, so the wizard doesn't reuse the copy it holds.
+  listing = LISTING_FIXTURE;
+  await page.reload();
+  await page.getByRole('link', { name: 'Competitors' }).click();
+  await page.getByRole('button', { name: 'Update handicaps' }).click();
+  await page.getByText('ORC certificates', { exact: true }).click();
+  await page.getByRole('button', { name: 'Next' }).click();
+  await expect(page.getByText('ORC certificates as of 19/08/2026')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Apply 0' })).toBeDisabled();
+  await page.getByRole('button', { name: 'Cancel' }).click();
+
+  await openFleetOptions();
+  await expect(named).toBeVisible();
+});
+
 test('add to fleet: both divisions are offered, and the fleet picks the certificate', async ({ page }) => {
   await createSeriesQuick(page, { name: 'ORC Add Test 2026' });
 

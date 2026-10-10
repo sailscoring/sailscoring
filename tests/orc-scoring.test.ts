@@ -3,7 +3,7 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { mergeOrcScoringOptions, orcFieldKind, orcFleetProfile, orcOptionLabel, orcSelectableOptions, orcTotRating, parseOrcRmsJson } from '@/lib/orc-certificate';
+import { mergeOrcScoringOptions, orcFieldKind, orcScoringOptionsWouldChange, orcFleetProfile, orcOptionLabel, orcSelectableOptions, orcTotRating, parseOrcRmsJson } from '@/lib/orc-certificate';
 import { scorePcsRace, type PcsAllowances } from '@/lib/orc-pcs';
 import { calculateFleetStandings, calculateHandicapRaceScores } from '@/lib/scoring';
 import type { Competitor, Finish, Fleet, OrcCertData, Race, RaceStart } from '@/lib/types';
@@ -591,6 +591,20 @@ describe('ORC wind-band selection (per-start option)', () => {
     ]);
     expect(Object.keys(both).sort()).toEqual(['GBR_AP_LM_TOT', 'IRL_AP_LM_TOT']);
     expect(both.IRL_AP_LM_TOT).toMatchObject({ name: 'All Purpose L/M', countryId: 'IRL' });
+  });
+
+  it('says whether a listing would add to the stored names', () => {
+    const listing = [
+      { Fieldname: 'IRL_AP_LM_TOT', Name: 'All Purpose L/M', Kind: 'TOT' as const, CountryId: 'IRL' },
+    ];
+    // A series with no names gains them; one with all of them is left alone.
+    expect(orcScoringOptionsWouldChange(undefined, listing)).toBe(true);
+    const stored = mergeOrcScoringOptions(undefined, listing);
+    expect(orcScoringOptionsWouldChange(stored, listing)).toBe(false);
+    // A listing with nothing usable changes nothing.
+    expect(orcScoringOptionsWouldChange(undefined, [])).toBe(false);
+    // ORC renaming an option is a change worth storing.
+    expect(orcScoringOptionsWouldChange(stored, [{ ...listing[0], Name: 'All Purpose Light/Medium' }])).toBe(true);
   });
 
   it('ignores catalog entries with nothing usable to say', () => {

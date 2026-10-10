@@ -302,6 +302,23 @@ export function mergeOrcScoringOptions(
   return next;
 }
 
+/**
+ * Whether merging a listing's `ScoringOptions` into a stored catalog would
+ * change it: a name the series lacks, or one ORC has since renamed. The
+ * listing is merged every time it loads, so this keeps a series that already
+ * has every name from being written to again.
+ */
+export function orcScoringOptionsWouldChange(
+  existing: OrcScoringOptionCatalog | undefined,
+  options: ReadonlyArray<OrcScoringOption>,
+): boolean {
+  const merged = mergeOrcScoringOptions(existing, options);
+  return Object.entries(merged).some(([field, entry]) => {
+    const was = existing?.[field];
+    return !was || was.name !== entry.name || was.kind !== entry.kind || was.countryId !== entry.countryId;
+  });
+}
+
 export function orcFleetProfile(fleet: { orcProfile?: OrcProfile }): OrcProfile {
   return fleet.orcProfile ?? DEFAULT_ORC_PROFILE;
 }

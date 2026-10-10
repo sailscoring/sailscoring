@@ -248,9 +248,10 @@ export default function RatingSystems() {
           every country’s national fields, not just its issuer’s, so only the options
           the imported certificates’ own catalog names are offered: the several hundred
           belonging to offices on other continents stay out of the list. The names come
-          from the certificates themselves when they are imported, so an office adding
-          an option needs nothing here. A series whose certificates were imported before
-          this shows the field names, as it did before.
+          from the ORC database each time Update handicaps reads it, so an office adding
+          an option needs nothing here. A series showing field names instead gets the names
+          back by opening Update handicaps on its ORC certificates, even when there is
+          nothing to apply.
         </p>
         <p>
           <strong className="text-foreground">Performance curve scoring (PCS)</strong>{' '}

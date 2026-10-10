@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
@@ -22,6 +22,7 @@ import { loadOrcCertificates } from '@/lib/api-repository';
 import {
   ORC_FAMILY_LABEL,
   mergeOrcScoringOptions,
+  orcScoringOptionsWouldChange,
   type OrcCertEntry,
   type OrcCertListing,
   type OrcFamily,
@@ -135,6 +136,31 @@ export function OrcSourceStep({
   const queryClient = useQueryClient();
   const { data: series } = useSeries(seriesId);
   const updateSeries = useUpdateSeries();
+
+  // The listing carries ORC's own names for its rating fields, and this is
+  // the only moment the app has them: the pickers and the published pages
+  // that need them run nowhere near a download. They are stored as soon as a
+  // listing loads rather than on Apply, so a series that lost them gets them
+  // back by opening this step, even when every certificate is current and
+  // there is nothing to apply. Unioned with what the series already knows, so
+  // a second country's certificates add their options rather than replacing
+  // the first's.
+  const loadedScoringOptions = useMemo(
+    () => [standard.data, nonSpin.data, doubleHanded.data].flatMap((d) => d?.scoringOptions ?? []),
+    [standard.data, nonSpin.data, doubleHanded.data],
+  );
+  const storedScoringOptions = series?.orcScoringOptions;
+  const { mutate: mutateSeries } = updateSeries;
+  useEffect(() => {
+    if (!series || !orcScoringOptionsWouldChange(storedScoringOptions, loadedScoringOptions)) return;
+    mutateSeries({
+      id: seriesId,
+      patch: (current) => ({
+        orcScoringOptions: mergeOrcScoringOptions(current.orcScoringOptions, loadedScoringOptions),
+        lastModifiedAt: Date.now(),
+      }),
+    });
+  }, [series, seriesId, storedScoringOptions, loadedScoringOptions, mutateSeries]);
   const seriesHasRaces = useSeriesHasRaces(seriesId);
   const competitorIdsWithResults = useCompetitorIdsWithResults(seriesId);
 
@@ -207,20 +233,6 @@ export function OrcSourceStep({
 
   async function handleApply() {
     if (!(await choices.trySave())) return;
-    // The listing carries ORC's own names for its rating fields, and this is
-    // the only moment the app has them: the pickers and the published pages
-    // that need them run nowhere near a download. Unioned with what the
-    // series already knows, so importing a second country's certificates adds
-    // its options rather than replacing the first's (#602).
-    const options = needed.flatMap(({ q }) => q.data?.scoringOptions ?? []);
-    if (options.length > 0) {
-      const next = mergeOrcScoringOptions(series?.orcScoringOptions, options);
-      updateSeries.mutate({
-        id: seriesId,
-        // eslint-disable-next-line react-hooks/purity -- Date.now() runs inside an async event handler, not render.
-        patch: { orcScoringOptions: next, lastModifiedAt: Date.now() },
-      });
-    }
     onApply(
       buildPreviewUpdateRows(
         split.appliedChangeRows,
