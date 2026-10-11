@@ -50,8 +50,9 @@ const splitFleetsTab = {
 };
 
 // The course library behind ORC constructed courses: marks and courses a
-// start picks from. ORC's extra work, so it appears only when a fleet in
-// the series scores ORC, and nothing of it leaks into any other series.
+// start picks from. ORC's extra work, so it appears only where the library
+// is enabled and a fleet in the series scores ORC, and nothing of it leaks
+// into any other series.
 const coursesTab = { label: 'Courses', chord: 'o', href: (id: string) => `/series/${id}/courses` };
 
 // What a spectator view shows (#475): the entry list, the racing (down to
@@ -103,8 +104,9 @@ export default function SeriesLayout({
   const asPublished = series?.asPublished ?? false;
   // The Courses tab needs the fleets to know whether any scores ORC. A
   // spectator view has no workspace behind it, so the query is not asked.
-  const { data: fleetsForTabs } = useFleetsBySeries(id, { enabled: has('orc') && !isSpectator });
-  const showCourses = has('orc') && (fleetsForTabs ?? []).some((f) => f.scoringSystem === 'orc');
+  const offerLibrary = has('orc') && has('course-library');
+  const { data: fleetsForTabs } = useFleetsBySeries(id, { enabled: offerLibrary && !isSpectator });
+  const showCourses = offerLibrary && (fleetsForTabs ?? []).some((f) => f.scoringSystem === 'orc');
   // Prizes slots in after Standings — allocation reads the standings, so the
   // tabs follow the scorer's flow. Split Fleets leads the bar — on a
   // championship series it IS the workflow (and the standings view), so the

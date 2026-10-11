@@ -28,8 +28,8 @@ export function VenuePositionCard({
   const { has } = useFeatures();
   const [editing, setEditing] = useState(false);
   // The series' marks, whose centre is offered as the position while it is
-  // being edited.
-  const { data: marks } = useSeriesMarks(seriesId, { enabled: editing && has('orc') });
+  // being edited, where the library that holds them is in sight.
+  const { data: marks } = useSeriesMarks(seriesId, { enabled: editing && has('orc') && has('course-library') });
   const [text, setText] = useState('');
   const [error, setError] = useState('');
   const value = series.venuePosition;

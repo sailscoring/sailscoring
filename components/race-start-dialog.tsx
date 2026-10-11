@@ -236,13 +236,16 @@ function RaceStartDialogInner({
   const [showLegNames, setShowLegNames] = useState(() => (seed?.courseLegs ?? []).some((leg) => leg.name));
   const [importOpen, setImportOpen] = useState(false);
 
-  // The course library (ORC constructed courses): the start picks a course,
-  // and its legs fill in from there — the wind is the start's own. Offered
-  // wherever the legs are; the queries only run when they are.
+  // The start's course (ORC constructed courses): its summary, its wind and
+  // its drawing, wherever the legs are. With the course library the start
+  // picks a course, and its legs fill in from there — the wind is the
+  // start's own. Without it, the start keeps the course it holds, and the
+  // series' marks still place an old one on its chart.
   const offerCourse = offerLegs && has('orc');
-  const { data: libraryCourses } = useSeriesCourses(seriesId, { enabled: offerCourse });
+  const offerLibrary = offerCourse && has('course-library');
+  const { data: libraryCourses } = useSeriesCourses(seriesId, { enabled: offerLibrary });
   const { data: libraryMarks } = useSeriesMarks(seriesId, { enabled: offerCourse });
-  const { data: seriesStarts } = useRaceStartsBySeries(seriesId, { enabled: offerCourse });
+  const { data: seriesStarts } = useRaceStartsBySeries(seriesId, { enabled: offerLibrary });
   const { data: seriesRaces } = useRacesBySeries(seriesId);
   const marksById = useMemo(() => new Map((libraryMarks ?? []).map((m) => [m.id, m])), [libraryMarks]);
   // The data set the series' own marks came from: the chart a course drawn
@@ -486,6 +489,23 @@ function RaceStartDialogInner({
     setSnapshot({ ...snapshot, ...(valid ? { windSpeedKts: kt } : { windSpeedKts: undefined }) });
   }
 
+  /** Take the course off the start, legs and all: the picker's "Not
+   *  recorded", for a dialog without the library to pick from. */
+  async function removeCourse() {
+    const ok = await confirm({
+      title: 'Remove the course?',
+      description: `${snapshot?.name ?? 'The course'} and its ${legRows.length} leg${legRows.length === 1 ? '' : 's'} are taken off this start.`,
+      confirmLabel: 'Remove',
+    });
+    if (!ok) return;
+    setLegRows([]);
+    setWindInput('');
+    setWindKept(undefined);
+    setShowLegNames(false);
+    setLegsEdited(false);
+    setSnapshot(undefined);
+  }
+
   async function recompute() {
     if (!libraryCourse) return;
     const ok = await confirm({
@@ -550,7 +570,9 @@ function RaceStartDialogInner({
       }}
       missing={magnetic
         ? 'The course was imported in magnetic with nowhere to read the variation at, so this start keeps it in magnetic.'
-        : 'Set the venue position in the series settings, or pick a course built from marks, to enter them in magnetic.'}
+        : offerLibrary
+          ? 'Set the venue position in the series settings, or pick a course built from marks, to enter them in magnetic.'
+          : 'Set the venue position in the series settings to enter them in magnetic.'}
     />
   );
 
@@ -783,37 +805,47 @@ function RaceStartDialogInner({
               </p>
             </div>
           )}
-          {offerCourse && (
+          {offerCourse && (offerLibrary || snapshot || drawing) && (
             <div className="space-y-1.5" data-testid="start-course">
-              <label className="text-sm font-medium">Course</label>
-              <div className="flex items-center gap-2">
-                <Select
-                  value={!snapshot ? '__none__' : snapshot.courseId ?? '__imported__'}
-                  onValueChange={(v) => void pickCourse(v)}
-                >
-                  <SelectTrigger className="w-full" data-testid="start-course-picker">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">Not recorded</SelectItem>
-                    {/* An imported course is the start's own: no library
-                        entry stands behind it. */}
-                    {snapshot && !snapshot.courseId && (
-                      <SelectItem value="__imported__">{snapshot.name} (imported)</SelectItem>
-                    )}
-                    {snapshot?.courseId && !libraryCourse && (
-                      <SelectItem value={snapshot.courseId}>{snapshot.name} (no longer in the library)</SelectItem>
-                    )}
-                    {orderedCourses.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button type="button" variant="outline" size="sm" className="shrink-0" onClick={() => setCourseDialog({ kind: 'new' })} data-testid="start-new-course">
-                  New course…
-                </Button>
-              </div>
-              {refControl}
+              {offerLibrary ? (
+                <>
+                  <label className="text-sm font-medium">Course</label>
+                  <div className="flex items-center gap-2">
+                    <Select
+                      value={!snapshot ? '__none__' : snapshot.courseId ?? '__imported__'}
+                      onValueChange={(v) => void pickCourse(v)}
+                    >
+                      <SelectTrigger className="w-full" data-testid="start-course-picker">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">Not recorded</SelectItem>
+                        {/* An imported course is the start's own: no library
+                            entry stands behind it. */}
+                        {snapshot && !snapshot.courseId && (
+                          <SelectItem value="__imported__">{snapshot.name} (imported)</SelectItem>
+                        )}
+                        {snapshot?.courseId && !libraryCourse && (
+                          <SelectItem value={snapshot.courseId}>{snapshot.name} (no longer in the library)</SelectItem>
+                        )}
+                        {orderedCourses.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button type="button" variant="outline" size="sm" className="shrink-0" onClick={() => setCourseDialog({ kind: 'new' })} data-testid="start-new-course">
+                      New course…
+                    </Button>
+                  </div>
+                  {refControl}
+                </>
+              ) : snapshot && (
+                // Nothing to pick from: the course the start holds is named,
+                // and can be taken off.
+                <p className="text-sm font-medium">
+                  Course <span className="font-normal text-muted-foreground" data-testid="start-course-name">{snapshot.name}</span>
+                </p>
+              )}
               {snapshot && (
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                   <span className="font-mono">{legRows.length} legs · {legsTotal.toFixed(2)} NM</span>
@@ -832,12 +864,17 @@ function RaceStartDialogInner({
                   {legsEdited && (
                     <span className="rounded bg-amber-100 px-1.5 py-0.5 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300" data-testid="legs-edited">legs edited</span>
                   )}
-                  {outOfDate && (
+                  {offerLibrary && outOfDate && (
                     <span className="rounded bg-amber-100 px-1.5 py-0.5 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300" data-testid="course-out-of-date">course changed since</span>
                   )}
-                  {libraryCourse && (legsEdited || outOfDate) && (
+                  {offerLibrary && libraryCourse && (legsEdited || outOfDate) && (
                     <Button type="button" variant="link" size="sm" className="h-auto p-0 text-xs" onClick={() => void recompute()} data-testid="recompute-legs">
                       Recompute from course
+                    </Button>
+                  )}
+                  {!offerLibrary && (
+                    <Button type="button" variant="link" size="sm" className="h-auto p-0 text-xs" onClick={() => void removeCourse()} data-testid="remove-course">
+                      Remove course
                     </Button>
                   )}
                 </div>
@@ -874,7 +911,7 @@ function RaceStartDialogInner({
           )}
           {offerLegs && (
             <div className="space-y-1.5">
-              {!offerCourse && refControl}
+              {!offerLibrary && refControl}
               {/* Above the fold, because picking a course folds the legs away
                   and this is a scoring input, not a detail of the table. */}
               {offerWindSpeed && (
@@ -891,7 +928,7 @@ function RaceStartDialogInner({
                   kt — put on every leg
                 </label>
               )}
-              {offerCourse ? (
+              {offerLibrary ? (
                 <button
                   type="button"
                   className="flex items-center gap-1 text-sm font-medium"
@@ -905,7 +942,7 @@ function RaceStartDialogInner({
               ) : (
                 <label className="text-sm font-medium">Course legs</label>
               )}
-              {(legsOpen || !offerCourse) && (
+              {(legsOpen || !offerLibrary) && (
                 <div className="space-y-1">
                   <LegTable
                     rows={legRows}
@@ -1011,7 +1048,7 @@ function RaceStartDialogInner({
         </div>
       </DialogContent>
     </Dialog>
-    {offerCourse && (
+    {offerLibrary && (
       <CourseDialog
         mode={courseDialog}
         seriesId={seriesId}

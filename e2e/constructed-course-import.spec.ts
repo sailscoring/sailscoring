@@ -13,7 +13,9 @@ import { createFleets, createSeriesQuick, downloadFleetHtml, enableFeatures, set
  * anchored course picked as a file, previewed, filled into the legs as its
  * magnetic figures read, kept on reopening, replaced only when asked, and
  * drawn on the club chart on the published page with each leg under its
- * name. The ORC certificate fetch is stubbed as in orc-handicap.spec.ts.
+ * name, and taken off again. The dialog is the one without the course
+ * library: no course to pick, and the legs always open. The ORC
+ * certificate fetch is stubbed as in orc-handicap.spec.ts.
  */
 
 const SAMPLE = JSON.parse(
@@ -160,7 +162,7 @@ test('an ORC constructed course imported into a start, and drawn where it sits',
   await expect(page.getByLabel('Leg 3 wind speed')).toHaveValue('13');
   await expect(page.getByRole('radio', { name: '°M' })).toHaveAttribute('aria-checked', 'true');
   await expect(page.getByTestId('bearing-ref')).toContainText('World Magnetic Model');
-  await expect(page.getByTestId('start-course-picker')).toContainText('Autumn League, Race 3, Class 1 (imported)');
+  await expect(page.getByTestId('start-course-name')).toHaveText('Autumn League, Race 3, Class 1');
   await expect(page.getByTestId('legs-edited')).toHaveCount(0);
   // On the club's chart, from the one position the course recorded.
   const drawing = page.getByTestId('start-course').getByTestId('course-drawing');
@@ -173,8 +175,7 @@ test('an ORC constructed course imported into a start, and drawn where it sits',
 
   // Reopened, nothing has moved; importing over the legs asks first.
   await page.getByRole('button', { name: 'Edit start' }).click();
-  await expect(page.getByTestId('start-course-picker')).toContainText('(imported)');
-  await page.getByTestId('legs-disclosure').click();
+  await expect(page.getByTestId('start-course-name')).toHaveText('Autumn League, Race 3, Class 1');
   await expect(page.getByLabel('Leg 1 name')).toHaveValue('Start – Windward');
   await expect(page.getByLabel('Leg 1 bearing')).toHaveValue('282');
   await expect(page.getByTestId('legs-edited')).toHaveCount(0);
@@ -186,7 +187,7 @@ test('an ORC constructed course imported into a start, and drawn where it sits',
   );
   await page.getByTestId('confirm-dialog-cancel').click();
   await expect(page.getByTestId('confirm-dialog')).toBeHidden();
-  await expect(page.getByTestId('start-course-picker')).toContainText('Autumn League, Race 3, Class 1 (imported)');
+  await expect(page.getByTestId('start-course-name')).toHaveText('Autumn League, Race 3, Class 1');
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByRole('dialog')).toBeHidden();
 
@@ -218,7 +219,6 @@ test('a course with nowhere to read the variation at, kept in magnetic', async (
 
   // Reopened, still magnetic, and nothing has moved.
   await page.getByRole('button', { name: 'Edit start' }).click();
-  await page.getByTestId('legs-disclosure').click();
   await expect(page.getByLabel('Leg 1 bearing')).toHaveValue('282');
   await expect(page.getByTestId('bearing-ref')).toContainText('Bearings in °M');
   await page.getByRole('button', { name: 'Cancel' }).click();
@@ -230,4 +230,33 @@ test('a course with nowhere to read the variation at, kept in magnetic', async (
   expect(html).toContain('Start – Windward 0.67 NM @ 282°M, wind 280°M at 11.5 kt');
   expect(html).toContain('there was no position to read the variation at');
   expect(html).toContain('Magnetic north is up.');
+});
+
+test('a course taken off a start goes with its legs, with no library to pick from', async ({ page }) => {
+  await openStartOnConstructedCourse(page, 'Removed Course 2026');
+  // No course to pick or build: legs are typed or imported.
+  await expect(page.getByTestId('start-course-picker')).toHaveCount(0);
+  await expect(page.getByTestId('start-new-course')).toHaveCount(0);
+  await page.getByTestId('import-course-disclosure').click();
+  await page.getByLabel('Course to import', { exact: true }).fill(JSON.stringify(COURSE));
+  await page.getByTestId('import-course-use').click();
+  await expect(page.getByTestId('start-course-name')).toHaveText('Autumn League, Race 3, Class 1');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('dialog')).toBeHidden();
+  await expect(page.getByTitle('The course this start sailed')).toHaveText('Autumn League, Race 3, Class 1');
+  // Nor a Courses tab.
+  await expect(page.getByRole('navigation').getByRole('link', { name: 'Races' })).toBeVisible();
+  await expect(page.getByRole('navigation').getByRole('link', { name: 'Courses' })).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Edit start' }).click();
+  await page.getByTestId('remove-course').click();
+  await expect(page.getByTestId('confirm-dialog')).toContainText(
+    'Autumn League, Race 3, Class 1 and its 3 legs are taken off this start.',
+  );
+  await page.getByTestId('confirm-dialog-confirm').click();
+  await expect(page.getByTestId('start-course-name')).toHaveCount(0);
+  await expect(page.getByLabel('Leg 1 bearing')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('dialog')).toBeHidden();
+  await expect(page.getByTitle('The course this start sailed')).toHaveCount(0);
 });
