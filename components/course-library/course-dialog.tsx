@@ -555,7 +555,7 @@ function CourseDialogInner({
                     setLegRows((rows) => rowsInRef(rows, display, { ...display, ref }));
                     setBearingRef(ref);
                   }}
-                  missing="Set the venue position on the Courses tab to enter them in magnetic."
+                  missing="Set the venue position in the series settings to enter them in magnetic."
                 />
                 <LegTable rows={legRows} display={display} onChange={(rows) => { setLegRows(rows); setError(''); }}>
                   <p className="text-xs text-muted-foreground">

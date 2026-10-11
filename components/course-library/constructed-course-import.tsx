@@ -104,7 +104,7 @@ export function ConstructedCourseImport({
           Its directions are magnetic, and there is nowhere to read the variation at: the course
           has no anchor, and the series has no venue position. The start will keep them in
           magnetic, and draw the course with magnetic north up; it scores the same either way.
-          To have them converted to true, set the venue position on the Courses tab first.
+          To have them converted to true, set the venue position in the series settings first.
         </p>
       )}
       {drawing && (

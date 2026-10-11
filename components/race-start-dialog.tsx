@@ -550,7 +550,7 @@ function RaceStartDialogInner({
       }}
       missing={magnetic
         ? 'The course was imported in magnetic with nowhere to read the variation at, so this start keeps it in magnetic.'
-        : 'Set the venue position on the Courses tab, or pick a course built from marks, to enter them in magnetic.'}
+        : 'Set the venue position in the series settings, or pick a course built from marks, to enter them in magnetic.'}
     />
   );
 

@@ -411,16 +411,17 @@ test('a leg table in magnetic, entered as the race officer wrote it', async ({ p
   await page.getByRole('option', { name: 'Constructed course at the recorded wind · time-on-time' }).click();
   await page.getByRole('button', { name: 'Done' }).click();
 
-  // A leg table has no marks to place it, so the variation needs the venue.
-  await page.getByRole('navigation').getByRole('link', { name: 'Courses' }).click();
-  await expect(page.getByRole('heading', { name: 'Marks' })).toBeVisible();
-  await expect(page.getByTestId('venue-position')).toContainText('stay in °T');
+  // A leg table has no marks to place it, so the variation needs the venue,
+  // which is set with the rest of the series' settings.
+  await expect(page.getByTestId('venue-position')).toContainText('Not set');
   await page.getByTestId('venue-position-edit').click();
   await page.getByLabel('Venue position').fill('51 48.000 N 008 18.000 W');
   await page.getByTestId('venue-position-save').click();
   // Cork Harbour: magnetic north a degree or two west of true.
   await expect(page.getByTestId('venue-position')).toContainText(/variation \d(\.\d)?°W today/);
 
+  await page.getByRole('navigation').getByRole('link', { name: 'Courses' }).click();
+  await expect(page.getByRole('heading', { name: 'Marks' })).toBeVisible();
   await page.getByTestId('new-course').click();
   await page.getByTestId('course-source-legs').click();
   await expect(page.getByRole('radio', { name: '°M' })).toHaveAttribute('aria-checked', 'true');

@@ -556,7 +556,7 @@ export default function RatingSystems() {
           written down. The conversion uses the variation the World Magnetic Model
           gives where the course is (the centre of its marks) on the race’s day, so
           a magnetic figure never goes stale. A leg table has no marks, so it takes
-          the <em>venue position</em>, which you set at the top of the Courses tab;
+          the <em>venue position</em>, which you set in the series settings;
           until one is set, a leg table’s bearings stay in true. Each dialog has a{' '}
           <em>°M / °T</em> choice beside the variation it applies, and a figure
           followed by M or T (<em>105M</em>, <em>103T</em>) is read that way whatever
@@ -598,8 +598,8 @@ export default function RatingSystems() {
           drawing has magnetic north up, and the published page prints its legs in
           °M alone, saying no variation was recorded. It scores the same either
           way, because ORC scores each leg on its wind relative to its course. To
-          have it converted to true instead, set the venue position on the Courses
-          tab before importing. A course that carries the wind fills each leg’s; one
+          have it converted to true instead, set the venue position in the series
+          settings before importing. A course that carries the wind fills each leg’s; one
           that doesn’t takes the start’s course wind, as a course from the library
           does. The course is the start’s own: the picker shows it as{' '}
           <em>(imported)</em>, there is no library course to recompute it from, and

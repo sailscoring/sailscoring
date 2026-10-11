@@ -372,7 +372,7 @@ export function LegTable({
                 : parsed.legs.length === 0
                   ? 'No legs found — each line needs a distance and a bearing.'
                   : cannotConvert
-                    ? 'These bearings are magnetic, and there is no position to work out the variation at — set the venue position on the Courses tab, or mark them T if they are true.'
+                    ? 'These bearings are magnetic, and there is no position to work out the variation at — set the venue position in the series settings, or mark them T if they are true.'
                     : pastedSummary()}
             </p>
             <Button

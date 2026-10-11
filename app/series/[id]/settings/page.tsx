@@ -14,6 +14,7 @@ import { PublishingCard } from '@/components/series-settings/publishing-card';
 import { CombinedPagesCard } from '@/components/series-settings/combined-pages-card';
 import { ProtestTimeLimitCard } from '@/components/series-settings/protest-time-limit-card';
 import { RaceManagementCard } from '@/components/series-settings/race-management-card';
+import { VenuePositionCard } from '@/components/series-settings/venue-position-card';
 import { DisabledFeatureHint } from '@/components/series-settings/disabled-feature-hint';
 import { SeriesTabFallback } from '@/components/series-tab-fallback';
 import { useWorkspacePermissions } from '@/hooks/use-workspace-permissions';
@@ -47,6 +48,9 @@ export default function SettingsPage({
   if (series === null) return <SeriesTabFallback status="missing" />;
 
   const anyProgressiveFleet = fleets.some((f) => f.scoringSystem === 'nhc' || f.scoringSystem === 'echo');
+  // The venue position only does anything for constructed-course legs, which
+  // only an ORC fleet scores; one already set stays in sight regardless.
+  const offerVenuePosition = fleets.some((f) => f.scoringSystem === 'orc') || series.venuePosition != null;
 
   // Config the series carries for gated features that are currently off — the
   // gate hides their cards, so surface a hint instead (#280).
@@ -142,6 +146,7 @@ export default function SettingsPage({
           }}
         />
       )}
+      {offerVenuePosition && <VenuePositionCard seriesId={seriesId} series={series} />}
       {has('results-status') && (
         <ProtestTimeLimitCard
           value={series}

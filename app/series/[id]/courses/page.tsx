@@ -11,7 +11,6 @@ import { formatPosition } from '@sailscoring/course-cards';
 import { CourseDialog, type CourseDialogMode } from '@/components/course-library/course-dialog';
 import { CourseDrawing } from '@/components/course-library/course-drawing';
 import { MarkDialog, type MarkDialogMode } from '@/components/course-library/mark-dialog';
-import { VenuePosition } from '@/components/course-library/venue-position';
 import { useConfirm } from '@/components/confirm-dialog';
 import { SeriesTabFallback } from '@/components/series-tab-fallback';
 import { useSeriesReadOnly } from '@/components/series-read-only';
@@ -47,7 +46,6 @@ import {
   useSeriesMarks,
 } from '@/hooks/use-course-library';
 import { useShortcuts } from '@/hooks/use-keyboard-shortcut';
-import { useUpdateSeries } from '@/hooks/use-series';
 import { useSeriesData } from '@/hooks/use-series-data';
 import { useWorkspacePermissions } from '@/hooks/use-workspace-permissions';
 
@@ -68,7 +66,6 @@ export default function CoursesPage({ params }: { params: Promise<{ id: string }
   const deleteMark = useDeleteSeriesMark();
   const saveCourse = useSaveSeriesCourse();
   const deleteCourse = useDeleteSeriesCourse();
-  const updateSeries = useUpdateSeries();
 
   const [markDialog, setMarkDialog] = useState<MarkDialogMode | null>(null);
   const [courseDialog, setCourseDialog] = useState<CourseDialogMode | null>(null);
@@ -181,14 +178,6 @@ export default function CoursesPage({ params }: { params: Promise<{ id: string }
         )}
       </div>
       {notice && <p className="text-sm text-amber-700 dark:text-amber-400" role="status">{notice}</p>}
-      <VenuePosition
-        value={data.series.venuePosition}
-        marks={marks}
-        canEdit={canEdit}
-        onSave={async (venuePosition) => {
-          await updateSeries.mutateAsync({ id: seriesId, patch: { venuePosition, lastModifiedAt: Date.now() } });
-        }}
-      />
 
       <section className="space-y-2">
         <h2 className="text-lg font-semibold">Marks</h2>
