@@ -519,14 +519,8 @@ test('ORC fleet: PCS over a constructed course entered leg by leg', async ({ pag
   expect(html).toContain('<th>Implied wind</th>');
   expect(html).toContain('Legs: 2.09 NM @ 162°T, wind 160°T');
 
-  // And, folded away beside the course, what that course bought off the
-  // certificate: its own allowance table, every row and column of it, with
-  // the share of the rating in each cell.
-  expect(html).toContain('<details class="orc-course orc-mix"><summary>Show handicap mix</summary>');
-  expect(html).toContain('<th scope="row">Beat VMG</th>');
-  expect(html).toContain('<th scope="row">Run VMG</th>');
-  expect(html).toContain('<th scope="row">110°</th>');
-  expect(html).toContain('certificate, at a scoring wind of 18.06 kt.');
+  // The handicap mix is withdrawn from published pages for now.
+  expect(html).not.toContain('Show handicap mix');
 });
 
 test('ORC fleet: a constructed course at the wind the committee recorded', async ({ page }) => {
@@ -615,7 +609,6 @@ test('ORC fleet: a constructed course at the wind the committee recorded', async
   expect(html).toContain('>0.8747</td>');
   expect(html).not.toContain('<th>Implied wind</th>');
   expect(html).not.toContain('Scratch allowance');
-  expect(html).toContain('at the wind recorded on the course, 14.00 kt.');
 });
 
 test('ORC fleet: a recorded-wind race is unscored until every leg has a wind speed', async ({ page }) => {
