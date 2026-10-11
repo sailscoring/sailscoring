@@ -151,6 +151,18 @@ export const FEATURES = {
     // scoring method across its races) into the series list.
     demoSample: 'orc.sailscoring',
   },
+  'course-library': {
+    // The series course library behind ORC constructed courses: the Courses
+    // tab's marks and the courses built from them, and choosing, building or
+    // recomputing a start's course from it. Operator-managed and off by
+    // default. Only the affordances are gated: without it a start keeps the
+    // course it holds, with its legs, wind and drawing, and takes legs typed
+    // or imported; the library a series already holds stays in its file and
+    // export. Meaningful only alongside `orc`.
+    label: 'Course library',
+    helpSectionIds: [],
+    selfService: false,
+  },
   'results-status': {
     // The results lifecycle (Provisional vs Final): per-race last-finisher
     // times with computed protest time limits, the finalise checklist on the

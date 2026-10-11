@@ -33,7 +33,7 @@ const LISTING_FIXTURE = {
 };
 
 test.beforeEach(async ({ page, signedInEmail }) => {
-  await enableFeatures(page, signedInEmail, ['orc']);
+  await enableFeatures(page, signedInEmail, ['orc', 'course-library']);
   await page.route('**/api/v1/handicap-sources/orc?*', (route) => route.fulfill({ json: LISTING_FIXTURE }));
 });
 

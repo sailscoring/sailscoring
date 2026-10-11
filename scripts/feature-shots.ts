@@ -708,6 +708,7 @@ const SHOTS: Shot[] = [
     group: 'Rating and handicap systems',
     async capture({ page, shot }) {
       await ensureFeature(page, 'orc');
+      await dbEnableOperatorFeature('course-library');
       await page.goto(`${BASE}/`);
       await settle(page);
       await page.getByRole('link', { name: 'Sample ORC Series 2026' }).first().click();
@@ -731,6 +732,7 @@ const SHOTS: Shot[] = [
     group: 'Rating and handicap systems',
     async capture({ page, shot }) {
       await ensureFeature(page, 'orc');
+      await dbEnableOperatorFeature('course-library');
       await page.goto(`${BASE}/`);
       await settle(page);
       await page.getByRole('link', { name: 'Sample ORC Series 2026' }).first().click();
@@ -765,6 +767,7 @@ const SHOTS: Shot[] = [
     group: 'Rating and handicap systems',
     async capture({ page, shot }) {
       await ensureFeature(page, 'orc');
+      await dbEnableOperatorFeature('course-library');
       await page.goto(`${BASE}/`);
       await settle(page);
       await page.getByRole('link', { name: 'Sample ORC Series 2026' }).first().click();
@@ -786,6 +789,7 @@ const SHOTS: Shot[] = [
     group: 'Rating and handicap systems',
     async capture({ page, shot }) {
       await ensureFeature(page, 'orc');
+      await dbEnableOperatorFeature('course-library');
       await page.goto(`${BASE}/`);
       await settle(page);
       await page.getByRole('link', { name: 'Sample ORC Series 2026' }).first().click();

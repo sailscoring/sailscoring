@@ -41,7 +41,7 @@ test('a scorer saves a course made from the race-start dialog', async ({ browser
     const emailOwner = await signInFreshUser(owner, `course-owner-${stamp}`);
     const emailScorer = await signInFreshUser(scorer, `course-scorer-${stamp}`);
     const org = await createOrgWorkspace(`Course Panel ${stamp}`);
-    await enableOrgFeatures(org.id, ['fine-grained-roles', 'orc']);
+    await enableOrgFeatures(org.id, ['fine-grained-roles', 'orc', 'course-library']);
     await addMemberByEmail(org.id, emailOwner, 'owner');
     await addMemberByEmail(org.id, emailScorer, 'scorer');
     await setActiveWorkspace(owner, org.id);
