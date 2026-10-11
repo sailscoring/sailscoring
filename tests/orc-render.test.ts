@@ -30,6 +30,16 @@ const hycChart: CourseBackground = {
  * constructed courses, the leg-by-leg course record.
  */
 
+/** The published leg record, as the text of each row's cells, header first. */
+function legRows(html: string): string[][] {
+  const from = html.indexOf('<table class="orc-course-legs">');
+  if (from < 0) return [];
+  const table = html.slice(from, html.indexOf('</table>', from));
+  return [...table.matchAll(/<tr[^>]*>(.*?)<\/tr>/g)].map((row) =>
+    [...row[1].matchAll(/<t[hd][^>]*>(.*?)<\/t[hd]>/g)].map((cell) => cell[1].replace(/<[^>]+>/g, '')),
+  );
+}
+
 /** A real 2026 IRL certificate from the sample-series rating seed. The seed
  *  records carry no import stamp — they were frozen, not imported — so one
  *  is supplied here to make them the shape a competitor actually holds. */
@@ -163,7 +173,11 @@ describe('published ORC transparency', () => {
     expect(html).toContain('Scored on ORC performance curves &middot; Constructed course &middot; 8.11 NM &middot; 2 legs');
     // Nothing places the course — no marks, no venue — so the figures are
     // true, and say so.
-    expect(html).toContain('Legs: 2.09 NM @ 162°T, wind 160°T');
+    expect(legRows(html)).toEqual([
+      ['Leg', 'Distance', 'Bearing', 'Wind'],
+      ['1', '2.09 NM', '162°T', '160°T'],
+      ['2', '0.19 NM', '316°T', '160°T'],
+    ]);
     expect(html).not.toContain('orc-course-variation');
     // No course was picked, but the legs typed in were scored, so they are
     // what draws — unlocated, and captioned as such.
@@ -280,11 +294,13 @@ describe('published ORC transparency', () => {
         }],
       }),
     );
-    // Folded away: the legs line is the course record and stays on the page,
-    // the drawing is the illustration and waits to be asked for.
+    // Folded away, the map with the leg record under it: the audit line
+    // above says enough about the course to read the results by.
     expect(html).toContain('<details class="orc-course"><summary>Show course</summary>');
     expect(html).not.toContain('<details class="orc-course" open');
-    expect(html.indexOf('class="orc-course-legs"')).toBeLessThan(html.indexOf('<details class="orc-course"'));
+    const details = html.slice(html.indexOf('<details class="orc-course"'), html.indexOf('</details>'));
+    expect(details.indexOf('class="orc-course-drawing"')).toBeGreaterThan(-1);
+    expect(details.indexOf('<table class="orc-course-legs">')).toBeGreaterThan(details.indexOf('class="orc-course-drawing"'));
     const from = html.indexOf('<div class="orc-course-drawing"');
     expect(from).toBeGreaterThan(-1);
     const block = html.slice(from, html.indexOf('</div>', from));
@@ -658,8 +674,11 @@ describe('published transparency for a recorded-wind race', () => {
 
   it("records each leg's wind speed beside its bearing", () => {
     const html = renderSeriesHtml(assemble({ orc: totCalc, raceStarts: starts(legs) }));
-    expect(html).toContain('2.09 NM @ 162°T, wind 225°T at 9 kt');
-    expect(html).toContain('0.19 NM @ 316°T, wind 225°T at 9 kt');
+    expect(legRows(html)).toEqual([
+      ['Leg', 'Distance', 'Bearing', 'Wind', 'Wind speed'],
+      ['1', '2.09 NM', '162°T', '225°T', '9 kt'],
+      ['2', '0.19 NM', '316°T', '225°T', '9 kt'],
+    ]);
   });
 
   it('prints the legs in magnetic, true beside, at the variation where and when the race was', () => {
@@ -668,7 +687,7 @@ describe('published transparency for a recorded-wind race', () => {
     const cork = { lat: 51.8, lng: -8.3 };
     const v = variationAt(cork, '2026-09-12');
     const html = renderSeriesHtml(assemble({ orc: totCalc, raceStarts: starts(legs), venuePosition: cork }));
-    expect(html).toContain(`2.09 NM @ ${formatBearing(162, v)} (162°T), wind ${formatBearing(225, v)} (225°T) at 9 kt`);
+    expect(legRows(html)[1]).toEqual(['1', '2.09 NM', `${formatBearing(162, v)} (162°T)`, `${formatBearing(225, v)} (225°T)`, '9 kt']);
     expect(formatBearing(162, v)).not.toBe('162°M');
     expect(html).toContain(`Magnetic at variation ${formatVariation(v)} (World Magnetic Model, 12 Sep 2026).`);
   });
@@ -693,8 +712,10 @@ describe('published transparency for a recorded-wind race', () => {
         },
       }],
     }));
-    expect(html).toContain('2.09 NM @ 162°M, wind 225°M at 9 kt');
-    expect(html).toContain('0.19 NM @ 316°M, wind 225°M at 9 kt');
+    expect(legRows(html).slice(1)).toEqual([
+      ['1', '2.09 NM', '162°M', '225°M', '9 kt'],
+      ['2', '0.19 NM', '316°M', '225°M', '9 kt'],
+    ]);
     expect(html).toContain('Magnetic, as the course was recorded; there was no position to read the variation at.');
     expect(html).not.toContain('Magnetic at variation');
     // Drawn as the figures are, so magnetic north is up, and labelled so.
@@ -710,8 +731,11 @@ describe('published transparency for a recorded-wind race', () => {
       { ...legs[1], name: 'Windward – Finish', currentSpeedKts: 1.5, currentDirectionDeg: 90 },
     ];
     const html = renderSeriesHtml(assemble({ orc: totCalc, raceStarts: starts(named) }));
-    expect(html).toContain('Start – &lt;Windward&gt; 2.09 NM @ 162°T, wind 225°T at 9 kt');
-    expect(html).toContain(`Windward – Finish ${legs[1].distanceNm.toFixed(2)} NM @ ${legs[1].bearingDeg}°T, wind 225°T at 9 kt, current 1.5 kt to 90°T`);
+    expect(legRows(html)).toEqual([
+      ['Leg', 'Distance', 'Bearing', 'Wind', 'Wind speed', 'Current'],
+      ['1 Start – &lt;Windward&gt;', '2.09 NM', '162°T', '225°T', '9 kt', ''],
+      ['2 Windward – Finish', '0.19 NM', '316°T', '225°T', '9 kt', '1.5 kt to 90°T'],
+    ]);
   });
 
   // Skipped while PUBLISH_ORC_HANDICAP_MIX is off in the renderer.
@@ -743,7 +767,7 @@ describe('published transparency for a recorded-wind race', () => {
         },
       }],
     }));
-    // Drawn, folded away beside the leg record like any other course.
+    // Drawn, folded away above the leg record like any other course.
     expect(html).toContain('<details class="orc-course"><summary>Show course</summary>');
     expect(html).toContain('class="orc-course-drawing"');
     expect(html).toContain('<svg xmlns="http://www.w3.org/2000/svg"');
@@ -754,6 +778,26 @@ describe('published transparency for a recorded-wind race', () => {
     // Inert, as every published drawing must be.
     const svg = html.slice(html.indexOf('<svg xmlns'), html.indexOf('</svg>'));
     expect(svg).not.toMatch(/<script|href=|xlink:href/i);
+  });
+
+  it('a course with nothing to draw still folds its leg record under Show course', () => {
+    // A snapshot naming the course but holding neither marks nor legs: the
+    // scored legs have no drawing, and the record is all there is to show.
+    const html = renderSeriesHtml(assemble({
+      orc: totCalc,
+      raceStarts: [{
+        raceId: 'r1',
+        fleetIds: ['f1'],
+        startTime: '14:00:00',
+        courseLegs: legs,
+        course: { name: 'Thursday, Race 2', waypoints: [], windDirectionDeg: 225 },
+      }],
+    }));
+    expect(html).not.toContain('class="orc-course-drawing"');
+    expect(html).not.toContain('class="orc-course-note"');
+    const details = html.slice(html.indexOf('<details class="orc-course"><summary>Show course</summary>'), html.indexOf('</details>'));
+    expect(details).toContain('<table class="orc-course-legs">');
+    expect(legRows(html)).toHaveLength(3);
   });
 
   it('a course drawn from marks carries no such caption', () => {

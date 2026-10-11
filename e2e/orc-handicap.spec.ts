@@ -517,7 +517,7 @@ test('ORC fleet: PCS over a constructed course entered leg by leg', async ({ pag
   expect(html).toContain('8.11 NM');
   expect(html).toContain("Scoring wind 18.06 kt (winner's implied wind)");
   expect(html).toContain('<th>Implied wind</th>');
-  expect(html).toContain('Legs: 2.09 NM @ 162°T, wind 160°T');
+  expect(html).toContain('<td class="leg">1</td><td class="num">2.09 NM</td><td class="num">162°T</td><td class="num">160°T</td></tr>');
 
   // The handicap mix is withdrawn from published pages for now.
   expect(html).not.toContain('Show handicap mix');
@@ -601,7 +601,7 @@ test('ORC fleet: a constructed course at the wind the committee recorded', async
   expect(html).toContain('Scored on ORC constructed course at the recorded wind');
   expect(html).toContain('Wind 14.00 kt');
   expect(html).toContain('Time-on-time');
-  expect(html).toContain('Legs: 2.09 NM @ 162°T, wind 160°T at 14 kt');
+  expect(html).toContain('<td class="leg">1</td><td class="num">2.09 NM</td><td class="num">162°T</td><td class="num">160°T</td><td class="num">14 kt</td>');
   // The rating is a multiplier, published to four decimals; and nothing was
   // inferred from how the boats sailed, so no implied wind is claimed.
   expect(html).toContain('<th>ToT</th>');

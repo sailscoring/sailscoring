@@ -1667,9 +1667,13 @@ td.excluded { color: #888; text-align: center; }
 .penaltylabels { font-size: 0.85em; color: #444; margin: -20px auto 30px auto; max-width: 60em; }
 .notscored { font-size: 0.85em; color: #444; margin: -20px auto 30px auto; max-width: 60em; }
 .racelimitnote { font-size: 0.85em; color: #444; margin: 0 auto 24px auto; max-width: 60em; }
-/* The course drawing, folded away: the legs line states the course in words,
-   so the picture is there for whoever wants to look at it. */
+/* The course, folded away: the map and the leg record under it, for whoever
+   wants to check the course the audit line above summarises. */
 details.orc-course { margin: 0 0 8px 0; text-align: center; }
+div.orc-course-legs-wrap { max-width: 480px; margin: 0 auto 6px auto; overflow-x: auto; }
+table.orc-course-legs { margin: 0 auto; font-size: 0.8em; }
+table.orc-course-legs th, table.orc-course-legs td { padding: 3px 6px; white-space: nowrap; }
+table.orc-course-legs td.num { text-align: right; }
 details.orc-course > summary { font-size: 0.85em; color: #444; cursor: pointer; display: inline-block; list-style: none; }
 details.orc-course > summary::-webkit-details-marker { display: none; }
 details.orc-course > summary::before { content: '\u25B8 '; }
@@ -2468,25 +2472,36 @@ function renderRaceTable(
           : h.legsMagnetic
             ? 'Magnetic, as the course was recorded; there was no position to read the variation at.'
             : '';
-        // A leg is printed under the race committee's own label for it,
-        // where the course came with one, and with the current where one was
-        // recorded, since it is scored.
-        const legsLine = h.legs?.length
-          ? `\n<p class="orc-course-legs" style="text-align:center; margin: 0 0 6px 0; font-size: 0.85em;">Legs: ${h.legs
-              .map((leg) => `${leg.name ? `${esc(leg.name)} ` : ''}${leg.distanceNm.toFixed(2)} NM @ ${direction(leg.bearingDeg)}, wind ${direction(leg.windDirectionDeg)}${leg.windSpeedKts != null ? ` at ${leg.windSpeedKts} kt` : ''}${leg.currentSpeedKts != null && leg.currentDirectionDeg != null ? `, current ${leg.currentSpeedKts} kt to ${direction(leg.currentDirectionDeg)}` : ''}`)
-              .join(' &middot; ')}${directionNote ? `<br><span class="orc-course-variation" style="font-size: 0.9em;">${directionNote}</span>` : ''}</p>`
+        // The leg record, one row a leg: under the race committee's own label
+        // for it where the course came with one, and with the wind speed and
+        // current where they were recorded, since they are scored. Numbered as
+        // the drawing above it numbers its legs.
+        const legs = h.legs ?? [];
+        const hasWindSpeed = legs.some((leg) => leg.windSpeedKts != null);
+        const hasCurrent = legs.some((leg) => leg.currentSpeedKts != null && leg.currentDirectionDeg != null);
+        const legsTable = legs.length
+          ? `<div class="orc-course-legs-wrap"><table class="orc-course-legs">\n<thead><tr><th>Leg</th><th>Distance</th><th>Bearing</th><th>Wind</th>${hasWindSpeed ? '<th>Wind speed</th>' : ''}${hasCurrent ? '<th>Current</th>' : ''}</tr></thead>\n<tbody>\n${legs
+              .map(
+                (leg, i) =>
+                  `<tr class="${i % 2 === 0 ? 'odd' : 'even'}"><td class="leg">${i + 1}${leg.name ? ` <span class="legname">${esc(leg.name)}</span>` : ''}</td><td class="num">${leg.distanceNm.toFixed(2)} NM</td><td class="num">${direction(leg.bearingDeg)}</td><td class="num">${direction(leg.windDirectionDeg)}</td>${hasWindSpeed ? `<td class="num">${leg.windSpeedKts != null ? `${leg.windSpeedKts} kt` : ''}</td>` : ''}${hasCurrent ? `<td class="num">${leg.currentSpeedKts != null && leg.currentDirectionDeg != null ? `${leg.currentSpeedKts} kt to ${direction(leg.currentDirectionDeg)}` : ''}</td>` : ''}</tr>`,
+              )
+              .join('\n')}\n</tbody>\n</table></div>${directionNote ? `<p class="orc-course-variation" style="text-align:center; margin: 0 0 6px 0; font-size: 0.8em;">${directionNote}</p>` : ''}`
           : '';
-        // Folded away by default: the drawing is an illustration of the legs
-        // line above it, and unfolded it pushes the results table off a
-        // phone. A closed <details> doesn't print, which matches how the
-        // NHC and ECHO calculation toggles already behave.
+        // Folded away by default, the map with the legs under it: unfolded
+        // they push the results table off a phone, and the audit line above
+        // already gives the distance, the leg count and the wind. A closed
+        // <details> doesn't print, which matches how the NHC and ECHO
+        // calculation toggles already behave.
         const drawnNote = h.courseSvgAnchored
-          ? '<p class="orc-course-note" style="text-align:center; margin: 0 0 6px 0; font-size: 0.8em;">Drawn from the leg record above, from where the first leg starts &mdash; the only recorded position on the course; every other point is where the race committee&rsquo;s bearings and distances lead.</p>'
+          ? '<p class="orc-course-note" style="text-align:center; margin: 0 0 6px 0; font-size: 0.8em;">Drawn from the legs below, from where the first leg starts &mdash; the only recorded position on the course; every other point is where the race committee&rsquo;s bearings and distances lead.</p>'
           : h.courseSvgFromLegs
-            ? `<p class="orc-course-note" style="text-align:center; margin: 0 0 6px 0; font-size: 0.8em;">Drawn from the leg record above &mdash; the bearings and distances are the race committee&rsquo;s; the course&rsquo;s position on the water is not recorded.${h.legsMagnetic ? ' Magnetic north is up.' : ''}</p>`
+            ? `<p class="orc-course-note" style="text-align:center; margin: 0 0 6px 0; font-size: 0.8em;">Drawn from the legs below &mdash; the bearings and distances are the race committee&rsquo;s; the course&rsquo;s position on the water is not recorded.${h.legsMagnetic ? ' Magnetic north is up.' : ''}</p>`
             : '';
-        const drawing = h.courseSvg
-          ? `\n<details class="orc-course"><summary>Show course</summary><div class="orc-course-drawing" style="max-width: 480px; margin: 0 auto 8px auto;">${h.courseSvg}</div>${drawnNote}</details>`
+        const drawingBlock = h.courseSvg
+          ? `<div class="orc-course-drawing" style="max-width: 480px; margin: 0 auto 8px auto;">${h.courseSvg}</div>${drawnNote}`
+          : '';
+        const drawing = drawingBlock || legsTable
+          ? `\n<details class="orc-course"><summary>Show course</summary>${drawingBlock}${legsTable}</details>`
           : '';
         // Beside the course and folded the same way: this is what the course
         // bought off the certificate, and a competitor goes looking for it
@@ -2494,7 +2509,7 @@ function renderRaceTable(
         const mix = h.mix
           ? `\n<details class="orc-course orc-mix"><summary>Show handicap mix</summary><div class="orc-mix-body">${renderOrcMixHtml(h.mix, h.mixBoat, h.appliedAsTot === true)}</div></details>`
           : '';
-        return `<p class="orc-fleet-header" style="text-align:center; margin: 0 0 6px 0; font-size: 0.9em;">${lead}${parts.length ? ` &middot; ${parts.join(' &middot; ')}` : ''}</p>${legsLine}${drawing}${mix}\n`;
+        return `<p class="orc-fleet-header" style="text-align:center; margin: 0 0 6px 0; font-size: 0.9em;">${lead}${parts.length ? ` &middot; ${parts.join(' &middot; ')}` : ''}</p>${drawing}${mix}\n`;
       })()
     : '';
   const echoHeaders = hasEchoExplain

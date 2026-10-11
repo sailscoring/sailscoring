@@ -206,8 +206,8 @@ export default function RatingSystems() {
       <Section id="scoring-orc" title="ORC scoring and performance curves">
         <HelpShot
           src="/help/shots/orc.webp"
-          alt="A published ORC performance-curve race: the scoring-wind audit header, each boat's implied wind, and the constructed course's leg record."
-          caption="A published performance-curve race: the audit header, each boat's implied wind, and the course record."
+          alt="A published ORC performance-curve race: the scoring-wind audit header, each boat's implied wind, and the constructed course folded away under Show course."
+          caption="A published performance-curve race: the audit header and each boat's implied wind, with the course folded away under it."
         />
         <p>
           An ORC certificate is imported whole — see{' '}
@@ -278,6 +278,9 @@ export default function RatingSystems() {
           <strong className="text-foreground">constructed course</strong>: the actual
           legs sailed, entered on the race start as distance, bearing, and wind
           direction per leg (split a leg in two when the wind shifts along it).
+          The published page gives the course’s distance and number of legs in the
+          race’s header line, and <em>Show course</em> under it unfolds the course
+          drawn as a map, with a table of its legs beneath.
         </p>
         <HelpShot
           src="/help/shots/orc-recorded-wind.webp"
@@ -527,7 +530,7 @@ export default function RatingSystems() {
           followed by M or T (<em>105M</em>, <em>103T</em>) is read that way whatever
           the choice is. That works when pasting too, so a table that marks its
           bearings goes in as it stands, and one that doesn’t is read in the
-          dialog’s choice. The published page prints each leg as{' '}
+          dialog’s choice. The published leg table prints each bearing as{' '}
           <em>164°M (162°T)</em> and states the variation it used and the date it
           is for.
         </p>
@@ -572,7 +575,7 @@ export default function RatingSystems() {
             <> <em>Remove course</em> takes it off the start, legs and all.</>
           )}{' '}
           Leg names appear in a{' '}
-          <em>Leg</em> column and on the published leg record, and a current the
+          <em>Leg</em> column and in the published leg table, and a current the
           course carries is listed under the legs, because it is scored. A course
           that says where its first leg starts is drawn on the club’s chart from
           that point, captioned as the one recorded position on it; without one it

@@ -595,8 +595,8 @@ const SHOTS: Shot[] = [
   {
     // Inventory: ORC — the published performance-curve race table of the
     // seeded demo: the audit header (constructed course, scoring wind and
-    // its source, scratch allowance), the ToD and Implied wind columns, and
-    // the leg-by-leg course record.
+    // its source, scratch allowance) and the ToD and Implied wind columns,
+    // with the course and its legs folded away under Show course.
     slug: 'orc',
     group: 'Rating and handicap systems',
     async capture({ page, anon, shot }) {

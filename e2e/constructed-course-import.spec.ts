@@ -193,7 +193,7 @@ test('an ORC constructed course imported into a start, and drawn where it sits',
 
   // Published: each leg under its name, and the course on the chart.
   const html = await finishAndPublish(page);
-  expect(html).toMatch(/Start – Windward 0\.67 NM @ 282°M \(\d+(\.\d)?°T\)/);
+  expect(html).toMatch(/<td class="leg">1 <span class="legname">Start – Windward<\/span><\/td><td class="num">0\.67 NM<\/td><td class="num">282°M \(\d+(\.\d)?°T\)<\/td>/);
   expect(html).toContain('href="#course-chart-');
   expect(html).toContain('from where the first leg starts');
 });
@@ -227,7 +227,7 @@ test('a course with nowhere to read the variation at, kept in magnetic', async (
   // Published as given: magnetic, with no true figure beside it, and the
   // drawing magnetic north up.
   const html = await finishAndPublish(page);
-  expect(html).toContain('Start – Windward 0.67 NM @ 282°M, wind 280°M at 11.5 kt');
+  expect(html).toContain('<td class="leg">1 <span class="legname">Start – Windward</span></td><td class="num">0.67 NM</td><td class="num">282°M</td><td class="num">280°M</td><td class="num">11.5 kt</td>');
   expect(html).toContain('there was no position to read the variation at');
   expect(html).toContain('Magnetic north is up.');
 });
