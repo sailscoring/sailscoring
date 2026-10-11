@@ -274,6 +274,12 @@ test('multi-fleet IRC export includes fleets, ratings, starts, times, and per-fl
   expect(html).toContain('<th>Finish</th>');
   expect(html).toContain('<th>ET</th>');
   expect(html).toContain('<th>CT</th>');
+  expect(html).toContain('>Delta</th>');
+
+  // Each boat's corrected time behind B1's 1650s
+  expect(html).toContain('<td class="mono">27:30</td>\n<td class="mono">0:00:00</td>');
+  expect(html).toContain('<td class="mono">29:24</td>\n<td class="mono">0:01:54</td>');
+  expect(html).toContain('<td class="mono">30:00</td>\n<td class="mono">0:02:30</td>');
 
   // Start time in race header
   expect(html).toContain('Start: 14:00:00');
