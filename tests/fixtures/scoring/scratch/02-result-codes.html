@@ -437,8 +437,8 @@ try{collator=new Intl.Collator(undefined,{numeric:true,sensitivity:'base'});}cat
 function keyOf(text){
   var t=text.replace(/\s+/g,' ').trim();
   if(t===''||t==='\u2014')return null;
-  var p=/^(\d+):(\d\d)(?::(\d\d))?$/.exec(t);
-  if(p)return{num:p[3]!=null?(+p[1])*3600+(+p[2])*60+(+p[3]):(+p[1])*60+(+p[2]),text:t};
+  var p=/^(\d+):(\d\d)(?::(\d\d))?(\.\d+)?$/.exec(t);
+  if(p)return{num:(p[3]!=null?(+p[1])*3600+(+p[2])*60+(+p[3]):(+p[1])*60+(+p[2]))+(p[4]?+p[4]:0),text:t};
   var m=/-?\d+(?:\.\d+)?/.exec(t);
   return m?{num:parseFloat(m[0]),text:t}:{text:t};
 }

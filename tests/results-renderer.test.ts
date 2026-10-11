@@ -2574,6 +2574,22 @@ describe('renderSeriesHtml Delta column', () => {
     expect(ctAndDelta(html, '3')).toEqual(['', '']);
   });
 
+  it('sorts by a gap timed to a fraction of a second', () => {
+    const html = renderSeriesHtml(fixture([
+      handicapRow('1', 1, 3500),
+      handicapRow('2', 2, 3712.5),
+      handicapRow('3', 3, 3600.25),
+    ]));
+    document.body.innerHTML = html.slice(html.indexOf('<body'), html.indexOf('</body>'));
+    const script = [...document.querySelectorAll('script')].find((s) => s.textContent?.includes('function keyOf'))!;
+    new Function(script.textContent!)();
+    const table = document.querySelector('table.racetable')!;
+    const deltaHead = [...table.querySelectorAll('th')].find((th) => th.textContent === 'Delta')!;
+    deltaHead.click();
+    const sails = [...table.querySelectorAll('tbody tr')].map((tr) => tr.querySelectorAll('td')[1].textContent);
+    expect(sails).toEqual(['1', '3', '2']);
+  });
+
   it('adds no column to a table without corrected times', () => {
     const html = renderSeriesHtml(fixture([
       { ...handicapRow('1', 1, undefined), tcc: undefined },
