@@ -98,7 +98,10 @@ export default function Publishing() {
           race entered as places with no times has no columns to show. If the fleet’s
           start records a gun, elapsed time is worked out from it; if it does not, the
           crossing time is published on its own. A race where only some boats were timed
-          publishes those boats and leaves the rest of the column blank.
+          publishes those boats and leaves the rest of the column blank. Beside the corrected
+          time, a <strong className="text-foreground">Delta</strong> column gives each boat’s
+          corrected time behind the race winner, measured within the fleet the table ranks;
+          a boat scored with a code such as DNF or DSQ is left blank.
         </p>
         <p>
           <strong className="text-foreground">Races that have not been sailed:</strong> a race

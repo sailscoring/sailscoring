@@ -2298,6 +2298,17 @@ function renderRaceTable(
   const ratingLabel = race.ratingColumnLabel
     ?? (isOrcTod ? 'ToD' : isOrcTot ? 'ToT' : (isEcho ? 'Starting H' : (isNhc ? 'TCF' : 'TCC')));
   const ratingColClass = isEcho ? 'starth' : (isNhc ? 'tcf' : 'tcc');
+  // The Delta column measures each ranked boat's corrected time from the
+  // best one in this table — the table is what ranks the boats together, a
+  // fleet or a split fleet's own ranking. A coded boat may still show a CT
+  // off its recorded finish, but it is out of the ranking, so it neither
+  // sets the mark nor gets a gap.
+  const winnerCtSecs = hasHandicapCols
+    ? race.results.reduce<number | null>(
+        (best, r) => (r.rank !== null && r.correctedTimeSecs != null && (best === null || r.correctedTimeSecs < best) ? r.correctedTimeSecs : best),
+        null,
+      )
+    : null;
   // Detect ties in within-fleet rank
   const rankCounts = new Map<number, number>();
   for (const r of race.results) {
@@ -2324,6 +2335,7 @@ function renderRaceTable(
             `<td class="mono">${r.elapsedTimeSecs != null ? formatElapsedInput(r.elapsedTimeSecs) : ''}</td>`,
             `<td class="mono"${r.ircCertNumber ? ` title="IRC certificate ${esc(r.ircCertNumber)}"` : ''}>${r.tcc != null ? r.tcc.toFixed(isOrcTod ? 1 : isOrcTot ? 4 : 3) : ''}${r.tccOverride ? '<span class="override-marker" title="Per-race rating override">*</span>' : ''}</td>`,
             `<td class="mono">${r.correctedTimeSecs != null ? formatElapsedInput(r.correctedTimeSecs) : ''}</td>`,
+            `<td class="mono">${winnerCtSecs !== null && r.rank !== null && r.correctedTimeSecs != null ? formatTimeBehind(r.correctedTimeSecs - winnerCtSecs) : ''}</td>`,
           ]
         : [];
       const orcIwCell = isOrcPcs
@@ -2367,7 +2379,7 @@ function renderRaceTable(
 
   const baseColCount = 4 + (showBowNumber ? 1 : 0) + (showEntryNumber ? 1 : 0) + (showTallyNumber ? 1 : 0) + (showBoatName ? 1 : 0) + (showBoatClass ? 1 : 0) + (showHelm ? 1 : 0) + (showOwner ? 1 : 0) + (showCrewColumn ? 1 : 0) + (showClub ? 1 : 0) + (showNationality ? 1 : 0) + (showWorldSailingId ? 1 : 0) + subdivisionAxes.length + (showAge ? 1 : 0) + (showGender ? 1 : 0);
   const colCount = baseColCount
-    + (hasHandicapCols ? 4 : 0)
+    + (hasHandicapCols ? 5 : 0)
     + (isOrcPcs ? 1 : 0)
     + (isNhc ? 1 : 0) + (hasExplain ? 5 : 0)
     + (isEcho ? 1 : 0) + (hasEchoExplain ? 3 : 0)
@@ -2377,10 +2389,10 @@ function renderRaceTable(
     .join('');
   const trackCols = trackColumns.map(() => '\n<col class="trackdata" />').join('');
   const handicapHeaders = hasHandicapCols
-    ? `\n<th>Finish</th>\n<th>ET</th>\n<th>${ratingLabel}</th>\n<th>CT</th>`
+    ? `\n<th>Finish</th>\n<th>ET</th>\n<th>${ratingLabel}</th>\n<th>CT</th>\n<th title="Corrected time behind the winner">Delta</th>`
     : '';
   const handicapCols = hasHandicapCols
-    ? `\n<col class="finish" />\n<col class="et" />\n<col class="${ratingColClass}" />\n<col class="ct" />`
+    ? `\n<col class="finish" />\n<col class="et" />\n<col class="${ratingColClass}" />\n<col class="ct" />\n<col class="delta" />`
     : '';
   // "New TCF" is always visible for NHC fleets (alongside Finish/ET/TCF/CT) —
   // it's the next-race rating, the headline output of progressive scoring, so
@@ -2815,6 +2827,21 @@ function penaltyLabelLegend(labels: Iterable<string>): string {
  *  convention used on published results ("1.0", "15.0 DNF", "22.5"). */
 function formatPoints(n: number): string {
   return n.toFixed(1);
+}
+
+/** A boat's corrected time behind the winner, always as h:mm:ss — the gaps
+ *  are mostly minutes, and "0:03:12" reads as a time where "3:12" might not.
+ *  A fraction is kept to the millisecond, the finest unit a race is timed in,
+ *  which also drops the float noise the subtraction leaves. */
+export function formatTimeBehind(totalSeconds: number): string {
+  const ms = Math.round(totalSeconds * 1000);
+  const whole = Math.floor(ms / 1000);
+  const frac = ms % 1000;
+  const h = Math.floor(whole / 3600);
+  const m = Math.floor((whole % 3600) / 60);
+  const s = whole % 60;
+  const fracText = frac > 0 ? `.${String(frac).padStart(3, '0').replace(/0+$/, '')}` : '';
+  return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}${fracText}`;
 }
 
 function renderScoreText(

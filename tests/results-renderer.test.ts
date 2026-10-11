@@ -5,6 +5,7 @@ import {
   renderPrizesHtml,
   renderCompetitorListHtml,
   assembleSeriesResultsData,
+  formatTimeBehind,
   type SeriesResultsData,
   type RaceData,
   type StandingRowData,
@@ -2506,5 +2507,92 @@ describe('track-data columns', () => {
     expect(html).toContain('>Elapsed</th>');
     expect(html).toContain('>Distance (km)</th>');
     expect(html).toContain('>Avg speed (kn)</th>');
+  });
+});
+
+// ---- Time behind the winner ----
+
+describe('renderSeriesHtml Delta column', () => {
+  function handicapRow(
+    sail: string, rank: number | null, ctSecs: number | undefined,
+    extra: Partial<RaceData['results'][number]> = {},
+  ): RaceData['results'][number] {
+    return {
+      rank, sailNumber: sail, helm: [`Helm ${sail}`],
+      place: rank, points: rank ?? 6, resultCode: null, penaltyCode: null, penaltyOverride: null,
+      tcc: 1.0,
+      ...(ctSecs != null ? { elapsedTimeSecs: ctSecs, correctedTimeSecs: ctSecs } : {}),
+      ...extra,
+    };
+  }
+
+  function fixture(results: RaceData['results']): SeriesResultsData {
+    return {
+      series: { name: 'IRC Series', venue: 'HYC' },
+      enabledCompetitorFields: [],
+      races: [{ raceNumber: 1, date: '2026-09-01', label: 'R1', anchorId: 'r1', results }],
+      standings: results.map((r, i) => makeStanding(i + 1, r.sailNumber, r.helm[0], [{ points: r.points }])),
+    };
+  }
+
+  /** The CT and Delta cells of the row for `sail`, in order. */
+  function ctAndDelta(html: string, sail: string): [string, string] {
+    const row = html.split('<tr').find((r) => r.includes('racerow') && r.includes(`<td>${sail}</td>`))!;
+    const cells = [...row.matchAll(/<td class="mono">([^<]*)<\/td>/g)].map((m) => m[1]);
+    // Finish, ET, rating, CT, Delta
+    return [cells[3], cells[4]];
+  }
+
+  it('heads a column after CT and measures each finisher from the winner', () => {
+    const html = renderSeriesHtml(fixture([
+      handicapRow('1', 1, 3500),
+      handicapRow('2', 2, 3700),
+      handicapRow('3', 3, 3712.5),
+      handicapRow('4', 3, 3712.5),
+      handicapRow('5', 5, 7300),
+    ]));
+    expect(html).toContain('<th>CT</th>\n<th title="Corrected time behind the winner">Delta</th>');
+    expect(html).toContain('<col class="ct" />\n<col class="delta" />');
+    expect(ctAndDelta(html, '1')).toEqual(['58:20', '0:00:00']);
+    expect(ctAndDelta(html, '2')).toEqual(['1:01:40', '0:03:20']);
+    // Equal corrected times show equal gaps.
+    expect(ctAndDelta(html, '3')).toEqual(['1:01:52.5', '0:03:32.5']);
+    expect(ctAndDelta(html, '4')).toEqual(['1:01:52.5', '0:03:32.5']);
+    expect(ctAndDelta(html, '5')).toEqual(['2:01:40', '1:03:20']);
+  });
+
+  it('leaves a coded boat blank, even one whose recorded finish gives it a CT', () => {
+    const html = renderSeriesHtml(fixture([
+      handicapRow('1', 1, 3500),
+      // Disqualified after crossing ahead of the winner on corrected time:
+      // out of the ranking, so it neither sets the mark nor gets a gap.
+      handicapRow('2', null, 3400, { resultCode: 'DSQ' }),
+      handicapRow('3', null, undefined, { resultCode: 'DNF' }),
+    ]));
+    expect(ctAndDelta(html, '1')).toEqual(['58:20', '0:00:00']);
+    expect(ctAndDelta(html, '2')).toEqual(['56:40', '']);
+    expect(ctAndDelta(html, '3')).toEqual(['', '']);
+  });
+
+  it('adds no column to a table without corrected times', () => {
+    const html = renderSeriesHtml(fixture([
+      { ...handicapRow('1', 1, undefined), tcc: undefined },
+      { ...handicapRow('2', 2, undefined), tcc: undefined },
+    ]));
+    expect(html).not.toContain('>Delta</th>');
+  });
+});
+
+describe('formatTimeBehind', () => {
+  it('always shows hours', () => {
+    expect(formatTimeBehind(0)).toBe('0:00:00');
+    expect(formatTimeBehind(192)).toBe('0:03:12');
+    expect(formatTimeBehind(3792)).toBe('1:03:12');
+  });
+
+  it('keeps a fraction to the millisecond without float noise', () => {
+    expect(formatTimeBehind(3712.5 - 3500)).toBe('0:03:32.5');
+    expect(formatTimeBehind(0.1 + 0.2)).toBe('0:00:00.3');
+    expect(formatTimeBehind(12.3456)).toBe('0:00:12.346');
   });
 });
