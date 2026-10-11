@@ -49,7 +49,11 @@ test('a club that publishes appears in the directory until it opts out', async (
   await expect(card.getByRole('switch', { name: 'List this workspace in the directory' })).toBeChecked();
   await card.getByLabel('Description').fill('Racing on the bay');
   await card.getByRole('button', { name: 'Save' }).click();
+  // Save is disabled while the save is in flight as well as after it, so it
+  // alone doesn't say the description is stored; the field coming back
+  // enabled does.
   await expect(card.getByRole('button', { name: 'Save' })).toBeDisabled();
+  await expect(card.getByLabel('Description')).toBeEnabled();
 
   // The directory needs no account.
   const anon = await browser.newContext();
