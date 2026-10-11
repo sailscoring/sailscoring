@@ -146,7 +146,7 @@ export const FEATURES = {
     // proven against the HYC Autumn League before any wider audience, per the
     // containment model.
     label: 'ORC scoring',
-    helpSectionIds: ['scoring-orc', 'course-builder', 'import-constructed-course', 'update-handicaps-orc'],
+    helpSectionIds: ['scoring-orc', 'import-constructed-course', 'update-handicaps-orc'],
     // Enabling it drops a worked ORC series (real certificates, every
     // scoring method across its races) into the series list.
     demoSample: 'orc.sailscoring',
@@ -160,7 +160,7 @@ export const FEATURES = {
     // or imported; the library a series already holds stays in its file and
     // export. Meaningful only alongside `orc`.
     label: 'Course library',
-    helpSectionIds: [],
+    helpSectionIds: ['course-builder'],
     selfService: false,
   },
   'results-status': {

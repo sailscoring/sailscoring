@@ -402,7 +402,7 @@ export default function RatingSystems() {
         </p>
       </Section>
       )}
-      {has('orc') && (
+      {has('course-library') && (
       <Section id="course-builder" title="Building a constructed course">
         <HelpShot
           src="/help/shots/course-builder.webp"
@@ -599,11 +599,14 @@ export default function RatingSystems() {
           °M alone, saying no variation was recorded. It scores the same either
           way, because ORC scores each leg on its wind relative to its course. To
           have it converted to true instead, set the venue position in the series
-          settings before importing. A course that carries the wind fills each leg’s; one
-          that doesn’t takes the start’s course wind, as a course from the library
-          does. The course is the start’s own: the picker shows it as{' '}
-          <em>(imported)</em>, there is no library course to recompute it from, and
-          its legs stay editable like any others. Leg names appear in a{' '}
+          settings before importing. A course that carries the wind fills each
+          leg’s; one that doesn’t takes the start’s course wind. The course is the
+          start’s own, named above its legs, and its legs stay editable like any
+          others.
+          {!has('course-library') && (
+            <> <em>Remove course</em> takes it off the start, legs and all.</>
+          )}{' '}
+          Leg names appear in a{' '}
           <em>Leg</em> column and on the published leg record, and a current the
           course carries is listed under the legs, because it is scored. A course
           that says where its first leg starts is drawn on the club’s chart from
