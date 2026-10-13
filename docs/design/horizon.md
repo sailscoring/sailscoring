@@ -1778,6 +1778,25 @@ scratch sheet, and the provenance trail around it — which forecast, issued
 when, computed by whom — which is precisely what the 2026 error showed the
 current pipelines lack. Far horizon: no target event uses it yet.
 
+### Average-lap racing (mixed laps in one race)
+
+PY dinghy racing on a lapped course often finishes the whole fleet at about the
+same time, whatever lap each boat is on, so a slow boat may sail fewer laps
+than the leader. Its elapsed time is scaled to the full course before the PY
+correction: `corrected = elapsed × (max laps ÷ laps sailed) × 1000 ÷ PY`.
+Sailwave and HalSail both carry a Laps column for it, and the RYA's PY
+guidance describes it. Bray Sailing Club races its winter dinghies this way —
+in its Winter Series 2024/25, Race 11, a Hansa on one lap of two sailed 0:23:41
+and corrected to 0:33:02, not 0:16:31.
+
+The engine has no lap count anywhere. Shape, when it comes: a lap count on the
+finish (defaulting to the full course), a laps factor in time-on-time
+correction, a Laps column on the finish sheet (a boat finished a lap down is a
+normal finish, not a code), and the Sailwave import carrying the count
+through. The open question is what defines the full course — the
+most laps sailed in that start, or a lap count the race officer sets.
+Demand-driven: build it for the first series that needs it scored live.
+
 ---
 
 ## Series lineage and seasons
