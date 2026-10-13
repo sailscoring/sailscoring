@@ -507,8 +507,7 @@ describe('published ORC transparency', () => {
  * The handicap mix: which cells of the scratch boat's allowance matrix the
  * race's rating was mixed from, folded away beside the course.
  */
-// Skipped while PUBLISH_ORC_HANDICAP_MIX is off in the renderer.
-describe.skip('published ORC handicap mix', () => {
+describe('published ORC handicap mix', () => {
   const wlCalc =
     (scoringWind: number) =>
     (id: string): OrcRaceCalc => ({
@@ -738,8 +737,7 @@ describe('published transparency for a recorded-wind race', () => {
     ]);
   });
 
-  // Skipped while PUBLISH_ORC_HANDICAP_MIX is off in the renderer.
-  it.skip('the handicap mix says what the weights are the allowance for', () => {
+  it('the handicap mix says what the weights are the allowance for', () => {
     const html = renderSeriesHtml(assemble({ orc: totCalc, raceStarts: starts(legs), certs: true }));
     expect(html).toContain('Show handicap mix');
     expect(html).toContain('at the wind recorded on the course, 9.00 kt');

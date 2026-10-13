@@ -2974,11 +2974,6 @@ function maybeLink(url: string | undefined, inner: string): string {
   return `<a href="${esc(externalHref(url))}" target="_top" rel="noopener">${inner}</a>`;
 }
 
-/** The handicap mix is withdrawn from published pages while we see whether
- *  anyone misses it; the grid, its styles and lib/orc-mix.ts stay until it
- *  is removed outright. */
-const PUBLISH_ORC_HANDICAP_MIX = false;
-
 /** Whose certificate the handicap mix is read off: the boat the fleet's
  *  corrected times were anchored to, meaning the one whose applied allowance
  *  is the scratch allowance. Float equality is no use on numbers that have
@@ -3257,9 +3252,7 @@ export function assembleSeriesResultsData(
         // whole fleet's corrected times are anchored to, and the one the
         // scratch allowance in the header line above already refers to.
         const scratch = orcMixBoat(scoresForRace, competitorsById, firstOrc.scratchTod);
-        const mix = PUBLISH_ORC_HANDICAP_MIX
-          ? orcMixFor(firstOrc, coveringStart?.courseLegs, scratch?.allowances)
-          : undefined;
+        const mix = orcMixFor(firstOrc, coveringStart?.courseLegs, scratch?.allowances);
         orcHeaderData = {
           ...(firstOrc.option
             ? {
