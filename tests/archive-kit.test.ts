@@ -1246,4 +1246,14 @@ describe('capture decoding', () => {
     expect(encoding).toBe('windows-1250');
     expect(text).toContain('<td>\u010D</td>');
   });
+
+  test('a wrong declaration can be overridden', () => {
+    // A browser-saved copy declaring Shift_JIS reads a stray 0x81 and the
+    // letter after it as one character.
+    const bytes = Buffer.from(page('Shift_JIS', '<td>\x81Rachel Sweeney</td>'), 'latin1');
+    expect(decodeCapture(bytes).text).not.toContain('Rachel Sweeney');
+    const { text, encoding } = decodeCapture(bytes, { encoding: 'windows-1252' });
+    expect(text).toContain('<td>\u0081Rachel Sweeney</td>');
+    expect(encoding).toBe('windows-1252');
+  });
 });

@@ -23,7 +23,7 @@ import { stableStringify, type ArchiveSeriesDoc } from '@/lib/archive-kit/format
 import { buildHalsailArchiveDoc } from '@/lib/archive-kit/halsail-doc';
 import { parseHalsailHtml } from '@/lib/archive-kit/halsail-html';
 import { parseHalsailLiveHtml } from '@/lib/archive-kit/halsail-live-html';
-import { parseSail100Html } from '@/lib/archive-kit/sail100-html';
+import { parseSail100Html, parseSail100RaceHtml } from '@/lib/archive-kit/sail100-html';
 import {
   buildSailwaveArchiveDoc,
   summaryFromRaceTables,
@@ -54,11 +54,19 @@ const fleetSchema = z.object({
   subPath: z.string().min(1),
   /** Capture file, relative to the config's directory. */
   file: z.string().min(1),
+  /** Decode the capture as windows-1252 whatever its page declares — for a
+   *  page whose declaration is known to be wrong (see `decodeCapture`). */
+  encoding: z.literal('windows-1252').optional(),
   /** Sailwave only: which summary section of the file (matched against the
    *  section heading); default = the file's only/first section. */
   sectionTitle: z.string().optional(),
   /** Sailwave only: carry the file's per-race detail tables too. */
   includeRaces: z.boolean().optional(),
+  /** Sail100 only: carry each race's own page as its detail table. Sail100
+   *  publishes a race on a page of its own, linked from its column header;
+   *  those pages are read from beside the capture, under the names the links
+   *  give, and a missing one fails the build. */
+  linkedRaces: z.literal(true).optional(),
   /** Sailwave only: when the file publishes several summary sections on one
    *  page (e.g. a class scored HPH and Scratch), list them here to publish a
    *  single combined page (ADR-010, #321) whose sections are these summaries,
@@ -95,6 +103,9 @@ const seriesSchema = z.object({
   /** `halsail` reads archive.halsail.com pages; `halsail-live` reads the
    *  results fragment halsail.com serves at `/Result/_Boat/{seriesId}`. */
   source: z.enum(['sailwave', 'halsail', 'halsail-live']),
+  /** Sailwave only: name a row that publishes no helm by its owner, then its
+   *  boat — for a cruiser club whose standings list boats and owners. */
+  ownerNames: z.literal(true).optional(),
   /** Publish this event's fleets as race results alone (#347) — a one-off
    *  trophy race, not a series. Every fleet must carry its race table, so a
    *  Sailwave entry needs `includeRaces` (the build fails loudly otherwise).
@@ -148,8 +159,8 @@ let raceOnlyFleets = 0;
 
 /** Captures are verbatim third-party files: Sailwave publishes ISO-8859-1, so
  *  decode by what the bytes are rather than assuming UTF-8. */
-function readCapture(path: string): string {
-  const { text, encoding } = decodeCapture(readFileSync(path));
+function readCapture(path: string, override?: 'windows-1252'): string {
+  const { text, encoding } = decodeCapture(readFileSync(path), { encoding: override });
   if (encoding !== 'utf-8') captureEncodings.set(path, encoding);
   return text;
 }
@@ -196,7 +207,8 @@ function buildSeries(
   }
   let sawSail100 = false;
   const parse = (fleet: z.infer<typeof fleetSchema>) => {
-    const html = readCapture(join(baseDir, fleet.file));
+    const path = join(baseDir, fleet.file);
+    const html = readCapture(path, fleet.encoding);
     let page = parseSailwaveHtml(html);
     if (page.summaries.length === 0) {
       // Several IODAI events (2009–2013, some Ulsters) were published by
@@ -204,7 +216,29 @@ function buildSeries(
       const sail100 = parseSail100Html(html);
       if (sail100.summaries.length > 0) {
         sawSail100 = true;
-        page = { ...page, summaries: sail100.summaries };
+        const races = fleet.linkedRaces
+          ? sail100.raceLinks[0].map((link, i) => {
+              const header = sail100.summaries[0].raceHeaders[i];
+              if (!link) {
+                throw new Error(`${entry.key}: race "${header}" in ${fleet.file} links to no page`);
+              }
+              const race = parseSail100RaceHtml(
+                readCapture(join(dirname(path), link), fleet.encoding),
+              );
+              if (!race) {
+                throw new Error(`${entry.key}: no race table in ${link}, linked from ${fleet.file}`);
+              }
+              return race;
+            })
+          : page.races;
+        page = { ...page, summaries: sail100.summaries, races };
+      } else if (page.races.length === 0) {
+        // A Sail100 race page published on its own, with no standings.
+        const race = parseSail100RaceHtml(html);
+        if (race && race.rows.length > 0) {
+          sawSail100 = true;
+          page = { ...page, races: [race] };
+        }
       }
     }
     return page;
@@ -281,7 +315,9 @@ function buildSeries(
         : [{ name: fleet.name, races: page.races }];
       const memberNames: string[] = [];
       for (const member of named) {
-        const built = summaryFromRaceTables(member.races);
+        const built = summaryFromRaceTables(member.races, {
+          ...(entry.ownerNames ? { ownerNames: true as const } : {}),
+        });
         if (!built) {
           throw new Error(
             `${entry.key}: neither a summary section nor a race table in ${fleet.file}`,
@@ -351,7 +387,7 @@ function buildSeries(
       name: fleet.name,
       subPath: fleet.subPath,
       summary: summaryOf(page, fleet.sectionTitle, fleet.file),
-      ...(fleet.includeRaces ? { races: page.races } : {}),
+      ...(fleet.includeRaces || fleet.linkedRaces ? { races: page.races } : {}),
       ...(entry.detail ? { detail: entry.detail } : {}),
       ...(fleet.displayOnly ? { displayOnly: true as const } : {}),
     });
@@ -375,6 +411,7 @@ function buildSeries(
   return buildSailwaveArchiveDoc({
     ...meta,
     ...(sawSail100 ? { source: 'sail100' as const } : {}),
+    ...(entry.ownerNames ? { ownerNames: true as const } : {}),
     fleets,
     ...(combinedPages.length > 0 ? { combinedPages } : {}),
   });

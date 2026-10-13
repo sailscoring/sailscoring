@@ -146,8 +146,17 @@ function decodeMixed(bytes: Uint8Array): { text: string; encoding: string } {
  * Decode a captured page, reporting which encoding the bytes turned out to be
  * in. `encoding` is for the caller's log, not for the parse — the text is
  * always the same string either way.
+ *
+ * `options.encoding` overrides a page's declaration where the archive knows it
+ * to be wrong: a browser's "save page" can stamp its own guess into the copy a
+ * club then uploads, and a guess of Shift_JIS reads a stray windows-1252 byte
+ * and the letter after it as one character. The bytes are then decoded as
+ * though nothing were declared.
  */
-export function decodeCapture(bytes: Uint8Array): { text: string; encoding: string } {
+export function decodeCapture(
+  bytes: Uint8Array,
+  options: { encoding?: 'windows-1252' } = {},
+): { text: string; encoding: string } {
   const body =
     bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf ? bytes.subarray(3) : bytes;
   try {
@@ -156,7 +165,7 @@ export function decodeCapture(bytes: Uint8Array): { text: string; encoding: stri
     // Not UTF-8; fall through to the single-byte encodings.
   }
 
-  const declared = declaredCharset(body);
+  const declared = options.encoding ? undefined : declaredCharset(body);
   if (declared && !UTF8_LABELS.has(declared) && !LATIN1_LABELS.has(declared)) {
     try {
       return {

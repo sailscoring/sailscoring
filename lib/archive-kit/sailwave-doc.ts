@@ -85,6 +85,11 @@ export interface SailwaveDocInput {
   fleets: SailwaveFleetInput[];
   /** Combined pages; the named fleets publish only as their sections. */
   combinedPages?: SailwaveCombinedPageInput[];
+  /** Name a row that publishes no helm by its owner, then by its boat. A
+   *  cruiser club's standings list boats and owners, not helms; without this
+   *  every row would be an "Unknown Competitor". Opt-in, because a name is
+   *  part of the competitor id and the existing corpora must not move. */
+  ownerNames?: true;
 }
 
 /** Sailwave colgroup classes → competitor fields. Everything else stays a
@@ -111,6 +116,7 @@ const FIELD_BY_KEY: Record<string, 'sailNumber' | 'name' | 'club' | 'nationality
   'm-f': 'gender',
   'prize-age': 'age',
   country: 'nationality',
+  'type-of-boat': 'boatClass',
 };
 
 interface ExtractedCompetitor {
@@ -170,16 +176,25 @@ function identityKeyFor(sailNumber: string, name: string): string {
 /** The same key read off a raw table line, through the column classes the
  *  competitor extraction already trusts — so a race-table line resolves to the
  *  competitor its summary row minted. */
-function rowIdentityKey(columns: SailwaveColumn[], cells: string[]): string {
+function rowIdentityKey(
+  columns: SailwaveColumn[],
+  cells: string[],
+  ownerNames?: true,
+): string {
   let sailNumber = '';
   let name = '';
+  let owner = '';
+  let boatName = '';
   columns.forEach((col, i) => {
     const value = (cells[i] ?? '').trim();
     if (!value) return;
     const field = FIELD_BY_KEY[col.key];
     if (field === 'sailNumber' && !sailNumber) sailNumber = value;
     if (field === 'name' && !name) name = value;
+    if (field === 'owner' && !owner) owner = value;
+    if (field === 'boatName' && !boatName) boatName = value;
   });
+  if (ownerNames && !name) name = owner || boatName;
   return identityKeyFor(sailNumber, name);
 }
 
@@ -216,6 +231,7 @@ function rankColumnIndex(columns: SailwaveColumn[]): number {
  */
 export function summaryFromRaceTables(
   races: SailwaveRaceSection[],
+  options: { ownerNames?: true } = {},
 ): { summary: SailwaveSummarySection; skipped: string[] } | null {
   const tables = races.filter((race) => race.rows.length > 0);
   const first = tables[0];
@@ -239,7 +255,7 @@ export function summaryFromRaceTables(
     }
     for (const cells of table.rows) {
       // One row per boat, however many of the page's races it sailed.
-      const key = rowIdentityKey(table.columns, cells);
+      const key = rowIdentityKey(table.columns, cells, options.ownerNames);
       if (seen.has(key)) continue;
       seen.add(key);
       const rankLabel = rankIdx === -1 ? '' : (cells[rankIdx] ?? '').trim();
@@ -317,6 +333,9 @@ export function buildSailwaveArchiveDoc(
 
     const rows = summary.rows.map((row) => {
       const extracted = extractCompetitor(summary, row);
+      if (input.ownerNames && !extracted.name) {
+        extracted.name = extracted.owner ?? extracted.boatName ?? '';
+      }
       extracted.name = placeholderName(extracted.sailNumber, extracted.name);
       const nameKey = normalizePersonName(extracted.name).full;
       const identityKey = identityKeyFor(extracted.sailNumber, extracted.name);
@@ -385,7 +404,7 @@ export function buildSailwaveArchiveDoc(
           // A synthesised fleet's competitors were built from these very
           // lines, so the link back is a fact rather than a re-match.
           const competitorId = fleet.rowsFromRaceTables
-            ? idByIdentity.get(rowIdentityKey(race.columns, cells))
+            ? idByIdentity.get(rowIdentityKey(race.columns, cells, input.ownerNames))
             : undefined;
           return {
             cells,
