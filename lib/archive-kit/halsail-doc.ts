@@ -50,6 +50,10 @@ export interface HalsailDocInput {
   /** A note on every page of the publication, and notes on one page each. */
   seriesNote?: string;
   pageNotes?: Array<{ page: string; text: string }>;
+  /** Name a row by its helm when the page shows no owner — a dinghy page.
+   *  Off for the archive.halsail.com corpus: its competitor ids were minted
+   *  from the boat name where no owner was recorded, and must not move. */
+  helmNames?: boolean;
   fleets: HalsailFleetInput[];
 }
 
@@ -78,9 +82,14 @@ export function buildHalsailArchiveDoc(input: HalsailDocInput): ArchiveSeriesDoc
     }
     const fleetId = fleetIdFor(input.seriesId, fleet.name);
 
-    const sailIdx = indexOf(overall.leadColumns, 'sail-number');
+    // The archive pages head the column "Sail Number", the live site "Sail".
+    const sailIdx = Math.max(
+      indexOf(overall.leadColumns, 'sail-number'),
+      indexOf(overall.leadColumns, 'sail'),
+    );
     const boatIdx = indexOf(overall.leadColumns, 'name');
     const ownerIdx = indexOf(overall.leadColumns, 'owner');
+    const helmIdx = input.helmNames ? indexOf(overall.leadColumns, 'helm') : -1;
     const clubIdx = indexOf(overall.leadColumns, 'club');
 
     const seenThisFleet = new Map<string, number>();
@@ -88,9 +97,12 @@ export function buildHalsailArchiveDoc(input: HalsailDocInput): ArchiveSeriesDoc
       const sailNumber = sailIdx === -1 ? '' : (row.leadCells[sailIdx] ?? '');
       const boatName = boatIdx === -1 ? '' : (row.leadCells[boatIdx] ?? '');
       const owner = ownerIdx === -1 ? '' : (row.leadCells[ownerIdx] ?? '');
+      const helm = helmIdx === -1 ? '' : (row.leadCells[helmIdx] ?? '');
       const club = clubIdx === -1 ? '' : (row.leadCells[clubIdx] ?? '');
+      // A dinghy page names the helm and no owner.
       const name =
         owner ||
+        helm ||
         boatName ||
         (sailNumber ? `Unknown Competitor (${sailNumber})` : 'Unknown Competitor');
       const nameKey = normalizePersonName(name).full || boatName.toLowerCase();
@@ -124,7 +136,8 @@ export function buildHalsailArchiveDoc(input: HalsailDocInput): ArchiveSeriesDoc
           // HalSail colours nothing, but under low-point scoring a clean
           // score of 1, 2, or 3 IS the place in that race — surface it in
           // the structured rank slot so the pages get podium colouring.
-          const place = /^[123]$/.test(c.text.trim())
+          // Under high-point a 1 is last, so there is no place to read.
+          const place = !fleet.page.highPoint && /^[123]$/.test(c.text.trim())
             ? Number(c.text.trim())
             : null;
           return {

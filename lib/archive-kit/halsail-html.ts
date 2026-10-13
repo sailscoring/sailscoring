@@ -12,7 +12,7 @@
 
 import { JSDOM } from 'jsdom';
 
-import { kebab } from '@/lib/publishing';
+import { kebab } from '../publishing';
 
 export interface HalsailColumn {
   key: string;
@@ -52,6 +52,12 @@ export interface HalsailRace {
 export interface HalsailPage {
   overall: HalsailOverall | null;
   races: HalsailRace[];
+  /** The series was scored high-point (live HalSail's "HP scoring"): a
+   *  race score of 1 is the worst result, not a win. */
+  highPoint?: boolean;
+  /** No standings were published, only a single race; `overall` was read
+   *  off the race table and the page publishes as a race result. */
+  raceOnly?: boolean;
 }
 
 const WS = /\s+/g;

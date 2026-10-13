@@ -22,6 +22,7 @@ import { decodeCapture } from '@/lib/archive-kit/capture-encoding';
 import { stableStringify, type ArchiveSeriesDoc } from '@/lib/archive-kit/format';
 import { buildHalsailArchiveDoc } from '@/lib/archive-kit/halsail-doc';
 import { parseHalsailHtml } from '@/lib/archive-kit/halsail-html';
+import { parseHalsailLiveHtml } from '@/lib/archive-kit/halsail-live-html';
 import { parseSail100Html } from '@/lib/archive-kit/sail100-html';
 import {
   buildSailwaveArchiveDoc,
@@ -91,7 +92,9 @@ const seriesSchema = z.object({
   venueUrl: z.string().optional(),
   venueLogoUrl: z.string().optional(),
   eventLogoUrl: z.string().optional(),
-  source: z.enum(['sailwave', 'halsail']),
+  /** `halsail` reads archive.halsail.com pages; `halsail-live` reads the
+   *  results fragment halsail.com serves at `/Result/_Boat/{seriesId}`. */
+  source: z.enum(['sailwave', 'halsail', 'halsail-live']),
   /** Publish this event's fleets as race results alone (#347) — a one-off
    *  trophy race, not a series. Every fleet must carry its race table, so a
    *  Sailwave entry needs `includeRaces` (the build fails loudly otherwise).
@@ -172,15 +175,23 @@ function buildSeries(
     seriesNote: entry.seriesNote,
     pageNotes: entry.pageNotes,
   };
-  if (entry.source === 'halsail') {
+  if (entry.source === 'halsail' || entry.source === 'halsail-live') {
+    const parsePage = entry.source === 'halsail' ? parseHalsailHtml : parseHalsailLiveHtml;
     return buildHalsailArchiveDoc({
       ...meta,
-      fleets: entry.fleets.map((fleet) => ({
-        name: fleet.name,
-        subPath: fleet.subPath,
-        page: parseHalsailHtml(readCapture(join(baseDir, fleet.file))),
-        ...(entry.detail ? { detail: entry.detail } : {}),
-      })),
+      ...(entry.source === 'halsail-live' ? { helmNames: true } : {}),
+      fleets: entry.fleets.map((fleet) => {
+        const page = parsePage(readCapture(join(baseDir, fleet.file)));
+        // A page with no standings, only its race, can only publish the race.
+        const detail = entry.detail ?? (page.raceOnly ? ('races' as const) : undefined);
+        if (page.raceOnly) raceOnlyFleets++;
+        return {
+          name: fleet.name,
+          subPath: fleet.subPath,
+          page,
+          ...(detail ? { detail } : {}),
+        };
+      }),
     });
   }
   let sawSail100 = false;
