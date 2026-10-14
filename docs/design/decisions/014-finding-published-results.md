@@ -3,8 +3,9 @@
 **Status:** Proposed. Decisions 1–3 (the publish-time summary, the
 workspace and season `index.json`, and the public directory) are accepted
 and implemented (#669, #670). Decision 4 (the race schedule, as a Schedule
-page with its JSON in `index.json`) is proposed; its open questions are
-listed at the end of the Decision.
+page) is proposed; its open questions are listed at the end of the
+Decision. Amended by [ADR-015](015-published-results-api.md), which serves
+the schedule's JSON from the published results API.
 
 **Date:** 2026-10-14
 
@@ -194,6 +195,12 @@ and is becoming an API; if apps built on it start to trip over pages
 lagging the file, the answer is a machine-readable version of each page
 beside the full file, not a data file that follows the ticks.
 
+> **Superseded in part by [ADR-015](015-published-results-api.md):** rather
+> than a JSON twin of each page, apps get a versioned, display-shaped
+> published results API, and the data file stops being the app-facing
+> format. The rule above — machine-readable output follows the latest
+> publish — stands, and applies to that API.
+
 ### 2. Workspace and season indexes (accepted, implemented — #669)
 
 `/p/{ws}/index.json` lists every publication in the workspace;
@@ -227,6 +234,12 @@ without being given a URL.
   `noindex`.
 
 ### 4. The race schedule (proposed)
+
+> **Amended by [ADR-015](015-published-results-api.md):** the schedule's JSON
+> is served as the published results API's `schedule` resource, and the
+> publication's entry in `index.json` links it rather than carrying the
+> races. The Schedule page, its consent model and the race shape below
+> stand.
 
 **A Schedule page.** The publish dialog gains a Schedule page, a fixed page
 like Prizes and Entries (`kind: 'schedule'`), which the scorer ticks or
@@ -368,6 +381,8 @@ build makes no data file, so a schedule-only publication lists its
   publish no Schedule page.
 - [ADR-008](008-full-stack-transition.md): the publishing model and its
   consent rule.
+- [ADR-015](015-published-results-api.md): the published results API, which
+  supersedes the per-page JSON direction and serves the schedule.
 
 ## References
 
