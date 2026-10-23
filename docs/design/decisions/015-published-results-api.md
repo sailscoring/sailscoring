@@ -259,15 +259,19 @@ superseded by this decision.
 
 - **The URL prefix.** `/api/public/v1/` keeps the API apart from both the
   page tree and the keyed `/api/v1`; under `/p/` it would share the existing
-  public-path exemptions and caching. Either way the index links it.
+  public-path caching. Either way the index links it, and the API needs
+  its own Bot Protection bypass in `vercel-firewall.json`: the existing
+  `/p/` rules name the data files and indexes, not the whole tree, and
+  without one every program gets the challenge as a 429 (DEPLOY.md).
 - **As-published archives.** Their results are tables as originally
   published, with whatever columns the source printed. Whether v1 serves
   them in the same shapes, in a looser one, or not at all.
 - **The entry list.** A `competitors` resource while the series publishes
   its Entries page.
 - **The deprecation period.** How long an old version keeps serving.
-- **Rate limiting.** The CDN absorbs polling; what an uncached client meets
-  beyond that.
+- **Rate limiting.** The CDN absorbs polling. The bypass above takes the
+  API out of Bot Protection, so an uncached client meets nothing beyond
+  that today.
 - **The keyed hash's key.** Per instance or per workspace, and what rotating
   it would mean (every boat's `id` changes).
 
