@@ -417,7 +417,7 @@ edit rules in the dashboard or with `vercel firewall rules …`, or the file
 and production drift apart.
 
 ```sh
-pnpm firewall:diff     # live config vs the file; exit 1 if they differ
+pnpm firewall:diff     # live config vs the file
 pnpm firewall:apply    # shows the diff, asks, then replaces the live config
 ```
 

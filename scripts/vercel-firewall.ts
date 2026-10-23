@@ -7,7 +7,7 @@
  * the firewall a rule at a time; this script compares the file with the live
  * configuration and, on `apply`, replaces the live configuration with it.
  *
- *   pnpm firewall:diff           # readonly: live config vs the file (exit 1 if they differ)
+ *   pnpm firewall:diff           # readonly: live config vs the file
  *   pnpm firewall:apply          # show the diff, confirm, then PUT the file
  *   pnpm firewall:apply --yes    # no prompt (required when stdin is not a terminal)
  *
@@ -186,7 +186,13 @@ export async function runCli(argv: string[]): Promise<number> {
   const [command, ...rest] = argv;
   try {
     if (command === 'diff' && rest.length === 0) {
-      return printDiff(fetchConfigs().active, readConfigFile()) ? 1 : 0;
+      const differs = printDiff(fetchConfigs().active, readConfigFile());
+      console.log(
+        differs
+          ? '\nLive firewall differs from vercel-firewall.json; `pnpm firewall:apply` makes it match.'
+          : 'Live firewall matches vercel-firewall.json.',
+      );
+      return 0;
     }
     if (command === 'apply' && rest.every((a) => a === '--yes')) {
       return await apply(rest.includes('--yes'));
