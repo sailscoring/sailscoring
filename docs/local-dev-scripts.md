@@ -55,6 +55,8 @@ from?", start here.
 | `pnpm provision-token`   | Admin CLI: mint/list/revoke API keys (Bearer tokens) for the CLI (uses `.env.local`) | Yes |
 | `pnpm provision-token:test` | Same, but against the local container             | Yes — run `pnpm db:up` first   |
 | `pnpm provision-token:prod` | Same, but against production, with the secrets fetched from Bitwarden for the run (see [account-admin.md](account-admin.md#production-usage)) | Yes (Neon) |
+| `pnpm firewall:diff`     | Compare the production Vercel Firewall with `vercel-firewall.json`; exit 1 if they differ (see [DEPLOY.md](../DEPLOY.md#10-configure-the-firewall)) | No (Vercel API, as the `vercel login` user) |
+| `pnpm firewall:apply`    | Show that diff, confirm, then replace the production firewall configuration with the file; `--yes` skips the prompt | No (Vercel API, as the `vercel login` user) |
 | `pnpm cli`               | The `sailscoring` CLI — a pure `/api/v1` client (import/publish/reads); see [cli.md](cli.md) | No (talks to a deployment) |
 | `pnpm generate:fixtures` | Regenerate scoring fixture HTML                      | No              |
 | `pnpm racesense:inspect` | Read a RaceSense regatta — the committee's `.xlsx` export, a player URL or regatta id (read live from the RaceSense player), or a captured regatta — and report what the import made of it, plus anything it didn't recognise; `--race N`, `--division NAME`, `--anomalies`, `--save FILE.json` keeps a pruned copy of the regatta | No |

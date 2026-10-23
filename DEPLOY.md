@@ -409,6 +409,40 @@ Publishing does **not** have this problem. A publish purges only that
 workspace's tag, and the pages regenerate one at a time as they are
 asked for.
 
+## 10. Configure the firewall
+
+The production firewall is declared in
+[`vercel-firewall.json`](vercel-firewall.json) and applied from it; don't
+edit rules in the dashboard or with `vercel firewall rules …`, or the file
+and production drift apart.
+
+```sh
+pnpm firewall:diff     # live config vs the file; exit 1 if they differ
+pnpm firewall:apply    # shows the diff, asks, then replaces the live config
+```
+
+Both talk to the Vercel API as whoever ran `vercel login`. `apply` replaces
+the **whole** configuration, managed rulesets included, so the diff it shows
+is the review step. It refuses while the dashboard holds unpublished draft
+changes, which a replace would discard.
+
+**Bot Protection is on in challenge mode**, and AI bots are denied. Every
+request the managed rules flag gets Vercel's Security Checkpoint, a
+JavaScript challenge served as **HTTP 429** with `x-vercel-mitigated:
+challenge`. Browsers get through it, but no plain HTTP client can: curl,
+`fetch` from a server, a club's race-day app. Anything machine-readable that
+the app serves therefore needs a bypass rule. The current ones cover:
+
+- `/api/v1/*` with an `Authorization` header (the CLI and API-key clients)
+- `/api/cron/*` and `/api/health`
+- the published data files (`/p/**.sailscoring.json`) and indexes
+  (`/p/**/index.json`)
+- link-preview bots (WhatsApp, Slack, …) fetching `/p/` pages and the icons
+
+**A new public endpoint for programs needs a rule here in the same
+change.** The tell-tale is a 429 with `x-vercel-mitigated: challenge` on a
+route that has no rate limit of its own.
+
 ---
 
 ## Local development

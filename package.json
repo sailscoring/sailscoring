@@ -50,6 +50,8 @@
     "redirects": "tsx --env-file-if-exists=.env.local scripts/manage-redirects.ts",
     "redirects:test": "./scripts/local-env.sh --local-db tsx scripts/manage-redirects.ts",
     "redirects:prod": "./scripts/prod-env.sh tsx scripts/manage-redirects.ts",
+    "firewall:diff": "tsx scripts/vercel-firewall.ts diff",
+    "firewall:apply": "tsx scripts/vercel-firewall.ts apply",
     "delete-account": "tsx --env-file-if-exists=.env.local scripts/delete-account.ts",
     "delete-account:test": "./scripts/local-env.sh --local-db tsx scripts/delete-account.ts",
     "delete-account:prod": "./scripts/prod-env.sh tsx scripts/delete-account.ts",

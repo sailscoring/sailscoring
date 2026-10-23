@@ -1,0 +1,129 @@
+{
+  "firewallEnabled": true,
+  "managedRules": {
+    "ai_bots": {
+      "active": true,
+      "action": "deny"
+    },
+    "bot_protection": {
+      "active": true,
+      "action": "challenge"
+    }
+  },
+  "crs": {
+    "gen": { "active": true, "action": "log" },
+    "sd": { "active": false, "action": "log" },
+    "java": { "active": false, "action": "log" },
+    "sf": { "active": false, "action": "log" },
+    "ma": { "active": false, "action": "log" },
+    "rfi": { "active": false, "action": "log" },
+    "rce": { "active": true, "action": "log" },
+    "xss": { "active": true, "action": "log" },
+    "php": { "active": false, "action": "log" },
+    "lfi": { "active": false, "action": "log" },
+    "sqli": { "active": true, "action": "log" }
+  },
+  "ips": [],
+  "rules": [
+    {
+      "name": "Bypass: keyed API clients",
+      "description": "The CLI and other API-key clients call /api/v1 from scripts that cannot answer Bot Protection's JavaScript challenge.",
+      "active": true,
+      "conditionGroup": [
+        {
+          "conditions": [
+            { "type": "path", "op": "pre", "value": "/api/v1/" },
+            { "type": "header", "op": "ex", "key": "authorization" }
+          ]
+        }
+      ],
+      "action": { "mitigate": { "action": "bypass" } }
+    },
+    {
+      "name": "Bypass: Vercel cron",
+      "description": "Scheduled sweeps declared in vercel.json.",
+      "active": true,
+      "conditionGroup": [
+        {
+          "conditions": [
+            { "type": "path", "op": "pre", "value": "/api/cron/" }
+          ]
+        }
+      ],
+      "action": { "mitigate": { "action": "bypass" } }
+    },
+    {
+      "name": "Bypass: health check",
+      "description": "Uptime monitoring and the post-deploy check in DEPLOY.md.",
+      "active": true,
+      "conditionGroup": [
+        {
+          "conditions": [
+            { "type": "path", "op": "eq", "value": "/api/health" }
+          ]
+        }
+      ],
+      "action": { "mitigate": { "action": "bypass" } }
+    },
+    {
+      "name": "Bypass: published data sidecars",
+      "description": "A published series' .sailscoring.json data file (ADR-012), fetched by programs.",
+      "active": true,
+      "conditionGroup": [
+        {
+          "conditions": [
+            { "type": "path", "op": "pre", "value": "/p/" },
+            { "type": "path", "op": "suf", "value": ".sailscoring.json" }
+          ]
+        }
+      ],
+      "action": { "mitigate": { "action": "bypass" } }
+    },
+    {
+      "name": "Bypass: published indexes",
+      "description": "The machine-readable indexes of published results (ADR-014): /p/index.json, /p/{ws}/index.json and /p/{ws}/{season}/index.json.",
+      "active": true,
+      "conditionGroup": [
+        {
+          "conditions": [
+            { "type": "path", "op": "pre", "value": "/p/" },
+            { "type": "path", "op": "suf", "value": "/index.json" }
+          ]
+        }
+      ],
+      "action": { "mitigate": { "action": "bypass" } }
+    },
+    {
+      "name": "Bypass: link previewers",
+      "description": "Chat and social apps fetching a shared results link to build its preview card.",
+      "active": true,
+      "conditionGroup": [
+        {
+          "conditions": [
+            {
+              "type": "user_agent",
+              "op": "re",
+              "value": "(WhatsApp|facebookexternalhit|Facebot|Slackbot|Twitterbot|Discordbot|TelegramBot)"
+            },
+            {
+              "type": "path",
+              "op": "inc",
+              "value": ["/opengraph-image.png", "/icon.svg", "/apple-icon.png", "/favicon.ico"]
+            }
+          ]
+        },
+        {
+          "conditions": [
+            {
+              "type": "user_agent",
+              "op": "re",
+              "value": "(WhatsApp|facebookexternalhit|Facebot|Slackbot|Twitterbot|Discordbot|TelegramBot)"
+            },
+            { "type": "path", "op": "pre", "value": "/p/" }
+          ]
+        }
+      ],
+      "action": { "mitigate": { "action": "bypass" } }
+    }
+  ]
+}
