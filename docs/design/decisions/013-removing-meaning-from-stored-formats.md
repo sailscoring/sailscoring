@@ -36,8 +36,8 @@ sets the rules, for #636 and for the removals that will follow it.
 - **Never rescore a championship silently.** A file that opens and scores
   differently than it did when it was saved is the worst outcome available.
   It looks correct.
-- **Old files keep opening wherever that is honest.** ADR-012 made the public
-  export a compatibility commitment, and the `.sailscoring` format has kept
+- **Old files keep opening wherever that is honest.** ADR-012 committed Sail
+  Scoring to reading every version of the public export, and the `.sailscoring` format has kept
   every version readable since v1.
 - **The model is allowed to shrink.** Carrying every variant forever to
   protect files nobody has is how the split-fleet configuration got here.
@@ -158,7 +158,7 @@ Option 4, as seven rules.
 - [ADR-008](008-full-stack-transition.md): the Postgres data layer and its
   migrations
 - [ADR-012](012-data-behind-published-results.md): the public export as a
-  versioned compatibility commitment
+  documented, versioned format that Sail Scoring reads at every version
 
 ## References
 

@@ -363,7 +363,15 @@ export default function DataInAndOut() {
           hidden competitor columns, unresolved finish entries, and scorer-private information
           (file history, FTP credentials, and publishing tokens) are never included. Pages you
           download or push over FTP without publishing embed the same snapshot in the page
-          source instead, so they stay self-contained.
+          source instead, so they stay self-contained. The file is described in{' '}
+          <a
+            href="https://github.com/sailscoring/sailscoring/blob/main/docs/public-export-format.md"
+            className="underline"
+          >
+            the data format reference
+          </a>
+          , but it is not a stable API: it changes as Sail Scoring does, and a new version can
+          stop an app written against an older one from reading it.
         </p>
         <p>
           To disable the data export for a series, open the{' '}

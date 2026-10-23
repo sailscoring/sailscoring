@@ -3,7 +3,31 @@
 The public export is the data behind a published results page
 ([ADR-012](design/decisions/012-data-behind-published-results.md)): a
 sanitized, portable snapshot of a series, published beside the pages and
-free for anyone to fetch and build on.
+free for anyone to fetch.
+
+## Stability
+
+The format is documented so that it can be read, but it is **not a stable
+public API**. It exists so that published results can be re-scored and
+imported, and it changes as the scoring model does.
+
+- **A new version may be unreadable by an existing reader.** Any release of
+  Sail Scoring may start publishing files that a reader written against an
+  earlier version cannot read, without notice, a deprecation period, or a
+  guarantee that the change is additive.
+- **The one compatibility promise runs the other way.** Sail Scoring's own
+  reader keeps reading every earlier version.
+- **Versions are mixed in the wild.** A published file stays at the version
+  it was written at until its series is republished, and republishing writes
+  the current version. A reader meets old and new files side by side.
+- **Reading tolerantly is at the reader's own risk.** An app that ignores
+  fields it does not know and checks the ones it uses will often keep working
+  across a new version. Nothing guarantees it. Such an app should fail
+  visibly when a field it relies on is missing or reshaped, rather than show
+  a half-read table.
+
+This stance may change. A stable, display-shaped API for apps is proposed in
+[ADR-015](design/decisions/015-published-results-api.md).
 
 ## Where to find it
 
@@ -103,8 +127,9 @@ results, and beyond that nothing that is not in the published HTML**:
 
 ## Versioning
 
-The top-level `version` field numbers the format. Readers accept every
-version up to their own; writers write the current one.
+The top-level `version` field numbers the format. Sail Scoring's reader
+accepts every version up to its own and refuses a newer one; writers write
+the current one.
 
 | Version | Change |
 |---|---|
@@ -118,8 +143,10 @@ version up to their own; writers write the current one.
 | 8 | `splitFleets.config` gains `fleetRanking` (`combined` or `per-fleet`): whether an undivided championship with more than one fleet ranks its fleets as one list or each on its own — each boat ranked within her fleet, a race counting for a fleet once that fleet has sailed it, a non-finisher scored from her own fleet — and `medal.fromEachFleet`, how many of each fleet's leaders go through directly. Absent is `combined`. |
 | 9 | A race start's `course` gains `north`: `"magnetic"` where that start's directions — its `courseLegs` bearings, winds and currents, and the course's wind — are magnetic rather than true. It marks a constructed course imported in magnetic with nowhere to read the variation at. Absent, every direction is true, as before. ORC scores a leg on its wind and current relative to its course, so either north scores the same; an older reader would label the figures wrongly, so the version changes. |
 
-The format is a public API surface: field removals or meaning changes
-bump the version; purely additive optional fields may not. The
+A change that an older reader would misread bumps the version: a field
+removed, renamed or reshaped, or a new field or value that changes what
+existing ones mean. A purely additive optional field may not. Either kind
+can reach readers without notice (see [Stability](#stability)). The
 authoritative field-by-field shape is `PublicSeriesExport` in
 [`lib/public-export.ts`](../lib/public-export.ts), whose doc comments
 are written to be read as the format's reference.

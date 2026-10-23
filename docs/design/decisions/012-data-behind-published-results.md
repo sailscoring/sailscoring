@@ -1,7 +1,8 @@
 # ADR-012: The data behind a published results page
 
 **Status:** Accepted (amended 2026-08-30 — the view-only destination is
-strictly read-only; see the note in the Decision)
+strictly read-only; amended 2026-10-23 — the export is documented but not a
+stable API; see the notes in the Decision)
 
 **Date:** 2026-08-29
 
@@ -379,6 +380,15 @@ The questions the draft left open are resolved as follows:
   format.** It is an API surface the moment it has a URL; changes to it
   follow the same discipline as the `.sailscoring` format's versioning,
   and the format gets a public document.
+
+  *Amended 2026-10-23:* "stable" overstated it. The export is documented
+  and versioned, but it is not a stable public API: a new version may be
+  unreadable by a reader written against an earlier one, and it can ship
+  without notice. The commitment is that Sail Scoring's own reader keeps
+  reading every earlier version ([ADR-013](013-removing-meaning-from-stored-formats.md)).
+  Apps may read the file tolerantly at their own risk, and the format
+  document says so. A stable contract for apps is a separate decision
+  ([ADR-015](015-published-results-api.md)).
 - **Discoverability stays quiet, but stops being accidental.** The
   placements considered: a louder page-chrome affordance (a download
   control beside the print button); a data link per publication on the
@@ -414,7 +424,9 @@ deliberately left to the implementation issues.
 ### Negative
 
 - A published format is a compatibility commitment; the export can no
-  longer evolve casually.
+  longer evolve casually. (Narrowed by the 2026-10-23 amendment: the
+  commitment is that Sail Scoring reads every version, not that other
+  readers can.)
 - Meeting the stated contract needs a field-by-field pass over the
   export, and dropping hidden non-scoring fields is a behaviour change
   for existing embedded blobs' consumers (there are unlikely to be any,
