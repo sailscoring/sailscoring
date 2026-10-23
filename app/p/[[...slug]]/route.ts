@@ -3,6 +3,7 @@ import type { NextRequest } from 'next/server';
 import { readPublishedHtml } from '@/lib/blob-storage';
 import { getCareerArc } from '@/lib/career-arc';
 import { renderCareerArcHtml } from '@/lib/career-arc-render';
+import { instanceTimeZone } from '@/lib/instance-time-zone';
 import {
   findIdentityIdByRef,
   listIdentitiesWithArcs,
@@ -398,9 +399,14 @@ async function directory(req: NextRequest): Promise<Response> {
  *  its own `index.json`. */
 async function directoryIndexJson(req: NextRequest): Promise<Response> {
   const { dir, etag: dirEtag } = await readDirectory();
-  // The JSON carries absolute URLs, so the origin is part of its version.
+  // The JSON carries absolute URLs and the instance's time zone, so both are
+  // part of its version.
   const origin = req.nextUrl.origin;
-  const etag = `"${await contentHash([dirEtag, `origin:${origin}`])}"`;
+  const etag = `"${await contentHash([
+    dirEtag,
+    `origin:${origin}`,
+    `tz:${instanceTimeZone()}`,
+  ])}"`;
   const cached = jsonNotModified(req, etag);
   if (cached) return cached;
   return jsonResponse(
@@ -447,6 +453,7 @@ async function indexJson(
   const etag = `"${await contentHash([
     `v:${PUBLIC_INDEX_VERSION}`,
     `origin:${origin}`,
+    `tz:${instanceTimeZone()}`,
     `name:${workspace.name}`,
     `logo:${workspace.logo}`,
     `season:${season ?? ''}`,

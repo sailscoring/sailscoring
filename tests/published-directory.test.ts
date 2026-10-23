@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 
 import {
   badgesOf,
@@ -134,6 +134,26 @@ describe('directoryJson', () => {
       publishedAt: day(6).toISOString(),
       workspace: 'hyc',
     });
+  });
+});
+
+describe('directoryJson — the instance time zone', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  test('declares Europe/Dublin by default', () => {
+    vi.stubEnv('NEXT_PUBLIC_DEFAULT_TIMEZONE', undefined);
+    expect(directoryJson(buildDirectory(rows, pages), 'https://app.example').timeZone).toBe(
+      'Europe/Dublin',
+    );
+  });
+
+  test('declares the zone the instance is set to', () => {
+    vi.stubEnv('NEXT_PUBLIC_DEFAULT_TIMEZONE', 'America/New_York');
+    expect(directoryJson(buildDirectory(rows, pages), 'https://app.example').timeZone).toBe(
+      'America/New_York',
+    );
   });
 });
 

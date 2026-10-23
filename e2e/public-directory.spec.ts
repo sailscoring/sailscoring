@@ -69,6 +69,7 @@ test('a club that publishes appears in the directory until it opts out', async (
   await expect(reader).toHaveURL(new RegExp(`/p/${org.slug}/2026/bay-series$`));
 
   const json = await (await reader.request.get('/p/index.json')).json();
+  expect(json.timeZone).toBe('Europe/Dublin');
   const listed = json.workspaces.find((w: { slug: string }) => w.slug === org.slug);
   expect(listed).toMatchObject({ description: 'Racing on the bay', counts: { series: 1, races: 1, entries: 1 } });
   expect(listed.index).toMatch(new RegExp(`/p/${org.slug}/index\\.json$`));

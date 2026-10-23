@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 
 import { buildPublicIndex, type PublicIndexInputRow } from '@/lib/published-index-json';
 
@@ -201,5 +201,30 @@ describe('buildPublicIndex — season mode', () => {
       ],
     });
     expect(doc.publications[0].url).toBe('https://app.example/p/hyc/2026/bay-series');
+  });
+});
+
+describe('buildPublicIndex — the instance time zone', () => {
+  const build = () =>
+    buildPublicIndex({
+      origin: ORIGIN,
+      workspace: WS,
+      seasonTree: { seasons: [], undated: [{ slug: 'pursuit', label: 'Pursuit' }] },
+      folderMeta: new Map(),
+      publications: [row({ slug: 'pursuit' })],
+    });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  test('declares Europe/Dublin by default', () => {
+    vi.stubEnv('NEXT_PUBLIC_DEFAULT_TIMEZONE', undefined);
+    expect(build().timeZone).toBe('Europe/Dublin');
+  });
+
+  test('declares the zone the instance is set to', () => {
+    vi.stubEnv('NEXT_PUBLIC_DEFAULT_TIMEZONE', 'America/New_York');
+    expect(build().timeZone).toBe('America/New_York');
   });
 });

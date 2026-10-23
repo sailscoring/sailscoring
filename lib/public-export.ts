@@ -37,6 +37,7 @@ import type {
   SeriesCourseRepository,
   SeriesMarkRepository,
 } from './repository';
+import { instanceTimeZone } from './instance-time-zone';
 import { orcCertFromSummary, orcCertSummary } from './orc-certificate';
 import { hasConditions } from './race-conditions';
 import {
@@ -190,7 +191,14 @@ export interface PublicSeriesExport {
    *  into every export so a reader handed only the file can find the
    *  contract. Optional: exports written before it was added lack it. */
   formatDoc?: string;
+  /** UTC, ending in `Z`. */
   exportedAt: string;
+  /** The IANA time zone of the instance that wrote the file. Every date and
+   *  time in it without an offset — race dates, gun times, finish times — is
+   *  a local clock time in this zone, kept as the scorer entered it.
+   *  Optional: exports written before it was added lack it, though their
+   *  times are local all the same. */
+  timeZone?: string;
   series: {
     name: string;
     venue: string;
@@ -1435,6 +1443,7 @@ export function buildPublicExportFromSnapshot(
     version: 9 as const,
     formatDoc: PUBLIC_EXPORT_FORMAT_DOC,
     exportedAt: (opts?.exportedAt ?? new Date()).toISOString(),
+    timeZone: instanceTimeZone(),
     series: {
       name: series.name,
       venue: series.venue,

@@ -270,6 +270,8 @@ test('the workspace serves a machine-readable index of its publications (#669)',
   expect(res.headers()['access-control-expose-headers']).toContain('ETag');
   const index = await res.json();
   expect(index.version).toBe(1);
+  // Its local dates and times are declared in the instance's zone.
+  expect(index.timeZone).toBe('Europe/Dublin');
   const pub = index.publications.find((p: { name: string }) => p.name === 'Index League');
   expect(pub).toMatchObject({ season: '2026', races: 1, boats: 1 });
   expect(pub.firstRaceDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
@@ -281,7 +283,9 @@ test('the workspace serves a machine-readable index of its publications (#669)',
   expect((await page.request.get(pub.pages[0].url)).status()).toBe(200);
   const data = await page.request.get(pub.data);
   expect(data.status()).toBe(200);
-  expect((await data.json()).series.name).toBe('Index League');
+  const dataJson = await data.json();
+  expect(dataJson.series.name).toBe('Index League');
+  expect(dataJson.timeZone).toBe(index.timeZone);
 
   // The season index lists it too, and an unchanged index revalidates.
   const season = index.seasons.find((s: { label: string }) => s.label === '2026');

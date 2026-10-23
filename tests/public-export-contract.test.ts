@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   buildPublicExportFromSnapshot,
   importPublicExport,
@@ -354,6 +354,23 @@ describe('parsePublicExport', () => {
     const older = JSON.parse(valid());
     delete older.formatDoc;
     expect(parsePublicExport(JSON.stringify(older)).formatDoc).toBeUndefined();
+  });
+
+  it('declares the instance time zone, which the setting overrides', () => {
+    try {
+      vi.stubEnv('NEXT_PUBLIC_DEFAULT_TIMEZONE', undefined);
+      expect(parsePublicExport(valid()).timeZone).toBe('Europe/Dublin');
+      vi.stubEnv('NEXT_PUBLIC_DEFAULT_TIMEZONE', 'America/New_York');
+      expect(parsePublicExport(valid()).timeZone).toBe('America/New_York');
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it('reads an export written before timeZone existed', () => {
+    const older = JSON.parse(valid());
+    delete older.timeZone;
+    expect(parsePublicExport(JSON.stringify(older)).timeZone).toBeUndefined();
   });
 
   it('rejects text that is not the format', () => {

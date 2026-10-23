@@ -15,6 +15,7 @@
  * `docs/public-index-format.md` is its reference.
  */
 
+import { instanceTimeZone } from './instance-time-zone';
 import { humanizeSlug, isSyntheticFleetName } from './publishing';
 import { fleetPageLabel, isAuxiliaryPage } from './published-index';
 import { folderSegmentOf, publicationPath, sharedFolderSegment } from './published-tree';
@@ -75,6 +76,9 @@ export interface PublicIndexPublication {
 
 export interface PublicIndex {
   version: number;
+  /** The instance's IANA time zone: a date without an offset
+   *  (`firstRaceDate`) is local to it; `publishedAt` ends in `Z` and is UTC. */
+  timeZone: string;
   workspace: { slug: string; name: string; url: string; logo?: string };
   seasons: { label: string; current: boolean; url: string; index: string }[];
   publications: PublicIndexPublication[];
@@ -204,6 +208,7 @@ export function buildPublicIndex(input: {
 
   return {
     version: PUBLIC_INDEX_VERSION,
+    timeZone: instanceTimeZone(),
     workspace: {
       slug: workspace.slug,
       name: workspace.name,

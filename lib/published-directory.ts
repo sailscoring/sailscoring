@@ -16,6 +16,7 @@
  */
 
 import { escapeHtml as esc } from './html';
+import { instanceTimeZone } from './instance-time-zone';
 import {
   assemblePublishedSeasonTree,
   type DirectoryRows,
@@ -227,7 +228,8 @@ export function badgesOf(summaries: PublicationSummary[]): DirectoryBadge[] {
 
 /** The directory as JSON — `/p/index.json`. Every URL is absolute; each
  *  workspace links its own `index.json` (#669), so an app can walk from here
- *  to any series' data file without being given a URL. */
+ *  to any series' data file without being given a URL. `timeZone` is the
+ *  instance's; the timestamps here are all UTC. */
 export function directoryJson(directory: Directory, origin: string) {
   const abs = (path: string) =>
     /^https?:\/\//.test(path) ? path : `${origin}${path.startsWith('/') ? '' : '/'}${path}`;
@@ -238,6 +240,7 @@ export function directoryJson(directory: Directory, origin: string) {
   });
   return {
     version: PUBLIC_DIRECTORY_VERSION,
+    timeZone: instanceTimeZone(),
     workspaces: directory.workspaces.map((w) => ({
       slug: w.slug,
       name: w.name,
