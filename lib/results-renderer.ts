@@ -6,6 +6,7 @@ import { renderCourseBackgroundSymbol, renderCourseSvg, type CourseBackground } 
 import { courseVariation, describeVariation, formatBearing, formatDeg, type Variation } from './bearings';
 import { drawnRaceStartCourse, routedDrawing, startCoursePositions } from './course-geometry';
 import { escapeHtml as esc } from './html';
+import { instanceTimeZone } from './instance-time-zone';
 import type { NationalFlag } from './nationality/types';
 import { elapsedSecondsOf, timingPrecisionOf, type TimedFinish } from './elapsed-time';
 import { formatElapsedInput, parseHmsToSeconds } from './time-parse';
@@ -2867,27 +2868,6 @@ function renderScoreText(
 }
 
 /**
- * IANA timezone used to render result timestamps (the "provisional as of" line).
- * Defaults to `Europe/Dublin` (Sail Scoring's home instance is Irish), overridable
- * per deployment via `NEXT_PUBLIC_DEFAULT_TIMEZONE` — mirrors `defaultSailCountry()`
- * in `rating-match.ts`. This matters because publishing renders server-side on
- * Vercel (UTC); without a fixed zone the stamp shows UTC rather than the
- * publisher's local time. An unset, empty, or invalid value falls back to the
- * default.
- */
-function resultsTimeZone(): string {
-  const tz = process.env.NEXT_PUBLIC_DEFAULT_TIMEZONE?.trim();
-  if (!tz) return 'Europe/Dublin';
-  try {
-    // Throws RangeError on an unrecognised IANA zone.
-    new Intl.DateTimeFormat('en-IE', { timeZone: tz });
-    return tz;
-  } catch {
-    return 'Europe/Dublin';
-  }
-}
-
-/**
  * The absolute origin the app is served from, for the one URL a published page
  * has to state in full: the share card's image. Everything else a page
  * references is relative, because the same HTML is what a club uploads to its
@@ -2929,7 +2909,7 @@ function formatTime(d: Date): string {
     hour: '2-digit',
     minute: '2-digit',
     hour12: false,
-    timeZone: resultsTimeZone(),
+    timeZone: instanceTimeZone(),
     timeZoneName: 'short',
   });
 }
@@ -2939,7 +2919,7 @@ function formatDate(d: Date): string {
     month: 'long',
     day: 'numeric',
     year: 'numeric',
-    timeZone: resultsTimeZone(),
+    timeZone: instanceTimeZone(),
   });
 }
 
