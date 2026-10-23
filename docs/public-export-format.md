@@ -152,6 +152,21 @@ results, and beyond that nothing that is not in the published HTML**:
   `ref`, fleets and races by name/number), FTP configuration, revision
   history, workspace organisation.
 
+## Dates and times
+
+Every date and time a scorer enters is a local clock time, written as they
+entered it: race dates, gun times, finish times. The top-level `timeZone`
+field names the zone they are local to, as an IANA name (`Europe/Dublin`).
+One zone covers everything an instance of Sail Scoring publishes.
+
+- A date or time without an offset (`"2026-10-11"`, `"10:55:00"`) is local
+  to `timeZone`.
+- A timestamp ending in `Z` (`exportedAt`) is UTC.
+
+Files written before the field was added lack it. Their times are local all
+the same, just undeclared; a file published by `app.sailscoring.ie` is in
+`Europe/Dublin`.
+
 ## Versioning
 
 The top-level `version` field numbers the format. Sail Scoring's reader
@@ -174,7 +189,8 @@ A change that an older reader would misread bumps the version: a field
 removed, renamed or reshaped, or a new field or value that changes what
 existing ones mean. A purely additive optional field may not. Either kind
 can reach readers without notice (see [Stability](#stability)). `formatDoc`
-is one such addition: it appears in version-9 files from 2026-10-23 on. The
+and `timeZone` are two such additions: both appear in version-9 files from
+2026-10-23 on. The
 authoritative field-by-field shape is `PublicSeriesExport` in
 [`lib/public-export.ts`](../lib/public-export.ts), whose doc comments
 are written to be read as the format's reference.

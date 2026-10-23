@@ -34,6 +34,7 @@ Every URL is absolute.
 ```jsonc
 {
   "version": 1,
+  "timeZone": "Europe/Dublin",             // the zone local dates are in
   "workspace": {
     "slug": "hyc",
     "name": "Howth Yacht Club",
@@ -86,6 +87,11 @@ Every URL is absolute.
 
 Field notes:
 
+- **`timeZone`.** The instance's time zone, as an IANA name. One zone
+  covers every workspace an instance of Sail Scoring publishes. A date or
+  time without an offset (`firstRaceDate`, `lastRaceDate`) is local to it; a
+  timestamp ending in `Z` (`publishedAt`) is UTC. The data files the index
+  links declare the same zone.
 - **Order.** Publications follow the tree: newest season first, each
   season's folders in the order its index lists them, the series in a folder
   in the workspace's own order. Publications with no season come last.
@@ -119,6 +125,7 @@ workspaces never are. Served the same way as the workspace index (CORS-open,
 ```jsonc
 {
   "version": 1,
+  "timeZone": "Europe/Dublin",
   "workspaces": [                           // most recently published first
     {
       "slug": "hyc",
@@ -140,6 +147,8 @@ workspaces never are. Served the same way as the workspace index (CORS-open,
 }
 ```
 
+- **`timeZone`** is the instance's, as in the workspace index. Every
+  timestamp in the directory ends in `Z` and is UTC.
 - **`counts`** sum the workspace's publications: `entries` counts a boat
   once per series it sailed, not once overall. Publications made before
   Sail Scoring recorded their races and entries count toward `series` only.

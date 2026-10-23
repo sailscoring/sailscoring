@@ -298,6 +298,16 @@ published-results URLs and the "Open in Sail Scoring" links in exported HTML.
 The auth client *does not* use this; it relies on the current page origin so
 the same code works in dev, on previews, and in production.
 
+**`NEXT_PUBLIC_DEFAULT_TIMEZONE`** — the instance's time zone, as an IANA
+name. Scorers enter dates and times as local clock times with no zone
+attached, and this is the zone they are all in, for every workspace and
+series on the instance. The public data file (`.sailscoring.json`) and the
+published `index.json` files declare it as `timeZone`, and results pages print
+their "provisional as of" stamp in it. An unset or unrecognised value falls
+back to `Europe/Dublin`. Set it before an instance starts taking results:
+changing it later converts nothing, so times already entered are then
+declared to be in the new zone.
+
 **`BLOB_READ_WRITE_TOKEN`** — managed by the Vercel Blob integration (step 4),
 not added by hand. Leave it **unset on Development** so publishing uses the
 `published_blobs` Postgres fallback; it's set on Production (and Preview, if
