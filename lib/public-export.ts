@@ -163,6 +163,10 @@ export interface ExportPrize {
   clauses: ExportPrizeClause[];
 }
 
+/** The format document every export points at (`formatDoc`). */
+export const PUBLIC_EXPORT_FORMAT_DOC =
+  'https://github.com/sailscoring/sailscoring/blob/main/docs/public-export-format.md';
+
 export interface PublicSeriesExport {
   /** Format version. v1 carried every competitor field regardless of the
    *  series' displayed columns and appended unresolved finish rows; v2
@@ -182,6 +186,10 @@ export interface PublicSeriesExport {
    *  `course.north` on a start whose directions are magnetic rather than
    *  true. Readers accept them all. */
   version: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+  /** Where the format, and what a reader may rely on, is documented. Written
+   *  into every export so a reader handed only the file can find the
+   *  contract. Optional: exports written before it was added lack it. */
+  formatDoc?: string;
   exportedAt: string;
   series: {
     name: string;
@@ -1425,6 +1433,7 @@ export function buildPublicExportFromSnapshot(
 
   return {
     version: 9 as const,
+    formatDoc: PUBLIC_EXPORT_FORMAT_DOC,
     exportedAt: (opts?.exportedAt ?? new Date()).toISOString(),
     series: {
       name: series.name,

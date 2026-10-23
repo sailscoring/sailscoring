@@ -3,6 +3,7 @@ import {
   buildPublicExportFromSnapshot,
   importPublicExport,
   parsePublicExport,
+  PUBLIC_EXPORT_FORMAT_DOC,
   type ImportRepos,
 } from '@/lib/public-export';
 import type { SeriesSnapshot } from '@/lib/series-snapshot';
@@ -342,6 +343,17 @@ describe('parsePublicExport', () => {
 
   it('accepts an export this build wrote', () => {
     expect(parsePublicExport(valid()).series.name).toBe('Autumn League');
+  });
+
+  it('points a reader handed only the file at the format document', () => {
+    expect(parsePublicExport(valid()).formatDoc).toBe(PUBLIC_EXPORT_FORMAT_DOC);
+    expect(PUBLIC_EXPORT_FORMAT_DOC).toMatch(/\/docs\/public-export-format\.md$/);
+  });
+
+  it('reads an export written before formatDoc existed', () => {
+    const older = JSON.parse(valid());
+    delete older.formatDoc;
+    expect(parsePublicExport(JSON.stringify(older)).formatDoc).toBeUndefined();
   });
 
   it('rejects text that is not the format', () => {

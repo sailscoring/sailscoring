@@ -357,8 +357,11 @@ export default function DataInAndOut() {
         <p>
           Publishing also puts the underlying data itself beside the pages, as a{' '}
           <code className="text-foreground text-sm">.sailscoring.json</code> file linked from
-          every page footer — a machine-readable snapshot of exactly the results shown, for
-          clubs or third parties who want to consume the data programmatically. The suffix
+          every page footer — a machine-readable snapshot of the series as it stood when you
+          last published, for clubs or third parties who want to consume the data
+          programmatically. It is rebuilt whenever you publish anything, even just the entry
+          list, so a race you are halfway through entering goes into the file as it stands,
+          and the file can be newer than a page you left unticked. The suffix
           marks it as the public, sanitized view: it contains only the published results —
           hidden competitor columns, unresolved finish entries, and scorer-private information
           (file history, FTP credentials, and publishing tokens) are never included. Pages you

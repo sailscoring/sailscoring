@@ -29,6 +29,32 @@ imported, and it changes as the scoring model does.
 This stance may change. A stable, display-shaped API for apps is proposed in
 [ADR-015](design/decisions/015-published-results-api.md).
 
+Every export names this document in its top-level `formatDoc` field, so a
+reader handed only the file can find the contract. Exports written before
+the field was added lack it.
+
+## When it changes
+
+Publishing **any** page of a series rebuilds the file from the series as it
+stands at that moment, whichever pages are ticked
+([ADR-014](design/decisions/014-finding-published-results.md), Decision 1).
+Publishing only the entry list rebuilds it. Between publishes it does not
+change.
+
+So the file can hold results that no page shows yet, and that the scorer
+has not finished entering. A scorer who republishes the entry list halfway
+through entering a race publishes that race as entered so far: the finishes
+typed in, and the standings scored with them. Nothing in the file marks a
+race as incomplete. The only status is the series' `resultsStatus`, which
+is `final` once the scorer marks the results final, and absent while they
+are provisional.
+
+For the same reason the file can be newer than some pages beside it: a page
+left unticked keeps the results it was last published with.
+
+A series can leave the file out altogether: its Publishing settings have an
+opt-out.
+
 ## Where to find it
 
 Every publication that includes the JSON export (on by default; the
@@ -49,8 +75,9 @@ series' Publishing settings can opt out) serves one file:
   workspace's `index.json` — see
   [the public index format](public-index-format.md) — so an app can find
   each series' file without being given its URL.
-- **Snapshot-pinned**: the file holds exactly the data the pages were
-  rendered from, updated only by a re-publish. Unpublishing removes it.
+- **Rebuilt on every publish**, from the series as it stands at that
+  moment — see [When it changes](#when-it-changes). Unpublishing removes
+  it.
 - Standalone artifacts (a downloaded page, an FTP page of a
   never-published series) carry the same JSON inline instead, base64url-
   encoded in the footer's `/import#data=` link, so they stay
@@ -146,7 +173,8 @@ the current one.
 A change that an older reader would misread bumps the version: a field
 removed, renamed or reshaped, or a new field or value that changes what
 existing ones mean. A purely additive optional field may not. Either kind
-can reach readers without notice (see [Stability](#stability)). The
+can reach readers without notice (see [Stability](#stability)). `formatDoc`
+is one such addition: it appears in version-9 files from 2026-10-23 on. The
 authoritative field-by-field shape is `PublicSeriesExport` in
 [`lib/public-export.ts`](../lib/public-export.ts), whose doc comments
 are written to be read as the format's reference.
