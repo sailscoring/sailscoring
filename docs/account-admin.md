@@ -129,7 +129,8 @@ One-time setup:
 2. Create a vault item (a Secure Note does) with custom fields named
    after the variables: `DATABASE_URL` (required; the Neon production
    URL), `BLOB_READ_WRITE_TOKEN` and `NEXT_PUBLIC_APP_URL` (needed by
-   `republish`). Hidden fields are fine. No other field is read.
+   `republish`), and `VERCEL_TOKEN` (see [The Vercel CLI](#the-vercel-cli)
+   below). Hidden fields are fine. No other field is read.
 3. Put its id in an untracked `.env.operator` at the repo root:
 
    ```bash
@@ -150,6 +151,36 @@ Only the three variables above are exported; the session key never is.
 The prompt needs a terminal, so a `:prod` script cannot run from a
 non-interactive shell — the wrapper says so and exits rather than
 hanging. Run production operations yourself, from your own terminal.
+
+### The Vercel CLI
+
+The Vercel CLI reaches production as directly as the database URL does:
+it can pull the Production environment's variables, or deploy code that
+reads them. So it is not left logged in either. Its token lives on the
+same Bitwarden item, and `scripts/vercel-env.sh` fetches it for one run
+the way `prod-env.sh` fetches `DATABASE_URL` — exporting `VERCEL_TOKEN`
+only, never the database or blob secrets.
+
+```bash
+pnpm vercel env pull    # any Vercel CLI command: pnpm vercel <args>
+pnpm run deploy:prod
+pnpm firewall:diff
+```
+
+One-time setup:
+
+1. Create a token at **vercel.com → Account Settings → Tokens**, scoped
+   to the team that owns the project, with an expiry you are willing to
+   rotate on.
+2. Add it to the Bitwarden item as a hidden field named `VERCEL_TOKEN`,
+   then `bw sync`.
+3. `vercel logout`, so the CLI's own credential store holds no token
+   and a bare `vercel …` fails rather than working unprompted.
+4. Check it: `pnpm vercel whoami` should prompt for the master password
+   and print your username; a bare `vercel whoami` should not.
+
+Pushing to `main` still deploys production through the Git integration,
+which needs no CLI token.
 
 ## Multiple emails per account
 

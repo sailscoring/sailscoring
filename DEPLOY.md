@@ -41,9 +41,13 @@ pnpm install
 ## 2. Log in to Vercel and link the project
 
 ```sh
-vercel login
-vercel link
+pnpm vercel link
 ```
+
+The CLI is not left logged in with `vercel login`: `pnpm vercel` runs it
+with a token fetched from Bitwarden for the one command (setup in
+[docs/account-admin.md](docs/account-admin.md#the-vercel-cli)). Wherever
+this guide says `vercel …`, run `pnpm vercel …`.
 
 Follow the prompts to either link to the existing `sailscoring` project or
 create a new one. This writes `.vercel/project.json`.
@@ -354,7 +358,7 @@ vercel env add CREDENTIAL_KEY
 ## 7. Pull env vars locally
 
 ```sh
-vercel env pull
+pnpm vercel env pull
 ```
 
 This writes `.env.local` from the **Development** environment values. Inspect
@@ -431,7 +435,8 @@ pnpm firewall:diff     # live config vs the file
 pnpm firewall:apply    # shows the diff, asks, then replaces the live config
 ```
 
-Both talk to the Vercel API as whoever ran `vercel login`. `apply` replaces
+Both talk to the Vercel API with the token `scripts/vercel-env.sh` fetches
+from Bitwarden. `apply` replaces
 the **whole** configuration, managed rulesets included, so the diff it shows
 is the review step. It refuses while the dashboard holds unpublished draft
 changes, which a replace would discard.

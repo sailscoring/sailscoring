@@ -55,14 +55,15 @@ from?", start here.
 | `pnpm provision-token`   | Admin CLI: mint/list/revoke API keys (Bearer tokens) for the CLI (uses `.env.local`) | Yes |
 | `pnpm provision-token:test` | Same, but against the local container             | Yes — run `pnpm db:up` first   |
 | `pnpm provision-token:prod` | Same, but against production, with the secrets fetched from Bitwarden for the run (see [account-admin.md](account-admin.md#production-usage)) | Yes (Neon) |
-| `pnpm firewall:diff`     | Compare the production Vercel Firewall with `vercel-firewall.json` (see [DEPLOY.md](../DEPLOY.md#10-configure-the-firewall)) | No (Vercel API, as the `vercel login` user) |
-| `pnpm firewall:apply`    | Show that diff, confirm, then replace the production firewall configuration with the file; `--yes` skips the prompt | No (Vercel API, as the `vercel login` user) |
+| `pnpm firewall:diff`     | Compare the production Vercel Firewall with `vercel-firewall.json` (see [DEPLOY.md](../DEPLOY.md#10-configure-the-firewall)) | No (Vercel API, token from Bitwarden) |
+| `pnpm firewall:apply`    | Show that diff, confirm, then replace the production firewall configuration with the file; `--yes` skips the prompt | No (Vercel API, token from Bitwarden) |
 | `pnpm cli`               | The `sailscoring` CLI — a pure `/api/v1` client (import/publish/reads); see [cli.md](cli.md) | No (talks to a deployment) |
 | `pnpm generate:fixtures` | Regenerate scoring fixture HTML                      | No              |
 | `pnpm racesense:inspect` | Read a RaceSense regatta — the committee's `.xlsx` export, a player URL or regatta id (read live from the RaceSense player), or a captured regatta — and report what the import made of it, plus anything it didn't recognise; `--race N`, `--division NAME`, `--anomalies`, `--save FILE.json` keeps a pruned copy of the regatta | No |
 | `pnpm nationality:sync`  | Regenerate `lib/nationality/generated/` from upstream dataset | No     |
-| `pnpm deploy`            | `vercel deploy` (preview)                            | -               |
-| `pnpm deploy:prod`       | `vercel deploy --prod`                               | -               |
+| `pnpm vercel …`          | The Vercel CLI, with its token fetched from Bitwarden for the run (see [account-admin.md](account-admin.md#the-vercel-cli)) | - |
+| `pnpm deploy`            | `vercel deploy` (preview), through `pnpm vercel`     | -               |
+| `pnpm deploy:prod`       | `vercel deploy --prod`, through `pnpm vercel`        | -               |
 
 The `predev:local` and `pretest:unit:db` lifecycle hooks call
 `scripts/db-up.sh` automatically, so `pnpm dev:local` and `pnpm
@@ -78,6 +79,8 @@ runner that doesn't have it.)
 |-----------------------------------|------------------------------------------------------------------------------------------|
 | `scripts/local-env.sh`            | Resolve this checkout's app port + local Postgres container/URL (see [Working in a second git worktree](#working-in-a-second-git-worktree)); the one place the local `DATABASE_URL` is built. The `*:test` scripts wrap their commands in it |
 | `scripts/prod-env.sh`             | Run a command against production with `DATABASE_URL`, `BLOB_READ_WRITE_TOKEN` and `NEXT_PUBLIC_APP_URL` fetched from a Bitwarden item for the duration of the run, never written to disk. The `*:prod` scripts wrap their commands in it; setup in [account-admin.md](account-admin.md#production-usage) |
+| `scripts/vercel-env.sh`           | Run a command with `VERCEL_TOKEN` fetched from the same Bitwarden item, so the Vercel CLI need not stay logged in. `pnpm vercel`, `pnpm deploy*` and `pnpm firewall:*` wrap their commands in it; setup in [account-admin.md](account-admin.md#the-vercel-cli) |
+| `scripts/bw-fields.sh`            | Sourced by `prod-env.sh` and `vercel-env.sh`: unlock the vault, read the item `.env.operator` names, export only the fields the caller asks for, lock again on exit |
 | `scripts/db-up.sh`                | Idempotently bring up local Postgres in a podman container; verify the port mapping matches `local-env.sh`'s resolved port |
 | `scripts/start-test.sh`           | Build + start Next.js with `.env.test` sourced; used by Playwright's `webServer.command` |
 | `scripts/db-migrate.ts`           | Apply Drizzle migrations (called by `pnpm db:migrate`)                                   |
@@ -104,7 +107,7 @@ Five env files matter:
 2. **`.env.local`** — gitignored; your personal dev config (Neon URL, your Better Auth secret, etc.). Loaded by `pnpm dev`, `pnpm build`, `pnpm start`, and the `db:*` scripts via `tsx --env-file-if-exists`.
 3. **`.env.test`** — committed; the test fixtures. Loaded by `tests/setup-env.ts` (vitest) and `scripts/start-test.sh` (Playwright). Values here are not secrets; they're test fixtures (see comments in `.env.test` for why that's safe).
 4. **`.env.worktree`** — gitignored, optional; per-checkout port overrides (`SS_APP_PORT`, `SS_PG_PORT`). Loaded only by `scripts/local-env.sh`, never by Next.js — see [Working in a second git worktree](#working-in-a-second-git-worktree).
-5. **`.env.operator`** — gitignored, optional; `BW_ITEM=<id>` naming the Bitwarden item that holds the production secrets. Loaded only by `scripts/prod-env.sh`, never by Next.js — see [account-admin.md](account-admin.md#production-usage).
+5. **`.env.operator`** — gitignored, optional; `BW_ITEM=<id>` naming the Bitwarden item that holds the production secrets and the Vercel token. Loaded only by `scripts/bw-fields.sh` (for `prod-env.sh` and `vercel-env.sh`), never by Next.js — see [account-admin.md](account-admin.md#production-usage).
 
 `DATABASE_URL` is deliberately *not* in `.env.test`. Both test paths default it to the local container URL when unset:
 - vitest: tests with `const skip = !DATABASE_URL` self-skip when nothing has set it (i.e. plain `pnpm test:unit`); `pnpm test:unit:db` forces it via `scripts/local-env.sh --local-db`.
