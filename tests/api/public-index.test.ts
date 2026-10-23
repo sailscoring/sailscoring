@@ -21,6 +21,7 @@ import * as finishes from '@/lib/api-handlers/finishes';
 import { publishSeries, unpublishBySeries } from '@/lib/api-handlers/publish';
 import { NextRequest } from 'next/server';
 import { GET } from '@/app/p/[[...slug]]/route';
+import { instanceTimeZone } from '@/lib/instance-time-zone';
 
 const DATABASE_URL = process.env.DATABASE_URL;
 const skip = !DATABASE_URL;
@@ -126,6 +127,7 @@ describe.skipIf(skip)('the public index.json (#669)', () => {
     const doc = await res.json();
     expect(doc).toEqual({
       version: 1,
+      timeZone: instanceTimeZone(),
       workspace: { slug: ctx.workspaceSlug, name: 'Index', url: base },
       seasons: [
         { label: '2026', current: true, url: `${base}/2026`, index: `${base}/2026/index.json` },
