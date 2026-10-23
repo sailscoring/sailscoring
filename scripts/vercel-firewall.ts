@@ -12,9 +12,10 @@
  *   pnpm firewall:apply --yes    # no prompt (required when stdin is not a terminal)
  *
  * Talks to the API through `vercel api`, so it runs as whoever `vercel login`
- * signed in. Rules are matched to live rules by name, which must be unique;
- * the file carries no rule ids, and `apply` reuses the live id for a rule it
- * already has so the dashboard history follows the rule.
+ * signed in. The file carries no rule ids: a replace removes every rule and
+ * inserts it afresh under a new id, so rules are known by name, which must be
+ * unique. The OWASP core ruleset (`crs`) is inactive on this plan; a replace
+ * stores its categories as off whatever the file says, so the file says off.
  *
  * `apply` refuses while the dashboard holds unpublished draft changes: a PUT
  * would silently discard them. Publish or discard the draft first.
@@ -47,7 +48,7 @@ const BOOKKEEPING = new Set(['id', 'updatedAt', 'valid', 'validationErrors']);
 
 type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
 type Config = Record<string, Json>;
-type Rule = { id?: string; name: string } & Record<string, Json>;
+type Rule = { name: string } & Record<string, Json>;
 
 function usage(): never {
   console.error('usage: vercel-firewall diff\n       vercel-firewall apply [--yes]');
@@ -71,17 +72,20 @@ function fetchConfigs(): { active: Config; draft: { changes?: unknown[] } | null
   };
 }
 
-/** Drops nulls and server bookkeeping and sorts object keys, so the API's
- *  shape (`redirect: null`, `description: null`, ids) compares equal to the
- *  file's. Array order is kept: rule order is priority. */
+/** Drops nulls, empty objects and server bookkeeping and sorts object keys,
+ *  so the API's shape (`redirect: null`, `ruleGroups: {}`, ids) compares
+ *  equal to the file's. Array order is kept: rule order is priority. */
 function canonical(value: Json): Json {
   if (Array.isArray(value)) return value.map(canonical);
   if (value === null || typeof value !== 'object') return value;
   const out: Record<string, Json> = {};
   for (const key of Object.keys(value).sort()) {
-    const v = value[key];
-    if (v === null || BOOKKEEPING.has(key)) continue;
-    out[key] = canonical(v);
+    if (value[key] === null || BOOKKEEPING.has(key)) continue;
+    const v = canonical(value[key]);
+    if (v !== null && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === 0) {
+      continue;
+    }
+    out[key] = v;
   }
   return out;
 }
@@ -156,18 +160,10 @@ async function apply(yes: boolean): Promise<number> {
     }
   }
 
-  const liveIds = new Map(((active.rules ?? []) as Rule[]).map((r) => [r.name, r.id]));
-  const body = {
-    ...file,
-    rules: ((file.rules ?? []) as Rule[]).map((rule) => {
-      const id = liveIds.get(rule.name);
-      return id ? { id, ...rule } : rule;
-    }),
-  };
   const dir = mkdtempSync(join(tmpdir(), 'vercel-firewall-'));
   try {
     const input = join(dir, 'body.json');
-    writeFileSync(input, JSON.stringify(body));
+    writeFileSync(input, JSON.stringify(file));
     vercelApi('/v1/security/firewall/config', ['-X', 'PUT', '--input', input]);
   } finally {
     rmSync(dir, { recursive: true, force: true });

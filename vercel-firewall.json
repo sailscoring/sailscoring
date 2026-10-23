@@ -11,17 +11,17 @@
     }
   },
   "crs": {
-    "gen": { "active": true, "action": "log" },
+    "gen": { "active": false, "action": "log" },
     "sd": { "active": false, "action": "log" },
     "java": { "active": false, "action": "log" },
     "sf": { "active": false, "action": "log" },
     "ma": { "active": false, "action": "log" },
     "rfi": { "active": false, "action": "log" },
-    "rce": { "active": true, "action": "log" },
-    "xss": { "active": true, "action": "log" },
+    "rce": { "active": false, "action": "log" },
+    "xss": { "active": false, "action": "log" },
     "php": { "active": false, "action": "log" },
     "lfi": { "active": false, "action": "log" },
-    "sqli": { "active": true, "action": "log" }
+    "sqli": { "active": false, "action": "log" }
   },
   "ips": [],
   "rules": [
