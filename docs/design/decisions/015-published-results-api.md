@@ -116,7 +116,7 @@ results as the pages show them. Static, linked from `index.json`.
 - A file, not an API: no resource model, no spec, no obvious place for the
   schedule, change detection per resource, or the next resource.
 
-### Option 3: A versioned public results API over a publish-time projection
+### Option 3: A versioned public results API over a published view
 
 Option 2's display-shaped document, computed at publish and stored, served
 as read-only resources under a versioned path: a publication, its standings,
@@ -129,12 +129,13 @@ stability and deprecation policy.
 - Apps fetch what they show; ETags per resource make polling cheap.
 - Display-shaped and decoupled from the scoring model, as Option 2.
 - Room to grow: the schedule, an entry list, an `.ics` or XRR rendering of
-  the same projection.
+  the same published view.
 - Resources can follow the pages that show them, as Option 1's files do,
   without taking the pages' shapes.
 
 **Cons:**
-- The most to build and maintain: routes, a projection, a spec, a policy.
+- The most to build and maintain: routes, a published view, a spec, a
+  policy.
 - A request whose CDN cache has expired reads storage, where a static file
   would not.
 
@@ -164,18 +165,17 @@ World Sailing's XRR for results, iCal for the schedule.
 - XRR is XML and shaped for regattas; club handicap series, sub-series and
   split-fleet championships fit it badly.
 - Neither covers discovery, standings as printed, or change detection.
-- Better as renderings of the same projection than as the API itself.
+- Better as renderings of the same published view than as the API itself.
 
 ## Decision
 
-Adopt **Option 3: a versioned public results API over a publish-time
-projection.**
+Adopt **Option 3: a versioned public results API over a published view.**
 
-### 1. The projection
+### 1. The published view
 
 When a series is published, alongside the data file and the summary, Sail
-Scoring computes a **results projection**: the publication as the pages
-present it.
+Scoring computes its **published view**: the publication as the pages
+present it, stored for the API to serve.
 
 - **Display-shaped.** Standings rows carry rank, the competitor's displayed
   details, total, net and one cell per race. Each cell has its points, code,
@@ -184,7 +184,7 @@ present it.
 - **What the pages show, and nothing more.** Only the competitor columns the
   series displays; officials and track data only when the series publishes
   them. Unsailed races stay out of standings and race results.
-- **It follows the pages.** Every publish computes the projection from
+- **It follows the pages.** Every publish computes the published view from
   its snapshot, but a resource is replaced only when a page that shows its
   data is ticked: a fleet's standings with the standings page that shows
   that fleet, a race's results with the page that publishes them, the
@@ -285,12 +285,12 @@ race.
   as open-ended.
 - **A breaking change is a new version**, and the old one keeps serving
   for **a year** after the new one ships, with `Deprecation` and `Sunset`
-  headers. Serving an old version is a second projection computed at
-  publish, which costs little; a year covers a club app's off-season.
+  headers. Serving an old version is a second published view computed
+  at publish, which costs little; a year covers a club app's off-season.
 - **The spec is published**: an OpenAPI 3.1 description generated from the
   Zod schemas that define the responses, using the machinery ADR-009 §10
   set out, served beside the API.
-- **The projection is versioned with the API**, not with the data file. The
+- **The published view is versioned with the API**, not with the data file. The
   data file keeps its own versions, and can keep changing with the scoring
   model.
 
@@ -338,15 +338,15 @@ should move neither. Three rules:
 - One app (RaceOps) to move now, rather than an ecosystem later.
 - An app follows a competitor across publishes, and across series where
   the workspace publishes competitor pages.
-- The same projection can later render as `.ics`, XRR, or a big-screen
+- The same published view can later render as `.ics`, XRR, or a big-screen
   display without new data.
 
 ### Negative
 
 - A new public surface to build, document and keep stable: routes, the
-  projection, the spec, the policy.
+  published view, the spec, the policy.
 - Three machine-readable products per publication (the data file, the
-  summary, the projection) under two rules: the data file and the summary
+  summary, the published view) under two rules: the data file and the summary
   follow every publish, the API follows the pages. An app comparing the
   index's race count with the standings resource can find them apart.
 - One publication's resources can come from different publishes (last
@@ -357,9 +357,9 @@ should move neither. Three rules:
 
 ### Risks
 
-- **The projection drifts from the pages.** Two renderings of the same
+- **The published view drifts from the pages.** Two renderings of the same
   snapshot can disagree. Mitigated by building the HTML pages and the
-  projection from shared row and cell models where they exist (the cell's
+  published view from shared row and cell models where they exist (the cell's
   `display` is the renderer's own text), and by tests comparing the two.
 - **Display shape leaks presentation.** A layout change (a new page kind,
   a regrouped table) could still tempt an API change. Mitigated by keying
