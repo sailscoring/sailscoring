@@ -284,6 +284,15 @@ export const FEATURES = {
     label: 'Published competitor list',
     helpSectionIds: ['competitor-list', 'starters-checklist'],
   },
+  'schedule-page': {
+    // The published Schedule page (ADR-014, Decision 4): the series' races by
+    // date, sailed or not, with each start's gun and fleets, and its JSON as
+    // the published results API's `schedule` resource. Publishable before the
+    // season and before entries. Opt-in, like the entry list: every series has
+    // races, so ungated it would add a page to every workspace's next publish.
+    label: 'Published race schedule',
+    helpSectionIds: ['race-schedule'],
+  },
   rankings: {
     // Workspace cross-series rankings (#209): the Rankings tab (bucketed
     // best-N season ladders computed over the workspace's series, grouped by

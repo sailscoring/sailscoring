@@ -874,6 +874,22 @@ const SHOTS: Shot[] = [
     },
   },
   {
+    // Inventory: Published race schedule — the Schedule page (ADR-014,
+    // Decision 4): the sample league's races by date, grouped by month, each
+    // start's gun and fleets, and a link to the results of every race sailed.
+    slug: 'race-schedule',
+    group: 'Publishing',
+    async capture({ page, anon, seriesId, shot }) {
+      await ensureFeature(page, 'schedule-page');
+      const href = await publishEntriesPage(page, await seriesId(), '/schedule');
+      const pub = await anon.newPage();
+      await pub.goto(new URL(href, BASE).toString());
+      await settle(pub);
+      await shot('race-schedule.png', { page: pub });
+      await pub.close();
+    },
+  },
+  {
     // Inventory: FTP upload to your own site — the Publish dialog's second
     // destination, with a remote path per published page (#541). Sits after
     // the entry-list shots on purpose: their gate is on by then, so the
@@ -2363,7 +2379,7 @@ async function openRace(page: Page, seriesId: string, raceNumber: number) {
  * with it ticked, which is why the dialog's button reads Re-publish the
  * second time round.
  */
-async function publishEntriesPage(page: Page, seriesId: string): Promise<string> {
+async function publishEntriesPage(page: Page, seriesId: string, suffix = '/entries'): Promise<string> {
   await page.goto(`${BASE}/series/${seriesId}/standings`);
   await settle(page);
   await page.getByRole('button', { name: 'Publish…', exact: true }).click();
@@ -2371,10 +2387,10 @@ async function publishEntriesPage(page: Page, seriesId: string): Promise<string>
   await dialog.waitFor();
   await dialog.getByRole('button', { name: /^(Re-)?[Pp]ublish$/ }).click();
   const href = await dialog
-    .locator('a[href$="/entries"]')
+    .locator(`a[href$="${suffix}"]`)
     .first()
     .getAttribute('href', { timeout: 30_000 });
-  if (!href) throw new Error('no entries page link after publishing');
+  if (!href) throw new Error(`no ${suffix} page link after publishing`);
   await page.keyboard.press('Escape');
   await dialog.waitFor({ state: 'hidden' }).catch(() => {});
   return href;

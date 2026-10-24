@@ -108,6 +108,24 @@ describe('buildPublicIndex — the live shape (an event per top-level folder)', 
     });
   });
 
+  test('a Schedule page is listed as its own kind', () => {
+    const doc2 = buildPublicIndex({
+      origin: ORIGIN,
+      workspace: WS,
+      seasonTree: { seasons: [], undated: [{ slug: 'winter', label: 'Winter' }] },
+      folderMeta: new Map(),
+      publications: [
+        row({
+          slug: 'winter',
+          pages: [{ fleetName: 'Schedule', isAuxiliary: true, isSchedule: true, subPath: 'schedule' }],
+        }),
+      ],
+    });
+    expect(doc2.publications[0].pages).toEqual([
+      { label: 'Schedule', kind: 'schedule', url: 'https://app.example/p/hyc/winter/schedule' },
+    ]);
+  });
+
   test('a publication whose API resources do not exist yet links none', () => {
     expect(doc.publications[1]).not.toHaveProperty('api');
   });

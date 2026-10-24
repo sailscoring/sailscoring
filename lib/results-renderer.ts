@@ -1406,6 +1406,113 @@ ${body}
   );
 }
 
+export type SchedulePageChrome = DocumentChrome;
+
+/** One race on the Schedule page. */
+export interface ScheduleRow {
+  race: number;
+  name: string | null;
+  /** Local `YYYY-MM-DD`; null for a race the scorer never dated. */
+  date: string | null;
+  starts: Array<{ time: string | null; fleetNames: string[] }>;
+  sailed: boolean;
+  /** Where a sailed race's results are, relative to this page. */
+  resultsHref?: string;
+}
+
+/** A local `YYYY-MM-DD` read as that calendar day, whatever zone the page is
+ *  rendered in: noon UTC, so no offset can move it to the day either side. */
+function calendarDay(iso: string): Date {
+  return new Date(`${iso.slice(0, 10)}T12:00:00Z`);
+}
+
+/** A gun as a reader scans for it: `10:55`, the seconds only when set. */
+function gunText(time: string): string {
+  return time.endsWith(':00') ? time.slice(0, 5) : time;
+}
+
+/**
+ * Render the Schedule page (ADR-014, Decision 4): the series' races by date,
+ * grouped by month, sailed or not. Each row is the day, the race and its
+ * name, and each start's gun and fleets; a sailed race links to its results.
+ * A dated list rather than a month grid — a weekly series would leave a grid
+ * mostly empty, and a list reads on a phone.
+ *
+ * It is a page like any other: it says what it said when it was published,
+ * so a race sailed since still reads as to come until the Schedule is
+ * published again.
+ */
+export function renderScheduleHtml(
+  chrome: SchedulePageChrome,
+  rows: ScheduleRow[],
+  options?: { fontPercent?: number },
+): string {
+  const fontPercent = options?.fontPercent ?? 72;
+  const months = new Map<string, ScheduleRow[]>();
+  for (const row of rows) {
+    const key = row.date ? row.date.slice(0, 7) : '';
+    const list = months.get(key) ?? [];
+    list.push(row);
+    months.set(key, list);
+  }
+  const monthHeading = (key: string): string =>
+    key
+      ? calendarDay(`${key}-01`).toLocaleDateString('en-IE', { month: 'long', year: 'numeric', timeZone: 'UTC' })
+      : 'Not yet dated';
+  const dayText = (date: string | null): string =>
+    date
+      ? calendarDay(date).toLocaleDateString('en-IE', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' })
+      : '';
+  const startsText = (starts: ScheduleRow['starts']): string =>
+    starts
+      .map((st) => {
+        const fleets = st.fleetNames.map(esc).join(', ');
+        return st.time
+          ? `<span class="gun"><span class="mono">${esc(gunText(st.time))}</span>${fleets ? ` ${fleets}` : ''}</span>`
+          : `<span class="gun">${fleets || 'Start'} <span class="tbc">time to be confirmed</span></span>`;
+      })
+      .join('<br>');
+
+  const tables = [...months.entries()]
+    .map(([key, list]) => {
+      const body = list
+        .map((row, i) => {
+          const race = `R${row.race}${row.name ? ` <span class="racename">${esc(row.name)}</span>` : ''}`;
+          const results = row.sailed
+            ? row.resultsHref
+              ? `<a href="${esc(row.resultsHref)}">Results</a>`
+              : 'Sailed'
+            : '';
+          return `<tr class="${i % 2 === 0 ? 'odd' : 'even'}"><td class="day">${esc(dayText(row.date))}</td><td>${race}</td><td>${startsText(row.starts)}</td><td class="results">${results}</td></tr>`;
+        })
+        .join('\n');
+      return `<h3 class="month">${esc(monthHeading(key))}</h3>
+<div class="tablewrap"><table class="summarytable schedule" cellspacing="0" cellpadding="0" border="0">
+<tr class="titlerow"><th>Date</th><th>Race</th><th>Start</th><th></th></tr>
+${body}
+</table></div>`;
+    })
+    .join('\n');
+
+  const style = `<style>
+table.schedule td.day {white-space: nowrap;}
+table.schedule .racename {color: #555;}
+table.schedule .gun {white-space: nowrap;}
+table.schedule .tbc {color: #777; font-size: 0.9em;}
+table.schedule td.results {white-space: nowrap;}
+h3.month {color: #073358; margin: 1.2em 0 0.4em;}
+</style>`;
+  const content = rows.length > 0
+    ? `${style}\n${tables}`
+    : '<p>No races are scheduled yet.</p>';
+
+  return renderHtmlDocument(
+    { ...chrome, fleetName: 'Schedule' },
+    content,
+    { fontPercent, hasNhcDetail: false, hasEchoDetail: false, flagDefs: '' },
+  );
+}
+
 /**
  * The starters checklist, rendered into the competitor-list page but shown
  * only when it is printed as one (the `starters` body class, set by the

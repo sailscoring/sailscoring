@@ -32,6 +32,7 @@ export type PublicIndexPageKind =
   | 'race-results'
   | 'prizes'
   | 'entry-list'
+  | 'schedule'
   | 'other';
 
 export interface PublicIndexPage {
@@ -102,6 +103,7 @@ export interface PublicIndexInputRow {
 function pageKind(page: Omit<PublishedSeriesPage, 'blobUrl'>): PublicIndexPageKind {
   if (page.isPrizes) return 'prizes';
   if (page.isEntryList) return 'entry-list';
+  if (page.isSchedule) return 'schedule';
   if (isAuxiliaryPage(page)) return 'other';
   return page.isRaceResults ? 'race-results' : 'standings';
 }

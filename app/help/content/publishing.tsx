@@ -578,6 +578,44 @@ export default function Publishing() {
           </p>
         </Section>
       )}
+      {has('schedule-page') && (
+        <Section id="race-schedule" title="Publishing the race schedule">
+          <p>
+            The <strong className="text-foreground">Schedule</strong> page publishes the series’
+            races by date, grouped by month: each race’s number and name, and each start’s gun
+            time and the fleets on it. It appears as one more row in the Publish dialog and lands
+            at <code>/schedule</code> under the event folder. Unlike the results pages it lists
+            every race, sailed or not, and a race that has been sailed links to its results.
+          </p>
+          <HelpShot
+            src="/help/shots/race-schedule.webp"
+            alt="A published race schedule: the races by date under month headings, each with its start times and fleets, and a Results link on the races already sailed."
+            caption="The schedule lists every race the series scores; the ones already sailed link to their results."
+          />
+          <p>
+            It is made from what you have already entered to score the series — the races the{' '}
+            <strong className="text-foreground">Races</strong> tab generated for the season, their
+            dates, and the guns of their start sequences — so there is nothing extra to keep up.
+            It is not a club calendar: a social night or a prize-giving that nobody scores has no
+            place on it.
+          </p>
+          <p>
+            You can publish it before the season starts, before a single entry is in: generate
+            the season’s races, then publish just the Schedule. Republish it when a date or a gun
+            time moves.
+          </p>
+          <p>
+            <strong className="text-foreground">It says what it said when you published
+            it.</strong> Like every page, it changes only when you tick it. A race sailed since you
+            last published the schedule still reads as to come there, and in the{' '}
+            <a href="/help/data-in-and-out#results-api" className="underline">
+              results apps read
+            </a>
+            , until you publish the Schedule again — so tick it along with the results when a race
+            day is done.
+          </p>
+        </Section>
+      )}
       {has('prizes') && (
         <Section id="prizes" title="Prizes">
           <p>

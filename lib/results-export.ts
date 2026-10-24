@@ -15,7 +15,9 @@ import {
   renderCombinedSeriesHtml,
   renderPrizesHtml,
   renderCompetitorListHtml,
+  renderScheduleHtml,
   assembleSeriesResultsData,
+  type ScheduleRow,
   type SectionDetail,
   type SeriesResultsData,
   type CompetitorListRow,
@@ -40,6 +42,7 @@ import {
   PRIZES_PAGE,
   RACE_RESULTS_PAGE,
   resolvePublishPages,
+  SCHEDULE_PAGE,
   SCORING_NOTES_PAGE,
   type PublishPage,
   type PublishPageKind,
@@ -67,6 +70,7 @@ import {
 } from './competitor-fields';
 import { pageNoteFor, type NotePageRef } from './page-note';
 import { isSyntheticFleetName } from './publishing';
+import { buildSchedule } from './schedule';
 import { buildStartersChecklist } from './starters-checklist';
 import { seriesSlug } from './series-name';
 import type { Competitor, FinishTrackData, Fleet, OrcRaceCalc, PublicationSummary, RaceStart, ResultCode, PenaltyCode, Series, Standing } from './types';
@@ -184,10 +188,17 @@ export interface FleetHtmlFile {
   /** Set on a results page whose name is its own rather than a fleet's — a
    *  championship's standings page. Keeps listings from relabelling it. */
   isNamedPage?: boolean;
+  /** Set on the Schedule page (ADR-014, Decision 4); `fleetName` is then
+   *  "Schedule". Also `isAuxiliary`, which is how listings treat it. */
+  isSchedule?: boolean;
   html: string;
   /** What the page shows, for the published results API's published view
    *  (ADR-015). Absent on a page the API has nothing to say about. */
   view?: PageView;
+  /** The Schedule page's races and a way to render it again with links to
+   *  their results: only the publish handler knows where those will be
+   *  served, so it renders the published page itself. */
+  schedule?: { rows: ScheduleRow[]; render(rows: ScheduleRow[]): string };
 }
 
 /** Everything one build of a series' publishable output yields: the pages,
@@ -300,6 +311,59 @@ function noteChrome(
   return {
     ...(series.seriesNote?.trim() ? { seriesNote: series.seriesNote } : {}),
     ...(pageNote ? { pageNote } : {}),
+  };
+}
+
+/**
+ * The Schedule page (ADR-014, Decision 4): every race of the series, sailed
+ * or not, with each start's gun and fleets. Built from the full snapshot —
+ * the one output that is — and needing no entries, so the schedule can go up
+ * as soon as the season's races are generated. Its page names the fleets a
+ * reader would recognise: the app's own `Default` and `Unknown` are left
+ * out.
+ */
+async function buildScheduleFile(
+  full: SeriesSnapshot,
+  repos: ExportRepos,
+  seriesIndexUrl: string | undefined,
+  includePageNotes?: boolean,
+): Promise<FleetHtmlFile> {
+  const series = await resolveSeriesLogoDefaults(full.series, repos.logoRepo);
+  const sailed = new Set(full.finishes.map((f) => f.raceId));
+  const schedule = buildSchedule({
+    races: full.races,
+    raceStarts: full.raceStarts,
+    fleets: full.fleets.filter((f) => !isSyntheticFleetName(f.name)),
+    sailedRaceIds: sailed,
+  });
+  const rows: ScheduleRow[] = schedule.map((r) => ({
+    race: r.race,
+    name: r.name,
+    date: r.date,
+    starts: r.starts,
+    sailed: r.sailed,
+  }));
+  const render = (withLinks: ScheduleRow[]) =>
+    renderScheduleHtml(
+      {
+        series: { name: series.name, venue: series.venue },
+        leftLogoUrl: series.venueLogoUrl || undefined,
+        rightLogoUrl: series.eventLogoUrl || undefined,
+        leftUrl: series.venueUrl || undefined,
+        rightUrl: series.eventUrl || undefined,
+        ...(seriesIndexUrl ? { seriesIndexUrl } : {}),
+        ...noteChrome(series, { fleetName: SCHEDULE_PAGE }, includePageNotes),
+      },
+      withLinks,
+    );
+  return {
+    fleetName: SCHEDULE_PAGE,
+    isDefault: false,
+    isAuxiliary: true,
+    isSchedule: true,
+    html: render(rows),
+    view: { kind: 'schedule', races: schedule.map((r) => ({ ...r, results: null })) },
+    schedule: { rows, render },
   };
 }
 
@@ -663,6 +727,10 @@ export async function buildFleetHtmlFiles(
     scoringNotesHref?: string;
     dataPath?: string;
     generatedAt?: Date;
+    /** Append the Schedule page (ADR-014, Decision 4), gated on the
+     *  workspace's `schedule-page` feature by the publish path and preview.
+     *  It is the one page a series with no entries yet can publish. */
+    includeSchedule?: boolean;
     /** How to read a course-cards data set's captured chart, so a published
      *  constructed course can be drawn on the club's own water. Passed in
      *  rather than imported: the dialogs fetch it from the app's origin and
@@ -671,9 +739,22 @@ export async function buildFleetHtmlFiles(
     loadCourseBackground?: (set: string) => Promise<CourseBackground | undefined>;
   },
 ): Promise<FleetHtmlBuild | null> {
-  const snapshot = dropUnsailedRaces(await loadSeriesSnapshot(repos, seriesId));
-  if (!snapshot || snapshot.competitors.length === 0) return null;
+  // The schedule is the one output built from every race, sailed or not;
+  // everything else publishes only what has been sailed.
+  const full = await loadSeriesSnapshot(repos, seriesId);
+  const snapshot = dropUnsailedRaces(full);
+  if (!full || !snapshot) return null;
   const generatedAt = opts?.generatedAt ?? new Date();
+  const scheduleFiles = opts?.includeSchedule
+    ? [await buildScheduleFile(full, repos, seriesIndexUrl, opts?.includePageNotes)]
+    : [];
+  // A series with no entries has no results page to publish, but its
+  // schedule can go up as soon as the season's races are in.
+  if (snapshot.competitors.length === 0) {
+    return scheduleFiles.length > 0
+      ? { files: scheduleFiles, summary: summariseSnapshot(snapshot, false) }
+      : null;
+  }
   // The charts this series' courses sit on: one per data set its snapshotted
   // marks came from, which for all but a rare series is one. The series' own
   // set stands in for a start whose waypoints name none — every snapshot
@@ -708,7 +789,11 @@ export async function buildFleetHtmlFiles(
     fleets: snapshot.fleets,
     splitFleets: isChampionship,
     beforeFirstRace: noRacesSailed,
-    features: { prizes: !!opts?.includePrizes, entryList: !!opts?.includeEntryList },
+    features: {
+      prizes: !!opts?.includePrizes,
+      entryList: !!opts?.includeEntryList,
+      schedule: !!opts?.includeSchedule,
+    },
   });
   const publishes = (kind: PublishPageKind): boolean => pages.some((p) => p.kind === kind);
   // Empty venue/event logo slots inherit the workspace defaults, so the
@@ -808,7 +893,7 @@ export async function buildFleetHtmlFiles(
       ? [await buildCompetitorListFile(snapshot, seriesIndexUrl, generatedAt, opts?.includePageNotes)]
       : [];
     // Nothing scored yet, so no export either: just who sails in which fleet.
-    if (noRacesSailed) return { files: [assignmentsFile, ...entryListFiles], summary };
+    if (noRacesSailed) return { files: [assignmentsFile, ...entryListFiles, ...scheduleFiles], summary };
     // Null while no stage race has sheet rows — the championship page then
     // has nothing to link to either.
     const raceResultsHtml = renderSplitFleetRaceResultsPage(input, {
@@ -852,6 +937,7 @@ export async function buildFleetHtmlFiles(
         }),
       },
       ...entryListFiles,
+      ...scheduleFiles,
     ], ...(splitExportJson ? { exportJson: splitExportJson } : {}) };
   }
   const {
@@ -1561,6 +1647,7 @@ export async function buildFleetHtmlFiles(
   if (publishes('entries')) {
     results.push(await buildCompetitorListFile(snapshot, seriesIndexUrl, generatedAt, opts?.includePageNotes));
   }
+  results.push(...scheduleFiles);
 
   return results.length > 0
     ? {

@@ -205,6 +205,7 @@ export function FtpPublishPane({ series, pages, lonePageLabel, onClose }: FtpPub
         // the workspace's features decide, not where the HTML is going.
         includePrizes: has('prizes'),
         includeEntryList: has('entry-list'),
+        includeSchedule: has('schedule-page'),
         includeTrackData: has('racesense-import'),
         includePageNotes: has('page-notes'),
         ...(raceResultsHref ? { raceResultsHref } : {}),

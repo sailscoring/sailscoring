@@ -44,7 +44,8 @@ import {
 import type { Fleet, Series } from './types';
 
 /** What a page is. The kinds a scorer configures (`fleet`, `combined`,
- *  `prizes`, `entries`) and the four a split-fleet series publishes. */
+ *  `prizes`, `entries`, `schedule`) and the four a split-fleet series
+ *  publishes. */
 export type PublishPageKind =
   | 'fleet'
   | 'combined'
@@ -53,7 +54,8 @@ export type PublishPageKind =
   | 'assignments'
   | 'scoring-notes'
   | 'prizes'
-  | 'entries';
+  | 'entries'
+  | 'schedule';
 
 /** The pages that are not a fleet's results — they ride the publish
  *  machinery alongside the results pages, each with its own row and URL, and
@@ -64,6 +66,7 @@ const EXTRA_PAGE_KINDS = new Set<PublishPageKind>([
   'scoring-notes',
   'prizes',
   'entries',
+  'schedule',
 ]);
 
 /** The fixed names of the pages a series publishes that are nobody's fleet.
@@ -75,6 +78,7 @@ export const FLEET_ASSIGNMENTS_PAGE = 'Fleet assignments';
 export const SCORING_NOTES_PAGE = 'Scoring notes';
 export const PRIZES_PAGE = 'Prizes';
 export const ENTRIES_PAGE = 'Entries';
+export const SCHEDULE_PAGE = 'Schedule';
 
 export interface PublishPage {
   /** Stable identity for settings remembered per page — the FTP path a
@@ -115,6 +119,7 @@ const FIXED_PAGE_KEYS = new Set([
   'scoring-notes',
   'prizes',
   'entries',
+  'schedule',
 ]);
 
 /** The fleet whose page a key belongs to, or null for any other page. Takes
@@ -141,9 +146,9 @@ export interface PublishPagesInput {
    *  sails in — and nothing scored. A fleet page publishes a placeholder
    *  instead, so the per-fleet set is the same either way. */
   beforeFirstRace?: boolean;
-  /** The workspace features that add a page. Both default off: a series
+  /** The workspace features that add a page. All default off: a series
    *  carrying prizes into a workspace without the feature publishes none. */
-  features?: { prizes?: boolean; entryList?: boolean };
+  features?: { prizes?: boolean; entryList?: boolean; schedule?: boolean };
 }
 
 /** Whether a page is one of the extras — not a fleet's results. */
@@ -169,9 +174,16 @@ export function resolvePublishPages(input: PublishPagesInput): PublishPage[] {
   const { series, fleets } = input;
   const wantsPrizes = !!input.features?.prizes && (series.prizes?.length ?? 0) > 0;
   const wantsEntries = !!input.features?.entryList;
-  const entriesPage: PublishPage[] = wantsEntries
-    ? [{ key: 'entries', name: ENTRIES_PAGE, kind: 'entries', isDefault: false }]
-    : [];
+  // The schedule closes the list: series-wide, and like the entry list it
+  // owes nothing to a race having been sailed.
+  const entriesPage: PublishPage[] = [
+    ...(wantsEntries
+      ? [{ key: 'entries', name: ENTRIES_PAGE, kind: 'entries' as const, isDefault: false }]
+      : []),
+    ...(input.features?.schedule
+      ? [{ key: 'schedule', name: SCHEDULE_PAGE, kind: 'schedule' as const, isDefault: false }]
+      : []),
+  ];
 
   if (input.splitFleets && input.beforeFirstRace) {
     return [

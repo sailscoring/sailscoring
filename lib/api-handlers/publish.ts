@@ -29,7 +29,8 @@ import {
 } from '@/lib/published-repository';
 import { seasonLikeSlug, sharedFolderSegment } from '@/lib/published-tree';
 import { groupApplies, producesPage, resolvePublishingGroups } from '@/lib/publishing-groups';
-import { CHAMPIONSHIP_PAGE, SCORING_NOTES_PAGE } from '@/lib/publish-pages';
+import { CHAMPIONSHIP_PAGE, RACE_RESULTS_PAGE, SCORING_NOTES_PAGE } from '@/lib/publish-pages';
+import { isAuxiliaryPage } from '@/lib/published-index';
 import { readCourseBackground } from '@/lib/course-cards/backgrounds-server';
 import { buildFleetHtmlFiles } from '@/lib/results-export';
 import type { UnscorableRace } from '@/lib/results-export';
@@ -277,7 +278,7 @@ export async function publishSeries(
   // valid segment of its own.
   const derivedFolder =
     breadcrumbFolder && isValidSlugSegment(breadcrumbFolder) ? breadcrumbFolder : null;
-  const subPathFor = (file: { fleetName: string; isDefault: boolean; subSeriesName?: string; isPrizes?: boolean; isEntryList?: boolean }): string => {
+  const subPathFor = (file: { fleetName: string; isDefault: boolean; subSeriesName?: string; isPrizes?: boolean; isEntryList?: boolean; isSchedule?: boolean }): string => {
     const existingPath = frozen.get(pageKey(file));
     if (existingPath !== undefined) return existingPath;
     const override = file.isDefault ? defaultOverride : overrides[file.fleetName]?.trim();
@@ -306,6 +307,10 @@ export async function publishSeries(
     } else if (file.isEntryList) {
       // The competitor list follows the prize sheet's convention exactly.
       leaf = shared ? `${seriesSlug}-entries` : 'entries';
+      if (derivedFolder) leaf = `${derivedFolder}/${leaf}`;
+    } else if (file.isSchedule) {
+      // And so does the schedule.
+      leaf = shared ? `${seriesSlug}-schedule` : 'schedule';
       if (derivedFolder) leaf = `${derivedFolder}/${leaf}`;
     } else {
       leaf = publicationSubPath(file.fleetName, file.isDefault, seriesSlug, shared, raceResults);
@@ -375,6 +380,7 @@ export async function publishSeries(
     {
       includePrizes: workspace.features.includes('prizes'),
       includeEntryList: workspace.features.includes('entry-list'),
+      includeSchedule: workspace.features.includes('schedule-page'),
       includeTrackData: workspace.features.includes('racesense-import'),
       includePageNotes: workspace.features.includes('page-notes'),
       raceResultsHref,
@@ -525,6 +531,50 @@ export async function publishSeries(
     });
   }
 
+  // The Schedule page links each sailed race to its results, which only now
+  // are known: the results pages live once this publish lands, built now or
+  // carried. It is rendered again here with the links, before the hash, so a
+  // schedule whose links changed is a changed page.
+  const scheduleFile = toBuild.find((f) => f.isSchedule && f.schedule);
+  if (scheduleFile?.schedule) {
+    const liveResults = new Map<string, string>();
+    for (const p of carried) {
+      if (!isAuxiliaryPage(p) && !liveResults.has(p.fleetName)) liveResults.set(p.fleetName, p.subPath);
+    }
+    for (const f of toBuild) {
+      if (!isAuxiliaryPage(f) && !liveResults.has(f.fleetName)) liveResults.set(f.fleetName, subPathFor(f));
+    }
+    const schedulePath = subPathFor(scheduleFile);
+    const resultsPath = (fleetNames: string[]): string | undefined => {
+      const raceResults = liveResults.get(RACE_RESULTS_PAGE) ?? liveResults.get(CHAMPIONSHIP_PAGE);
+      if (raceResults) return raceResults;
+      const pagesOfRace = new Set(fleetNames.flatMap((n) => (liveResults.has(n) ? [liveResults.get(n)!] : [])));
+      if (pagesOfRace.size === 1) return [...pagesOfRace][0];
+      if (liveResults.size === 1) return [...liveResults.values()][0];
+      return undefined;
+    };
+    const base = `${appBase()}/p/${workspace.workspaceSlug}/${slug}`;
+    // A race whose fleets' results are on several pages links to the
+    // publication's own page, which lists them all.
+    const landing = `${base}${breadcrumbFolder ? `/${breadcrumbFolder}` : ''}`;
+    const rows = scheduleFile.schedule.rows.map((row) => {
+      if (!row.sailed) return row;
+      const target = resultsPath(row.starts.flatMap((st) => st.fleetNames));
+      return { ...row, resultsHref: target ? relativeSubPath(schedulePath, target) : landing };
+    });
+    scheduleFile.html = scheduleFile.schedule.render(rows);
+    if (scheduleFile.view?.kind === 'schedule') {
+      scheduleFile.view = {
+        kind: 'schedule',
+        races: scheduleFile.view.races.map((race) => {
+          if (!race.sailed) return { ...race, results: null };
+          const target = resultsPath(race.starts.flatMap((st) => st.fleetNames));
+          return { ...race, results: target ? `${base}/${target}` : landing };
+        }),
+      };
+    }
+  }
+
   // Hash over exactly what this publish yields: freshly-rendered pages for the
   // built fleets, the data file's JSON, plus each carried page's blob URL as a
   // stable proxy for its unchanged content. Identical input ⇒ same hash ⇒ no-op.
@@ -591,6 +641,7 @@ export async function publishSeries(
         ...(file.subSeriesName ? { subSeriesName: file.subSeriesName } : {}),
         ...(file.isPrizes ? { isPrizes: true } : {}),
         ...(file.isEntryList ? { isEntryList: true } : {}),
+        ...(file.isSchedule ? { isSchedule: true } : {}),
         ...(file.isDefault ? { isDefault: true } : {}),
         ...(file.isAuxiliary ? { isAuxiliary: true } : {}),
         ...(file.isNamedPage ? { isNamedPage: true } : {}),

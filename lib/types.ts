@@ -1523,6 +1523,10 @@ export interface PublishedSeriesPage {
   // The competitor list (#423) — `fleetName` is then "Entries". Like the prize
   // sheet, it is labelled by its own name and never counts as a results page.
   isEntryList?: boolean;
+  // The Schedule page (ADR-014, Decision 4) — `fleetName` is then "Schedule".
+  // Also `isAuxiliary`, which is how every listing treats it; this flag only
+  // tells the public index what kind of page it is.
+  isSchedule?: boolean;
   // The publication's lone default page. Recorded so a re-publish that skips
   // it can recognise it: its fleet name may be the synthetic "Default" or
   // "Unknown", so the name is not a reliable handle.

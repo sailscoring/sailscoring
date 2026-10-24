@@ -59,6 +59,7 @@ export function PreviewDialog({ series, fleets, open, onClose, onPublish, canEdi
   const { has } = useFeatures();
   const includePrizes = has('prizes');
   const includeEntryList = has('entry-list');
+  const includeSchedule = has('schedule-page');
   const includeTrackData = has('racesense-import');
   const includePageNotes = has('page-notes');
   const updateNotes = useUpdateSeriesNotes();
@@ -74,11 +75,12 @@ export function PreviewDialog({ series, fleets, open, onClose, onPublish, canEdi
       buildFleetHtmlFiles(repos, series.id, undefined, {
         includePrizes,
         includeEntryList,
+        includeSchedule,
         includeTrackData,
         includePageNotes,
         loadCourseBackground,
       }).then((build) => build?.files ?? null),
-    [series.id, includePrizes, includeEntryList, includeTrackData, includePageNotes],
+    [series.id, includePrizes, includeEntryList, includeSchedule, includeTrackData, includePageNotes],
   );
 
   // Rebuild each time the dialog opens so the preview reflects the latest

@@ -171,7 +171,7 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, unscored 
     fleets,
     splitFleets: isChampionship,
     beforeFirstRace,
-    features: { prizes: has('prizes'), entryList: has('entry-list') },
+    features: { prizes: has('prizes'), entryList: has('entry-list'), schedule: has('schedule-page') },
   });
   // The lone default page, when there is one: a single-fleet series' results,
   // or a championship's standings. Its name can be synthetic ("Default",
@@ -253,7 +253,9 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, unscored 
       ? 'prizes'
       : page.kind === 'entries'
         ? 'entries'
-        : page.isDefault
+        : page.kind === 'schedule'
+          ? 'schedule'
+          : page.isDefault
           ? defaultPageSlug(raceResults)
           : fleetSubPath(page.name, false);
   const pageByName = new Map(pages.map((p) => [p.name, p]));
