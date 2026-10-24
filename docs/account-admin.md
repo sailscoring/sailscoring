@@ -129,7 +129,7 @@ One-time setup:
 2. Create a vault item (a Secure Note does) with custom fields named
    after the variables: `DATABASE_URL` (required; the Neon production
    URL), `BLOB_READ_WRITE_TOKEN` and `NEXT_PUBLIC_APP_URL` (needed by
-   `republish` and `published-views`), `PUBLIC_ID_KEY` (needed by
+   `republish` and `published-views`), `COMPETITOR_ID_KEY` (needed by
    `published-views`; the same value as the Production environment's, see
    [DEPLOY.md](../DEPLOY.md)), and `VERCEL_TOKEN` (see
    [The Vercel CLI](#the-vercel-cli) below). Hidden fields are fine. No

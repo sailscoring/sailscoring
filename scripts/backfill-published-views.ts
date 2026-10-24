@@ -115,9 +115,9 @@ export async function runCli(argv: string[]): Promise<number> {
   // A view names competitors by ids hashed under the instance's key and links
   // by absolute URL. Written under any other key, or with no origin, every id
   // and link would change at the series' next publish.
-  if (apply && (!process.env.PUBLIC_ID_KEY?.trim() || !process.env.NEXT_PUBLIC_APP_URL?.trim())) {
+  if (apply && (!process.env.COMPETITOR_ID_KEY?.trim() || !process.env.NEXT_PUBLIC_APP_URL?.trim())) {
     console.error(
-      'refusing to write: PUBLIC_ID_KEY and NEXT_PUBLIC_APP_URL must be set, to the deployment\'s own values',
+      'refusing to write: COMPETITOR_ID_KEY and NEXT_PUBLIC_APP_URL must be set, to the deployment\'s own values',
     );
     return 1;
   }

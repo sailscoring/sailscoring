@@ -69,13 +69,13 @@ export function publicationApiBase(publicationId: string): string {
 }
 
 /**
- * The key competitor ids are hashed under. Per instance: `PUBLIC_ID_KEY`,
+ * The key competitor ids are hashed under. Per instance: `COMPETITOR_ID_KEY`,
  * else one derived from the auth secret so an instance that has not set it
  * still gets ids nobody outside can reverse. Rotating it changes every id at
  * once, which an id's promise — consistent within a series — allows.
  */
 function idKey(): string {
-  const configured = process.env.PUBLIC_ID_KEY?.trim();
+  const configured = process.env.COMPETITOR_ID_KEY?.trim();
   if (configured) return configured;
   const secret = process.env.BETTER_AUTH_SECRET ?? 'sailscoring-development';
   return createHmac('sha256', secret).update('published-results-api:competitor-id').digest('hex');

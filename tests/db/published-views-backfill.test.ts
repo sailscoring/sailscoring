@@ -91,7 +91,7 @@ describe.skipIf(skip)('published-views backfill', () => {
       startPresent: null, penaltyCode: null, penaltyOverride: null, redressMethod: null,
       redressExcludeRaceIds: null, redressIncludeRaceIds: null, redressIncludeAllLater: false, redressPoints: null,
     });
-    vi.stubEnv('PUBLIC_ID_KEY', 'backfill-test-key');
+    vi.stubEnv('COMPETITOR_ID_KEY', 'backfill-test-key');
     vi.stubEnv('NEXT_PUBLIC_APP_URL', 'https://app.example');
     await publishSeries(ctx, seriesId, {});
   });
@@ -108,10 +108,10 @@ describe.skipIf(skip)('published-views backfill', () => {
   });
 
   test('refuses to write without the instance key and origin', async () => {
-    vi.stubEnv('PUBLIC_ID_KEY', '');
+    vi.stubEnv('COMPETITOR_ID_KEY', '');
     vi.spyOn(console, 'error').mockImplementation(() => {});
     expect(await backfill(['--workspace', ctx.workspaceSlug, '--apply'])).toBe(1);
-    vi.stubEnv('PUBLIC_ID_KEY', 'backfill-test-key');
+    vi.stubEnv('COMPETITOR_ID_KEY', 'backfill-test-key');
   });
 
   test('writes the view of an unchanged series, with the ids a publish writes', async () => {
