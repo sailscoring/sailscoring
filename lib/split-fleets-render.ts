@@ -60,7 +60,7 @@ function esc(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-const STAGE_ORDER: Record<StoredStage, number> = { qualifying: 0, final: 1, repechage: 2, medal: 3 };
+export const STAGE_ORDER: Record<StoredStage, number> = { qualifying: 0, final: 1, repechage: 2, medal: 3 };
 
 export interface SplitFleetRenderInput {
   seriesName: string;

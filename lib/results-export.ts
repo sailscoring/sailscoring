@@ -52,6 +52,8 @@ import {
 import { loadSeriesSnapshot, type SeriesSnapshot } from './series-snapshot';
 import { summariseSnapshot } from './publication-summary';
 import { fleetOwnRaces } from './race-membership';
+import { championshipRacesView, championshipStandingsView } from './public-api/championship-view';
+import type { PageView } from './public-api/published-view';
 import {
   renderSplitFleetAssignmentsPage,
   renderSplitFleetRaceResultsPage,
@@ -183,6 +185,9 @@ export interface FleetHtmlFile {
    *  championship's standings page. Keeps listings from relabelling it. */
   isNamedPage?: boolean;
   html: string;
+  /** What the page shows, for the published results API's published view
+   *  (ADR-015). Absent on a page the API has nothing to say about. */
+  view?: PageView;
 }
 
 /** Everything one build of a series' publishable output yields: the pages,
@@ -489,6 +494,17 @@ async function buildCompetitorListFile(
     fleetName: ENTRIES_PAGE,
     isDefault: false,
     isEntryList: true,
+    view: {
+      kind: 'entries',
+      groups: listGroups,
+      count: competitors.length,
+      display: {
+        enabledCompetitorFields,
+        primaryPersonLabel: series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
+        ...(series.multiPersonFields ? { multiPersonFields: series.multiPersonFields } : {}),
+        subdivisionAxes: series.subdivisionAxes ?? [],
+      },
+    },
     html: renderCompetitorListHtml(
       {
         series: { name: series.name, venue: series.venue },
@@ -799,11 +815,13 @@ export async function buildFleetHtmlFiles(
       ...splitPageChrome,
       ...splitNote(RACE_RESULTS_PAGE),
     });
+    const primaryLabel = snapshot.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL;
     return { summary, files: [
       {
         fleetName: CHAMPIONSHIP_PAGE,
         isDefault: true,
         isNamedPage: true,
+        view: championshipStandingsView(input, primaryLabel),
         html: renderSplitFleetStandingsPage(input, {
           ...splitPageChrome,
           ...splitNote(CHAMPIONSHIP_PAGE, true),
@@ -818,6 +836,7 @@ export async function buildFleetHtmlFiles(
               fleetName: RACE_RESULTS_PAGE,
               isDefault: false,
               isNamedPage: true,
+              view: championshipRacesView(input, primaryLabel),
               html: raceResultsHtml,
             },
           ]
@@ -1305,16 +1324,33 @@ export async function buildFleetHtmlFiles(
       if (ircSource) data.ircRatingSource = ircSource;
       return data;
     };
-    assemblerByFleetId.set(fleet.id, assemble);
+    // The whole fleet, unsectioned, is wanted twice — its own page, and the
+    // published view of any combined page it sits on — so it is built once.
+    let whole: SeriesResultsData | undefined;
+    const assembleOnce: SectionAssembler = (anchorPrefix, section) =>
+      anchorPrefix === undefined && section === undefined
+        ? (whole ??= assemble())
+        : assemble(anchorPrefix, section);
+    assemblerByFleetId.set(fleet.id, assembleOnce);
 
     if (!skipFleetIds?.has(fleet.id)) {
+      const data = assembleOnce();
       results.push({
         fleetName: fleet.name,
         isDefault: isSingleDefault,
         ...(subSeriesName ? { subSeriesName } : {}),
+        view: {
+          kind: 'results',
+          sections: [{
+            fleetName: fleet.name,
+            ...(subSeriesName ? { subSeriesName } : {}),
+            scoringSystem: fleet.scoringSystem,
+            data,
+          }],
+        },
         html: renderSeriesHtml(
           {
-            ...assemble(),
+            ...data,
             // Not inside `assemble`: its output is also a combined page's
             // section, and a fleet's note there would print under a heading
             // that is not the fleet's.
@@ -1402,6 +1438,18 @@ export async function buildFleetHtmlFiles(
         isCombined: true,
         memberFleetNames: members.map((f) => f.name),
         ...(subSeriesName ? { subSeriesName } : {}),
+        // Each member fleet whole, keyed by fleet as the API keys them: an
+        // axis-sectioned page cuts the same rows into divisions with ranks of
+        // their own, which is the page's presentation, not the fleet's.
+        view: {
+          kind: 'results',
+          sections: members.map((f) => ({
+            fleetName: f.name,
+            ...(subSeriesName ? { subSeriesName } : {}),
+            scoringSystem: f.scoringSystem,
+            data: assemblerByFleetId.get(f.id)!(),
+          })),
+        },
         html: renderCombinedSeriesHtml(sections, {
           pageName: group.name,
           // An axis-sectioned page is standings-only whatever else is set:
