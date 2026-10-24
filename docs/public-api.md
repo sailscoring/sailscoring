@@ -41,8 +41,9 @@ reference; what follows is what it cannot say.
 - **The publication** says what it is (`kind`: a scored `series`, a
   split-fleet `championship`, or an `archive` kept as originally published),
   its fleets, its page and data file, and under `resources` which of the
-  others it publishes and when each was last published. A resource missing
-  there is a `404`.
+  others it publishes, with each one's URL and when it was last published.
+  That is the list to go by: a resource missing there is a `404`. The pages
+  `index.json` lists only hint at it.
 - **`{fleet}`** is a fleet's `key`, as the publication and every resource
   name it: the fleet's name kebab-cased (`Cruisers 1` is `cruisers-1`).
 - **`{n}`** is the race's number in the series. A fleet that sat races out
@@ -135,3 +136,33 @@ re-keyed between one fetch and the next. `identity` never changes with it.
   `Deprecation` and `Sunset` headers once it is deprecated.
 - **The API is versioned apart from the data file**, which changes with the
   scoring model. A new scoring feature adds a field here at most.
+
+## Trying it out
+
+The API needs no key, so `curl` and a browser are enough. Find a
+publication through a workspace index, then start from its publication
+resource:
+
+```sh
+# The workspace's publications, and each one's API link where it has one
+curl -s https://app.sailscoring.ie/p/hyc/index.json | jq '.publications[] | {name, api}'
+
+P=https://app.sailscoring.ie/api/public/v1/publications/<id>
+curl -s $P | jq .resources          # what this publication serves
+curl -s $P/standings | jq '.tables[0].rows[] | [.rankDisplay, .competitor.sailNumber, .netDisplay]'
+curl -s $P/races/1 | jq '.fleets[0].results[:3]'
+
+# Polling: send the ETag back, and an unchanged resource is a 304
+curl -sI $P/standings | grep -i etag
+curl -s -o /dev/null -w '%{http_code}\n' -H 'If-None-Match: "<etag>"' $P/standings
+```
+
+To browse it from the spec instead, open [editor.swagger.io](https://editor.swagger.io),
+choose **File → Import URL**, and give it
+`https://app.sailscoring.ie/api/public/v1/openapi.json`. In the right-hand
+pane, expand an operation (start with `GET /publications/{id}`), click
+**Try it out**, enter the publication's id (the UUID ending its `api` link,
+not the whole URL), and **Execute**. The editor shows the request it sent
+as a `curl` command, the response, and its headers. A `{fleet}` is a key
+from the publication's `fleets`; an `{n}`, a race number from `races`. The
+requests go from the browser straight to the API, which allows any origin.

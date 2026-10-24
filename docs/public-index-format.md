@@ -67,7 +67,7 @@ Every URL is absolute.
       "pages": [
         {
           "label": "Class 1",               // as the published navigation labels it
-          "kind": "standings",              // standings | race-results | prizes | entry-list | other
+          "kind": "standings",              // standings | race-results | prizes | entry-list | schedule | other
           "fleet": "Class 1",               // present on a page holding one fleet's results
           "subSeries": "Block 1",           // present on a page covering one sub-series
           "url": "https://app.sailscoring.ie/p/hyc/autumn-league/class-1"
@@ -120,6 +120,10 @@ Field notes:
   made before Sail Scoring recorded them, until it is published again.
 - **Page kinds.** New values of a page's `kind` may appear without a
   version change; a reader should treat one it does not know as `other`.
+  A kind hints at what the publication's `api` serves (an `entry-list`
+  page, its `competitors`; a `schedule` page, its `schedule`), but the
+  publication resource's own `resources` is the list to go by: see
+  [the published results API](public-api.md#resources).
 - **A season index** has the same shape, narrowed: `seasons` holds just
   that season and `publications` just the ones filed under it.
 
