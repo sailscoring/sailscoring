@@ -26,8 +26,9 @@ imported, and it changes as the scoring model does.
   visibly when a field it relies on is missing or reshaped, rather than show
   a half-read table.
 
-This stance may change. A stable, display-shaped API for apps is proposed in
-[ADR-015](design/decisions/015-published-results-api.md).
+This stance may change. The stable, display-shaped contract for apps is the
+[published results API](public-api.md)
+([ADR-015](design/decisions/015-published-results-api.md)).
 
 Every export names this document in its top-level `formatDoc` field, so a
 reader handed only the file can find the contract. Exports written before

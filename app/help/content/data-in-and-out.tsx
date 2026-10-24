@@ -403,6 +403,36 @@ export default function DataInAndOut() {
           .
         </p>
       </Section>
+
+      <Section id="results-api" title="Results for apps">
+        <p>
+          Apps that show your results — a club’s race-day app, a screen in the clubhouse, a
+          results panel on the club website — read them through Sail Scoring’s published
+          results API. It serves what your published pages show, shaped as they show it:
+          each fleet’s standings, each race’s results, and the entry list. Each series’ entry
+          in the workspace index links it, so an app can find every series you publish.
+        </p>
+        <p>
+          <strong className="text-foreground">What an app shows follows the pages you
+          tick.</strong> Publishing a fleet’s page updates that fleet’s standings and race
+          results for apps too; publishing only the entry list updates only the entry list.
+          So you can push a late entry without sending half-entered results to every phone
+          in the clubhouse, and an app never shows a result the page it links to doesn’t.
+          Unpublishing a page takes what only it showed out of the API.
+        </p>
+        <p>
+          The API carries the same competitor details your pages do and nothing more: a
+          column you have switched off for the series is left out for apps as well. App
+          builders will find the details in{' '}
+          <a
+            href="https://github.com/sailscoring/sailscoring/blob/main/docs/public-api.md"
+            className="underline"
+          >
+            the published results API reference
+          </a>
+          .
+        </p>
+      </Section>
     </>
   );
 }

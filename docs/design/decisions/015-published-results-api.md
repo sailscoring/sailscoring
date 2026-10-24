@@ -236,8 +236,11 @@ Under `/api/public/v1/`. GET only, no authentication,
   pages; `races` changes when any of its races does.
 - **Shapes beyond a fleet table** fit the same resources. A split-fleet
   championship's standings are one ranking named "Championship", as its
-  pages and the data file already present it. A sub-series publication's
-  standings take the sub-series as a parameter.
+  pages and the data file already present it; the repêchage and cut-from
+  tables its page prints beside the ranking stay on the page. A sub-series
+  publication's standings hold a table per sub-series and fleet, each
+  naming its sub-series, rather than taking it as a parameter: the API
+  takes no query parameters (§7).
 - **Times are declared.** Every resource carries the instance's
   `timeZone`, as the indexes and the data file do; local dates and times
   are in it, and timestamps ending in `Z` are UTC.
