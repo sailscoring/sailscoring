@@ -1,6 +1,6 @@
 # ADR-015: The published results API
 
-**Status:** Proposed
+**Status:** Accepted (2026-10-24)
 
 **Date:** 2026-10-14
 
@@ -230,9 +230,9 @@ Under `/api/public/v1/`. GET only, no authentication,
   own Bot Protection bypass in `vercel-firewall.json`: without one every
   program gets the challenge as a 429 (DEPLOY.md).
 - **A race's results follow the race.** `races/{n}` changes when the
-  race's results are published: on its own page where the series
-  publishes one per race, otherwise on the standings pages whose columns
-  show it. It can be newer than `standings`, which follows the standings
+  race's results are published: on the series' race results page where
+  it has one (a split-fleet championship's), otherwise on the standings
+  pages whose columns show it. It can be newer than `standings`, which follows the standings
   pages; `races` changes when any of its races does.
 - **Shapes beyond a fleet table** fit the same resources. A split-fleet
   championship's standings are one ranking named "Championship", as its

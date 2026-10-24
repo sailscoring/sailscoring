@@ -1,11 +1,12 @@
 # ADR-014: Finding published results — indexes, the directory, and the race schedule
 
-**Status:** Proposed. Decisions 1–3 (the publish-time summary, the
-workspace and season `index.json`, and the public directory) are accepted
-and implemented (#669, #670); Decision 1 is superseded in part by
+**Status:** Accepted (2026-10-24). Decisions 1–3 (the publish-time
+summary, the workspace and season `index.json`, and the public directory)
+are implemented (#669, #670); Decision 1 is superseded in part by
 [ADR-015](015-published-results-api.md). Decision 4 (the race schedule, as a
-Schedule page whose JSON the published results API serves) is proposed; its
-open questions are listed at the end of the Decision.
+Schedule page whose JSON the published results API serves) is to be built
+after that API; the points it leaves to its implementation are listed at
+the end of the Decision.
 
 **Date:** 2026-10-14
 
@@ -197,7 +198,7 @@ publication's entry in `index.json` lists the page and links the API.
 
 ## Decision
 
-### 1. A publish-time summary (accepted, implemented — #669)
+### 1. A publish-time summary (implemented — #669)
 
 `published_series.summary` (jsonb) is computed when a series is published,
 on the live and the as-published archive paths alike, from the same snapshot
@@ -227,7 +228,7 @@ beside the full file, not a data file that follows the ticks.
 > follows the pages instead, as the per-page direction intended: each
 > resource changes when the page that shows its data is published.
 
-### 2. Workspace and season indexes (accepted, implemented — #669)
+### 2. Workspace and season indexes (implemented — #669)
 
 `/p/{ws}/index.json` lists every publication in the workspace;
 `/p/{ws}/{season}/index.json` the ones filed under one season, for both the
@@ -241,7 +242,7 @@ Declared on the HTML index pages as `<link rel="alternate"
 type="application/json">`. The format is documented in
 [`public-index-format.md`](../../public-index-format.md), `version: 1`.
 
-### 3. The public directory (accepted, implemented — #670)
+### 3. The public directory (implemented — #670)
 
 `/p` lists the club workspaces publishing with Sail Scoring, and
 `/p/index.json` is its machine-readable twin, linking each workspace's
@@ -259,7 +260,7 @@ without being given a URL.
 - The directory page is indexable; the workspace pages beneath stay
   `noindex`.
 
-### 4. The race schedule (proposed)
+### 4. The race schedule (to build after ADR-015)
 
 Option 6: a Schedule page, with its JSON served by the published results
 API.
@@ -308,7 +309,11 @@ not carry the races. Each race:
   not publish a schedule; an empty list means it publishes one with no
   races. Unpublishing the page removes the resource.
 - **Changes when the Schedule page is published**, as every API resource
-  follows its page (ADR-015).
+  follows its page (ADR-015), and only then. That includes each race's
+  `status` and `results` link: a race sailed since the Schedule was last
+  published still reads `scheduled` until the scorer ticks Schedule again.
+  The schedule is a page like any other, and says what it said when it was
+  published.
 - **One entry per race, not per start.** A Sail Scoring race is one start
   sequence across fleets (#346); its `starts` list each gun. A start may
   have no time (a second race "as soon as possible after") and a race may
@@ -316,9 +321,9 @@ not carry the races. Each race:
 - **`status` is derived, not stored.** `sailed` means the race has result
   rows; `scheduled` means it has none. A past race still `scheduled` was
   blown out, abandoned, or not yet entered; the schedule does not say which.
-- **`results`** links the race's own results page where the series
-  publishes one per race (#654), otherwise its standings. Absent while
-  scheduled.
+- **`results`** links the race on the series' race results page where it
+  publishes one (a split-fleet championship's), otherwise the standings
+  page that shows the race's fleets. Absent while scheduled.
 - **Times are local clock times**, as the scorer entered them, in the
   instance's time zone. One zone applies to every workspace and series on
   an instance, and the API declares it in a top-level `timeZone` field, as
@@ -339,16 +344,12 @@ no competitors cannot be published at all. Before the first race the
 build makes no data file, so a schedule-only publication's index entry
 lists its one page, its `api` link, and `data: null`.
 
-#### To finalise
+**After the API.** The Schedule page ships once the published results API
+does, so its JSON is the `schedule` resource from the first day and never
+a field anyone reads from `index.json`.
 
-- **A race's `status` and `results` link.** They say whether the race's
-  results are published, which another page's publish changes. Either they
-  follow the race results (a race turns `sailed` when its results are
-  published, without republishing the Schedule), or the Schedule page,
-  which then needs ticking whenever results are.
-- **Sequencing.** The Schedule page can ship before the API, as HTML only,
-  with the JSON following when the API's `schedule` resource lands; or the
-  two ship together.
+#### Left to the implementation
+
 - **A publication that is only a schedule.** Where its landing URL points
   (it has no standings page), and how the season and event index pages
   list it.
