@@ -327,6 +327,9 @@ export interface EchoHeaderData {
 }
 
 export interface RaceResultData {
+  /** The competitor this row is. Never rendered: the published results API
+   *  derives each competitor's public id from it. */
+  competitorId?: string;
   sailNumber: string;
   /** Bow number, when the boat carries one distinct from its sail number. */
   bowNumber?: string;
@@ -437,6 +440,9 @@ export interface EchoCellData {
 
 export interface StandingRowData {
   rank: number;
+  /** The competitor this row is. Never rendered: the published results API
+   *  derives each competitor's public id from it. */
+  competitorId?: string;
   sailNumber: string;
   /** Bow number, when the boat carries one distinct from its sail number. */
   bowNumber?: string;
@@ -1157,6 +1163,9 @@ export type CompetitorListPageChrome = DocumentChrome;
  *  and nothing derived from racing — this page exists to be published before
  *  race one, when no result exists to derive anything from. */
 export interface CompetitorListRow {
+  /** The competitor this row is. Never rendered: the published results API
+   *  derives each competitor's public id from it. */
+  competitorId?: string;
   sailNumber: string;
   bowNumber?: string;
   entryNumber?: string;
@@ -2324,12 +2333,7 @@ function renderRaceTable(
       // Highlight the top-3 finishers' rank cell, reusing the summary table's
       // podium classes so per-race and summary podiums share one colour scheme.
       const podiumClass = r.rank !== null && r.rank >= 1 && r.rank <= 3 ? ` class="rank${r.rank}"` : '';
-      const codeSuffix = r.resultCode && r.resultCode !== 'RDG' ? ` ${r.resultCode}` : '';
-      const pointsText = r.penaltyCode
-        ? `${formatPoints(r.points)} ${formatPenaltyLabel(r.penaltyCode, r.penaltyOverride, r.penaltyLabel)}`
-        : r.resultCode === 'RDG'
-          ? `${formatPoints(r.points)} RDG`
-          : `${formatPoints(r.points)}${codeSuffix}`;
+      const pointsText = esc(raceResultPointsText(r));
       const handicapCells = hasHandicapCols
         ? [
             `<td class="mono">${esc(r.finishTime ?? '')}</td>`,
@@ -2780,15 +2784,26 @@ function helmBioUrl(
 
 // ---- Helpers ----
 
+/** A race table's points cell as the page prints it ("4.0 DNF", "3.0
+ *  SCP(20%)"), unescaped: the published results API's `display` for a race
+ *  result. */
+export function raceResultPointsText(
+  r: Pick<RaceResultData, 'points' | 'resultCode' | 'penaltyCode' | 'penaltyOverride' | 'penaltyLabel'>,
+): string {
+  if (r.penaltyCode) {
+    return `${formatPoints(r.points)} ${penaltyLabelText(r.penaltyCode, r.penaltyOverride, r.penaltyLabel)}`;
+  }
+  if (r.resultCode === 'RDG') return `${formatPoints(r.points)} RDG`;
+  return `${formatPoints(r.points)}${r.resultCode ? ` ${r.resultCode}` : ''}`;
+}
+
 /** The penalty as it reads in a score cell: `SCP(30%)`, `DPI(2pts)`, or — when
  *  the scorer named a DPI — their name in place of the code, `TPO(2pts)`. The
  *  legend beneath the table says what a named one is; see
- *  {@link penaltyLabelLegend}. */
-function formatPenaltyLabel(code: PenaltyCode, override: number | null, label?: string): string {
-  // Escaped here rather than at the call sites: both of them interpolate the
-  // result straight into a cell, and unlike a result code this half is the
-  // scorer's free text.
-  const shown = code === 'DPI' && label?.trim() ? esc(label.trim()) : code;
+ *  {@link penaltyLabelLegend}. Plain text: the label is the scorer's own, so
+ *  a caller writing HTML escapes the result, as the cell renderers do. */
+function penaltyLabelText(code: PenaltyCode, override: number | null, label?: string): string {
+  const shown = code === 'DPI' && label?.trim() ? label.trim() : code;
   if (override === null) return shown;
   if (code === 'DPI') return `${shown}(${override}pts)`;
   return `${shown}(${override}%)`;
@@ -2826,7 +2841,7 @@ function penaltyLabelLegend(labels: Iterable<string>): string {
 
 /** Format a score, total, or nett to one decimal place — the low-point
  *  convention used on published results ("1.0", "15.0 DNF", "22.5"). */
-function formatPoints(n: number): string {
+export function formatPoints(n: number): string {
   return n.toFixed(1);
 }
 
@@ -2854,13 +2869,28 @@ function renderScoreText(
   isRedress: boolean,
   penaltyLabel?: string,
 ): string {
+  return esc(scoreDisplayText(points, resultCode, penaltyCode, penaltyOverride, isDiscard, isRedress, penaltyLabel));
+}
+
+/** A score cell's text as a results page prints it ("(4.0 DNF)", "RDG(3.5)"),
+ *  unescaped: what the published results API serves as the cell's `display`,
+ *  so an app shows exactly what the page shows. */
+export function scoreDisplayText(
+  points: number,
+  resultCode: ResultCode | null,
+  penaltyCode: PenaltyCode | null,
+  penaltyOverride: number | null,
+  isDiscard: boolean,
+  isRedress: boolean,
+  penaltyLabel?: string,
+): string {
   let text: string;
   if (isRedress) {
     text = `RDG(${formatPoints(points)})`;
   } else if (resultCode) {
     text = `${formatPoints(points)} ${resultCode}`;
   } else if (penaltyCode) {
-    text = `${formatPoints(points)} ${formatPenaltyLabel(penaltyCode, penaltyOverride, penaltyLabel)}`;
+    text = `${formatPoints(points)} ${penaltyLabelText(penaltyCode, penaltyOverride, penaltyLabel)}`;
   } else {
     text = formatPoints(points);
   }
@@ -3391,6 +3421,7 @@ export function assembleSeriesResultsData(
         : undefined;
 
       results.push({
+        competitorId,
         sailNumber: competitor.sailNumber,
         ...(competitor.bowNumber ? { bowNumber: competitor.bowNumber } : {}),
         ...(competitor.entryNumber ? { entryNumber: competitor.entryNumber } : {}),
@@ -3501,6 +3532,7 @@ export function assembleSeriesResultsData(
     const seedRating = isProgressive ? seedRatingByCompetitorId?.get(s.competitor.id) : undefined;
     return {
       rank: s.rank,
+      competitorId: s.competitor.id,
       sailNumber: s.competitor.sailNumber,
       ...(s.competitor.boatName ? { boatName: s.competitor.boatName } : {}),
       ...(s.competitor.bowNumber ? { bowNumber: s.competitor.bowNumber } : {}),

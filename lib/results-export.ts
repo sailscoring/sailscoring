@@ -407,6 +407,7 @@ async function buildCompetitorListFile(
     competitors.every((c) => displayed.get(c.id)!.length > 0);
 
   const rowFor = (c: Competitor): CompetitorListRow => ({
+    competitorId: c.id,
     sailNumber: c.sailNumber,
     ...(c.bowNumber ? { bowNumber: c.bowNumber } : {}),
     ...(c.entryNumber ? { entryNumber: c.entryNumber } : {}),
