@@ -24,7 +24,7 @@ for that:
 - **It is shaped for re-scoring.** ADR-012's contract is "everything needed
   to re-score the published results": per-race arrays positional against
   the race list, rating inputs and intermediates (`nhcByFleet`,
-  `echoByFleet`), scoring settings, and a per-boat `ref` that is unique
+  `echoByFleet`), scoring settings, and a per-competitor `ref` that is unique
   within one export and means nothing in the next. An app that wants a
   fleet's standings has to rebuild what the page already prints.
 - **Its version follows the scoring model.** It went from v1 to v9 between
@@ -49,13 +49,13 @@ on?
 From RaceOps and the horizon's clubhouse big-screen display:
 
 - **Find** a club's series: done by ADR-014's indexes.
-- **Standings** per fleet, as published: rank, the boat's displayed
-  details, total and net, each race's score as printed.
+- **Standings** per fleet, as published: rank, the competitor's
+  displayed details, total and net, each race's score as printed.
 - **Race results**: a race's finishing order, times and points per fleet.
 - **The schedule**: races to come, with dates and gun times (ADR-014,
   Decision 4).
 - **Change detection**: knowing cheaply when to fetch again.
-- **Stable identity**: following a boat from one publish to the next.
+- **Stable identity**: following a competitor from one publish to the next.
 
 None of them needs the scoring inputs.
 
@@ -177,7 +177,7 @@ When a series is published, alongside the data file and the summary, Sail
 Scoring computes a **results projection**: the publication as the pages
 present it.
 
-- **Display-shaped.** Standings rows carry rank, the boat's displayed
+- **Display-shaped.** Standings rows carry rank, the competitor's displayed
   details, total, net and one cell per race. Each cell has its points, code,
   whether it was discarded, and `display`: the text the page prints
   (`"(4) DNF"`), so an app never reimplements the formatting.
@@ -187,20 +187,31 @@ present it.
 - **It follows the pages.** Every publish computes the projection from
   its snapshot, but a resource is replaced only when a page that shows its
   data is ticked: a fleet's standings with the standings page that shows
-  that fleet, the schedule with the Schedule page. A resource goes when the
+  that fleet, a race's results with the page that publishes them, the
+  competitors with the Entries page, the schedule with the Schedule page.
+  A resource goes when the
   last page showing it is unpublished. The publication resource changes on
   every publish and says when each of the others last did. So the API
   agrees with the pages, and can lag the data file and the index summary,
   which follow every publish whatever is ticked (ADR-014, Decision 1).
-- **Stored per resource**, content-addressed, superseded when its page is
+- **Stored per resource**, in Blob storage, replaced when its page is
   republished, and removed with the publication.
 - **Scoring internals stay out.** No rating intermediates, no scoring
   settings beyond what a page states (the discard rule's wording, say). A
   new scoring feature adds a flag to a cell at most.
+- **As-published archives are served too**
+  ([ADR-010](010-as-published-archives.md)), in the same resources. Their
+  tables are what the source printed, so a cell's `display` is the
+  published text and its points and code are absent; a row's rank is the
+  structured rank the archive already holds. Standings carry the source's
+  column headings as published. Race results exist where the source
+  published per-race tables. The publication says it is an archive, as
+  the index entry already does.
 
 ### 2. The resources
 
-GET only, no authentication, `Access-Control-Allow-Origin: *`, JSON:
+Under `/api/public/v1/`. GET only, no authentication,
+`Access-Control-Allow-Origin: *`, JSON:
 
 | Resource | Holds |
 |---|---|
@@ -208,8 +219,21 @@ GET only, no authentication, `Access-Control-Allow-Origin: *`, JSON:
 | `…/v1/publications/{id}/standings` | Every fleet's standings; `…/standings/{fleet}` for one |
 | `…/v1/publications/{id}/races` | The sailed races: number, name, date, starts |
 | `…/v1/publications/{id}/races/{n}` | One race's results per fleet: finishing order, times, corrected times where scored on them, points and codes |
+| `…/v1/publications/{id}/competitors` | The entry list: each competitor with the columns the series displays, while it publishes its Entries page |
 | `…/v1/publications/{id}/schedule` | Every race, sailed or not, while the series publishes a Schedule page (ADR-014, Decision 4) |
 
+- **`/api/public/`, not `/p/`.** `/p/` is the tree of published pages and
+  files, where every path segment is a workspace, season, folder or page
+  slug. An API inside it would claim names from that space, or read as
+  though it belonged to whichever slug it sat under. A prefix of its own
+  keeps it apart from the tree and from the keyed `/api/v1`, and needs its
+  own Bot Protection bypass in `vercel-firewall.json`: without one every
+  program gets the challenge as a 429 (DEPLOY.md).
+- **A race's results follow the race.** `races/{n}` changes when the
+  race's results are published: on its own page where the series
+  publishes one per race, otherwise on the standings pages whose columns
+  show it. It can be newer than `standings`, which follows the standings
+  pages; `races` changes when any of its races does.
 - **Shapes beyond a fleet table** fit the same resources. A split-fleet
   championship's standings are one ranking named "Championship", as its
   pages and the data file already present it. A sub-series publication's
@@ -225,15 +249,23 @@ GET only, no authentication, `Access-Control-Allow-Origin: *`, JSON:
 
 ### 3. Identity
 
-Fleets are named and races numbered, as in the data file. Boats need more:
-an app following a boat across publishes cannot use the data file's `ref`.
+Fleets are named and races numbered, as in the data file. Competitors need
+more: an app following a competitor across publishes cannot use the data
+file's `ref`.
 
-- Each boat carries an `id` that is **stable across every publish of the
-  series** and reveals nothing about internal ids: derived from the
-  competitor's internal id with a keyed hash.
-- Where the workspace publishes competitor pages, a boat also carries its
-  **cross-series identity**, the slug its public timeline already uses
-  (`/p/{ws}/competitor/{slug}`).
+- Each competitor carries an `id` that is **the same in every resource and
+  every publish of the series**, and reveals nothing about internal ids: a
+  keyed hash of the series and the competitor's internal id. The series is
+  in the hash, so the same sailor's ids in two series are unrelated.
+- **The key is per instance, and may be rotated.** A rotation changes every
+  `id` at once, which an app sees as a series re-keyed between one fetch
+  and the next. That needs no deprecation period: an `id` promises
+  consistency within a series, and nothing an app should keep longer
+  depends on it.
+- Where the workspace publishes competitor pages, a competitor also carries
+  its **cross-series identity**, the slug its public timeline already uses
+  (`/p/{ws}/competitor/{slug}`). That is the identity to keep, and a key
+  rotation never changes it.
 
 ### 4. Discovery
 
@@ -251,8 +283,10 @@ race.
 - **The version is in the path.** Within `v1`, changes are additive:
   new resources, new optional fields, new values where a field is documented
   as open-ended.
-- **A breaking change is a new version**, served beside the old one for an
-  announced period, with `Deprecation` and `Sunset` headers on the old.
+- **A breaking change is a new version**, and the old one keeps serving
+  for **a year** after the new one ships, with `Deprecation` and `Sunset`
+  headers. Serving an old version is a second projection computed at
+  publish, which costs little; a year covers a club app's off-season.
 - **The spec is published**: an OpenAPI 3.1 description generated from the
   Zod schemas that define the responses, using the machinery ADR-009 §10
   set out, served beside the API.
@@ -268,29 +302,29 @@ it is how a copy of a series is imported. Its format doc says it is not an
 app API and points to this one. ADR-014's proposed per-page JSON is
 superseded by this decision.
 
-### To finalise
+### 7. Serving cost and rate limiting
 
-- **Which page a resource follows where two show the same data.** A race's
-  results appear in the standings pages' race columns and, where the
-  series publishes them, on the race's own page; publishing one of those
-  without the other must leave `races/{n}` meaning something definite.
-- **The URL prefix.** `/api/public/v1/` keeps the API apart from both the
-  page tree and the keyed `/api/v1`; under `/p/` it would share the existing
-  public-path caching. Either way the index links it, and the API needs
-  its own Bot Protection bypass in `vercel-firewall.json`: the existing
-  `/p/` rules name the data files and indexes, not the whole tree, and
-  without one every program gets the challenge as a 429 (DEPLOY.md).
-- **As-published archives.** Their results are tables as originally
-  published, with whatever columns the source printed. Whether v1 serves
-  them in the same shapes, in a looser one, or not at all.
-- **The entry list.** A `competitors` resource while the series publishes
-  its Entries page.
-- **The deprecation period.** How long an old version keeps serving.
-- **Rate limiting.** The CDN absorbs polling. The bypass above takes the
-  API out of Bot Protection, so an uncached client meets nothing beyond
-  that today.
-- **The keyed hash's key.** Per instance or per workspace, and what rotating
-  it would mean (every boat's `id` changes).
+The infrastructure costs that move with load are Neon's compute, billed for
+the time the database is awake, and Vercel's metered lines beyond the Pro
+plan's allowances. A read API polled by race-day apps and clubhouse screens
+should move neither. Three rules:
+
+- **No database on the read path.** A resource is found from its URL alone:
+  the publication id names its storage, so a request is one Blob read and
+  never wakes Postgres. An unknown id or resource is a 404 from storage, not
+  a query. Unknown query parameters are a 400, so varying them cannot be
+  used to get past the cache.
+- **The CDN takes the polling.** Resources are served with the `/p` JSON's
+  CDN floor and the workspace purge tag, so polling faster than the floor
+  costs edge requests only, and an `If-None-Match` poll costs a 304.
+- **No rate-limit rule at the start.** The WAF meters every request a
+  rate-limit rule inspects, cached ones included, beyond 1M a month on Pro;
+  a rule over the API would make its cheapest requests the only billed
+  ones. A per-IP limit also falls hardest on a clubhouse, where every phone
+  on the club's wifi shares an address. Instead `vercel-firewall.json`
+  carries the rule inactive, to enable if the usage graphs show abuse.
+  Until then, keeping the database off the read path is what bounds the
+  cost.
 
 ## Consequences
 
@@ -302,8 +336,8 @@ superseded by this decision.
   reasons; ADR-013's careful removals no longer have third-party apps
   behind them.
 - One app (RaceOps) to move now, rather than an ecosystem later.
-- An app follows a boat across publishes, and across series where the
-  workspace has identities.
+- An app follows a competitor across publishes, and across series where
+  the workspace publishes competitor pages.
 - The same projection can later render as `.ics`, XRR, or a big-screen
   display without new data.
 
@@ -332,9 +366,10 @@ superseded by this decision.
   resources on fleets and races, which outlive layouts, never on pages.
 - **Apps keep reading the data file.** Mitigated by the format doc's
   pointer, by the index linking both, and by moving RaceOps first.
-- **Uncached load.** A poller ignoring ETags or the CDN costs storage reads.
-  Mitigated by the CDN floor and per-resource ETags; rate limiting is
-  listed to finalise.
+- **Uncached load.** A poller ignoring ETags, or a scraper walking every
+  publication, costs function invocations and Blob reads. Bounded by
+  keeping the database off the read path, and by the inactive rate-limit
+  rule (§7).
 
 ## Related Decisions
 

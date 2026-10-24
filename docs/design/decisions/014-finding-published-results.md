@@ -45,7 +45,7 @@ Three gaps followed:
    ones, each with a local start date and time. Sail Scoring has the same
    data — the Races tab's recurring generator creates a season's races in
    advance with their dates, and with a default start sequence each start's
-   gun time — but publishing drops every race with no boat rows
+   gun time — but publishing drops every race with no result rows
    (`dropUnsailedRaces` in `lib/results-export.ts`), deliberately, so an
    unsailed race never prints as a column of DNCs. A series with no entries
    cannot be published at all.
@@ -313,7 +313,7 @@ not carry the races. Each race:
   sequence across fleets (#346); its `starts` list each gun. A start may
   have no time (a second race "as soon as possible after") and a race may
   have no starts (dates generated without a start sequence).
-- **`status` is derived, not stored.** `sailed` means the race has boat
+- **`status` is derived, not stored.** `sailed` means the race has result
   rows; `scheduled` means it has none. A past race still `scheduled` was
   blown out, abandoned, or not yet entered; the schedule does not say which.
 - **`results`** links the race's own results page where the series
