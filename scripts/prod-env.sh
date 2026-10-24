@@ -25,7 +25,7 @@ BW_WRAPPER=prod-env
 # shellcheck source=scripts/bw-fields.sh
 source "$(dirname "${BASH_SOURCE[0]}")/bw-fields.sh"
 
-ALLOWED_VARS=(DATABASE_URL BLOB_READ_WRITE_TOKEN NEXT_PUBLIC_APP_URL)
+ALLOWED_VARS=(DATABASE_URL BLOB_READ_WRITE_TOKEN NEXT_PUBLIC_APP_URL PUBLIC_ID_KEY)
 
 [ $# -gt 0 ] || _bw_die "usage: scripts/prod-env.sh <command> [args…]"
 

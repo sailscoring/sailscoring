@@ -251,6 +251,7 @@ Development is *only* used to populate `.env.local` via `vercel env pull`.
 | `NEXT_PUBLIC_APP_URL`          | `https://app.sailscoring.ie` | unset / preview URL  | `http://localhost:3000` | no  |
 | `NEXT_PUBLIC_DEFAULT_SAIL_COUNTRY` | `IRL` (or unset → IRL) | (same)             | (same)               | no  |
 | `NEXT_PUBLIC_DEFAULT_TIMEZONE`  | `Europe/Dublin` (or unset → Europe/Dublin) | (same) | (same)         | no  |
+| `PUBLIC_ID_KEY`                | random (set, **long-lived**) | same as Production | unset (derived)     | yes for prod/preview |
 | `BLOB_READ_WRITE_TOKEN`        | from Vercel Blob (managed) | from Vercel Blob (managed, if connected) | unset → `published_blobs` fallback | yes (managed) |
 | `NEXT_PUBLIC_SCUPPER_URL`      | `https://scupper.sailscoring.ie` (legacy) | (same)   | (same)               | no         |
 | `NEXT_PUBLIC_SCUPPER_API_KEY`  | from scupper project (legacy) | from scupper project | from scupper project | no         |
@@ -311,6 +312,15 @@ their "provisional as of" stamp in it. An unset or unrecognised value falls
 back to `Europe/Dublin`. Set it before an instance starts taking results:
 changing it later converts nothing, so times already entered are then
 declared to be in the new zone.
+
+**`PUBLIC_ID_KEY`** — the key the published results API (ADR-015) hashes
+competitor ids under, so an app can follow a competitor through a series
+without learning internal ids. Generate with `openssl rand -hex 32`. Keep it
+long-lived: rotating it changes every competitor's id at the next publish of
+each series, which the API allows but every app polling it will notice. Use
+the same value in Production and Preview (one database), and put it in the
+operator's Bitwarden item too, for `pnpm published-views:prod`. Unset, a key
+is derived from `BETTER_AUTH_SECRET`, so rotating that would rotate the ids.
 
 **`BLOB_READ_WRITE_TOKEN`** — managed by the Vercel Blob integration (step 4),
 not added by hand. Leave it **unset on Development** so publishing uses the

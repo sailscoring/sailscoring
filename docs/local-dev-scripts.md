@@ -49,6 +49,9 @@ from?", start here.
 | `pnpm publication-summaries` | Operator pass: fill in the publish-time summary (race dates, counts) of publications made before it was stored, from each one's own data file, archive tables, or unchanged series; report only without `--apply`, `--workspace` to narrow (uses `.env.local`) | Yes |
 | `pnpm publication-summaries:test` | Same, but against the local container | Yes — run `pnpm db:up` first |
 | `pnpm publication-summaries:prod` | Same, but against production, with the secrets fetched from Bitwarden for the run (see [account-admin.md](account-admin.md#production-usage)) | Yes (Neon) |
+| `pnpm published-views` | Operator pass: write the published results API's view (ADR-015) for publications made before it, from an archive's tables or a series unchanged since publishing; report only without `--apply`, `--workspace` to narrow; `--apply` refuses without `PUBLIC_ID_KEY` and `NEXT_PUBLIC_APP_URL` (uses `.env.local`) | Yes |
+| `pnpm published-views:test` | Same, but against the local container | Yes — run `pnpm db:up` first |
+| `pnpm published-views:prod` | Same, but against production, with the secrets fetched from Bitwarden for the run (see [account-admin.md](account-admin.md#production-usage)) | Yes (Neon) |
 | `pnpm redirects`         | Admin CLI: list/add/remove public-URL redirects (ADR-011; uses `.env.local`) | Yes |
 | `pnpm redirects:test`    | Same, but against the local container                | Yes — run `pnpm db:up` first   |
 | `pnpm redirects:prod`    | Same, but against production, with the secrets fetched from Bitwarden for the run (see [account-admin.md](account-admin.md#production-usage)) | Yes (Neon) |
