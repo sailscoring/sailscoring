@@ -223,8 +223,9 @@ beside the full file, not a data file that follows the ticks.
 > **Superseded in part by [ADR-015](015-published-results-api.md):** rather
 > than a JSON twin of each page, apps get a versioned, display-shaped
 > published results API, and the data file stops being the app-facing
-> format. The rule above — machine-readable output follows the latest
-> publish — stands, and applies to that API.
+> format. The rule above stands for the data file and the summary. The API
+> follows the pages instead, as the per-page direction intended: each
+> resource changes when the page that shows its data is published.
 
 ### 2. Workspace and season indexes (accepted, implemented — #669)
 
@@ -272,8 +273,8 @@ grid: a weekly series leaves a grid mostly empty, and a list reads on a
 phone.
 
 To push a schedule change, the scorer ticks only Schedule. Every other page
-stays as it was; the data file and the summary are rebuilt, as on any
-publish (Decision 1).
+stays as it was, and in the API only the schedule changes; the data file
+and the summary are rebuilt, as on any publish (Decision 1).
 
 **Its JSON in the published results API.** While a publication's Schedule
 page is published, the API's `schedule` resource for it
@@ -306,9 +307,8 @@ not carry the races. Each race:
 - **Present while the Schedule page is.** No resource means the series does
   not publish a schedule; an empty list means it publishes one with no
   races. Unpublishing the page removes the resource.
-- **Rebuilt on every publish** once the page has been published, with the
-  rest of the API's projection, so it follows the same rule as the data
-  file: a race is `sailed` exactly when the data file has its results.
+- **Changes when the Schedule page is published**, as every API resource
+  follows its page (ADR-015).
 - **One entry per race, not per start.** A Sail Scoring race is one start
   sequence across fleets (#346); its `starts` list each gun. A start may
   have no time (a second race "as soon as possible after") and a race may
@@ -341,6 +341,11 @@ lists its one page, its `api` link, and `data: null`.
 
 #### To finalise
 
+- **A race's `status` and `results` link.** They say whether the race's
+  results are published, which another page's publish changes. Either they
+  follow the race results (a race turns `sailed` when its results are
+  published, without republishing the Schedule), or the Schedule page,
+  which then needs ticking whenever results are.
 - **Sequencing.** The Schedule page can ship before the API, as HTML only,
   with the JSON following when the API's `schedule` resource lands; or the
   two ship together.

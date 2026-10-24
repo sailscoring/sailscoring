@@ -68,8 +68,11 @@ None of them needs the scoring inputs.
 - **Publishing is the consent.** The API serves what was published, never
   the live series ([ADR-008](008-full-stack-transition.md)), and only what
   the pages show (ADR-012's privacy contract).
-- **One rule for machine-readable output.** Rebuilt on every publish,
-  whichever pages are ticked (ADR-014, Decision 1).
+- **The API shows what the pages show.** A resource changes when the page
+  that shows its data is published, and exists only while that page does.
+  Publishing only the entry list changes no results. An app then agrees
+  with the pages it links to, and the scorer's ticks mean the same to an
+  app as to a sailor.
 - **Documented and stable.** Apps need a spec, a version they can pin,
   and notice before anything goes away.
 - **Cheap to serve.** Unauthenticated, polled, CDN-cached: the cost model of
@@ -127,6 +130,8 @@ stability and deprecation policy.
 - Display-shaped and decoupled from the scoring model, as Option 2.
 - Room to grow: the schedule, an entry list, an `.ics` or XRR rendering of
   the same projection.
+- Resources can follow the pages that show them, as Option 1's files do,
+  without taking the pages' shapes.
 
 **Cons:**
 - The most to build and maintain: routes, a projection, a spec, a policy.
@@ -179,11 +184,16 @@ present it.
 - **What the pages show, and nothing more.** Only the competitor columns the
   series displays; officials and track data only when the series publishes
   them. Unsailed races stay out of standings and race results.
-- **Rebuilt on every publish**, whichever pages are ticked, from the same
-  snapshot as the data file and the summary. The three always agree; an
-  unticked HTML page may show older results (ADR-014, Decision 1).
-- **Stored like the data file**, content-addressed and superseded on
-  publish, and removed on unpublish.
+- **It follows the pages.** Every publish computes the projection from
+  its snapshot, but a resource is replaced only when a page that shows its
+  data is ticked: a fleet's standings with the standings page that shows
+  that fleet, the schedule with the Schedule page. A resource goes when the
+  last page showing it is unpublished. The publication resource changes on
+  every publish and says when each of the others last did. So the API
+  agrees with the pages, and can lag the data file and the index summary,
+  which follow every publish whatever is ticked (ADR-014, Decision 1).
+- **Stored per resource**, content-addressed, superseded when its page is
+  republished, and removed with the publication.
 - **Scoring internals stay out.** No rating intermediates, no scoring
   settings beyond what a page states (the discard rule's wording, say). A
   new scoring feature adds a flag to a cell at most.
@@ -194,7 +204,7 @@ GET only, no authentication, `Access-Control-Allow-Origin: *`, JSON:
 
 | Resource | Holds |
 |---|---|
-| `…/v1/publications/{id}` | The publication: series name, season, folder, fleets, pages, `publishedAt`, links to the resources below |
+| `…/v1/publications/{id}` | The publication: series name, season, folder, fleets, pages, `publishedAt`, links to the resources below and when each was last published |
 | `…/v1/publications/{id}/standings` | Every fleet's standings; `…/standings/{fleet}` for one |
 | `…/v1/publications/{id}/races` | The sailed races: number, name, date, starts |
 | `…/v1/publications/{id}/races/{n}` | One race's results per fleet: finishing order, times, corrected times where scored on them, points and codes |
@@ -260,6 +270,10 @@ superseded by this decision.
 
 ### To finalise
 
+- **Which page a resource follows where two show the same data.** A race's
+  results appear in the standings pages' race columns and, where the
+  series publishes them, on the race's own page; publishing one of those
+  without the other must leave `races/{n}` meaning something definite.
 - **The URL prefix.** `/api/public/v1/` keeps the API apart from both the
   page tree and the keyed `/api/v1`; under `/p/` it would share the existing
   public-path caching. Either way the index links it, and the API needs
@@ -298,7 +312,11 @@ superseded by this decision.
 - A new public surface to build, document and keep stable: routes, the
   projection, the spec, the policy.
 - Three machine-readable products per publication (the data file, the
-  summary, the projection), each computed on every publish.
+  summary, the projection) under two rules: the data file and the summary
+  follow every publish, the API follows the pages. An app comparing the
+  index's race count with the standings resource can find them apart.
+- One publication's resources can come from different publishes (last
+  week's standings, today's schedule); each says when it was published.
 - Two public APIs with different rules: this one, unauthenticated and
   serving what was published, and ADR-009's keyed one, serving the live
   series.
@@ -321,9 +339,10 @@ superseded by this decision.
 ## Related Decisions
 
 - [ADR-014](014-finding-published-results.md): the indexes this API is
-  found from, and the rule that machine-readable output follows the latest
-  publish. This ADR supersedes its per-page JSON direction and serves its
-  Schedule page's JSON as the `schedule` resource.
+  found from. Its rule that the data file and summary follow every publish
+  does not extend to this API, which follows the pages as its per-page JSON
+  direction intended; this ADR supersedes that direction's per-page shapes
+  and serves its Schedule page's JSON as the `schedule` resource.
 - [ADR-012](012-data-behind-published-results.md): the data file, which
   keeps its transparency, viewer and import roles and stops being the
   app-facing format.
