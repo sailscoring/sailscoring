@@ -19,7 +19,9 @@ come back with concrete, actionable reports:
 
 - **Kieran Barker** — Howth Yacht Club
 - **Ian Bowring** — Royal St George Yacht Club, Dublin Bay Sailing Club
+- **Fiona Cassidy** — Bray Sailing Club
 - **Gary Cullen** — Howth Yacht Club
+- **Mark Henderson** — Bray Sailing Club
 - **John Kelly** — Royal Irish Yacht Club, ORC Ireland
 - **Fergal Lyons** — Galway Bay Sailing Club, RaceOps
 - **Mark McGibney** — Royal Irish Yacht Club

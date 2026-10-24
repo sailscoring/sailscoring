@@ -1408,11 +1408,23 @@ that needs one.
 The engine scores low-point (RRS Appendix A). Other published systems — **high-point**
 (score a percentage of the fleet; common in US college/team racing) and **bonus-point**
 (descending awards, e.g. 0 / 3 / 5.7 / 8 …) — are offered by Sailwave and HalSail. We
-don't have them and won't build them speculatively. **Demand-driven: wait to hear from a
-user running a real series on one before designing.** Shape, when it comes: a per-series
+don't have them and won't build them speculatively. Shape, when it comes: a per-series
 scoring-method selector that branches the points assignment and the A8 tie-break, with a
 fixture per method. The fleet-size-adjusted high-point family (below) is a
 separate, larger job.
+
+**The first real user is Bray Sailing Club**, which has scored its dinghy series
+high-point for as long as anyone there remembers (Fiona Cassidy and Mark Henderson,
+October 2026). They are open to moving to low point, so the first conversation is
+whether they want high point carried over or would rather switch. The system is
+HalSail's "HP scoring": **one point for competing, one for finishing, one for each
+boat beaten**, so a DNF/DNS/RET/OCS scores 1, a DNC scores 0, and the lowest scores
+are the ones discarded. The `bray-archive` captures (Summer and Sunday Dinghy, Winter
+Series, 2024–2026) agree with that rule once RDG boats are left out of the count of
+boats beaten, and give a ready-made parity corpus, RDG averages and ties included. The
+2023/24 and 2024 Sailwave-published series used a custom Sailwave system named "Bray
+Sailing Club"; check that it is the same scale before assuming so. Until then the
+as-published archive displays these series but can't score them.
 
 ### Fleet-size-adjusted high point: CHIPS3, Cox-Sprague, Rinderle B
 
