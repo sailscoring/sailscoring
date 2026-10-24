@@ -18,6 +18,7 @@ import * as series from '@/lib/api-handlers/series';
 import * as competitors from '@/lib/api-handlers/competitors';
 import * as races from '@/lib/api-handlers/races';
 import * as finishes from '@/lib/api-handlers/finishes';
+import { getPublishedBySeries } from '@/lib/published-repository';
 import { publishSeries, unpublishBySeries } from '@/lib/api-handlers/publish';
 import { NextRequest } from 'next/server';
 import { GET } from '@/app/p/[[...slug]]/route';
@@ -140,6 +141,7 @@ describe.skipIf(skip)('the public index.json (#669)', () => {
           url: `${base}/summer-series`,
           pages: [{ label: 'Standings', kind: 'standings', url: `${base}/summer-series/standings` }],
           data: `${base}/summer-series/summer-series.sailscoring.json`,
+          api: `http://localhost:3000/api/public/v1/publications/${(await getPublishedBySeries(seriesId))!.id}`,
           fleets: [],
           publishedAt: expect.stringMatching(/^2\d{3}-/),
           firstRaceDate: '2026-06-06',
