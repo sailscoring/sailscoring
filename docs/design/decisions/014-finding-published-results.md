@@ -2,10 +2,10 @@
 
 **Status:** Proposed. Decisions 1–3 (the publish-time summary, the
 workspace and season `index.json`, and the public directory) are accepted
-and implemented (#669, #670). Decision 4 (the race schedule, as a Schedule
-page) is proposed; its open questions are listed at the end of the
-Decision. Amended by [ADR-015](015-published-results-api.md), which serves
-the schedule's JSON from the published results API.
+and implemented (#669, #670); Decision 1 is superseded in part by
+[ADR-015](015-published-results-api.md). Decision 4 (the race schedule, as a
+Schedule page whose JSON the published results API serves) is proposed; its
+open questions are listed at the end of the Decision.
 
 **Date:** 2026-10-14
 
@@ -168,6 +168,31 @@ publication in `index.json` while the page is published.
   season of a few hundred races adds tens of kilobytes to that season's
   index, and the workspace index, which spans every season, grows by the
   same amount each year.
+- Every poller of an index re-downloads every schedule in it whenever
+  anything in the workspace is published.
+- The race shape becomes part of the index format, versioned by the
+  index's rules rather than those of the API apps are meant to build on
+  ([ADR-015](015-published-results-api.md)).
+- A changed date needs a publish to show (as a changed result does).
+
+### Option 6: A Schedule page, with its JSON in the published results API
+
+The same Schedule page, with its JSON served as the `schedule` resource of
+the published results API ([ADR-015](015-published-results-api.md)). The
+publication's entry in `index.json` lists the page and links the API.
+
+**Pros:**
+- Option 5's consent model and page, unchanged.
+- The index stays a listing and does not grow with every race.
+- The schedule has its own `ETag`: a poller watching it is not woken by a
+  results publish elsewhere in the workspace.
+- One contract for apps: the race shape follows the API's versioning and
+  deprecation policy.
+
+**Cons:**
+- A season calendar takes the season index plus one request per series.
+  Each is a conditional request, answered 304 when nothing changed.
+- The JSON waits on the API being built.
 - A changed date needs a publish to show (as a changed result does).
 
 ## Decision
@@ -235,11 +260,8 @@ without being given a URL.
 
 ### 4. The race schedule (proposed)
 
-> **Amended by [ADR-015](015-published-results-api.md):** the schedule's JSON
-> is served as the published results API's `schedule` resource, and the
-> publication's entry in `index.json` links it rather than carrying the
-> races. The Schedule page, its consent model and the race shape below
-> stand.
+Option 6: a Schedule page, with its JSON served by the published results
+API.
 
 **A Schedule page.** The publish dialog gains a Schedule page, a fixed page
 like Prizes and Entries (`kind: 'schedule'`), which the scorer ticks or
@@ -253,13 +275,15 @@ To push a schedule change, the scorer ticks only Schedule. Every other page
 stays as it was; the data file and the summary are rebuilt, as on any
 publish (Decision 1).
 
-**Its JSON in `index.json`.** While a publication's Schedule page is
-published, its entry in `index.json` carries a `schedule`: every race in the
-series, sailed or not, in race order. The page appears in the entry's
-`pages` with `kind: "schedule"`.
+**Its JSON in the published results API.** While a publication's Schedule
+page is published, the API's `schedule` resource for it
+([ADR-015](015-published-results-api.md)) lists every race in the series,
+sailed or not, in race order. The publication's entry in `index.json` lists
+the page in its `pages` with `kind: "schedule"` and links the API; it does
+not carry the races. Each race:
 
 ```jsonc
-"schedule": [
+[
   {
     "race": 4,
     "name": null,                         // the race's own label, e.g. "Round the Islands"
@@ -279,12 +303,12 @@ series, sailed or not, in race order. The page appears in the entry's
 ]
 ```
 
-- **Present while the Schedule page is.** Absent means the series does not
-  publish a schedule; an empty list means it publishes one with no races.
-  Unpublishing the page drops the field.
-- **Rebuilt with the summary**, on every publish once the page has been
-  published, so it follows the same rule as the data file: a race is
-  `sailed` exactly when the data file has its results.
+- **Present while the Schedule page is.** No resource means the series does
+  not publish a schedule; an empty list means it publishes one with no
+  races. Unpublishing the page removes the resource.
+- **Rebuilt on every publish** once the page has been published, with the
+  rest of the API's projection, so it follows the same rule as the data
+  file: a race is `sailed` exactly when the data file has its results.
 - **One entry per race, not per start.** A Sail Scoring race is one start
   sequence across fleets (#346); its `starts` list each gun. A start may
   have no time (a second race "as soon as possible after") and a race may
@@ -297,23 +321,29 @@ series, sailed or not, in race order. The page appears in the entry's
   scheduled.
 - **Times are local clock times**, as the scorer entered them, in the
   instance's time zone. One zone applies to every workspace and series on
-  an instance, and the indexes and the data file declare it in a top-level
-  `timeZone` field (#684). HalSail's times are local too, but undeclared.
+  an instance, and the API declares it in a top-level `timeZone` field, as
+  the indexes and the data file do (#684). HalSail's times are local too,
+  but undeclared.
 - **The other pages and the data file are unchanged.** An unsailed race
   still never prints on a results page or appears in the data file.
-- **`races`, `firstRaceDate` and `lastRaceDate` keep their meaning**
-  (sailed races only). The new field is named `schedule` because `races` is
-  already the count.
-- **Adding it does not change `version`.** A v1 reader ignores it.
+- **The index's `races`, `firstRaceDate` and `lastRaceDate` keep their
+  meaning** (sailed races only), as does the API's `races` resource; the
+  schedule is the one place an unsailed race appears.
+- **The index gains one page kind**, `schedule`. Before it ships, the index
+  format document should say that page kinds, like badges, may be added
+  without a version change.
 
 **Publishing before the season.** A series can publish its Schedule page
 before any race is sailed and before it has entries — today a series with
 no competitors cannot be published at all. Before the first race the
-build makes no data file, so a schedule-only publication lists its
-`schedule`, its one page, and `data: null`.
+build makes no data file, so a schedule-only publication's index entry
+lists its one page, its `api` link, and `data: null`.
 
 #### To finalise
 
+- **Sequencing.** The Schedule page can ship before the API, as HTML only,
+  with the JSON following when the API's `schedule` resource lands; or the
+  two ship together.
 - **A publication that is only a schedule.** Where its landing URL points
   (it has no standings page), and how the season and event index pages
   list it.
@@ -329,13 +359,13 @@ build makes no data file, so a schedule-only publication lists its
 
 ### Positive
 
-- An integrator reaches any published series' data, and its schedule, from
-  `/p/index.json` without being given a URL — the HalSail listing endpoints'
-  job, done by documents the tree already implied.
+- An integrator reaches any published series' data, and through the API its
+  schedule, from `/p/index.json` without being given a URL — the HalSail
+  listing endpoints' job, done by documents the tree already implied.
 - The machine-readable outputs — the data file, the indexes, the directory
   — always agree with one another.
 - RaceOps can replace HalSail's `GetSchedule` with the season `index.json`
-  it already polls for results.
+  it already polls for results and one `schedule` resource per series.
 - A scorer can push a schedule change without touching any results page.
 - The directory puts real, scored events in front of anyone weighing up the
   app.
@@ -348,9 +378,8 @@ build makes no data file, so a schedule-only publication lists its
   results in the data file.
 - Publishing before racing starts is a new state the index pages must
   render sensibly.
-- A schedule change needs a publish to reach the public indexes.
-- The indexes grow with every race scheduled; the workspace index, spanning
-  every season, most of all.
+- A schedule change needs a publish to reach the public.
+- A season calendar is one request per series, not one document.
 
 ### Risks
 
@@ -382,7 +411,7 @@ build makes no data file, so a schedule-only publication lists its
 - [ADR-008](008-full-stack-transition.md): the publishing model and its
   consent rule.
 - [ADR-015](015-published-results-api.md): the published results API, which
-  supersedes the per-page JSON direction and serves the schedule.
+  supersedes the per-page JSON direction and serves the schedule's JSON.
 
 ## References
 

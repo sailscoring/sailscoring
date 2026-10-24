@@ -204,6 +204,9 @@ GET only, no authentication, `Access-Control-Allow-Origin: *`, JSON:
   championship's standings are one ranking named "Championship", as its
   pages and the data file already present it. A sub-series publication's
   standings take the sub-series as a parameter.
+- **Times are declared.** Every resource carries the instance's
+  `timeZone`, as the indexes and the data file do; local dates and times
+  are in it, and timestamps ending in `Z` are UTC.
 - **Each resource has its own `ETag`**, and is served with the CDN floor and
   the workspace purge tag, as the `/p` JSON is today. A poller checking one
   fleet's standings pays for one fleet.
@@ -229,9 +232,9 @@ and `/p/{ws}/{season}/index.json`. Each publication entry gains an `api`
 link to its publication resource, beside the `data` link it already
 carries. The API does not restate the indexes.
 
-The schedule moves from a field in `index.json` (as ADR-014, Decision 4,
-proposed it) to the `schedule` resource. The index stays a listing and does
-not grow with every race.
+The schedule is the `schedule` resource, not a field in `index.json` (ADR-014,
+Decision 4, Option 6). The index stays a listing and does not grow with every
+race.
 
 ### 5. Versioning and stability
 
@@ -319,8 +322,8 @@ superseded by this decision.
 
 - [ADR-014](014-finding-published-results.md): the indexes this API is
   found from, and the rule that machine-readable output follows the latest
-  publish. This ADR supersedes its per-page JSON direction and moves its
-  proposed `schedule` field into the API.
+  publish. This ADR supersedes its per-page JSON direction and serves its
+  Schedule page's JSON as the `schedule` resource.
 - [ADR-012](012-data-behind-published-results.md): the data file, which
   keeps its transparency, viewer and import roles and stops being the
   app-facing format.
