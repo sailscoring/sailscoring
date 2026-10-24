@@ -18,8 +18,12 @@ import { z } from 'zod';
 /** The schemas named in the OpenAPI description's components. */
 export const publicApiV1Registry = z.registry<{ id: string; description?: string }>();
 
+/** What each named schema is, by its id, for the description's components. */
+export const publicApiV1Descriptions: Record<string, string> = {};
+
 function named<T extends z.ZodType>(schema: T, id: string, description: string): T {
   publicApiV1Registry.add(schema, { id, description });
+  publicApiV1Descriptions[id] = description;
   return schema;
 }
 
