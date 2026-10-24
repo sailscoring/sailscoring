@@ -1426,6 +1426,17 @@ boats beaten, and give a ready-made parity corpus, RDG averages and ties include
 Sailing Club"; check that it is the same scale before assuming so. Until then the
 as-published archive displays these series but can't score them.
 
+If Bray switches, it wants to keep what its high-point scale does for a boat that
+came out and didn't finish: DNF and DNS get a slight edge over a boat that didn't
+turn up. Its proposal is **DNC = entries + 2**, with the other codes at entries + 1,
+which is the low-point mirror of HP's 1-versus-0 and would be a fourth `dnfScoring`
+choice. Bray itself says there may be other ways to get there. The one the engine
+already has is A5.3 (`startingArea`), which keeps DNC at entries + 1 and scores the
+came-but-didn't-finish codes at boats in the starting area + 1. That edge is far from
+slight on Bray's turnout: the Sunday Dinghy Series 2025 had 49 entries and about 10
+starters a race, so a DNF would score about 11 against a DNC's 50. Settle which of
+the two Bray wants as part of the same conversation.
+
 ### Fleet-size-adjusted high point: CHIPS3, Cox-Sprague, Rinderle B
 
 A distinct family from the plain high-point systems above, and the one with a
