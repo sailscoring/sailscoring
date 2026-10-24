@@ -50,6 +50,20 @@ export async function purgePublishedCache(workspaceId: string): Promise<void> {
   await deleteTags([publishedCacheTag(workspaceId), DIRECTORY_CACHE_TAG]);
 }
 
+/** The tag covering one publication's published results API resources
+ *  (ADR-015). Separate from the workspace tag: the API's resources change
+ *  only when that publication's view is written, and its read path never
+ *  learns which workspace a publication belongs to. */
+export function publishedApiCacheTag(publicationId: string): string {
+  return `api:${publicationId}`;
+}
+
+/** Drop one publication's API resources from the CDN. Same no-op-off-Vercel
+ *  and log-don't-throw contract as above. */
+export async function purgePublishedApiCache(publicationId: string): Promise<void> {
+  await deleteTags([publishedApiCacheTag(publicationId)]);
+}
+
 /** Drop the public directory alone — for a change to how a workspace is
  *  listed (its opt-out, its description) rather than to what it publishes.
  *  Same no-op-off-Vercel and log-don't-throw contract as above. */

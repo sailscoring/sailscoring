@@ -44,6 +44,10 @@ import {
   upsertPublishedFolder,
 } from '@/lib/published-repository';
 import { contentHash, publishedBlobKey } from '@/lib/publishing';
+import { archivePageView, archiveSection } from '@/lib/public-api/archive-view';
+import { publicationFacts } from '@/lib/public-api/facts';
+import { publishedPageKey, type PageView } from '@/lib/public-api/published-view';
+import { deletePublishedView, writePublishedView } from '@/lib/public-api/store';
 import { summariseArchiveDoc } from '@/lib/publication-summary';
 import { sharedFolderSegment } from '@/lib/published-tree';
 import type { PageNote, PublishedSeries, PublishedSeriesPage } from '@/lib/types';
@@ -456,7 +460,8 @@ async function publishArchiveSeries(
   // Pages in fleet display order: a combined page emits at its first member;
   // its other members are skipped (they publish only as sections).
   const emittedGroups = new Set<string>();
-  const files: Array<{ fleetName: string; subPath: string; html: string; isRaceResults?: boolean }> = [];
+  const files: Array<{ fleetName: string; subPath: string; html: string; isRaceResults?: boolean; view: PageView }> = [];
+  const competitorById = new Map(doc.competitors.map((c) => [c.id, c]));
   for (const fleet of doc.fleets) {
     const group = groupByMemberId.get(fleet.id);
     if (group) {
@@ -469,6 +474,7 @@ async function publishArchiveSeries(
       files.push({
         fleetName: group.name,
         subPath: group.subPath,
+        view: archivePageView(sections.map((sec) => archiveSection(sec.name, sec.results, competitorById))),
         // A combined page reads as race results only when every section does;
         // a mixed page still carries standings, so it is labelled as such.
         ...(sections.every((s) => s.results.detail === 'races')
@@ -491,6 +497,7 @@ async function publishArchiveSeries(
     files.push({
       fleetName: fleet.name,
       subPath: fleet.subPath as string,
+      view: archivePageView([archiveSection(fleet.name, toStoredResults(fleet), competitorById)]),
       ...(fleet.results.detail === 'races' ? { isRaceResults: true } : {}),
       html: renderAsPublishedFleetHtml(
         {
@@ -565,6 +572,29 @@ async function publishArchiveSeries(
     publishedVersion: versionRow?.version ?? 1,
     summary: summariseArchiveDoc(doc),
   };
+  // An archive publishes every page every time, so its whole published view
+  // (ADR-015) is rebuilt with it. Before the row, as on the live path.
+  await writePublishedView({
+    publicationId: published.id,
+    workspaceSlug: workspace.workspaceSlug,
+    seriesId,
+    contributions: files.map((f) => ({ pageKey: publishedPageKey(f), view: f.view })),
+    livePages: new Set(files.map((f) => publishedPageKey(f))),
+    facts: await publicationFacts({
+      workspaceSlug: workspace.workspaceSlug,
+      slug,
+      seriesId,
+      name: doc.series.name,
+      kind: 'archive',
+      status: null,
+      pages,
+      dataSubPath: null,
+      summary: published.summary ?? null,
+      publishedAt: published.publishedAt,
+      season: doc.series.season ?? null,
+    }),
+    publishedAt: published.publishedAt,
+  });
   await savePublished(published);
 
   // Best-effort sweep of the previous publication's blobs.
@@ -651,6 +681,7 @@ export async function deleteArchiveSeries(
     for (const page of published.pages) {
       await deletePublishedHtml(page.blobUrl);
     }
+    await deletePublishedView(published.id);
     // Through the repository rather than a direct delete: that is where the
     // public-cache purge lives, and bypassing it left this path serving a
     // removed archive from the CDN.

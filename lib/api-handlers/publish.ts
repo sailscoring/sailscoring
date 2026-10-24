@@ -34,6 +34,9 @@ import { readCourseBackground } from '@/lib/course-cards/backgrounds-server';
 import { buildFleetHtmlFiles } from '@/lib/results-export';
 import type { UnscorableRace } from '@/lib/results-export';
 import type { ExportRepos } from '@/lib/public-export';
+import { publicationFacts } from '@/lib/public-api/facts';
+import { publishedPageKey } from '@/lib/public-api/published-view';
+import { deletePublishedView, writePublishedView } from '@/lib/public-api/store';
 import type {
   PublicationStatus,
   PublishResult,
@@ -642,6 +645,37 @@ export async function publishSeries(
     publishedVersion: series.version ?? 1,
     summary: build.summary ?? null,
   };
+
+  // The published results API's view of the publication (ADR-015) follows
+  // the pages: the pages built now replace what they show, and a page no
+  // longer live takes what only it showed with it. Written before the row,
+  // so a failure here fails the publish while a retry can still run — after
+  // the row is saved, an identical retry would short-circuit on the hash and
+  // never write it.
+  await writePublishedView({
+    publicationId: id,
+    workspaceSlug: workspace.workspaceSlug,
+    seriesId,
+    contributions: toBuild.flatMap((f) =>
+      f.view ? [{ pageKey: publishedPageKey(f), view: f.view }] : [],
+    ),
+    livePages: new Set(pages.map(publishedPageKey)),
+    facts: await publicationFacts({
+      workspaceSlug: workspace.workspaceSlug,
+      slug,
+      seriesId,
+      name: series.name,
+      kind: build.summary?.splitFleet ? 'championship' : 'series',
+      status: series.resultsStatus === 'final' ? 'final' : 'provisional',
+      pages,
+      dataSubPath: published.dataSubPath ?? null,
+      summary: published.summary ?? null,
+      publishedAt: published.publishedAt,
+      season: existing ? null : (input.season?.trim() || null),
+    }),
+    publishedAt: published.publishedAt,
+  });
+
   await savePublished(published);
 
   // File the publication under its season and name its event folder
@@ -862,6 +896,8 @@ async function unpublish(
   if (published.dataBlobUrl) {
     await deletePublishedHtml(published.dataBlobUrl);
   }
+  // And so does everything the published results API serves of it.
+  await deletePublishedView(published.id);
   await deletePublished(published.id);
   // Split-fleet series (#328): publishing stamps each round so the Split
   // Fleets page can badge which assignments are public. Taking the pages down
@@ -967,6 +1003,23 @@ export async function retractPage(
   // Unreferenced now. Best-effort, as on publish: a failed delete leaks a blob
   // but never serves a page the publication no longer lists.
   await deletePublishedHtml(page.blobUrl);
+  // What only this page showed leaves the published results API with it.
+  // The row already says the page is gone, so a failure here is logged
+  // rather than reported as a failed retraction; the next publish of the
+  // series prunes the view again.
+  const remaining = published.pages.filter((p) => p.subPath !== subPath);
+  try {
+    await writePublishedView({
+      publicationId: published.id,
+      workspaceSlug: workspace.workspaceSlug,
+      seriesId,
+      contributions: [],
+      livePages: new Set(remaining.map(publishedPageKey)),
+      publishedAt: published.publishedAt,
+    });
+  } catch (err) {
+    console.error('published view prune after retraction failed (non-fatal):', err);
+  }
   await recordActivity(workspace, {
     action: 'publish.page-retracted',
     seriesId,

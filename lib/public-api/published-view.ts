@@ -221,6 +221,42 @@ export interface PageContribution {
 
 const COMPETITORS_KEY = 'competitors';
 
+/** A published page's identity within its publication: its sub-series and
+ *  name, as the publish path keys the pages it stores. */
+export function publishedPageKey(page: { fleetName: string; subSeriesName?: string }): string {
+  return `${page.subSeriesName ?? ''}\u0000${page.fleetName}`;
+}
+
+/** Every internal competitor id a page names, for the caller to resolve to
+ *  public ids before the view is built. */
+export function competitorIdsOf(view: PageView): string[] {
+  const ids = new Set<string>();
+  const add = (id: string | undefined) => {
+    if (id) ids.add(id);
+  };
+  switch (view.kind) {
+    case 'results':
+      for (const s of view.sections) {
+        for (const row of s.data.standings) add(row.competitorId);
+        for (const race of s.data.races) for (const r of race.results) add(r.competitorId);
+      }
+      break;
+    case 'entries':
+      for (const g of view.groups) for (const row of g.rows) add(row.competitorId);
+      break;
+    case 'championship':
+      for (const row of view.rows) add(row.competitorId);
+      break;
+    case 'championship-races':
+      for (const race of view.races) for (const r of race.results) add(r.competitorId);
+      break;
+    case 'archive':
+      for (const s of view.sections) for (const row of s.rows) add(row.competitorId);
+      break;
+  }
+  return [...ids];
+}
+
 /** The fleet key the API names a fleet by in paths and references. */
 export function fleetKey(name: string): string {
   return seriesSlug(name);
