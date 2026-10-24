@@ -14,8 +14,8 @@ real and are willing to say so precisely. The people below did that.
 
 ## Testing and feedback
 
-Scorers, race officers and sailors who have used Sail Scoring on real events and
-come back with concrete, actionable reports:
+Scorers, race officers and sailors who have tried Sail Scoring, or told us how
+their club runs and scores its racing, and helped shape what it does:
 
 - **Kieran Barker** — Howth Yacht Club
 - **Ian Bowring** — Royal St George Yacht Club, Dublin Bay Sailing Club
