@@ -34,6 +34,7 @@ describe('the published results API description', () => {
       '/publications/{id}/competitors',
       '/publications/{id}/races',
       '/publications/{id}/races/{n}',
+      '/publications/{id}/schedule',
       '/publications/{id}/standings',
       '/publications/{id}/standings/{fleet}',
     ]);

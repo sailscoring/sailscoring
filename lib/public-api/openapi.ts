@@ -93,6 +93,7 @@ export function publicApiOpenApi(origin: string): Json {
         { name: 'n', in: 'path', required: true, description: 'The race\'s number in the series.', schema: { type: 'integer', minimum: 1 } },
       ]),
       '/publications/{id}/competitors': operation('The entry list', 'Competitors'),
+      '/publications/{id}/schedule': operation('Every race, sailed or not, as of the Schedule page', 'Schedule'),
     },
     components: { schemas },
   } as unknown as Json);

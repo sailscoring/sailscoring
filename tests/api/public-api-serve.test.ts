@@ -23,6 +23,7 @@ describe('resourcePath', () => {
     expect(resourcePath(['races'])).toBe('races');
     expect(resourcePath(['races', '12'])).toBe('races/12');
     expect(resourcePath(['competitors'])).toBe('competitors');
+    expect(resourcePath(['schedule'])).toBe('schedule');
     expect(resourcePath(['_view'])).toBeNull();
     expect(resourcePath(['races', '0'])).toBeNull();
     expect(resourcePath(['races', 'x'])).toBeNull();

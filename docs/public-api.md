@@ -31,6 +31,7 @@ publication made before the API has no link until it is published again.
 /api/public/v1/publications/{id}/races              the sailed races
 /api/public/v1/publications/{id}/races/{n}          one race's results, by fleet
 /api/public/v1/publications/{id}/competitors        the entry list
+/api/public/v1/publications/{id}/schedule           every race, sailed or not
 ```
 
 The OpenAPI 3.1 description is at `/api/public/v1/openapi.json`, generated
@@ -53,6 +54,12 @@ reference; what follows is what it cannot say.
   `Championship`, with each competitor's `fleet` once the fleet has split,
   and its races fleet by fleet. The repêchage and cut-from tables its page
   prints beside the ranking are on the page only.
+- **The schedule** lists every race the series scores, by date, sailed or
+  not, with each start's gun and fleets (a start may have no time, and a
+  race no starts), a `status` of `sailed` or `scheduled`, and for a sailed
+  race a `results` link. A past race still `scheduled` was blown out,
+  abandoned, or not yet entered; the schedule does not say which. It is
+  the schedule of the races a series scores, not a club calendar.
 - **An archive** serves what the source printed: each score's `display` is
   the original text, with no points or codes, and `details` and `summary`
   carry the source's own columns.
@@ -66,7 +73,10 @@ publishes a page showing its data, and only then:
   or a combined page showing the fleet;
 - a championship's ranking with its Championship page, and its races with
   its Race results page;
-- the entry list with the Entries page.
+- the entry list with the Entries page;
+- the schedule with the Schedule page, including each race's `status`: a
+  race sailed since the Schedule was last published still reads
+  `scheduled`.
 
 So publishing only the entry list changes no results, and the API agrees
 with the pages an app links to. A resource is removed when the last page

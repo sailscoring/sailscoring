@@ -32,6 +32,7 @@ import {
 } from '../results-renderer';
 import { seriesSlug } from '../series-name';
 import { formatElapsedInput } from '../time-parse';
+import type { ScheduleRace } from '../schedule';
 import type {
   CompetitorFieldKey,
   MultiPersonFieldKey,
@@ -46,6 +47,7 @@ import type {
   PublicApiRace,
   PublicApiRaceFleet,
   PublicApiRaces,
+  PublicApiSchedule,
   PublicApiStandings,
   PublicApiStandingsTable,
 } from '../validation/public-api-v1';
@@ -141,7 +143,10 @@ export type PageView =
   | {
       kind: 'archive';
       sections: ArchiveSection[];
-    };
+    }
+  /** The Schedule page's races, each with the absolute URL of its results
+   *  once the publish handler knows where they are served. */
+  | { kind: 'schedule'; races: Array<ScheduleRace & { results: string | null }> };
 
 /** One fleet of an as-published archive, as its tables were printed. */
 export interface ArchiveSection {
@@ -186,6 +191,7 @@ interface RaceFleetPart {
 }
 
 type CompetitorsPart = Pick<PublicApiCompetitors, 'count' | 'namesLabel' | 'groups'>;
+type SchedulePart = Pick<PublicApiSchedule, 'races'>;
 
 /**
  * The published view as stored between publishes: every part, and which live
@@ -196,6 +202,7 @@ export interface PublishedViewState {
   tables: Record<string, Part<PublicApiStandingsTable>>;
   raceFleets: Record<string, Part<RaceFleetPart>>;
   competitors?: Part<CompetitorsPart>;
+  schedule?: Part<SchedulePart>;
   /** Page key → the part keys it showed when it was last published. */
   pages: Record<string, string[]>;
 }
@@ -220,6 +227,7 @@ export interface PageContribution {
 }
 
 const COMPETITORS_KEY = 'competitors';
+const SCHEDULE_KEY = 'schedule';
 
 /** A published page's identity within its publication: its sub-series and
  *  name, as the publish path keys the pages it stores. */
@@ -252,6 +260,8 @@ export function competitorIdsOf(view: PageView): string[] {
       break;
     case 'archive':
       for (const s of view.sections) for (const row of s.rows) add(row.competitorId);
+      break;
+    case 'schedule':
       break;
   }
   return [...ids];
@@ -726,6 +736,27 @@ function archiveParts(
   return parts;
 }
 
+function scheduleParts(view: Extract<PageView, { kind: 'schedule' }>): ContributedPart[] {
+  const value: SchedulePart = {
+    races: view.races.map((r) => ({
+      race: r.race,
+      name: r.name,
+      date: r.date,
+      starts: r.starts.map((s) => ({ time: s.time, fleets: s.fleetNames.map(fleetKey) })),
+      status: r.sailed ? ('sailed' as const) : ('scheduled' as const),
+      ...(r.sailed && r.results ? { results: r.results } : {}),
+    })),
+  };
+  return [
+    {
+      key: SCHEDULE_KEY,
+      apply(state, publishedAt) {
+        state.schedule = { publishedAt, order: 0, value };
+      },
+    },
+  ];
+}
+
 function partsOf(view: PageView, order: number, ctx: ViewContext): ContributedPart[] {
   switch (view.kind) {
     case 'results':
@@ -738,6 +769,8 @@ function partsOf(view: PageView, order: number, ctx: ViewContext): ContributedPa
       return championshipRaceParts(view, ctx);
     case 'archive':
       return archiveParts(view, order, ctx);
+    case 'schedule':
+      return scheduleParts(view);
   }
 }
 
@@ -762,6 +795,7 @@ export function applyPublish(
         tables: { ...previous.tables },
         raceFleets: { ...previous.raceFleets },
         ...(previous.competitors ? { competitors: previous.competitors } : {}),
+        ...(previous.schedule ? { schedule: previous.schedule } : {}),
         pages: { ...previous.pages },
       }
     : emptyPublishedView();
@@ -788,6 +822,7 @@ export function prune(state: PublishedViewState, livePages: ReadonlySet<string>)
       Object.entries(state.raceFleets).filter(([k]) => shown.has(`r:${k}`)),
     ),
     ...(state.competitors && shown.has(COMPETITORS_KEY) ? { competitors: state.competitors } : {}),
+    ...(state.schedule && shown.has(SCHEDULE_KEY) ? { schedule: state.schedule } : {}),
     pages,
   };
 }
@@ -907,6 +942,16 @@ export function viewResources(
     };
     out.set('competitors', competitors);
     resources.competitors = { url: `${apiBase}/competitors`, publishedAt: competitors.publishedAt };
+  }
+
+  if (state.schedule) {
+    const schedule: PublicApiSchedule = {
+      ...base,
+      publishedAt: iso(state.schedule.publishedAt),
+      ...state.schedule.value,
+    };
+    out.set('schedule', schedule);
+    resources.schedule = { url: `${apiBase}/schedule`, publishedAt: schedule.publishedAt };
   }
 
   const pub: PublicApiPublication = {

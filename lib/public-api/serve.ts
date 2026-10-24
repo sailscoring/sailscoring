@@ -37,7 +37,9 @@ export function resourcePath(segments: readonly string[]): string | null {
   if (rest.length > 0) return null;
   if (first === undefined) return '';
   if (second === undefined) {
-    return first === 'standings' || first === 'races' || first === 'competitors' ? first : null;
+    return first === 'standings' || first === 'races' || first === 'competitors' || first === 'schedule'
+      ? first
+      : null;
   }
   if (first === 'standings' && FLEET_KEY.test(second)) return `standings/${second}`;
   if (first === 'races' && RACE_NUMBER.test(second)) return `races/${second}`;

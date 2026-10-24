@@ -13,6 +13,7 @@ import {
   publicationSchema,
   raceSchema,
   racesSchema,
+  scheduleSchema,
   standingsSchema,
 } from '@/lib/validation/public-api-v1';
 
@@ -217,6 +218,30 @@ describe('the published view', () => {
     expect(out.has('standings')).toBe(false);
     expect(out.has('races/1')).toBe(false);
     expect(out.has('competitors')).toBe(true);
+  });
+
+  it('serves the Schedule page as the schedule, every race sailed or not', () => {
+    const view: PageView = {
+      kind: 'schedule',
+      races: [
+        { raceId: 'r1', race: 1, name: null, date: '2026-10-11', sailed: true, results: 'https://app.example/p/gbsc/al/cruisers-1',
+          starts: [{ time: '10:55:00', fleetNames: ['Cruisers 1'] }] },
+        { raceId: 'r2', race: 2, name: 'Round the Islands', date: '2026-10-18', sailed: false, results: null,
+          starts: [{ time: null, fleetNames: ['Cruisers 1', 'White Sails'] }] },
+      ],
+    };
+    const state = applyPublish(null, [{ pageKey: 'schedule', view }], new Set(['schedule']), 1000, ctx);
+    const out = resources(state);
+    const schedule = scheduleSchema.parse(out.get('schedule'));
+    expect(schedule.races).toEqual([
+      { race: 1, name: null, date: '2026-10-11', status: 'sailed', results: 'https://app.example/p/gbsc/al/cruisers-1',
+        starts: [{ time: '10:55:00', fleets: ['cruisers-1'] }] },
+      { race: 2, name: 'Round the Islands', date: '2026-10-18', status: 'scheduled',
+        starts: [{ time: null, fleets: ['cruisers-1', 'white-sails'] }] },
+    ]);
+    expect(publicationSchema.parse(out.get('')).resources.schedule?.url).toBe(`${API}/schedule`);
+    // Unpublishing the page takes the resource with it.
+    expect(resources(applyPublish(state, [], new Set(), 2000, ctx)).has('schedule')).toBe(false);
   });
 
   it('serves a placeholder fleet page unranked', () => {

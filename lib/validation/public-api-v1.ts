@@ -267,6 +267,32 @@ export const competitorsSchema = named(
   'The entry list.',
 );
 
+export const scheduleRaceSchema = named(
+  z.object({
+    race: z.number().int().describe('The race\'s number in the series.'),
+    name: z.string().nullable(),
+    date: localDate.nullable(),
+    starts: z
+      .array(startSchema)
+      .describe('Each gun and the fleets on it. A start may have no time, and a race may have no starts.'),
+    status: z
+      .enum(['sailed', 'scheduled'])
+      .describe('`sailed` once the race has results. A past race still `scheduled` was blown out, abandoned, or not yet entered.'),
+    results: z
+      .string()
+      .optional()
+      .describe('The results page of a sailed race.'),
+  }),
+  'ScheduleRace',
+  'A race on the schedule.',
+);
+
+export const scheduleSchema = named(
+  z.object({ ...resourceBase, races: z.array(scheduleRaceSchema) }),
+  'Schedule',
+  'Every race of the series, sailed or not, as of when the Schedule page was last published.',
+);
+
 const resourceLinkSchema = z.object({
   url: z.string(),
   publishedAt: isoTimestamp,
@@ -295,6 +321,7 @@ export const publicationSchema = named(
         standings: resourceLinkSchema.optional(),
         races: resourceLinkSchema.optional(),
         competitors: resourceLinkSchema.optional(),
+        schedule: resourceLinkSchema.optional(),
       })
       .describe('The resources the publication\'s pages publish, and when each was last published.'),
   }),
@@ -322,3 +349,5 @@ export type PublicApiRace = z.infer<typeof raceSchema>;
 export type PublicApiEntry = z.infer<typeof entrySchema>;
 export type PublicApiCompetitors = z.infer<typeof competitorsSchema>;
 export type PublicApiPublication = z.infer<typeof publicationSchema>;
+export type PublicApiSchedule = z.infer<typeof scheduleSchema>;
+export type PublicApiScheduleRace = z.infer<typeof scheduleRaceSchema>;
