@@ -1,5 +1,5 @@
 import 'server-only';
-import { del, put } from '@vercel/blob';
+import { del, get, put } from '@vercel/blob';
 import { eq } from 'drizzle-orm';
 
 import { getDb } from './db/client';
@@ -96,4 +96,38 @@ export async function deletePublishedHtml(locator: string): Promise<void> {
     return;
   }
   await del(locator);
+}
+
+/**
+ * Read the object stored at `key`, or null. For objects kept at a fixed key
+ * and overwritten in place — the published results API's resources — which a
+ * reader finds from the key alone, with no row to look its locator up in.
+ *
+ * `useCache: false` reads Blob's origin rather than its edge cache: an
+ * overwritten object can stay cached at the edge after it changes, and the
+ * API's own CDN purge would otherwise re-cache the old content. Each read
+ * already sits behind that CDN, so the origin sees one read per resource per
+ * cache period, not one per request.
+ */
+export async function readPublishedObject(key: string): Promise<string | null> {
+  if (!blobTokenConfigured()) {
+    const [row] = await getDb()
+      .select({ html: schema.publishedBlobs.html })
+      .from(schema.publishedBlobs)
+      .where(eq(schema.publishedBlobs.key, key))
+      .limit(1);
+    return row?.html ?? null;
+  }
+  const result = await get(key, { access: 'public', useCache: false });
+  if (!result || result.statusCode !== 200) return null;
+  return new Response(result.stream).text();
+}
+
+/** Delete the object at `key`, as stored by `putPublishedHtml`. Idempotent. */
+export async function deletePublishedObject(key: string): Promise<void> {
+  if (!blobTokenConfigured()) {
+    await getDb().delete(schema.publishedBlobs).where(eq(schema.publishedBlobs.key, key));
+    return;
+  }
+  await del(key);
 }
