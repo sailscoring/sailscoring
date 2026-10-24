@@ -95,7 +95,7 @@
     },
     {
       "name": "Rate limit: published results API",
-      "description": "Off until usage shows abuse (ADR-015, section 7). The WAF meters every request a rate-limit rule inspects, cached ones included, so it stays off while the CDN and a storage-only read path bound the cost. Generous when on, because a clubhouse's phones share one address. Ahead of the API's bypass, which would otherwise end evaluation first.",
+      "description": "Off until usage shows abuse (ADR-015, section 7): the WAF meters every request a rate-limit rule inspects, cached ones included. Generous when on, as a clubhouse's phones share one address. Ahead of the API's bypass, which would end evaluation first.",
       "active": false,
       "conditionGroup": [
         {

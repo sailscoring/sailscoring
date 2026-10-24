@@ -96,12 +96,21 @@ function settings(config: Config): Config {
   return canonical(out) as Config;
 }
 
+const MAX_DESCRIPTION = 256;
+
 function readConfigFile(): Config {
   const config = JSON.parse(readFileSync(CONFIG_FILE, 'utf8')) as Config;
   const names = ((config.rules ?? []) as Rule[]).map((r) => r.name);
   const dupes = names.filter((n, i) => names.indexOf(n) !== i);
   if (dupes.length > 0) {
     throw new Error(`rule names must be unique in vercel-firewall.json: ${dupes.join(', ')}`);
+  }
+  // Vercel refuses the whole replace over one long description, so say which.
+  const long = ((config.rules ?? []) as Rule[]).filter((r) => String(r.description ?? '').length > MAX_DESCRIPTION);
+  if (long.length > 0) {
+    throw new Error(
+      `rule descriptions must be at most ${MAX_DESCRIPTION} characters in vercel-firewall.json: ${long.map((r) => r.name).join(', ')}`,
+    );
   }
   return config;
 }
