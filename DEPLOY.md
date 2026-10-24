@@ -452,7 +452,16 @@ the app serves therefore needs a bypass rule. The current ones cover:
 - `/api/cron/*` and `/api/health`
 - the published data files (`/p/**.sailscoring.json`) and indexes
   (`/p/**/index.json`)
+- the published results API (`/api/public/*`, ADR-015)
 - link-preview bots (WhatsApp, Slack, …) fetching `/p/` pages and the icons
+
+The file also carries a rate-limit rule for `/api/public/`, **switched
+off**. The WAF meters every request a rate-limit rule inspects, cached ones
+included, past Pro's monthly allowance, so it would make the API's cheapest
+requests its only billed ones. The API's read path touches storage and never
+the database, and the CDN takes the polling, so nothing needs rationing yet.
+Turn the rule on (`"active": true`, then `pnpm firewall:apply`) if the usage
+graphs show a client abusing it.
 
 **A new public endpoint for programs needs a rule here in the same
 change.** The tell-tale is a 429 with `x-vercel-mitigated: challenge` on a

@@ -94,6 +94,37 @@
       "action": { "mitigate": { "action": "bypass" } }
     },
     {
+      "name": "Rate limit: published results API",
+      "description": "Off until usage shows abuse (ADR-015, section 7). The WAF meters every request a rate-limit rule inspects, cached ones included, so it stays off while the CDN and a storage-only read path bound the cost. Generous when on, because a clubhouse's phones share one address. Ahead of the API's bypass, which would otherwise end evaluation first.",
+      "active": false,
+      "conditionGroup": [
+        {
+          "conditions": [
+            { "type": "path", "op": "pre", "value": "/api/public/" }
+          ]
+        }
+      ],
+      "action": {
+        "mitigate": {
+          "action": "rate_limit",
+          "rateLimit": { "algo": "fixed_window", "window": 60, "limit": 600, "keys": ["ip"], "action": "deny" }
+        }
+      }
+    },
+    {
+      "name": "Bypass: published results API",
+      "description": "The published results API (ADR-015) under /api/public/: unauthenticated JSON for race-day apps and clubhouse screens, which cannot answer Bot Protection's JavaScript challenge.",
+      "active": true,
+      "conditionGroup": [
+        {
+          "conditions": [
+            { "type": "path", "op": "pre", "value": "/api/public/" }
+          ]
+        }
+      ],
+      "action": { "mitigate": { "action": "bypass" } }
+    },
+    {
       "name": "Bypass: link previewers",
       "description": "Chat and social apps fetching a shared results link to build its preview card.",
       "active": true,
