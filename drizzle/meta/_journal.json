@@ -834,6 +834,13 @@
       "when": 1791367366362,
       "tag": "0118_published_series_summary",
       "breakpoints": true
+    },
+    {
+      "idx": 119,
+      "version": "7",
+      "when": 1792830644149,
+      "tag": "0119_published_series_api_view",
+      "breakpoints": true
     }
   ]
 }

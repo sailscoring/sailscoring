@@ -35,6 +35,7 @@ function rowToPublished(row: PublishedRow): PublishedSeries {
     publishedAt: row.publishedAt.getTime(),
     publishedVersion: row.publishedVersion,
     summary: row.summary ?? null,
+    apiView: row.apiView,
   };
 }
 
@@ -175,6 +176,7 @@ export async function getPublishedGroupByWorkspaceSlug(
       publishedAt: schema.publishedSeries.publishedAt,
       publishedVersion: schema.publishedSeries.publishedVersion,
       summary: schema.publishedSeries.summary,
+      apiView: schema.publishedSeries.apiView,
     })
     .from(schema.publishedSeries)
     .leftJoin(
@@ -479,6 +481,9 @@ export async function listPublishedByWorkspaceDigest(
     pagesHash: string;
     /** md5 of the publish-time summary; '' while it is null. */
     summaryHash: string;
+    /** The publication's id while its API resources exist (ADR-015), else
+     *  null: what its `index.json` entry links. */
+    apiId: string | null;
     seriesName: string | null;
     archived: boolean | null;
     seriesOrder: number | null;
@@ -498,6 +503,8 @@ export async function listPublishedByWorkspaceDigest(
       // stored value — the same page list always hashes the same way.
       pagesHash: sql<string>`md5(${schema.publishedSeries.pages}::text)`,
       summaryHash: sql<string>`coalesce(md5(${schema.publishedSeries.summary}::text), '')`,
+      id: schema.publishedSeries.id,
+      apiView: schema.publishedSeries.apiView,
       seriesName: schema.series.name,
       archived: schema.series.archived,
       seriesOrder: schema.series.displayOrder,
@@ -524,6 +531,7 @@ export async function listPublishedByWorkspaceDigest(
     contentHash: r.contentHash,
     pagesHash: r.pagesHash,
     summaryHash: r.summaryHash,
+    apiId: r.apiView ? r.id : null,
     seriesName: r.seriesName,
     archived: r.archived,
     seriesOrder: r.seriesOrder,
@@ -543,6 +551,8 @@ export interface IndexPublicationRow {
   dataSubPath: string | null;
   summary: PublicationSummary | null;
   publishedAt: number;
+  /** The publication's id while its API resources exist (ADR-015). */
+  apiId: string | null;
 }
 
 /**
@@ -566,6 +576,8 @@ export async function listPublicationsForIndex(
       dataBlobUrl: schema.publishedSeries.dataBlobUrl,
       summary: schema.publishedSeries.summary,
       publishedAt: schema.publishedSeries.publishedAt,
+      id: schema.publishedSeries.id,
+      apiView: schema.publishedSeries.apiView,
     })
     .from(schema.publishedSeries)
     .leftJoin(
@@ -584,6 +596,7 @@ export async function listPublicationsForIndex(
     dataSubPath: r.dataSubPath && r.dataBlobUrl ? r.dataSubPath : null,
     summary: r.summary ?? null,
     publishedAt: r.publishedAt.getTime(),
+    apiId: r.apiView ? r.id : null,
   }));
 }
 
@@ -1091,6 +1104,7 @@ export async function savePublished(p: PublishedSeries): Promise<void> {
       publishedAt: new Date(p.publishedAt),
       publishedVersion: p.publishedVersion,
       summary: p.summary ?? null,
+      apiView: p.apiView ?? false,
     })
     .onConflictDoUpdate({
       target: schema.publishedSeries.id,
@@ -1104,6 +1118,7 @@ export async function savePublished(p: PublishedSeries): Promise<void> {
         publishedAt: new Date(p.publishedAt),
         publishedVersion: p.publishedVersion,
         summary: p.summary ?? null,
+        apiView: p.apiView ?? false,
       },
     });
   await purgePublishedCache(p.workspaceId);

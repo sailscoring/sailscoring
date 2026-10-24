@@ -571,6 +571,7 @@ async function publishArchiveSeries(
     publishedAt: Date.now(),
     publishedVersion: versionRow?.version ?? 1,
     summary: summariseArchiveDoc(doc),
+    apiView: true,
   };
   // An archive publishes every page every time, so its whole published view
   // (ADR-015) is rebuilt with it. Before the row, as on the live path.

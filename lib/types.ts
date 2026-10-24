@@ -1565,6 +1565,9 @@ export interface PublishedSeries {
   // pages were built from — pinned like the data file, so the public indexes
   // never read the live series. Null on a row published before it existed.
   summary?: PublicationSummary | null;
+  // The publication's published results API resources have been written
+  // (ADR-015). Absent/false on a row published before the API existed.
+  apiView?: boolean;
 }
 
 /**

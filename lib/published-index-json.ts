@@ -61,6 +61,9 @@ export interface PublicIndexPublication {
   /** Its `.sailscoring.json` data file; null when the series opted out of
    *  the JSON export or publishes none. */
   data: string | null;
+  /** Its resource in the published results API (ADR-015), the contract
+   *  apps build on. Absent until the publication's API resources exist. */
+  api?: string;
   /** Its fleets, with each one's scoring system where known. */
   fleets: { name: string; scoringSystem?: string }[];
   /** ISO time of the last publish — a poller can skip an unchanged series
@@ -92,6 +95,8 @@ export interface PublicIndexInputRow {
   dataSubPath: string | null;
   summary: PublicationSummary | null;
   publishedAt: number;
+  /** The publication's id while its API resources exist. */
+  apiId?: string | null;
 }
 
 function pageKind(page: Omit<PublishedSeriesPage, 'blobUrl'>): PublicIndexPageKind {
@@ -192,6 +197,7 @@ export function buildPublicIndex(input: {
           };
         }),
         data: p.dataSubPath ? `${base}/${pathOf(folder.slug, p.dataSubPath)}` : null,
+        ...(p.apiId ? { api: `${origin}/api/public/v1/publications/${p.apiId}` } : {}),
         fleets: summary
           ? summary.fleets.map((f) => ({
               name: f.name,

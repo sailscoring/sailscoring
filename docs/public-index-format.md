@@ -74,6 +74,7 @@ Every URL is absolute.
         }
       ],
       "data": "https://app.sailscoring.ie/p/hyc/autumn-league/autumn-league-2026.sailscoring.json",
+      "api": "https://app.sailscoring.ie/api/public/v1/publications/0b8a6c84-…",   // absent until it exists
       "fleets": [{ "name": "Class 1", "scoringSystem": "irc" }],
       "publishedAt": "2026-10-04T18:12:00.000Z",
       "firstRaceDate": "2026-09-06",
@@ -99,6 +100,12 @@ Field notes:
   deleted keeps its pages public; it is named after its folder.
 - **`data`.** `null` when the series opted out of the JSON export, or
   publishes none.
+- **`api`.** The publication in the published results API
+  ([`public-api.md`](public-api.md)): its standings, races, results and
+  entry list, shaped as the pages show them and versioned as a stable
+  contract. This is what an app should read; the data file is not a stable
+  API. Absent on a publication made before the API, until it is published
+  again.
 - **`publishedAt`.** When the series was last published. A poller can
   compare it with what it last saw and skip fetching an unchanged series'
   data file.
@@ -111,6 +118,8 @@ Field notes:
   series was published, from what was published: sailed races only.
   `races` and `boats` are absent, and the dates `null`, for a publication
   made before Sail Scoring recorded them, until it is published again.
+- **Page kinds.** New values of a page's `kind` may appear without a
+  version change; a reader should treat one it does not know as `other`.
 - **A season index** has the same shape, narrowed: `seasons` holds just
   that season and `publications` just the ones filed under it.
 

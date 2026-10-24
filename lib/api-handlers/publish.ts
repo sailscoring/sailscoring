@@ -644,6 +644,8 @@ export async function publishSeries(
     publishedAt: opts.rebuildOnly ? existing!.publishedAt : Date.now(),
     publishedVersion: series.version ?? 1,
     summary: build.summary ?? null,
+    // Written just below, before the row.
+    apiView: true,
   };
 
   // The published results API's view of the publication (ADR-015) follows

@@ -1,0 +1,1 @@
+ALTER TABLE "published_series" ADD COLUMN "api_view" boolean DEFAULT false NOT NULL;

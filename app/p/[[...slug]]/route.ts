@@ -454,6 +454,9 @@ async function indexJson(
     `v:${PUBLIC_INDEX_VERSION}`,
     `origin:${origin}`,
     `tz:${instanceTimeZone()}`,
+    // The `api` links joined the format after it shipped; without this, a
+    // poller holding an earlier ETag would never be sent them.
+    'api-links',
     `name:${workspace.name}`,
     `logo:${workspace.logo}`,
     `season:${season ?? ''}`,
@@ -464,7 +467,7 @@ async function indexJson(
     ...digest
       .map(
         (d) =>
-          `${d.slug}:${d.seriesId ?? ''}:${d.publishedAt}:${d.contentHash}:${d.pagesHash}:${d.summaryHash}:${d.seriesName ?? ''}:${d.seriesOrder}`,
+          `${d.slug}:${d.seriesId ?? ''}:${d.publishedAt}:${d.contentHash}:${d.pagesHash}:${d.summaryHash}:${d.apiId ?? ''}:${d.seriesName ?? ''}:${d.seriesOrder}`,
       )
       .sort(),
   ])}"`;

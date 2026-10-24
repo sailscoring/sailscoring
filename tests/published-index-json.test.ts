@@ -26,6 +26,7 @@ describe('buildPublicIndex — the live shape (an event per top-level folder)', 
       { fleetName: 'Prizes', isPrizes: true, subPath: 'prizes' },
     ],
     dataSubPath: 'autumn-league.sailscoring.json',
+    apiId: '0b8a6c84-4b5e-4f3a-9d1e-2c7f5a9e1d33',
     summary: {
       firstRaceDate: '2026-09-06',
       lastRaceDate: '2026-10-04',
@@ -94,6 +95,7 @@ describe('buildPublicIndex — the live shape (an event per top-level folder)', 
         { label: 'Prizes', kind: 'prizes', url: 'https://app.example/p/hyc/autumn-league/prizes' },
       ],
       data: 'https://app.example/p/hyc/autumn-league/autumn-league.sailscoring.json',
+      api: 'https://app.example/api/public/v1/publications/0b8a6c84-4b5e-4f3a-9d1e-2c7f5a9e1d33',
       fleets: [
         { name: 'Class 1', scoringSystem: 'irc' },
         { name: 'Class 2', scoringSystem: 'echo' },
@@ -104,6 +106,10 @@ describe('buildPublicIndex — the live shape (an event per top-level folder)', 
       races: 8,
       boats: 31,
     });
+  });
+
+  test('a publication whose API resources do not exist yet links none', () => {
+    expect(doc.publications[1]).not.toHaveProperty('api');
   });
 
   test('a lone synthetic page reads as Standings, names no fleet, and an opted-out series has no data file', () => {

@@ -122,6 +122,8 @@ describe.skipIf(skip)('publish handler — the published results API view', () =
 
   test('a publish writes the publication, standings, races and entry list', async () => {
     await publishSeries(ctx, seriesId, {});
+    // The row says the resources exist, which is what index.json links on.
+    expect((await getPublishedBySeries(seriesId))!.apiView).toBe(true);
     const publication = publicationSchema.parse(await resource(''));
     expect(publication.name).toBe('Autumn League');
     expect(publication.kind).toBe('series');

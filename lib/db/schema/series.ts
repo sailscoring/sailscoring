@@ -1233,6 +1233,11 @@ export const publishedSeries = pgTable(
     // published before the column existed, until it is re-published or
     // backfilled.
     summary: jsonb('summary').$type<PublicationSummary>(),
+    // Whether the publication's published results API resources (ADR-015)
+    // have been written, so the public indexes link them only once they
+    // exist. False on a row published before the API, until it is
+    // re-published or backfilled.
+    apiView: boolean('api_view').notNull().default(false),
   },
   (table) => [
     // Non-unique: a slug is a shared namespace (several series can publish into
