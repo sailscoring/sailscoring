@@ -4,8 +4,9 @@
 summary, the workspace and season `index.json`, and the public directory)
 are implemented (#669, #670); Decision 1 is superseded in part by
 [ADR-015](015-published-results-api.md). Decision 4 (the race schedule, as a
-Schedule page whose JSON the published results API serves) is to be built
-after that API; the points it leaves to its implementation are listed at
+Schedule page whose JSON the published results API serves) is implemented
+behind the `schedule-page` feature (#692); what it left to the
+implementation, and how that was settled, is listed at
 the end of the Decision.
 
 **Date:** 2026-10-14
@@ -260,7 +261,7 @@ without being given a URL.
 - The directory page is indexable; the workspace pages beneath stay
   `noindex`.
 
-### 4. The race schedule (to build after ADR-015)
+### 4. The race schedule (implemented — #692)
 
 Option 6: a Schedule page, with its JSON served by the published results
 API.
@@ -350,9 +351,13 @@ a field anyone reads from `index.json`.
 
 #### Left to the implementation
 
-- **A publication that is only a schedule.** Where its landing URL points
-  (it has no standings page), and how the season and event index pages
-  list it.
+- **A publication that is only a schedule.** *Settled:* the Schedule page
+  is a supporting page, as the entry list is, so every listing already
+  places it: a schedule-only publication lands on its series index, which
+  lists the one page, and `index.json` gives it the page kind `schedule`.
+- **Results links.** *Settled:* a sailed race links to its fleet's page
+  where one page holds it, to a championship's race results page, and
+  otherwise to the publication's own page.
 - **Cancelled and abandoned races.** Not modelled. Worth adding only if a
   scorer or integrator needs to tell a cancelled race from one awaiting
   results.
