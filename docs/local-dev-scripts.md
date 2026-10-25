@@ -58,6 +58,9 @@ from?", start here.
 | `pnpm provision-token`   | Admin CLI: mint/list/revoke API keys (Bearer tokens) for the CLI (uses `.env.local`) | Yes |
 | `pnpm provision-token:test` | Same, but against the local container             | Yes — run `pnpm db:up` first   |
 | `pnpm provision-token:prod` | Same, but against production, with the secrets fetched from Bitwarden for the run (see [account-admin.md](account-admin.md#production-usage)) | Yes (Neon) |
+| `pnpm oauth-client`      | Admin CLI: register, list, disable and enable the apps that may ask users for access over OAuth, and the CLI itself (ADR-016) (uses `.env.local`) | Yes |
+| `pnpm oauth-client:test` | Same, but against the local container             | Yes — run `pnpm db:up` first   |
+| `pnpm oauth-client:prod` | Same, but against production, with the secrets fetched from Bitwarden for the run | Yes (Neon) |
 | `pnpm firewall:diff`     | Compare the production Vercel Firewall with `vercel-firewall.json` (see [DEPLOY.md](../DEPLOY.md#10-configure-the-firewall)) | No (Vercel API, token from Bitwarden) |
 | `pnpm firewall:apply`    | Show that diff, confirm, then replace the production firewall configuration with the file; `--yes` skips the prompt | No (Vercel API, token from Bitwarden) |
 | `pnpm cli`               | The `sailscoring` CLI — a pure `/api/v1` client (import/publish/reads); see [cli.md](cli.md) | No (talks to a deployment) |
