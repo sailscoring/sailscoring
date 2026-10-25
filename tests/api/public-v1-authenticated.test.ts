@@ -291,7 +291,7 @@ describe.skipIf(!DATABASE_URL)('the public API, authenticated part', () => {
   });
 
   test('what an app does is credited to the person and the app', async () => {
-    const { items } = await listActivity({ workspaceId: user.personalWorkspaceId, seriesId, page: { limit: 50 } });
+    const { items } = await listActivity({ workspaceId: user.personalWorkspaceId, seriesId, page: { limit: 50, cursor: null } });
     const throughApp = items.filter((e) => e.via);
     expect(throughApp.length).toBeGreaterThan(0);
     expect(throughApp[0]).toMatchObject({

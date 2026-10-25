@@ -5,6 +5,7 @@ import { ZodError } from 'zod';
 
 import {
   ForbiddenError,
+  GrantRateLimitedError,
   UnauthenticatedError,
   requirePermission,
   requireWorkspace,
@@ -228,7 +229,7 @@ export function errorToResponse(err: unknown): Response {
   if (err instanceof ZodError) {
     return Response.json({ error: 'invalid', issues: err.issues }, { status: 400 });
   }
-  if (err instanceof RateLimitedError) {
+  if (err instanceof RateLimitedError || err instanceof GrantRateLimitedError) {
     return Response.json(
       { error: 'rate-limited', retryAfter: err.retryAfterSeconds },
       { status: 429, headers: { 'retry-after': String(err.retryAfterSeconds) } },

@@ -15,6 +15,7 @@ import { eq } from 'drizzle-orm';
 
 import { auth } from '@/lib/auth';
 import { ACCESS_TOKEN_PREFIX, REFRESH_TOKEN_PREFIX } from '@/lib/auth/oauth';
+import { workspaceFromHeaders } from '@/lib/auth/require-workspace';
 import { getDb } from '@/lib/db/client';
 import * as schema from '@/lib/db/schema';
 import {
@@ -163,5 +164,47 @@ describe.skipIf(!DATABASE_URL)('OAuth for outside apps and the CLI', () => {
     expect(registered.status).toBe(403);
     const deleted = await request(user, '/api/auth/oauth2/delete-client', { json: { client_id: appId } });
     expect(deleted.status).toBe(401);
+  });
+});
+
+describe.skipIf(!DATABASE_URL)('OAuth tokens on /api/v1', () => {
+  let user!: SignedInUser;
+  let appId!: string;
+  let cliId!: string;
+
+  beforeAll(async () => {
+    user = await signInFreshUser('oauth-v1');
+    await setConnectedApps(user.personalWorkspaceId, true);
+    appId = await registerApp(user, 'app');
+    cliId = await registerApp(user, 'cli');
+  });
+
+  afterAll(async () => {
+    for (const id of [appId, cliId]) {
+      if (id) await getDb().delete(schema.oauthClient).where(eq(schema.oauthClient.clientId, id));
+    }
+    if (user) await removeUser(user);
+  });
+
+  const bearer = (token: string, extra: Record<string, string> = {}) =>
+    new Headers({ authorization: `Bearer ${token}`, ...extra });
+
+  test('the CLI’s token acts as its user, in the workspace the header names', async () => {
+    const { accessToken } = await deviceSignIn(user, cliId);
+    const ctx = await workspaceFromHeaders(bearer(accessToken));
+    expect(ctx).toMatchObject({ userId: user.userId, email: user.email, workspaceId: user.personalWorkspaceId, role: 'owner' });
+    expect(ctx.via).toBeUndefined();
+    await expect(workspaceFromHeaders(bearer(accessToken, { 'x-sailscoring-workspace': 'nowhere' }))).rejects.toThrow(
+      /workspace-not-a-member/,
+    );
+  });
+
+  test('an outside app’s token is refused there', async () => {
+    const { accessToken } = await grantApp(user, appId, user.personalWorkspaceId);
+    await expect(workspaceFromHeaders(bearer(accessToken))).rejects.toThrow(/app-token-not-accepted/);
+  });
+
+  test('a token that resolves to nothing is unauthenticated', async () => {
+    await expect(workspaceFromHeaders(bearer('ssat_made_up'))).rejects.toThrow(/unauthenticated/);
   });
 });

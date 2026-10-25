@@ -3,6 +3,8 @@ import { headers } from 'next/headers';
 import { and, eq, isNull } from 'drizzle-orm';
 
 import { auth } from '@/lib/auth';
+import { bearerToken, isAccessToken, resolveAppCaller } from '@/lib/auth/app-token';
+import { consumeGrantRateLimit } from '@/lib/auth/grant-rate-limit';
 import { getDb } from '@/lib/db/client';
 import {
   apikey,
@@ -67,6 +69,15 @@ export class ForbiddenError extends Error {
   constructor(public readonly reason?: string) {
     super(reason ? `forbidden: ${reason}` : 'forbidden');
     this.name = 'ForbiddenError';
+  }
+}
+
+/** Too many calls with one grant's OAuth token; the route wrapper answers
+ *  429 with the wait. */
+export class GrantRateLimitedError extends Error {
+  constructor(public readonly retryAfterSeconds: number) {
+    super('rate-limited');
+    this.name = 'GrantRateLimitedError';
   }
 }
 
@@ -138,7 +149,32 @@ export function requirePermission(
  * memberships), we still throw and the switcher prompts them.
  */
 export async function requireWorkspace(): Promise<WorkspaceContext> {
-  const hdrs = await headers();
+  return workspaceFromHeaders(await headers());
+}
+
+/** `requireWorkspace` for a request's headers, for callers and tests outside
+ *  a Next.js request scope. */
+export async function workspaceFromHeaders(hdrs: Headers): Promise<WorkspaceContext> {
+  const workspaceOverride = hdrs.get('x-sailscoring-workspace') ?? undefined;
+
+  // An OAuth access token (ADR-016). Here, on /api/v1, only our own CLI's: an
+  // outside app's token is for the public API's calls, never the internal
+  // ones. The CLI's token acts wherever its user is a member, as a key does.
+  const token = bearerToken(hdrs);
+  if (token && isAccessToken(token)) {
+    const caller = await resolveAppCaller(token);
+    if (!caller) throw new UnauthenticatedError();
+    if (!caller.firstParty) throw new ForbiddenError('app-token-not-accepted');
+    const retryAfter = await consumeGrantRateLimit(caller);
+    if (retryAfter !== null) throw new GrantRateLimitedError(retryAfter);
+    return resolveWorkspace({
+      userId: caller.userId,
+      email: caller.email,
+      activeOrganizationId: null,
+      workspaceOverride,
+    });
+  }
+
   const session = await auth.api.getSession({ headers: hdrs });
   if (!session) throw new UnauthenticatedError();
   // A key-authenticated request (ADR-009) gets a synthesized session from the
@@ -147,7 +183,6 @@ export async function requireWorkspace(): Promise<WorkspaceContext> {
   // key's default-workspace metadata and (b) avoid persisting a bootstrap
   // pick to a session row that doesn't exist.
   const isApiKey = !('activeOrganizationId' in session.session);
-  const workspaceOverride = hdrs.get('x-sailscoring-workspace') ?? undefined;
   return resolveWorkspace({
     userId: session.user.id,
     email: session.user.email,
