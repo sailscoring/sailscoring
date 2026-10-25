@@ -52,6 +52,20 @@ export class BadRequestError extends Error {
 }
 
 /**
+ * Thrown when a well-formed write would undo something already there that
+ * the caller hasn't said it means to replace: a start's legs, say. Mapped to
+ * 409 with the message, which says what to send instead. Distinct from
+ * `ConflictError`, the optimistic-concurrency conflict, whose 409 carries the
+ * winning write's version for the app's row-conflict dialog.
+ */
+export class WouldReplaceError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'WouldReplaceError';
+  }
+}
+
+/**
  * Thrown when a read of a third-party source fails for a reason the user
  * should hear in full: the source refused, is down, or answered with
  * something else. Mapped to 502 with the message intact — it's a sentence
@@ -193,6 +207,9 @@ export function errorToResponse(err: unknown): Response {
   }
   if (err instanceof ConflictError) {
     return Response.json({ error: 'conflict', detail: err.detail }, { status: 409 });
+  }
+  if (err instanceof WouldReplaceError) {
+    return Response.json({ error: 'conflict', message: err.message }, { status: 409 });
   }
   if (err instanceof ArchivedError) {
     return Response.json({ error: 'archived', reason: err.reason }, { status: 423 });

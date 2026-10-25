@@ -12,9 +12,17 @@ import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { eq } from 'drizzle-orm';
 import postgres, { type Sql } from 'postgres';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 import * as schema from '@/lib/db/schema';
-import { ArchivedError, BadRequestError, ConflictError, NotFoundError } from '@/app/api/v1/_lib/handler';
+import {
+  ArchivedError,
+  BadRequestError,
+  ConflictError,
+  NotFoundError,
+  WouldReplaceError,
+} from '@/app/api/v1/_lib/handler';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
 import * as series from '@/lib/api-handlers/series';
 import * as categories from '@/lib/api-handlers/categories';
@@ -24,6 +32,12 @@ import * as races from '@/lib/api-handlers/races';
 import * as raceStarts from '@/lib/api-handlers/race-starts';
 import * as raceRatingOverrides from '@/lib/api-handlers/race-rating-overrides';
 import * as finishes from '@/lib/api-handlers/finishes';
+import { courseVariation } from '@/lib/bearings';
+import {
+  importedCourseLegs,
+  parseConstructedCourse,
+  snapshotOfImportedCourse,
+} from '@/lib/orc-constructed-course';
 
 const DATABASE_URL = process.env.DATABASE_URL;
 const skip = !DATABASE_URL;
@@ -929,6 +943,75 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
     ).rejects.toBeInstanceOf(NotFoundError);
     await expect(
       raceStarts.patchRaceStart(ctxB, raceId, startId, { startTime: '12:00:00' }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+
+    await removeSeries(ctxA, seriesId);
+  });
+
+  test('applying a constructed course stores what the dialog import stores', async () => {
+    const fixture = (name: string) =>
+      readFileSync(join(__dirname, '..', 'fixtures', 'orc', name), 'utf8');
+    const rcyc = fixture('constructed-course-rcyc-2026-10-04.json');
+    const seriesId = uuid();
+    await series.putSeries(ctxA, seriesId, sampleSeries(seriesId));
+    const fleetId = uuid();
+    await fleets.putFleet(ctxA, seriesId, fleetId, {
+      id: fleetId, seriesId, name: 'ORC', displayOrder: 0, scoringSystem: 'orc' as const,
+    });
+    const raceId = uuid();
+    await races.putRace(ctxA, seriesId, raceId, {
+      id: raceId, seriesId, raceNumber: 1, date: '2026-10-04', createdAt: Date.now(),
+    });
+    const startId = uuid();
+    await raceStarts.putRaceStart(ctxA, raceId, startId, {
+      id: startId, raceId, fleetIds: [fleetId], startTime: '11:00:00',
+    });
+
+    // Converted to true at the variation where the course is anchored, on
+    // the race's day: the same functions the dialog's import calls.
+    const saved = await raceStarts.applyStartCourse(ctxA, raceId, startId, rcyc, { replace: false });
+    const read = parseConstructedCourse(rcyc);
+    if (!read.ok) throw new Error(read.error);
+    const variation = courseVariation([read.course.anchor!], undefined, '2026-10-04');
+    expect(variation).toBeDefined();
+    const legs = importedCourseLegs(read.course, variation);
+    expect(saved.courseLegs).toEqual(legs);
+    expect(saved.course).toEqual(snapshotOfImportedCourse(read.course, legs));
+    expect(saved.courseLegs).toHaveLength(7);
+    expect(saved.courseLegs![0].bearingDeg).not.toBe(233);
+    expect(saved.startTime).toBe('11:00:00');
+    expect(saved.fleetIds).toEqual([fleetId]);
+
+    // Legs already there are replaced only when asked.
+    const rmg = fixture('constructed-course-rmg-2026.json');
+    await expect(
+      raceStarts.applyStartCourse(ctxA, raceId, startId, rmg, { replace: false }),
+    ).rejects.toThrow(new WouldReplaceError(
+      'This start already has 7 legs. Send replace=true to replace them with the 7 legs of ORC Race Management Guide 2026, §3.2.',
+    ));
+    // With no anchor and no venue position there is nowhere to read a
+    // variation, so the legs stay magnetic and the snapshot says so.
+    const magnetic = await raceStarts.applyStartCourse(ctxA, raceId, startId, rmg, { replace: true });
+    expect(magnetic.courseLegs![0]).toMatchObject({ bearingDeg: 162, windDirectionDeg: 160, distanceNm: 2.09 });
+    expect(magnetic.course?.north).toBe('magnetic');
+
+    // The reader's refusals come back in its own words.
+    await expect(
+      raceStarts.applyStartCourse(ctxA, raceId, startId, '{ not json', { replace: true }),
+    ).rejects.toThrow(new BadRequestError('This isn’t a course document: it doesn’t read as JSON.'));
+    const windless = JSON.stringify({
+      format: 'orc-constructed-course', version: 1, north: 'magnetic',
+      legs: [{ distance: 1, course: 90 }],
+    });
+    await expect(
+      raceStarts.applyStartCourse(ctxA, raceId, startId, windless, { replace: true }),
+    ).rejects.toThrow(/no wind direction/);
+
+    await expect(
+      raceStarts.applyStartCourse(ctxA, raceId, uuid(), rcyc, { replace: true }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    await expect(
+      raceStarts.applyStartCourse(ctxB, raceId, startId, rcyc, { replace: true }),
     ).rejects.toBeInstanceOf(NotFoundError);
 
     await removeSeries(ctxA, seriesId);

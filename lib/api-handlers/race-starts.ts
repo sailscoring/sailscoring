@@ -1,11 +1,17 @@
 import 'server-only';
 import { eq } from 'drizzle-orm';
 
-import { BadRequestError, NotFoundError } from '@/app/api/v1/_lib/handler';
+import { BadRequestError, NotFoundError, WouldReplaceError } from '@/app/api/v1/_lib/handler';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
+import { courseVariation, todayIso } from '@/lib/bearings';
 import { getDb } from '@/lib/db/client';
 import * as schema from '@/lib/db/schema';
 import { createRepos } from '@/lib/postgres-repository';
+import {
+  importedCourseLegs,
+  parseConstructedCourse,
+  snapshotOfImportedCourse,
+} from '@/lib/orc-constructed-course';
 import { findFleetOverlap } from '@/lib/race-start-fleets';
 import { trackChange } from '@/lib/revision-log';
 import {
@@ -18,7 +24,7 @@ import {
   raceStartsBulkInputSchema,
   type RaceStartPatch,
 } from '@/lib/validation/race-start';
-import type { RaceStart } from '@/lib/types';
+import type { OrcCourseLeg, RaceStart } from '@/lib/types';
 
 async function assertRaceInWorkspace(
   workspace: WorkspaceContext,
@@ -61,13 +67,14 @@ async function trackStartChange(
   repos: ReturnType<typeof createRepos>,
   raceId: string,
   cleared = false,
+  what = 'start times',
 ): Promise<void> {
   const race = await repos.races.get(raceId);
   if (!race) return;
   await trackChange(workspace, {
     action: cleared ? 'starts.cleared' : 'starts.updated',
     seriesId: race.seriesId,
-    summary: `${cleared ? 'Cleared' : 'Updated'} start times for Race ${race.raceNumber}`,
+    summary: `${cleared ? 'Cleared' : 'Updated'} ${what} for Race ${race.raceNumber}`,
     sessionKey: `starts:${raceId}`,
     dedupeKey: `starts:${raceId}`,
   });
@@ -155,6 +162,66 @@ export async function patchRaceStart(
     updatedBy: workspace.userId,
   });
   await trackStartChange(workspace, repos, raceId);
+  return saved;
+}
+
+/**
+ * Apply an ORC constructed course document to a start, as the race-start
+ * dialog's import does: the document is read as the format describes it, its
+ * magnetic figures converted to true at the variation where the course is
+ * (its anchor, else the venue) on the race's day, and the start keeps the
+ * legs and a snapshot of the course. With nowhere to read a variation, the
+ * legs stay magnetic and the snapshot says so.
+ *
+ * Legs the start already has are replaced only when the caller says so: the
+ * dialog asks first, and this is the asking done in advance.
+ */
+export async function applyStartCourse(
+  workspace: WorkspaceContext,
+  raceId: string,
+  startId: string,
+  text: string,
+  opts: { replace: boolean; expectedVersion?: number },
+): Promise<RaceStart> {
+  await assertRaceWritable(workspace, raceId);
+  const read = parseConstructedCourse(text);
+  if (!read.ok) throw new BadRequestError(read.error);
+  const { course } = read;
+  // The reader allows a document with no wind, for the dialog's scorer to
+  // type one; a start's legs can't be stored without it.
+  if (course.legs.some((l) => l.windDirection === undefined)) {
+    throw new BadRequestError(
+      'The course gives no wind direction, and a start’s legs need one. Give each leg a windDirection.',
+    );
+  }
+  const repos = createRepos({ workspaceId: workspace.workspaceId });
+  const existing = (await repos.raceStarts.listByRace(raceId)).find((s) => s.id === startId);
+  if (!existing) throw new NotFoundError('race start');
+  const had = existing.courseLegs?.length ?? 0;
+  if (had > 0 && !opts.replace) {
+    throw new WouldReplaceError(
+      `This start already has ${had} leg${had === 1 ? '' : 's'}. Send replace=true to replace them with the ${course.legs.length} leg${course.legs.length === 1 ? '' : 's'} of ${course.name ?? 'this course'}.`,
+    );
+  }
+  const race = await repos.races.get(raceId);
+  if (!race) throw new NotFoundError('race');
+  const series = await repos.series.get(race.seriesId);
+  const variation = courseVariation(
+    course.anchor ? [course.anchor] : [],
+    series?.venuePosition,
+    race.date || todayIso(),
+  );
+  // Every leg has a wind direction (checked above), so these are whole legs.
+  const legs = importedCourseLegs(course, variation) as OrcCourseLeg[];
+  const saved = await repos.raceStarts.save(
+    {
+      ...existing,
+      courseLegs: legs,
+      course: snapshotOfImportedCourse(course, legs, variation ? undefined : 'magnetic'),
+    },
+    { expectedVersion: opts.expectedVersion, updatedBy: workspace.userId },
+  );
+  await trackStartChange(workspace, repos, raceId, false, 'the course');
   return saved;
 }
 

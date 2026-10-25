@@ -16,6 +16,7 @@ import {
   BadRequestError,
   ConflictError,
   NotFoundError,
+  WouldReplaceError,
   workspaceRoute,
 } from '@/app/api/v1/_lib/handler';
 import {
@@ -108,6 +109,19 @@ describe('workspaceRoute', () => {
       { params: Promise.resolve({}) },
     );
     expect(res.status).toBe(409);
+  });
+
+  test('409 with the message when handler throws WouldReplaceError', async () => {
+    mockedRequire.mockResolvedValueOnce(okWorkspace);
+    const handler = workspaceRoute(async () => {
+      throw new WouldReplaceError('This start already has 2 legs.');
+    });
+    const res = await handler(
+      makeRequest('PUT', {}) as Parameters<typeof handler>[0],
+      { params: Promise.resolve({}) },
+    );
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({ error: 'conflict', message: 'This start already has 2 legs.' });
   });
 
   test('400 when handler throws ZodError', async () => {
