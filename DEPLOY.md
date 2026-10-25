@@ -252,6 +252,7 @@ Development is *only* used to populate `.env.local` via `vercel env pull`.
 | `NEXT_PUBLIC_DEFAULT_SAIL_COUNTRY` | `IRL` (or unset → IRL) | (same)             | (same)               | no  |
 | `NEXT_PUBLIC_DEFAULT_TIMEZONE`  | `Europe/Dublin` (or unset → Europe/Dublin) | (same) | (same)         | no  |
 | `COMPETITOR_ID_KEY`            | random (set, **long-lived**) | same as Production | unset (derived)     | yes for prod/preview |
+| `ORC_API_KEY`                  | from ORC (sas.orc.org) | same as Production | unset, or the same key in `.env.local` | yes |
 | `BLOB_READ_WRITE_TOKEN`        | from Vercel Blob (managed) | from Vercel Blob (managed, if connected) | unset → `published_blobs` fallback | yes (managed) |
 | `NEXT_PUBLIC_SCUPPER_URL`      | `https://scupper.sailscoring.ie` (legacy) | (same)   | (same)               | no         |
 | `NEXT_PUBLIC_SCUPPER_API_KEY`  | from scupper project (legacy) | from scupper project | from scupper project | no         |
@@ -323,6 +324,16 @@ operator's Bitwarden item too, for `pnpm published-views:prod`. Unset, a key
 is derived from `BETTER_AUTH_SECRET`, so rotating that would rotate the ids.
 (Not `PUBLIC_…`: Vercel refuses that prefix as a Secret, since some
 frameworks expose it to the browser.)
+
+**`ORC_API_KEY`** — the key ORC issued Sail Scoring for its API, which the
+ORC certificate import reads through (`sas.orc.org/api/{key}/…`). Requested
+from the Developers page linked at the foot of Sailor Services; ORC reviews
+the request and replies by email, and shows the key once, so keep it in the
+operator's Bitwarden item. It is a server secret — the fetch is server-side
+and the key never reaches the browser. If it leaks, revoke it on the same
+page and make another. Unset, the import says ORC certificates aren't
+available on this server; the e2e suite serves the listing from fixtures and
+doesn't need it.
 
 **`BLOB_READ_WRITE_TOKEN`** — managed by the Vercel Blob integration (step 4),
 not added by hand. Leave it **unset on Development** so publishing uses the

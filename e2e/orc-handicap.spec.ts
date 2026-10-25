@@ -195,8 +195,8 @@ test('non-spinnaker fleet: a boat with no NS certificate gets its standard one',
   await expect(page.getByRole('button', { name: 'Apply 0' })).toBeDisabled();
 });
 
-test('Refresh from source is offered though data.orc.org gives no date', async ({ page }) => {
-  // data.orc.org sends no Last-Modified, so the listing has no date of its
+test('Refresh from source is offered though the ORC database gives no date', async ({ page }) => {
+  // The ORC database sends no Last-Modified, so the listing has no date of its
   // own: the line says when Sail Scoring fetched it instead. Mojo's
   // certificate is new since the cached copy.
   const cached = {

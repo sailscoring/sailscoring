@@ -70,18 +70,29 @@ results — and competitors record their own tracks).
 
 ### The active-certificates database
 
-Everything is served from `data.orc.org` with open CORS; country is the
-top-level selector. Verified endpoints (all under
-`https://data.orc.org/public/WPub.dll`):
+Everything is served by the ORC API at `sas.orc.org`, to registered
+applications only: each request carries Sail Scoring's key in its path
+(`https://sas.orc.org/api/{key}/{endpoint}?…`), so every fetch is made
+server-side and the key lives in `ORC_API_KEY`. Keys are requested from the
+Developers page linked at the foot of Sailor Services; documentation at
+<https://sas.orc.org/api-docs.php>. Country is the top-level selector.
+ORC asks API users to cache — once a day is plenty — and the listing is
+cached for 24 hours per country and family.
 
-| Query | Returns |
+| Endpoint | Returns |
 |---|---|
-| no params | XML: per-country cert counts, VPP year, last update |
-| `?action=DownRMS&CountryId=IRL&ext=json` | every active standard-family cert for a country |
+| `DownRMS?CountryId=IRL&ext=json` | every active standard-family cert for a country |
 | `…&Family=NS` / `…&Family=DH` | the non-spinnaker / double-handed families |
-| `?action=DownBoatRMS&RefNo=…&ext=json` | one cert by reference number (first match only — fleet import must use `DownRMS`) |
-| `?action=activecerts&CountryId=…` | XML index incl. the explicit `Expiry` date (absent from the JSON) |
-| `/CC/{RefNo}` | printable full certificate page — the "view certificate" link |
+| `DownBoatRMS?RefNo=…&ext=json` | one cert by reference number (first match only — fleet import must use `DownRMS`) |
+| `activecerts?CountryId=…&format=xml` | XML index incl. the explicit `Expiry` date (absent from the JSON); JSON without `format=xml` |
+
+The "view certificate" link is a page for people, not the API:
+`https://sas.orc.org/open.html?kind=cc&id={RefNo}`, behind a robot check
+and needing no key.
+
+The API replaced the open `data.orc.org/public/WPub.dll` service, which
+stops answering on 31 January 2027; the endpoints kept WPub's action names,
+parameters and output.
 
 The JSON payload carries a `ScoringOptions` catalog — `{Fieldname, Name,
 Kind: TOD|TOT|PCS, CountryId}` for every rating field including the national

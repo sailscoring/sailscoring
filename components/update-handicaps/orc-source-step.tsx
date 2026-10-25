@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/select';
 import { queryKeys } from '@/hooks/query-keys';
 import { useSeries, useUpdateSeries } from '@/hooks/use-series';
+import { UpstreamApiError } from '@/lib/api-client';
 import { loadOrcCertificates } from '@/lib/api-repository';
 import {
   ORC_FAMILY_LABEL,
@@ -122,7 +123,7 @@ export function OrcSourceStep({
     return out;
   }, [familiesNeeded, standard.data, nonSpin.data, doubleHanded.data]);
 
-  const familyStates: Array<{ family: OrcFamily; q: { isLoading: boolean; isError: boolean; data?: OrcCertListing } }> = [
+  const familyStates: Array<{ family: OrcFamily; q: { isLoading: boolean; isError: boolean; error: Error | null; data?: OrcCertListing } }> = [
     { family: 'ORC', q: standard },
     { family: 'NS', q: nonSpin },
     { family: 'DH', q: doubleHanded },
@@ -130,6 +131,9 @@ export function OrcSourceStep({
   const needed = familyStates.filter(({ family }) => familiesNeeded.has(family));
   const anyLoading = needed.some(({ q }) => q.isLoading);
   const anyError = needed.some(({ q }) => q.isError);
+  // The server's own sentence when the ORC database itself refused or failed;
+  // otherwise the country code is the likelier culprit.
+  const upstreamError = needed.map(({ q }) => q.error).find((e) => e instanceof UpstreamApiError);
   const allLoaded = needed.every(({ q }) => q.data != null);
 
   const defaultCountry = defaultSailCountry();
@@ -306,8 +310,10 @@ export function OrcSourceStep({
         )}
         {anyError && (
           <p className="text-sm text-destructive">
-            Couldn&apos;t load the ORC certificate listing. Check the country code, or
-            try again later.
+            {upstreamError
+              ? upstreamError.message
+              : <>Couldn&apos;t load the ORC certificate listing. Check the country code, or
+                  try again later.</>}
           </p>
         )}
 

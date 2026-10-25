@@ -1,6 +1,6 @@
 /**
  * ORC certificate source — fetch and parse the ORC active-certificates
- * database (data.orc.org).
+ * database through the ORC API (sas.orc.org).
  *
  * ORC publishes every active certificate per country in machine-readable
  * form (ORC Rating Systems rule 303.7: valid certificates are uploaded to
@@ -24,6 +24,11 @@
  * download is per country + family; country is the database's top-level
  * selector, and a certificate from any country's rating office is valid at
  * any event (rule 303.2).
+ *
+ * The API serves registered applications only: every request carries the
+ * application's key in its path. The key is a server secret, so the URL
+ * builders take it as an argument and nothing here reads the environment —
+ * this module is also imported by the client for the certificate link.
  */
 
 import type { OrcAllowances, OrcCertData, OrcProfile, OrcRmsRecord, OrcScoringOptionCatalog } from './types';
@@ -46,21 +51,28 @@ const ACTIVECERTS_FAMILY_CODE: Record<OrcFamily, number> = {
   NS: 5,
 };
 
-const ORC_DATA_BASE = 'https://data.orc.org/public/WPub.dll';
+const ORC_API_BASE = 'https://sas.orc.org/api';
 
-export function orcRmsUrl(countryId: string, family: OrcFamily): string {
+const apiUrl = (apiKey: string, endpoint: string): string =>
+  `${ORC_API_BASE}/${encodeURIComponent(apiKey)}/${endpoint}`;
+
+export function orcRmsUrl(apiKey: string, countryId: string, family: OrcFamily): string {
   const familyParam = family === 'ORC' ? '' : `&Family=${family}`;
-  return `${ORC_DATA_BASE}?action=DownRMS&CountryId=${encodeURIComponent(countryId)}${familyParam}&ext=json`;
+  return `${apiUrl(apiKey, 'DownRMS')}?CountryId=${encodeURIComponent(countryId)}${familyParam}&ext=json`;
 }
 
-export function orcActiveCertsUrl(countryId: string, family: OrcFamily): string {
-  return `${ORC_DATA_BASE}?action=activecerts&CountryId=${encodeURIComponent(countryId)}&Family=${ACTIVECERTS_FAMILY_CODE[family]}`;
+/** The index answers JSON by default; `format=xml` asks for the document the
+ *  parser below reads. */
+export function orcActiveCertsUrl(apiKey: string, countryId: string, family: OrcFamily): string {
+  return `${apiUrl(apiKey, 'activecerts')}?CountryId=${encodeURIComponent(countryId)}&Family=${ACTIVECERTS_FAMILY_CODE[family]}&format=xml`;
 }
 
 /** Printable full-certificate page for a reference number — the user-facing
- *  "view certificate" link. */
+ *  "view certificate" link. A page for people, not the API: Sailor Services
+ *  asks the reader to pass a robot check before showing it, and it needs no
+ *  key. */
 export function orcCertificatePageUrl(refNo: string): string {
-  return `${ORC_DATA_BASE}/CC/${encodeURIComponent(refNo)}`;
+  return `https://sas.orc.org/open.html?kind=cc&id=${encodeURIComponent(refNo)}`;
 }
 
 /** One entry of the payload's `ScoringOptions` catalog: which rating fields
@@ -82,7 +94,7 @@ export interface OrcCertEntry {
 
 export interface OrcCertListing {
   /** `DD/MM/YYYY` from the HTTP Last-Modified header, or null — which in
-   *  practice it always is: data.orc.org sends no Last-Modified. */
+   *  practice it always is: the ORC database sends no Last-Modified. */
   updatedAt: string | null;
   /** When Sail Scoring fetched the listing, as an ISO timestamp. Stated
    *  where the source gives no date of its own; absent on a listing cached
@@ -469,24 +481,59 @@ const FETCH_HEADERS = {
   'user-agent': 'Mozilla/5.0 (compatible; SailScoring/1.0; +https://app.sailscoring.ie)',
 };
 
+/** A read of the ORC database that failed for a reason the scorer should
+ *  hear in full. The message never carries the request URL: the key is in
+ *  its path. */
+export class OrcSourceError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'OrcSourceError';
+  }
+}
+
+/** The first of the API's own `{"errors": [...]}` sentences, if it sent one. */
+async function orcApiErrorText(res: Response): Promise<string | undefined> {
+  try {
+    const body = (await res.json()) as { errors?: unknown };
+    const first = Array.isArray(body.errors) ? body.errors[0] : undefined;
+    return typeof first === 'string' ? first : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /**
  * Fetch one country + family's active certificates. The single network seam
  * in this module; callers (the API route) wrap it in caching. The index
  * fetch failing is not fatal — certificates still import, without expiry.
  */
 export async function fetchOrcCertificates(
+  apiKey: string,
   countryId: string,
   family: OrcFamily,
 ): Promise<OrcCertListing> {
-  const res = await fetch(orcRmsUrl(countryId, family), { headers: FETCH_HEADERS });
+  let res: Response;
+  try {
+    res = await fetch(orcRmsUrl(apiKey, countryId, family), { headers: FETCH_HEADERS });
+  } catch {
+    throw new OrcSourceError('Couldn’t reach the ORC certificate database. Try again later.');
+  }
+  if (res.status === 401) {
+    throw new OrcSourceError(
+      'The ORC certificate database refused Sail Scoring’s API key. Please tell mark@hyc.ie.',
+    );
+  }
   if (!res.ok) {
-    throw new Error(`ORC certificate fetch failed: HTTP ${res.status}`);
+    const said = await orcApiErrorText(res);
+    throw new OrcSourceError(
+      `The ORC certificate database answered HTTP ${res.status}${said ? ` (${said})` : ''}. Try again later.`,
+    );
   }
   const { rms, scoringOptions } = parseOrcRmsJson(await res.text());
 
   let index: OrcActiveCertRow[] = [];
   try {
-    const idxRes = await fetch(orcActiveCertsUrl(countryId, family), { headers: FETCH_HEADERS });
+    const idxRes = await fetch(orcActiveCertsUrl(apiKey, countryId, family), { headers: FETCH_HEADERS });
     if (idxRes.ok) index = parseOrcActiveCerts(await idxRes.text());
   } catch {
     // Expiry/VPP year stay unset; the import degrades rather than fails.

@@ -26,7 +26,7 @@ import { recordActivity } from '@/lib/activity-log';
  * **How often.** One forced refetch per source per minute. The counter is
  * per process rather than shared: a serverless instance is reused across
  * requests, so this holds in practice, and the point is to stop a held-down
- * button hammering data.orc.org rather than to enforce a quota. A refresh
+ * button hammering a rating office's server rather than to enforce a quota. A refresh
  * that slips through on a second instance costs one extra upstream fetch.
  */
 const REFRESH_INTERVAL_MS = 60_000;

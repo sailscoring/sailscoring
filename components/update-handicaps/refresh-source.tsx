@@ -89,7 +89,7 @@ function formatFetchedAt(iso: string): string | null {
  *
  * It says the source's own date where the source gives one, and otherwise
  * when Sail Scoring fetched the listing, so the scorer can tell how stale the
- * cache might be. The refresh link doesn't wait on either: data.orc.org sends
+ * cache might be. The refresh link doesn't wait on either: the ORC database sends
  * no Last-Modified, and hiding the link behind a date meant ORC never had one.
  */
 export function SourceAsOf({

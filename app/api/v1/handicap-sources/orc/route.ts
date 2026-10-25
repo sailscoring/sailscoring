@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 
 // `?country=<code>` selects which country's active certificates to fetch;
 // `?family=<ORC|NS|DH>` the certificate family (standard when absent).
-// `?refresh=1` forces a refetch, bypassing the six-hour cache (#594). It takes
+// `?refresh=1` forces a refetch, bypassing the day-long cache (#594). It takes
 // `manage-workspace` and is throttled, because it reaches someone else's
 // server.
 export const GET = workspaceRoute(async (req, { workspace }) => {

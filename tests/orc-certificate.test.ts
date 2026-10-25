@@ -1,10 +1,12 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   ORC_STANDARD_OPTIONS,
+  OrcSourceError,
+  fetchOrcCertificates,
   isOrcCertExpired,
   mergeOrcFeeds,
   orcActiveCertsUrl,
@@ -162,14 +164,63 @@ describe('scoring options', () => {
 });
 
 describe('endpoint URLs', () => {
-  it('builds the documented WPub.dll queries', () => {
-    expect(orcRmsUrl('IRL', 'ORC')).toBe(
-      'https://data.orc.org/public/WPub.dll?action=DownRMS&CountryId=IRL&ext=json',
+  it('builds the documented ORC API queries, with the key in the path', () => {
+    expect(orcRmsUrl('orc_abc', 'IRL', 'ORC')).toBe(
+      'https://sas.orc.org/api/orc_abc/DownRMS?CountryId=IRL&ext=json',
     );
-    expect(orcRmsUrl('IRL', 'DH')).toContain('&Family=DH&');
-    expect(orcActiveCertsUrl('IRL', 'NS')).toContain('Family=5');
+    expect(orcRmsUrl('orc_abc', 'IRL', 'DH')).toContain('&Family=DH&');
+    expect(orcActiveCertsUrl('orc_abc', 'IRL', 'NS')).toBe(
+      'https://sas.orc.org/api/orc_abc/activecerts?CountryId=IRL&Family=5&format=xml',
+    );
+  });
+
+  it('links people to the certificate page, which needs no key', () => {
     expect(orcCertificatePageUrl('05180004WJU')).toBe(
-      'https://data.orc.org/public/WPub.dll/CC/05180004WJU',
+      'https://sas.orc.org/open.html?kind=cc&id=05180004WJU',
     );
+  });
+});
+
+describe('fetchOrcCertificates', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  const KEY = 'orc_0123456789abcdef';
+
+  it('merges the two feeds, both fetched on the key', async () => {
+    const fetchMock = vi.fn(async (url: string) =>
+      new Response(url.includes('/DownRMS?') ? RMS_FIXTURE : ACTIVECERTS_FIXTURE, { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const listing = await fetchOrcCertificates(KEY, 'IRL', 'ORC');
+    expect(listing.records.length).toBeGreaterThan(0);
+    expect(listing.records.some((r) => r.expiryDate)).toBe(true);
+    expect(fetchMock.mock.calls.map(([url]) => url).every((url) => url.includes(`/api/${KEY}/`))).toBe(true);
+  });
+
+  it('a refused key is a sentence for the scorer, and never names the key', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () =>
+      Response.json({ errors: ['Missing or invalid API key.'] }, { status: 401 })));
+
+    const err = await fetchOrcCertificates(KEY, 'IRL', 'ORC').catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(OrcSourceError);
+    expect((err as Error).message).toMatch(/refused Sail Scoring’s API key/);
+    expect((err as Error).message).not.toContain(KEY);
+  });
+
+  it('passes on the API’s own reason for other failures', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () =>
+      Response.json({ errors: ['CountryId is required.'] }, { status: 400 })));
+
+    await expect(fetchOrcCertificates(KEY, 'IRL', 'ORC')).rejects.toThrow(
+      'The ORC certificate database answered HTTP 400 (CountryId is required.). Try again later.',
+    );
+  });
+
+  it('an unreachable database fails without the URL', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => { throw new TypeError(`fetch failed: ${url}`); }));
+
+    const err = await fetchOrcCertificates(KEY, 'IRL', 'ORC').catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(OrcSourceError);
+    expect((err as Error).message).not.toContain(KEY);
   });
 });
