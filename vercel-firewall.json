@@ -48,6 +48,7 @@
         { "conditions": [{ "type": "path", "op": "eq", "value": "/api/auth/oauth2/revoke" }] },
         { "conditions": [{ "type": "path", "op": "eq", "value": "/api/auth/device/code" }] },
         { "conditions": [{ "type": "path", "op": "eq", "value": "/.well-known/oauth-authorization-server" }] },
+        { "conditions": [{ "type": "path", "op": "eq", "value": "/.well-known/oauth-authorization-server/api/auth" }] },
         { "conditions": [{ "type": "path", "op": "eq", "value": "/api/cli/client" }] }
       ],
       "action": { "mitigate": { "action": "bypass" } }
