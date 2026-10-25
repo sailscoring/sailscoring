@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { NotFoundError } from '@/app/api/v1/_lib/handler';
+import { assertFleetsStartOnce } from '@/lib/api-handlers/race-starts';
 import { trackChange } from '@/lib/revision-log';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
 import { createRepos } from '@/lib/postgres-repository';
@@ -113,6 +114,12 @@ export async function generateRaces(
     id: s.id ?? crypto.randomUUID(),
   }));
   const repos = createRepos({ workspaceId: workspace.workspaceId });
+  for (const race of races) {
+    await assertFleetsStartOnce(repos, race.id, starts.filter((s) => s.raceId === race.id), {
+      stored: [],
+      seriesId,
+    });
+  }
   const created = await repos.races.generateMany(seriesId, races, starts, {
     updatedBy: workspace.userId,
   });

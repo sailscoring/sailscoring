@@ -721,8 +721,8 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
 
     const bulkStarts = await raceStarts.bulkPutRaceStarts(ctxA, raceId, {
       starts: [
-        { id: uuid(), raceId, fleetIds: [fleetId], startTime: '11:05:00' },
-        { id: uuid(), raceId, fleetIds: [fleetId], startTime: '11:10:00' },
+        { id: uuid(), raceId, fleetIds: [], startTime: '11:05:00' },
+        { id: uuid(), raceId, fleetIds: [], startTime: '11:10:00' },
       ],
     });
     expect(bulkStarts.count).toBe(2);
@@ -786,6 +786,77 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
         starts: [{ id: uuid(), raceId: uuid(), fleetIds: [], startTime: '11:00:00' }],
       }),
     ).rejects.toBeInstanceOf(NotFoundError);
+
+    await removeSeries(ctxA, seriesId);
+  });
+
+  test('a fleet starts once per race, on every start write path', async () => {
+    const seriesId = uuid();
+    await series.putSeries(ctxA, seriesId, sampleSeries(seriesId));
+    const fleetA = uuid();
+    const fleetB = uuid();
+    await fleets.bulkPutFleets(ctxA, seriesId, {
+      fleets: [
+        { id: fleetA, seriesId, name: 'IRC 1', displayOrder: 0, scoringSystem: 'irc' as const },
+        { id: fleetB, seriesId, name: 'IRC 2', displayOrder: 1, scoringSystem: 'irc' as const },
+      ],
+    });
+    const raceId = uuid();
+    await races.putRace(ctxA, seriesId, raceId, {
+      id: raceId, seriesId, raceNumber: 1, date: '2026-04-01', createdAt: Date.now(),
+    });
+    const first = uuid();
+    await raceStarts.putRaceStart(ctxA, raceId, first, {
+      id: first, raceId, fleetIds: [fleetA], startTime: '11:00:00',
+    });
+
+    // A second start claiming the same fleet, singly or in bulk.
+    const second = uuid();
+    await expect(
+      raceStarts.putRaceStart(ctxA, raceId, second, {
+        id: second, raceId, fleetIds: [fleetA, fleetB], startTime: '11:05:00',
+      }),
+    ).rejects.toThrow('Fleet "IRC 1" is already in another start of Race 1 (the 11:00:00 start)');
+    await expect(
+      raceStarts.bulkPutRaceStarts(ctxA, raceId, {
+        starts: [{ id: second, raceId, fleetIds: [fleetA], startTime: '11:05:00' }],
+      }),
+    ).rejects.toBeInstanceOf(BadRequestError);
+    // Two starts in one payload claiming the same fleet.
+    await expect(
+      raceStarts.bulkPutRaceStarts(ctxA, raceId, {
+        starts: [
+          { id: uuid(), raceId, fleetIds: [fleetB], startTime: '11:10:00' },
+          { id: uuid(), raceId, fleetIds: [fleetB], startTime: '11:15:00' },
+        ],
+      }),
+    ).rejects.toBeInstanceOf(BadRequestError);
+    expect(await raceStarts.listRaceStarts(ctxA, raceId)).toHaveLength(1);
+
+    // Moving a fleet between starts in one write is not an overlap, and
+    // re-saving a start with its own fleets isn't either.
+    await raceStarts.bulkPutRaceStarts(ctxA, raceId, {
+      starts: [
+        { id: first, raceId, fleetIds: [], startTime: '11:00:00' },
+        { id: second, raceId, fleetIds: [fleetA], startTime: '11:05:00' },
+      ],
+    });
+    await raceStarts.putRaceStart(ctxA, raceId, second, {
+      id: second, raceId, fleetIds: [fleetA, fleetB], startTime: '11:05:00',
+    });
+
+    // The race generator checks each new race's starts.
+    const newRace = uuid();
+    await expect(
+      races.generateRaces(ctxA, seriesId, {
+        races: [{ id: newRace, seriesId, raceNumber: 2, date: '2026-04-02', createdAt: Date.now() }],
+        starts: [
+          { id: uuid(), raceId: newRace, fleetIds: [fleetA] },
+          { id: uuid(), raceId: newRace, fleetIds: [fleetA, fleetB] },
+        ],
+      }),
+    ).rejects.toThrow('Fleet "IRC 1" is already in another start of the same race');
+    expect(await races.listRaces(ctxA, seriesId)).toHaveLength(1);
 
     await removeSeries(ctxA, seriesId);
   });
@@ -1189,7 +1260,7 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
     await raceStarts.bulkPutRaceStarts(ctxA, raceId, {
       starts: [
         { id: uuid(), raceId, fleetIds: [fleetId], startTime: '11:00:00' },
-        { id: uuid(), raceId, fleetIds: [fleetId], startTime: '11:05:00' },
+        { id: uuid(), raceId, fleetIds: [], startTime: '11:05:00' },
       ],
     });
     expect(await raceStarts.listRaceStarts(ctxA, raceId)).toHaveLength(2);

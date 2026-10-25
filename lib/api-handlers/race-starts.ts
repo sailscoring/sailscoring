@@ -1,11 +1,12 @@
 import 'server-only';
 import { eq } from 'drizzle-orm';
 
-import { NotFoundError } from '@/app/api/v1/_lib/handler';
+import { BadRequestError, NotFoundError } from '@/app/api/v1/_lib/handler';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
 import { getDb } from '@/lib/db/client';
 import * as schema from '@/lib/db/schema';
 import { createRepos } from '@/lib/postgres-repository';
+import { findFleetOverlap } from '@/lib/race-start-fleets';
 import { trackChange } from '@/lib/revision-log';
 import {
   assertRaceStartWritable,
@@ -24,6 +25,32 @@ async function assertRaceInWorkspace(
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   const race = await repos.races.get(raceId);
   if (!race) throw new NotFoundError('race');
+}
+
+/**
+ * Refuse a write that would put a fleet in two starts of one race. The
+ * race's saved starts are what `incoming` is checked against, unless the
+ * caller says what they are: the race generator's races are new, so it
+ * passes none, with the series to name the fleet from.
+ */
+export async function assertFleetsStartOnce(
+  repos: ReturnType<typeof createRepos>,
+  raceId: string,
+  incoming: readonly RaceStart[],
+  opts?: { stored: readonly RaceStart[]; seriesId: string },
+): Promise<void> {
+  const stored = opts?.stored ?? (await repos.raceStarts.listByRace(raceId));
+  const overlap = findFleetOverlap(stored, incoming);
+  if (!overlap) return;
+  const race = await repos.races.get(raceId);
+  const seriesId = opts?.seriesId ?? race?.seriesId;
+  const fleets = seriesId ? await repos.fleets.listBySeries(seriesId) : [];
+  const name = fleets.find((f) => f.id === overlap.fleetId)?.name ?? overlap.fleetId;
+  const where = race ? `Race ${race.raceNumber}` : 'the same race';
+  const which = overlap.first.startTime ? ` (the ${overlap.first.startTime} start)` : '';
+  throw new BadRequestError(
+    `Fleet "${name}" is already in another start of ${where}${which}. A fleet starts once per race.`,
+  );
 }
 
 /** Record a start-config change (#166) against the race's series. */
@@ -78,6 +105,7 @@ export async function putRaceStart(
   if (id !== pathStartId) throw new NotFoundError('race start id mismatch');
   if (input.raceId !== raceId) throw new NotFoundError('race start race mismatch');
   const repos = createRepos({ workspaceId: workspace.workspaceId });
+  await assertFleetsStartOnce(repos, raceId, [{ ...input, id }]);
   const saved = await repos.raceStarts.save(
     { ...input, id },
     { expectedVersion: opts?.expectedVersion, updatedBy: workspace.userId },
@@ -154,6 +182,7 @@ export async function bulkPutRaceStarts(
     id: s.id ?? crypto.randomUUID(),
   }));
   const repos = createRepos({ workspaceId: workspace.workspaceId });
+  await assertFleetsStartOnce(repos, raceId, starts);
   await repos.raceStarts.saveMany(starts, { updatedBy: workspace.userId });
   await trackStartChange(workspace, repos, raceId);
   return { count: starts.length };
