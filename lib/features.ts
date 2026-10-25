@@ -391,6 +391,18 @@ export const FEATURES = {
     label: 'Proportional discards',
     helpSectionIds: [],
   },
+  'connected-apps': {
+    // Outside apps acting for a workspace's members (ADR-016): a member can
+    // grant an app access to this workspace through the OAuth consent flow
+    // only while this is on. Without it the workspace is not offered at
+    // consent, and no app can be granted it. Operator-managed: we choose the
+    // workspaces outside apps reach while the authenticated public API is a
+    // preview. Turning it off cuts every app off from the workspace at once;
+    // their grants come back into force if it's turned on again.
+    label: 'Connected apps',
+    helpSectionIds: ['connected-apps'],
+    selfService: false,
+  },
 } as const satisfies Record<string, FeatureDef>;
 
 export type FeatureKey = keyof typeof FEATURES;

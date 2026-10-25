@@ -9,6 +9,7 @@ import { eq } from 'drizzle-orm';
 import { recordActivity } from '@/lib/activity-log';
 import { sendInvitationEmail, sendMagicLinkEmail } from '@/lib/auth/email';
 import { membershipActivity } from '@/lib/auth/membership-activity';
+import { ACCESS_TOKEN_PREFIX, oauthPlugins } from '@/lib/auth/oauth';
 import { orgAccessControl, orgRoles } from '@/lib/auth/org-roles';
 import { isPersonalWorkspaceSlug } from '@/lib/features';
 import { getDb, type SailScoringDb } from '@/lib/db/client';
@@ -265,9 +266,14 @@ export const auth = betterAuth({
         const header = ctx.headers?.get('authorization') ?? null;
         if (!header) return null;
         const match = /^Bearer\s+(.+)$/i.exec(header);
-        return match ? match[1].trim() : null;
+        if (!match) return null;
+        const token = match[1].trim();
+        // An OAuth access token (ADR-016) is not a key; the route wrappers
+        // resolve it themselves.
+        return token.startsWith(ACCESS_TOKEN_PREFIX) ? null : token;
       },
     }),
+    ...oauthPlugins(),
   ],
   databaseHooks: {
     user: {
