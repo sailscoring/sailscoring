@@ -242,7 +242,7 @@ overrides; the standings carry their effect.
 | GET | `/series/{id}/races/{raceId}` | A race, with its starts | `read` |
 | GET | `/races/{raceId}/finishes` | Finishes | `read` |
 | GET | `/series/{id}/publish` | The series' publication | `read` |
-| GET | `/published` | Every publication in the workspace | `read` |
+| GET | `/publications` | Every publication in the workspace, each linking its `/publications/{id}` | `read` |
 
 **Writes:**
 

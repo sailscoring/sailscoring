@@ -1,6 +1,15 @@
 # ADR-015: The published results API
 
-**Status:** Accepted (2026-10-24)
+**Status:** Accepted (2026-10-24); amended by [ADR-016](016-authenticated-public-api.md)
+(2026-10-25)
+
+> **Amended by ADR-016.** `/api/public/v1` is now one public API in two parts.
+> This API is the part that needs no sign-in; beside it, authenticated calls
+> let an app act in a workspace for a signed-in user. The two share one
+> OpenAPI description, one version, and one error envelope: errors here now
+> answer with a stable code (`not-found`, or `invalid` with a message)
+> rather than `{ "error": "not found" }`. The per-IP rate-limit rule is
+> narrowed to `/api/public/v1/publications/`.
 
 **Date:** 2026-10-14
 
