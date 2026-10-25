@@ -154,6 +154,7 @@ export const HELP_GROUPS: HelpGroupDef[] = [
     sections: [
       { id: 'collaboration', title: 'Working with co-scorers', keywords: ['co-scorer', 'invite', 'workspace', 'share', 'panel', 'permissions', 'roles', 'team'] },
       { id: 'workspace-activity', title: 'The workspace activity log', keywords: ['audit', 'who changed', 'log', 'history of edits'] },
+      { id: 'connected-apps', title: 'Connecting an app', feature: 'connected-apps', keywords: ['app', 'integration', 'oauth', 'connect', 'disconnect', 'third party', 'course plotter', 'race-day app', 'authorise'] },
       { id: 'searching-help', title: 'Finding the right section', keywords: ['search', 'find', 'lookup', 'keyword', 'index', 'where is'] },
       { id: 'reading-help', title: 'Reading help beside your work', keywords: ['help panel', 'side by side', 'manual', 'documentation', 'search help'] },
       { id: 'sending-feedback', title: 'Sending feedback', keywords: ['bug', 'report', 'contact', 'suggestion', 'support'] },
@@ -165,8 +166,8 @@ export const HELP_GROUPS: HelpGroupDef[] = [
     label: 'For the technical',
     blurb: 'The API and command-line tool behind the app.',
     sections: [
-      { id: 'rest-api', title: 'The REST API', keywords: ['api', 'rest', 'token', 'integration', 'http'] },
-      { id: 'cli', title: 'The sailscoring CLI', keywords: ['command line', 'terminal', 'script', 'automation', 'npm'] },
+      { id: 'rest-api', title: 'The REST API', keywords: ['api', 'rest', 'token', 'integration', 'http', 'public api', 'openapi', 'oauth'] },
+      { id: 'cli', title: 'The sailscoring CLI', keywords: ['command line', 'terminal', 'script', 'automation', 'npm', 'login', 'device code'] },
     ],
   },
 ];
@@ -227,6 +228,9 @@ export function visibleGroups(features: readonly FeatureKey[]): HelpGroupDef[] {
 const SECTION_FOR_ROUTE: Record<string, string> = {
   '/': 'organising-series',
   '/account': 'signing-in',
+  '/device': 'cli',
+  '/oauth/consent': 'connected-apps',
+  '/oauth/workspace': 'connected-apps',
   '/import': 'json-export',
   '/series/new': 'creating-a-series',
   '/series/import-sailwave': 'sailwave-import',

@@ -111,6 +111,36 @@ export default function Collaboration() {
           page to open it.
         </p>
       </Section>
+      {has('connected-apps') && (
+        <Section id="connected-apps" title="Connecting an app">
+          <HelpShot
+            src="/help/shots/connected-apps.webp"
+            alt="Connecting an app: what tradboats.ie/course is asking to do in My Workspace, with Allow and Deny."
+            caption="Connecting an app: what it asks to do, in the workspace you chose, before you allow it."
+          />
+          <p>
+            An app built by someone else, such as a course-plotting page that sets each start’s
+            course or a race-day app, can work in Sail Scoring as you once you connect it. Start
+            from the app: it sends you to Sail Scoring, where you sign in if you aren’t already,
+            choose which workspace it may work in, and see what it’s asking to do (read your series,
+            set up races and their starts and courses, publish results). Allow it, and you’re sent
+            back to the app.
+          </p>
+          <p>
+            An app reaches only the workspace you chose, and can never do more than your own role
+            there allows: if you can only read a workspace, so can the app. What it changes is
+            recorded in the activity log as yours, made through the app (“Pat Tanner via
+            tradboats.ie/course”). To use an app in two workspaces, connect it to each.
+          </p>
+          <p>
+            Your <strong className="text-foreground">account page</strong> lists every app you’ve
+            connected, under <strong className="text-foreground">Connected apps</strong>.{' '}
+            <strong className="text-foreground">Disconnect</strong> takes an app’s access back
+            straight away. Only workspaces with connected apps switched on can be chosen; to ask
+            for yours, contact <a href="mailto:mark@hyc.ie" className="underline">mark@hyc.ie</a>.
+          </p>
+        </Section>
+      )}
       <Section id="searching-help" title="Finding the right section">
         <HelpShot
           src="/help/shots/help-search.webp"

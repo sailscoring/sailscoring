@@ -53,6 +53,7 @@
  * the run continues and reports which shots need attention.
  */
 
+import { createHash, randomBytes } from 'node:crypto';
 import { mkdir, access, readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 
@@ -2114,6 +2115,33 @@ const SHOTS: Shot[] = [
     },
   },
   {
+    // Inventory: Connected apps — the consent page an outside app's user
+    // sees: the app, the workspace chosen a step before, and what it may do.
+    // Local mode only: the gate is operator-managed and the app is
+    // registered straight into the database.
+    slug: 'connected-apps',
+    group: 'Collaboration and accounts',
+    async capture({ page, shot }) {
+      await dbEnableOperatorFeature('connected-apps');
+      const clientId = await dbRegisterOAuthApp('tradboats.ie/course', 'https://tradboats.ie/course');
+      const query = new URLSearchParams({
+        response_type: 'code',
+        client_id: clientId,
+        redirect_uri: 'http://127.0.0.1:9999/callback',
+        scope: 'read races offline_access',
+        state: 'shot',
+        code_challenge: createHash('sha256').update(randomBytes(32).toString('base64url')).digest('base64url'),
+        code_challenge_method: 'S256',
+      });
+      await page.goto(`${BASE}/api/auth/oauth2/authorize?${query}`);
+      await page.getByTestId('oauth-workspace').waitFor();
+      await page.getByRole('button', { name: 'Continue' }).click();
+      await page.getByTestId('oauth-consent').waitFor();
+      await settle(page);
+      await shot('connected-apps.png');
+    },
+  },
+  {
     // Inventory: Elapsed-time recording — a finish sheet kept on a stopwatch.
     //
     // Builds its own race rather than borrowing one: the recording mode locks
@@ -2246,6 +2274,39 @@ async function dbEnableOperatorFeature(key: FeatureKey): Promise<void> {
     await sql.end();
   }
   enabledGates.add(key);
+}
+
+/** Register an outside app straight into `oauth_client`, as the operator's
+ *  `oauth-client create` would through the provider, with a loopback
+ *  redirect the capture never follows. Local mode only. */
+async function dbRegisterOAuthApp(name: string, uri: string): Promise<string> {
+  if (!LOCAL) throw new Error('dbRegisterOAuthApp is local-mode prep only');
+  const url = process.env.DATABASE_URL;
+  if (!url) throw new Error('DATABASE_URL not set — run via pnpm feature-shots:local');
+  const sql = postgres(url, { max: 1 });
+  const clientId = randomBytes(16).toString('hex');
+  try {
+    const db = drizzle(sql, { schema });
+    const now = new Date();
+    await db.insert(schema.oauthClient).values({
+      id: `oac_${randomBytes(16).toString('hex')}`,
+      clientId,
+      name,
+      uri,
+      redirectUris: ['http://127.0.0.1:9999/callback'],
+      scopes: ['read', 'races', 'publish', 'offline_access'],
+      grantTypes: ['authorization_code', 'refresh_token'],
+      responseTypes: ['code'],
+      tokenEndpointAuthMethod: 'none',
+      applicationType: 'native',
+      metadata: JSON.stringify({ firstParty: false }),
+      createdAt: now,
+      updatedAt: now,
+    });
+  } finally {
+    await sql.end();
+  }
+  return clientId;
 }
 
 /** Set a championship's words at the database. The app settles them once a
