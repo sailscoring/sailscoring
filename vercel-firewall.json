@@ -41,7 +41,7 @@
     },
     {
       "name": "Bypass: OAuth endpoints apps and the CLI call",
-      "description": "ADR-016: the token, revocation and device-code endpoints, the discovery document, and the CLI's client-id lookup are called by app servers and `sailscoring auth login`, which cannot answer Bot Protection's JavaScript challenge. The pages a person signs in and approves on stay protected.",
+      "description": "ADR-016: the token, revoke and device-code endpoints, OAuth discovery and the CLI's client-id lookup, called by app servers and `sailscoring auth login`, which can't answer Bot Protection's challenge.",
       "active": true,
       "conditionGroup": [
         { "conditions": [{ "type": "path", "op": "eq", "value": "/api/auth/oauth2/token" }] },
@@ -108,7 +108,7 @@
     },
     {
       "name": "Rate limit: published results API",
-      "description": "Off until usage shows abuse (ADR-015, section 7): the WAF meters every request a rate-limit rule inspects, cached ones included. Generous when on, as a clubhouse's phones share one address. Ahead of the API's bypass, which would end evaluation first. The publications part only: the authenticated calls beside it have per-grant limits (ADR-016).",
+      "description": "Off until usage shows abuse (ADR-015 §7): the WAF meters every request a rate-limit rule inspects, cached ones too. Generous when on: a clubhouse's phones share one address. Before the bypass, which ends evaluation. Publications only.",
       "active": false,
       "conditionGroup": [
         {
