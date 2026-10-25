@@ -82,6 +82,10 @@ export interface WorkspaceContext {
    *  active workspace's own features, plus — for a personal workspace — the
    *  features of every club the user belongs to. */
   features: FeatureKey[];
+  /** The outside app making this request for the user (ADR-016), when it
+   *  came with an app's OAuth access token: credited alongside the user in
+   *  the activity log. Absent for the app, the CLI and API keys. */
+  via?: { clientId: string; name: string };
 }
 
 /**
