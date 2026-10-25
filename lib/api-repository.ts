@@ -45,6 +45,7 @@ import type {
   Category,
   Competitor,
   DeletedSeriesEntry,
+  ConnectedApp,
   OrgRequest,
   Finish,
   Fleet,
@@ -1562,6 +1563,17 @@ export async function getMyOrgRequest(): Promise<OrgRequest | null> {
     '/api/v1/org-requests',
   );
   return request;
+}
+
+/** The signed-in user's connected apps (ADR-016), and whether they could
+ *  connect one at all. */
+export function getConnectedApps(): Promise<{ apps: ConnectedApp[]; canConnect: boolean }> {
+  return apiFetch('/api/v1/connected-apps');
+}
+
+/** Take back an app's access to a workspace, or the CLI's (`workspaceId` null). */
+export async function disconnectConnectedApp(input: { clientId: string; workspaceId: string | null }): Promise<void> {
+  await apiFetch('/api/v1/connected-apps', { method: 'DELETE', body: input });
 }
 
 /** Submit a request for a shared workspace; the project owner provisions it. */

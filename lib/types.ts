@@ -1772,6 +1772,23 @@ export interface RaceScoringGap {
  * Defined here so the server query (`lib/activity-log.ts`) and the client
  * mirror (`lib/api-repository.ts`) share one definition.
  */
+/**
+ * An app the user has let act for them (ADR-016), as their account page's
+ * Connected apps card lists it: one per workspace an outside app was granted,
+ * or the CLI, which reaches every workspace (`workspaceId` null).
+ */
+export interface ConnectedApp {
+  clientId: string;
+  name: string;
+  uri: string | null;
+  firstParty: boolean;
+  workspaceId: string | null;
+  workspaceName: string | null;
+  scopes: string[];
+  /** ISO-8601: when the grant was first given. */
+  connectedAt: string;
+}
+
 export interface ActivityEntry {
   id: string;
   seriesId: string | null;

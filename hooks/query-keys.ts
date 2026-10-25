@@ -121,6 +121,9 @@ export const queryKeys = {
   orgRequest: {
     mine: () => ['orgRequest', 'mine'] as const,
   },
+  connectedApps: {
+    mine: () => ['connectedApps', 'mine'] as const,
+  },
   irishSailingRatings: {
     all: ['irishSailingRatings'] as const,
   },

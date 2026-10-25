@@ -72,6 +72,16 @@ test.describe('connecting an app', () => {
     });
     expect(token.status()).toBe(200);
     expect((await token.json()).access_token).toMatch(/^ssat_/);
+
+    // The account page lists it, and takes it back.
+    await page.unroute(`${REDIRECT}**`);
+    await page.goto('/account');
+    const app = page.getByTestId('connected-app');
+    await expect(app).toContainText('Course plotter');
+    await expect(app).toContainText('My Workspace');
+    await app.getByRole('button', { name: 'Disconnect' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Disconnect' }).click();
+    await expect(page.getByTestId('connected-apps-empty')).toBeVisible();
   });
 
   test('a workspace without connected apps is not offered', async ({ page }) => {

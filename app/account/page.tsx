@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm';
 import { requireSession } from '@/lib/auth/require-session';
 import { getDb } from '@/lib/db/client';
 import { member, organization } from '@/lib/db/schema/auth';
+import { ConnectedAppsCard } from '@/components/account/connected-apps-card';
 import { OrgRequestCard } from '@/components/account/org-request-card';
 import { AccountNameField } from '@/components/account/account-name-field';
 
@@ -67,6 +68,7 @@ export default async function AccountPage() {
       </dl>
 
       <OrgRequestCard />
+      <ConnectedAppsCard />
     </section>
   );
 }
