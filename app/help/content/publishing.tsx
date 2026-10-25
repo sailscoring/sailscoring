@@ -227,6 +227,11 @@ export default function Publishing() {
         )}
       </Section>
       <Section id="public-directory" title="The public directory">
+        <HelpShot
+          src="/help/shots/public-directory.webp"
+          alt="The public directory: recently published results over a card for each club."
+          caption="The directory: the most recent results, then a card for each club."
+        />
         <p>
           {/* A route handler, not a page: <Link> would try a client-side render. */}
           {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}

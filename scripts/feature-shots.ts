@@ -38,6 +38,9 @@
  *   npx playwright codegen --save-storage=scripts/.auth/app.json \
  *     https://app.sailscoring.ie/sign-in
  *
+ * A run whose shots are all marked `signedOut` (public pages only, such as
+ * `public-directory`) skips the session and the workspace switch.
+ *
  * ── READ-ONLY AGAINST PRODUCTION ───────────────────────────────────────────
  * In production mode, captures may open dialogs, menus, and dropdowns, and
  * may type into a dialog to make it show a preview — but must NEVER commit
@@ -125,6 +128,9 @@ interface Shot {
   slug: string;
   /** Inventory group, for the run report. */
   group: string;
+  /** Uses only the anonymous context. A production run made up entirely of
+   *  such shots needs no saved session, so it can run from any machine. */
+  signedOut?: boolean;
   capture(ctx: ShotContext): Promise<void>;
 }
 
@@ -1282,6 +1288,7 @@ const SHOTS: Shot[] = [
     // run is the one to keep.
     slug: 'public-directory',
     group: 'Publishing',
+    signedOut: true,
     async capture({ anon, shot }) {
       const dir = await anon.newPage();
       await dir.goto(`${BASE}/p`);
@@ -2550,8 +2557,9 @@ async function main() {
     process.exit(1);
   }
   const toRun = requested.length ? SHOTS.filter((s) => requested.includes(s.slug)) : SHOTS;
+  const signedOut = !LOCAL && toRun.every((s) => s.signedOut);
 
-  if (!LOCAL && !(await exists(AUTH_STATE))) {
+  if (!LOCAL && !signedOut && !(await exists(AUTH_STATE))) {
     console.error(
       `No session at ${AUTH_STATE}.\n` +
         `Create one:  npx playwright codegen --save-storage=${AUTH_STATE} ${BASE}/sign-in`,
@@ -2570,7 +2578,7 @@ async function main() {
   const failures: Array<[string, string]> = [];
   try {
     const ctx = await browser.newContext({
-      ...(LOCAL ? {} : { storageState: AUTH_STATE }),
+      ...(LOCAL || signedOut ? {} : { storageState: AUTH_STATE }),
       viewport: VIEWPORT,
       deviceScaleFactor: SCALE,
     });
@@ -2580,6 +2588,8 @@ async function main() {
     if (LOCAL) {
       console.log('\nSigning in a fresh local user (seeded sample series)');
       await signInLocalUser(page);
+    } else if (signedOut) {
+      console.log('\nSigned-out shots only: no session needed');
     } else {
       console.log(`\nSwitching workspace → "${WORKSPACE_NAME}"`);
       await switchWorkspace(page, WORKSPACE_NAME);
