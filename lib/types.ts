@@ -1781,6 +1781,8 @@ export interface ActivityEntry {
   count: number;
   /** ISO-8601 timestamp of the (most recent) occurrence. */
   createdAt: string;
+  /** The outside app the actor made the change through (ADR-016). */
+  via?: { clientId: string; name: string };
   actor: { id: string; email?: string; displayName?: string } | null;
   /** The revision whose snapshot covers this change (#354), or null when no
    *  revision captured it — a workspace-organisation action that stores no

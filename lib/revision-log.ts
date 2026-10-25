@@ -75,6 +75,8 @@ type RevisionKind = 'auto' | 'named' | 'revert' | 'publish' | 'saved';
 interface Actor {
   workspaceId: string;
   userId: string;
+  /** The outside app the user acted through (ADR-016). */
+  via?: { clientId: string; name: string };
 }
 
 interface CaptureOpts {

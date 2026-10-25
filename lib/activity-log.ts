@@ -47,6 +47,8 @@ export interface RecordActivityInput {
 interface Actor {
   workspaceId: string;
   userId: string;
+  /** The outside app the user acted through (ADR-016), credited beside them. */
+  via?: { clientId: string; name: string };
 }
 
 function countOf(metadata: unknown): number {
@@ -79,8 +81,12 @@ export async function recordActivity(
 ): Promise<string | null> {
   try {
     const db = getDb();
+    // What the user did through an app folds only with what they did through
+    // the same app, so the credit stays true.
+    const dedupeKey = input.dedupeKey && actor.via ? `${input.dedupeKey}@${actor.via.clientId}` : input.dedupeKey;
+    const via = actor.via ? { via: actor.via } : {};
 
-    if (input.dedupeKey) {
+    if (dedupeKey) {
       const cutoff = new Date(Date.now() - COALESCE_WINDOW_MS);
       const [recent] = await db
         .select({ id: activityLog.id, metadata: activityLog.metadata })
@@ -88,7 +94,7 @@ export async function recordActivity(
         .where(
           and(
             eq(activityLog.workspaceId, actor.workspaceId),
-            eq(activityLog.dedupeKey, input.dedupeKey),
+            eq(activityLog.dedupeKey, dedupeKey),
             eq(activityLog.actorUserId, actor.userId),
             gt(activityLog.createdAt, cutoff),
           ),
@@ -101,7 +107,7 @@ export async function recordActivity(
           .update(activityLog)
           .set({
             summary: input.summary,
-            metadata: { ...(input.metadata ?? {}), count: countOf(recent.metadata) + 1 },
+            metadata: { ...(input.metadata ?? {}), ...via, count: countOf(recent.metadata) + 1 },
             createdAt: new Date(),
           })
           .where(eq(activityLog.id, recent.id));
@@ -117,14 +123,22 @@ export async function recordActivity(
       actorUserId: actor.userId,
       action: input.action,
       summary: input.summary,
-      dedupeKey: input.dedupeKey ?? null,
-      metadata: { ...(input.metadata ?? {}), count: 1 },
+      dedupeKey: dedupeKey ?? null,
+      metadata: { ...(input.metadata ?? {}), ...via, count: 1 },
     });
     return id;
   } catch (err) {
     console.error('recordActivity failed (non-fatal):', err);
     return null;
   }
+}
+
+/** The app an entry credits, where its metadata records one. */
+function viaOf(metadata: unknown): { via?: { clientId: string; name: string } } {
+  const via = (metadata as { via?: unknown } | null)?.via as { clientId?: unknown; name?: unknown } | undefined;
+  return via && typeof via.clientId === 'string' && typeof via.name === 'string'
+    ? { via: { clientId: via.clientId, name: via.name } }
+    : {};
 }
 
 function toEntry(row: {
@@ -147,6 +161,7 @@ function toEntry(row: {
     count: countOf(row.metadata),
     createdAt: row.createdAt.toISOString(),
     revisionId: row.revisionId,
+    ...viaOf(row.metadata),
     actor: row.actorId
       ? {
           id: row.actorId,

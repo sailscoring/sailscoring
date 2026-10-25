@@ -38,7 +38,8 @@ export function ActivityEntryRow({
             {entry.count > 1 && <span className="ml-1">×{entry.count}</span>}
           </p>
           <p className="text-xs text-muted-foreground">
-            {actorLabel(entry.actor)} · {formatRelativeTime(entry.createdAt)}
+            {actorLabel(entry.actor)}
+            {entry.via && <> via {entry.via.name}</>} · {formatRelativeTime(entry.createdAt)}
             {series && (
               <>
                 {' · '}

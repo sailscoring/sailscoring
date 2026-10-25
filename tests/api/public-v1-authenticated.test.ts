@@ -19,6 +19,7 @@ import * as finishes from '@/lib/api-handlers/finishes';
 import * as fleets from '@/lib/api-handlers/fleets';
 import * as series from '@/lib/api-handlers/series';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
+import { listActivity } from '@/lib/activity-log';
 import { getDb } from '@/lib/db/client';
 import * as schema from '@/lib/db/schema';
 import { addMember, createOrg } from '@/scripts/provision-org';
@@ -287,6 +288,18 @@ describe.skipIf(!DATABASE_URL)('the public API, authenticated part', () => {
       token, method: 'DELETE', params: { raceId, startId: s2 },
     });
     expect(gone.status).toBe(404);
+  });
+
+  test('what an app does is credited to the person and the app', async () => {
+    const { items } = await listActivity({ workspaceId: user.personalWorkspaceId, seriesId, page: { limit: 50 } });
+    const throughApp = items.filter((e) => e.via);
+    expect(throughApp.length).toBeGreaterThan(0);
+    expect(throughApp[0]).toMatchObject({
+      actor: { id: user.userId },
+      via: { clientId: appId, name: expect.stringMatching(/^Test app/) },
+    });
+    // What the user did in the app itself (setting up the fleets) isn't.
+    expect(items.filter((e) => !e.via).length).toBeGreaterThan(0);
   });
 
   test('finishes, in finishing order', async () => {
