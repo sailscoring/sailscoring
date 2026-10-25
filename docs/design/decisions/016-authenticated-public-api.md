@@ -287,9 +287,16 @@ Three ways in, each for one kind of caller:
 | Automation we run (the archive repos' CI) | An API key, issued by Mark | On `/api/v1` only, on an account made for it, with a narrow role such as `archivist` |
 
 - **No accounts are made for outside apps.** Their users connect their own.
-- **Grants name their workspaces.** At consent the user chooses which of
-  their workspaces the app may act in. The header names one of them; any
-  other is refused.
+- **A grant names one workspace.** After signing in, the user chooses which
+  of their workspaces the app may act in (the provider's post-login step),
+  and the consent and every token issued under it carry that workspace. An
+  app that should reach two workspaces is connected to each. The header may
+  name the grant's workspace, or be left out; any other workspace is
+  refused.
+- **Only workspaces with the `connected-apps` gate on can be granted**, and
+  the gate is checked on every call, so turning it off cuts every app off
+  from the workspace at once. It's operator-managed while the authenticated
+  part is a preview.
 - **What a call may do is the user's role in that workspace, limited to the
   granted scopes.** The scopes start coarse:
 
@@ -308,12 +315,14 @@ Three ways in, each for one kind of caller:
 - **A "Connected apps" card on `/account`** lists each grant and revokes it.
 - **The authenticated part accepts only OAuth access tokens**: never the
   session cookie, and never an API key. Each token resolves to a user, an
-  app, scopes and workspaces. Without cookies it can answer cross-origin
+  app, scopes and a workspace. Without cookies it can answer cross-origin
   requests from any origin, for `Authorization`, `x-sailscoring-workspace`,
   `Idempotency-Key` and `If-Match`, so a browser-only app can call it.
-- **`/api/v1` accepts OAuth access tokens as well**, for the CLI's device
-  sign-in, alongside the session cookie (the app) and API keys (our
-  automation).
+- **`/api/v1` accepts OAuth access tokens as well, from the CLI only**, for
+  its device sign-in, alongside the session cookie (the app) and API keys
+  (our automation). The CLI's tokens carry no workspace: they act wherever
+  their user is a member, chosen per call by the header, as a key does. An
+  outside app's token is refused there.
 - **Rate limits are per grant**, documented, and for the CLI's grant high
   enough for its bulk imports.
 
@@ -321,11 +330,30 @@ Personal API keys go no further: the device grant replaces them for people
 using the CLI, so ADR-009's self-service key card (its M5) is no longer
 needed. API keys remain only for automation we run, and only on `/api/v1`.
 
-**The first step is a spike** proving the plugin in our setup: Next 16, the
-Drizzle adapter, magic-link sign-in as its login page, alongside the
-organization and api-key plugins; whether access tokens are JWTs or opaque;
-and token lifetimes that cover an offline race day. The rest of this section
-assumes it succeeds.
+**The spike** (in #700) proved the plugin in our setup, with these
+findings:
+
+- **Tokens are opaque**, looked up on each call, so revoking a grant or
+  disabling an app stops it at once; a JWT can't be revoked. Access tokens
+  carry an `ssat_` prefix and refresh tokens `ssrt_`, which keeps the
+  api-key plugin (which takes any bearer token as a key) from seeing them.
+  Access tokens last an hour and refresh tokens 90 days, longer than an
+  offline race day by far.
+- **An access token is tied to the browser session it was approved in.** The
+  provider checks that session on every call. Signing out of that browser
+  ends the access token, but the app's refresh token gets it a new one that
+  isn't tied to any session, so the app carries on. A session that lapses
+  instead (90 days without using Sail Scoring in that browser) takes the
+  app's access with it, and the app asks again.
+- **Magic-link sign-in needed one change.** The provider resumes the app's
+  request only when the session is created in the same request as the
+  sign-in, which a magic link never does. The sign-in page makes the link's
+  destination the authorization request itself.
+- **The provider lets any signed-in user register apps unless told not to**,
+  so a privileges hook allows client changes only from the operator's
+  registration endpoint, used by `pnpm oauth-client`.
+- **The device grant is refused to every client but our own**, so an
+  outside app can't use it to get a token that reaches every workspace.
 
 ### 5. Stability
 
