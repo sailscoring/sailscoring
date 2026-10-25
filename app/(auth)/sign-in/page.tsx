@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
 import { getOptionalSession } from '@/lib/auth/require-session';
+import { authorizeCallbackFromQuery } from '@/lib/oauth-sign-in';
 import { safeInternalPath, stripAuthErrorParam } from '@/lib/safe-redirect';
 import { Button } from '@/components/ui/button';
 import { SponsorCredit } from '@/components/sponsor-credit';
@@ -45,10 +46,21 @@ function AlreadySignedIn({
 export default async function SignInPage({
   searchParams,
 }: {
-  searchParams: Promise<{ callbackURL?: string; error?: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const { callbackURL, error } = await searchParams;
+  const params = await searchParams;
+  const callbackURL = typeof params.callbackURL === 'string' ? params.callbackURL : undefined;
+  const error = typeof params.error === 'string' ? params.error : undefined;
   const session = await getOptionalSession();
+
+  // An app's authorization request that found no session: once signed in,
+  // the request carries on where it was.
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    for (const v of Array.isArray(value) ? value : value === undefined ? [] : [value]) query.append(key, v);
+  }
+  const authorize = authorizeCallbackFromQuery(query);
+  if (session && authorize) redirect(authorize);
 
   if (session) {
     // `safeInternalPath` first — a `callbackURL` reaching us as an absolute

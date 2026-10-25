@@ -4,6 +4,7 @@ import { useState, type FormEvent } from 'react';
 import { useSearchParams } from 'next/navigation';
 
 import { authClient } from '@/lib/auth-client';
+import { authorizeCallbackFromQuery } from '@/lib/oauth-sign-in';
 import { RATE_LIMITED_ERROR } from '@/lib/auth/verify-rate-limit';
 import { encodeNextPath, stripAuthErrorParam } from '@/lib/safe-redirect';
 import { Button } from '@/components/ui/button';
@@ -15,7 +16,10 @@ export function SignInForm() {
   // Strip a stale `?error=…` from the forwarded destination: sign-in
   // URLs minted before the auth-guard started stripping it (bookmarks,
   // long-lived tabs) still carry one.
-  const callbackURL = stripAuthErrorParam(searchParams.get('callbackURL') ?? '/');
+  // Signing in to grant an app access returns to the authorization request.
+  const callbackURL =
+    authorizeCallbackFromQuery(new URLSearchParams(searchParams.toString())) ??
+    stripAuthErrorParam(searchParams.get('callbackURL') ?? '/');
   // A failed verify (expired or already-used link) redirects here with
   // ?error=<code> — see the errorCallbackURL passed below.
   const errorCode = searchParams.get('error');

@@ -1224,3 +1224,41 @@ export async function seedAsPublishedRanking(
     await close();
   }
 }
+
+/**
+ * Register an OAuth app straight into `oauth_client` (ADR-016), as
+ * `pnpm oauth-client` would through the provider: a public outside app with
+ * a loopback redirect, or the first-party CLI for the device grant. Returns
+ * the client id.
+ */
+export async function registerOAuthClient(
+  kind: 'app' | 'cli',
+  redirectUri = 'http://127.0.0.1:9999/callback',
+): Promise<string> {
+  const clientId = crypto.randomUUID().replace(/-/g, '');
+  const now = new Date();
+  const { db, close } = adminDb();
+  try {
+    await db.insert(schema.oauthClient).values({
+      id: randomId('oac'),
+      clientId,
+      name: kind === 'cli' ? 'Sail Scoring CLI' : 'Course plotter',
+      redirectUris: kind === 'cli' ? [] : [redirectUri],
+      scopes: ['read', 'races', 'publish', 'offline_access'],
+      grantTypes:
+        kind === 'cli'
+          ? ['urn:ietf:params:oauth:grant-type:device_code', 'refresh_token']
+          : ['authorization_code', 'refresh_token'],
+      responseTypes: kind === 'cli' ? [] : ['code'],
+      tokenEndpointAuthMethod: 'none',
+      applicationType: 'native',
+      skipConsent: kind === 'cli',
+      metadata: JSON.stringify({ firstParty: kind === 'cli' }),
+      createdAt: now,
+      updatedAt: now,
+    });
+  } finally {
+    await close();
+  }
+  return clientId;
+}

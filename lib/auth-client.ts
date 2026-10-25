@@ -3,6 +3,10 @@
 import { createAuthClient } from 'better-auth/client';
 import { magicLinkClient } from 'better-auth/client/plugins';
 import { organizationClient } from 'better-auth/client/plugins';
+import {
+  oauthDeviceAuthorizationClient,
+  oauthProviderClient,
+} from '@better-auth/oauth-provider/client';
 
 import { orgAccessControl, orgRoles } from '@/lib/auth/org-roles';
 
@@ -16,6 +20,10 @@ export const authClient = createAuthClient({
   plugins: [
     magicLinkClient(),
     organizationClient({ ac: orgAccessControl, roles: orgRoles }),
+    // Carries a signed authorization request from the address bar into the
+    // consent pages' requests (ADR-016), and the CLI's device approval.
+    oauthProviderClient(),
+    oauthDeviceAuthorizationClient(),
   ],
 });
 
