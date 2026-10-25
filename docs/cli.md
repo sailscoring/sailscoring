@@ -32,48 +32,34 @@ sailscoring --help
 The examples below use `sailscoring`; substitute `pnpm cli` if you haven't
 linked.
 
-## Getting a token
-
-The CLI authenticates with a Bearer API key. There is no in-app "API keys"
-UI (that's the M5 milestone, deferred to `docs/design/horizon.md`); mint one
-with the admin script (run by whoever has database access):
+## Signing in
 
 ```sh
-pnpm provision-token create you@example.com --name "laptop" --workspace <slug>
-# prints the key once — copy it immediately, it is stored hashed and
-# cannot be shown again
+sailscoring auth login
 ```
 
-`--workspace` pins a default workspace into the key; the CLI can still target a
-different one per command with `--workspace`. See also `pnpm provision-token
-list <email>` and `pnpm provision-token revoke <key-id>`.
+This prints a page and a code. Open the page in a browser where you're signed
+in to Sail Scoring, check the code matches, and approve it (ADR-016's device
+sign-in). The CLI then acts as you, in every workspace you belong to, and
+renews its access as it goes. The sign-in is saved to
+`~/.config/sailscoring/config.json` (mode 0600); disconnect it from your
+account page's Connected apps card. Point at a non-default deployment with
+`--base-url`, or set `SAILSCORING_BASE_URL`.
 
-**Rate limit.** Keys carry a per-key rate limit (stored on the key, enforced
-per request). The default is deliberately conservative; the bulk-import
-workflow below needs more, so mint the CLI's key with `--admin`:
+### API keys, for automation
+
+Automation with nobody to approve a code (the archive repos' CI) uses an API
+key instead, minted by whoever has database access:
 
 ```sh
 pnpm provision-token create you@example.com --name "cli" --workspace <slug> --admin
 ```
 
-`--admin` is near-unlimited but still trips on a runaway loop. Use
-`--rate-limit-max <n> --rate-limit-window-seconds <n>` for a custom ceiling, or
-`--no-rate-limit` to disable it entirely. A key minted without these gets the
-default — fine for interactive use, but a large `import` batch will exhaust it
-(the API then returns `429`).
-
-Then save it locally:
-
-```sh
-sailscoring auth login --token <paste-the-key>
-# or omit --token to paste it at a prompt
-```
-
-This verifies the token against the deployment and writes it to
-`~/.config/sailscoring/config.json` (mode 0600). Point at a non-default
-deployment with `--base-url https://app.sailscoring.ie` (the default), or set
-`SAILSCORING_BASE_URL` / `SAILSCORING_TOKEN` in the environment (handy for CI —
-they override the saved config).
+`--workspace` pins a default workspace into the key; `--admin` raises its rate
+limit for bulk imports (or `--rate-limit-max <n> --rate-limit-window-seconds
+<n>`, or `--no-rate-limit`). Save it with `sailscoring auth login --token
+<key>` (or `--paste` to paste it at a prompt), or set `SAILSCORING_TOKEN` in the
+environment, which overrides the saved sign-in.
 
 ## Command grammar
 

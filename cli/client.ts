@@ -5,6 +5,8 @@
  * network.
  */
 
+import { readConfig, writeConfig, type OAuthSession } from './config';
+
 export type FetchLike = (
   url: string,
   init: { method: string; headers: Record<string, string>; body?: string },
@@ -16,6 +18,11 @@ export interface ClientOptions {
   /** Default workspace (slug or id) sent as `x-sailscoring-workspace`. */
   workspace?: string;
   fetch?: FetchLike;
+  /** A device sign-in's refresh details (ADR-016): when the access token is
+   *  refused, it's renewed once and the call retried. */
+  oauth?: OAuthSession;
+  /** Where a renewed sign-in goes; by default, the stored config. */
+  onRenew?: (token: string, oauth: OAuthSession) => void;
 }
 
 /** A non-2xx response from the API, carrying the parsed error envelope. */
@@ -32,21 +39,47 @@ export class ApiError extends Error {
 
 export class SailscoringClient {
   private readonly baseUrl: string;
-  private readonly token: string;
+  private token: string;
   private readonly workspace?: string;
   private readonly doFetch: FetchLike;
+  private oauth?: OAuthSession;
+  private readonly onRenew: (token: string, oauth: OAuthSession) => void;
 
   constructor(opts: ClientOptions) {
     this.baseUrl = opts.baseUrl.replace(/\/+$/, '');
     this.token = opts.token;
     this.workspace = opts.workspace;
     this.doFetch = opts.fetch ?? (globalThis.fetch as unknown as FetchLike);
+    this.oauth = opts.oauth;
+    this.onRenew =
+      opts.onRenew ?? ((token, oauth) => writeConfig({ ...readConfig(), baseUrl: this.baseUrl, token, oauth }));
+  }
+
+  /** Renew a device sign-in's access token with its refresh token. */
+  private async renew(): Promise<boolean> {
+    if (!this.oauth) return false;
+    const res = await this.doFetch(`${this.baseUrl}/api/auth/oauth2/token`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type: 'refresh_token',
+        refresh_token: this.oauth.refreshToken,
+        client_id: this.oauth.clientId,
+      }).toString(),
+    });
+    const body = safeJson(await res.text()) as { access_token?: string; refresh_token?: string } | undefined;
+    if (res.status !== 200 || !body?.access_token) return false;
+    this.token = body.access_token;
+    this.oauth = { ...this.oauth, refreshToken: body.refresh_token ?? this.oauth.refreshToken };
+    this.onRenew(this.token, this.oauth);
+    return true;
   }
 
   private async request(
     method: string,
     path: string,
     opts?: { body?: unknown; idempotencyKey?: string },
+    renewed = false,
   ): Promise<unknown> {
     const headers: Record<string, string> = {
       authorization: `Bearer ${this.token}`,
@@ -62,7 +95,14 @@ export class SailscoringClient {
     });
     const raw = await res.text();
     const parsed = raw ? safeJson(raw) : undefined;
+    // An access token lasts an hour; a refused one is renewed once.
+    if (res.status === 401 && !renewed && (await this.renew())) {
+      return this.request(method, path, opts, true);
+    }
     if (res.status < 200 || res.status >= 300) {
+      if (res.status === 401 && this.oauth) {
+        throw new ApiError(401, parsed, 'signed out — run `sailscoring auth login` again');
+      }
       throw new ApiError(res.status, parsed, errorMessage(res.status, parsed));
     }
     return parsed;

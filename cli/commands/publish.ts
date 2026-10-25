@@ -37,6 +37,7 @@ export async function publishCommand(
   const client = new SailscoringClient({
     baseUrl: cfg.baseUrl,
     token: cfg.token,
+    oauth: cfg.oauth,
     workspace: flags.workspace && flags.workspace !== 'true' ? flags.workspace : undefined,
   });
 

@@ -70,9 +70,11 @@ function usage(): string {
   return `sailscoring — ADR-009 CLI (a /api/v1 client)
 
 Auth
-  auth login [--token <token>] [--base-url <url>]
-      Save and verify a Bearer token. Omit --token to paste it at a prompt.
-      Default base URL: ${DEFAULT_BASE_URL}.
+  auth login [--base-url <url>]
+      Sign in: prints a page and a code to approve in your browser, then acts
+      as you. Default base URL: ${DEFAULT_BASE_URL}.
+  auth login --token <key> | --paste
+      Save and verify an API key instead, for automation (--paste prompts).
   whoami
       Show the resolved identity and active workspace (role, features).
 

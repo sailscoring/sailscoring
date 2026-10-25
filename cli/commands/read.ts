@@ -18,6 +18,7 @@ function clientFor(flags: Record<string, string>): SailscoringClient | null {
   return new SailscoringClient({
     baseUrl: cfg.baseUrl,
     token: cfg.token,
+    oauth: cfg.oauth,
     workspace: flags.workspace && flags.workspace !== 'true' ? flags.workspace : undefined,
   });
 }

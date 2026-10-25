@@ -91,6 +91,16 @@ export async function workspaceGrantable(userId: string, workspaceId: string): P
   return (await grantableWorkspaces(userId)).some((w) => w.id === workspaceId);
 }
 
+/** The client id of the CLI this server registered (`oauth-client
+ *  create-cli`), the oldest first-party client still enabled. */
+export async function cliClientId(): Promise<string | null> {
+  const rows = await getDb()
+    .select({ clientId: oauthClient.clientId, metadata: oauthClient.metadata, disabled: oauthClient.disabled })
+    .from(oauthClient)
+    .orderBy(oauthClient.createdAt);
+  return rows.find((r) => !r.disabled && parseClientMetadata(r.metadata).firstParty === true)?.clientId ?? null;
+}
+
 export interface AppDisplay {
   clientId: string;
   name: string;

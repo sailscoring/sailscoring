@@ -5,16 +5,26 @@ import { dirname, join } from 'node:path';
 /**
  * ADR-009 M3 — CLI configuration. The CLI is a pure `/api/v1` client, so it
  * stores only what it needs to reach a deployment: the base URL and a Bearer
- * token. Config lives at `$XDG_CONFIG_HOME/sailscoring/config.json` (falling
+ * token, either an API key or the access token of a device sign-in
+ * (ADR-016), with the refresh token that renews it. Config lives at `$XDG_CONFIG_HOME/sailscoring/config.json` (falling
  * back to `~/.config/...`). Environment variables override the file, so CI and
  * one-off invocations don't have to write it.
  */
 
 export const DEFAULT_BASE_URL = 'https://app.sailscoring.ie';
 
+/** A device sign-in (ADR-016): what renews the access token in `token`. */
+export interface OAuthSession {
+  clientId: string;
+  refreshToken: string;
+}
+
 export interface CliConfig {
   baseUrl: string;
+  /** An API key, or the access token from `auth login`'s device sign-in. */
   token?: string;
+  /** Present when `token` came from a device sign-in, to renew it. */
+  oauth?: OAuthSession;
 }
 
 export function configPath(): string {
@@ -34,6 +44,7 @@ export function readConfig(): CliConfig {
     return {
       baseUrl: parsed.baseUrl?.trim() || DEFAULT_BASE_URL,
       token: parsed.token,
+      ...(parsed.oauth?.clientId && parsed.oauth.refreshToken ? { oauth: parsed.oauth } : {}),
     };
   } catch {
     return { baseUrl: DEFAULT_BASE_URL };
@@ -59,6 +70,9 @@ export function resolveConfig(opts?: { baseUrl?: string }): CliConfig {
     opts?.baseUrl?.trim() ||
     process.env.SAILSCORING_BASE_URL?.trim() ||
     file.baseUrl;
-  const token = process.env.SAILSCORING_TOKEN?.trim() || file.token;
-  return { baseUrl, token };
+  const envToken = process.env.SAILSCORING_TOKEN?.trim();
+  // A token from the environment is used as it is (CI holds an API key);
+  // only a stored device sign-in is renewed.
+  if (envToken) return { baseUrl, token: envToken };
+  return { baseUrl, token: file.token, ...(file.oauth ? { oauth: file.oauth } : {}) };
 }

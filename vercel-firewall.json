@@ -40,6 +40,19 @@
       "action": { "mitigate": { "action": "bypass" } }
     },
     {
+      "name": "Bypass: OAuth endpoints apps and the CLI call",
+      "description": "ADR-016: the token, revocation and device-code endpoints, the discovery document, and the CLI's client-id lookup are called by app servers and `sailscoring auth login`, which cannot answer Bot Protection's JavaScript challenge. The pages a person signs in and approves on stay protected.",
+      "active": true,
+      "conditionGroup": [
+        { "conditions": [{ "type": "path", "op": "eq", "value": "/api/auth/oauth2/token" }] },
+        { "conditions": [{ "type": "path", "op": "eq", "value": "/api/auth/oauth2/revoke" }] },
+        { "conditions": [{ "type": "path", "op": "eq", "value": "/api/auth/device/code" }] },
+        { "conditions": [{ "type": "path", "op": "eq", "value": "/.well-known/oauth-authorization-server" }] },
+        { "conditions": [{ "type": "path", "op": "eq", "value": "/api/cli/client" }] }
+      ],
+      "action": { "mitigate": { "action": "bypass" } }
+    },
+    {
       "name": "Bypass: Vercel cron",
       "description": "Scheduled sweeps declared in vercel.json.",
       "active": true,
