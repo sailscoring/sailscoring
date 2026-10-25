@@ -329,8 +329,29 @@ export const publicationSchema = named(
   'A published series.',
 );
 
+/** The error codes the public API answers with, both parts alike (ADR-016
+ *  §5). A code is stable; a message is for people and may change. */
+export const PUBLIC_ERROR_CODES = [
+  'invalid',
+  'unauthenticated',
+  'forbidden',
+  'not-found',
+  'conflict',
+  'archived',
+  'rate-limited',
+  'internal',
+] as const;
+export type PublicErrorCode = (typeof PUBLIC_ERROR_CODES)[number];
+
 export const errorSchema = named(
-  z.object({ error: z.string() }),
+  z.object({
+    error: z.enum(PUBLIC_ERROR_CODES).describe('What went wrong, as a stable code.'),
+    message: z.string().optional().describe('What went wrong, for a person. Not stable: don\'t match on it.'),
+    problems: z
+      .array(z.object({ field: z.string(), message: z.string() }))
+      .optional()
+      .describe('For `invalid`: each field the request got wrong, by its path (`races.0.date`).'),
+  }),
   'Error',
   'What went wrong.',
 );

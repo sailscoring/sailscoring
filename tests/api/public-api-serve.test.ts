@@ -63,7 +63,7 @@ describe.skipIf(skip)('servePublishedResource', () => {
   test('a resource nothing has published is a 404', async () => {
     const res = await servePublishedResource(new Request(url('/competitors')), id, ['competitors']);
     expect(res.status).toBe(404);
-    expect(await res.json()).toEqual({ error: 'not found' });
+    expect(await res.json()).toEqual({ error: 'not-found' });
   });
 
   test('a malformed id or an unknown path is a 404 without a read', async () => {
@@ -74,6 +74,7 @@ describe.skipIf(skip)('servePublishedResource', () => {
   test('a query parameter is refused', async () => {
     const res = await servePublishedResource(new Request(url('/standings?bust=1')), id, ['standings']);
     expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: 'invalid', message: 'unknown query parameter: bust' });
   });
 
   test('a CORS preflight allows If-None-Match', () => {

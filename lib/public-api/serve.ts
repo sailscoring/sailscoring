@@ -82,15 +82,15 @@ export async function servePublishedResource(
   // the CDN and reach storage on every request.
   const params = [...new URL(req.url).searchParams.keys()];
   if (params.length > 0) {
-    return json(400, { error: `unknown query parameter: ${params[0]}` }, tag);
+    return json(400, { error: 'invalid', message: `unknown query parameter: ${params[0]}` }, tag);
   }
   const path = resourcePath(segments);
   if (!UUID.test(publicationId) || path === null) {
-    return json(404, { error: 'not found' }, tag);
+    return json(404, { error: 'not-found' }, tag);
   }
   const cacheTag = { ...tag, 'Vercel-Cache-Tag': publishedApiCacheTag(publicationId) };
   const text = await readPublishedObject(publishedResourceKey(publicationId, path));
-  if (text === null) return json(404, { error: 'not found' }, cacheTag);
+  if (text === null) return json(404, { error: 'not-found' }, cacheTag);
 
   const etag = `"${createHash('sha256').update(text).digest('hex').slice(0, 32)}"`;
   if (req.headers.get('if-none-match') === etag) {

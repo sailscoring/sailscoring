@@ -95,12 +95,12 @@
     },
     {
       "name": "Rate limit: published results API",
-      "description": "Off until usage shows abuse (ADR-015, section 7): the WAF meters every request a rate-limit rule inspects, cached ones included. Generous when on, as a clubhouse's phones share one address. Ahead of the API's bypass, which would end evaluation first.",
+      "description": "Off until usage shows abuse (ADR-015, section 7): the WAF meters every request a rate-limit rule inspects, cached ones included. Generous when on, as a clubhouse's phones share one address. Ahead of the API's bypass, which would end evaluation first. The publications part only: the authenticated calls beside it have per-grant limits (ADR-016).",
       "active": false,
       "conditionGroup": [
         {
           "conditions": [
-            { "type": "path", "op": "pre", "value": "/api/public/" }
+            { "type": "path", "op": "pre", "value": "/api/public/v1/publications/" }
           ]
         }
       ],
