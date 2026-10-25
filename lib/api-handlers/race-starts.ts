@@ -14,7 +14,9 @@ import {
 } from '@/lib/api-handlers/series-access';
 import {
   raceStartInputSchema,
+  raceStartPatchSchema,
   raceStartsBulkInputSchema,
+  type RaceStartPatch,
 } from '@/lib/validation/race-start';
 import type { RaceStart } from '@/lib/types';
 
@@ -37,7 +39,7 @@ export async function assertFleetsStartOnce(
   repos: ReturnType<typeof createRepos>,
   raceId: string,
   incoming: readonly RaceStart[],
-  opts?: { stored: readonly RaceStart[]; seriesId: string },
+  opts?: { stored: readonly RaceStart[]; seriesId?: string },
 ): Promise<void> {
   const stored = opts?.stored ?? (await repos.raceStarts.listByRace(raceId));
   const overlap = findFleetOverlap(stored, incoming);
@@ -110,6 +112,48 @@ export async function putRaceStart(
     { ...input, id },
     { expectedVersion: opts?.expectedVersion, updatedBy: workspace.userId },
   );
+  await trackStartChange(workspace, repos, raceId);
+  return saved;
+}
+
+/**
+ * The start with `patch` applied: a field set to `null` is cleared, a field
+ * left out keeps its value.
+ */
+export function applyRaceStartPatch(start: RaceStart, patch: RaceStartPatch): RaceStart {
+  const next: Record<string, unknown> = { ...start };
+  for (const [key, value] of Object.entries(patch)) {
+    if (value === undefined) continue;
+    if (value === null) delete next[key];
+    else next[key] = value;
+  }
+  return next as unknown as RaceStart;
+}
+
+/**
+ * Change some of a start's fields, leaving the rest as they are, so two
+ * writers each setting their own part of a start (the gun time, the course)
+ * don't overwrite one another.
+ */
+export async function patchRaceStart(
+  workspace: WorkspaceContext,
+  raceId: string,
+  startId: string,
+  body: unknown,
+  opts?: { expectedVersion?: number },
+): Promise<RaceStart> {
+  await assertRaceWritable(workspace, raceId);
+  const patch = raceStartPatchSchema.parse(body);
+  const repos = createRepos({ workspaceId: workspace.workspaceId });
+  const stored = await repos.raceStarts.listByRace(raceId);
+  const existing = stored.find((s) => s.id === startId);
+  if (!existing) throw new NotFoundError('race start');
+  const next = applyRaceStartPatch(existing, patch);
+  await assertFleetsStartOnce(repos, raceId, [next], { stored });
+  const saved = await repos.raceStarts.save(next, {
+    expectedVersion: opts?.expectedVersion,
+    updatedBy: workspace.userId,
+  });
   await trackStartChange(workspace, repos, raceId);
   return saved;
 }

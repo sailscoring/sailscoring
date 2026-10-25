@@ -6,6 +6,26 @@ import type { RaceStart } from '@/lib/types';
 import { uuidSchema, versionSchema, wallClockSchema } from './common';
 import { raceStartCourseSchema } from './course-library';
 
+/** Constructed-course legs (ORC rule 402.5), in sailing order. */
+export const courseLegsSchema = z
+  .array(
+    z.object({
+      distanceNm: z.number().positive().max(999),
+      bearingDeg: z.number().min(0).max(360),
+      windDirectionDeg: z.number().min(0).max(360),
+      // Recorded true wind speed on the leg. The certificates tabulate
+      // 4–24 kt and the module clamps to that range; a wider bound is
+      // allowed here so a squall the RC actually logged round-trips.
+      windSpeedKts: z.number().positive().max(99).optional(),
+      currentSpeedKts: z.number().min(0).max(20).optional(),
+      currentDirectionDeg: z.number().min(0).max(360).optional(),
+      // The race committee's label for the leg, where the course came
+      // with one ("Start – 1").
+      name: z.string().trim().min(1).max(80).optional(),
+    }),
+  )
+  .max(60);
+
 export const raceStartSchema = z.object({
   id: uuidSchema,
   raceId: uuidSchema,
@@ -25,25 +45,7 @@ export const raceStartSchema = z.object({
   // ORC wind-band selection: the certificate rating field for this start.
   orcOption: z.string().min(1).max(64).optional(),
   // Constructed-course legs (ORC rule 402.5), in sailing order.
-  courseLegs: z
-    .array(
-      z.object({
-        distanceNm: z.number().positive().max(999),
-        bearingDeg: z.number().min(0).max(360),
-        windDirectionDeg: z.number().min(0).max(360),
-        // Recorded true wind speed on the leg. The certificates tabulate
-        // 4–24 kt and the module clamps to that range; a wider bound is
-        // allowed here so a squall the RC actually logged round-trips.
-        windSpeedKts: z.number().positive().max(99).optional(),
-        currentSpeedKts: z.number().min(0).max(20).optional(),
-        currentDirectionDeg: z.number().min(0).max(360).optional(),
-        // The race committee's label for the leg, where the course came
-        // with one ("Start – 1").
-        name: z.string().trim().min(1).max(80).optional(),
-      }),
-    )
-    .max(60)
-    .optional(),
+  courseLegs: courseLegsSchema.optional(),
   // The library course those legs came from, as a snapshot (RaceStartCourse).
   course: raceStartCourseSchema.optional(),
   version: versionSchema,
@@ -52,6 +54,26 @@ export const raceStartSchema = z.object({
 export const raceStartInputSchema = raceStartSchema.extend({
   id: uuidSchema.optional(),
 });
+
+/**
+ * Body for PATCH /api/v1/races/:raceId/starts/:startId: the fields to change,
+ * each optional. `null` clears a field; a field left out keeps its value.
+ * Split-fleet stage fields stay with the full PUT.
+ */
+export const raceStartPatchSchema = z
+  .object({
+    startTime: wallClockSchema.nullable(),
+    fleetIds: z.array(uuidSchema),
+    distanceNm: raceStartSchema.shape.distanceNm.unwrap().nullable(),
+    orcScoringWind: raceStartSchema.shape.orcScoringWind.unwrap().nullable(),
+    orcOption: raceStartSchema.shape.orcOption.unwrap().nullable(),
+    courseLegs: courseLegsSchema.nullable(),
+    course: raceStartCourseSchema.nullable(),
+  })
+  .partial()
+  .strict();
+
+export type RaceStartPatch = z.infer<typeof raceStartPatchSchema>;
 
 /** Bulk-write payload. Mirrors `RaceStartRepository.saveMany`. */
 export const raceStartsBulkInputSchema = z.object({

@@ -1,4 +1,4 @@
-import { deleteRaceStart, putRaceStart } from '@/lib/api-handlers/race-starts';
+import { deleteRaceStart, patchRaceStart, putRaceStart } from '@/lib/api-handlers/race-starts';
 import { parseIfMatch, workspaceRoute } from '../../../../_lib/handler';
 
 export const dynamic = 'force-dynamic';
@@ -8,6 +8,14 @@ type Params = { raceId: string; startId: string };
 export const PUT = workspaceRoute<Params, unknown>(async (req, { workspace, params }) => {
   const body = await req.json();
   return putRaceStart(workspace, params.raceId, params.startId, body, {
+    expectedVersion: parseIfMatch(req),
+  });
+}, { requires: 'score' });
+
+/** Change only the fields the body names; `null` clears one. */
+export const PATCH = workspaceRoute<Params, unknown>(async (req, { workspace, params }) => {
+  const body = await req.json();
+  return patchRaceStart(workspace, params.raceId, params.startId, body, {
     expectedVersion: parseIfMatch(req),
   });
 }, { requires: 'score' });

@@ -14,7 +14,7 @@ import { eq } from 'drizzle-orm';
 import postgres, { type Sql } from 'postgres';
 
 import * as schema from '@/lib/db/schema';
-import { ArchivedError, BadRequestError, NotFoundError } from '@/app/api/v1/_lib/handler';
+import { ArchivedError, BadRequestError, ConflictError, NotFoundError } from '@/app/api/v1/_lib/handler';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
 import * as series from '@/lib/api-handlers/series';
 import * as categories from '@/lib/api-handlers/categories';
@@ -857,6 +857,79 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
       }),
     ).rejects.toThrow('Fleet "IRC 1" is already in another start of the same race');
     expect(await races.listRaces(ctxA, seriesId)).toHaveLength(1);
+
+    await removeSeries(ctxA, seriesId);
+  });
+
+  test('PATCH a start changes only the fields it names', async () => {
+    const seriesId = uuid();
+    await series.putSeries(ctxA, seriesId, sampleSeries(seriesId));
+    const fleetA = uuid();
+    const fleetB = uuid();
+    await fleets.bulkPutFleets(ctxA, seriesId, {
+      fleets: [
+        { id: fleetA, seriesId, name: 'ORC A', displayOrder: 0, scoringSystem: 'orc' as const },
+        { id: fleetB, seriesId, name: 'ORC B', displayOrder: 1, scoringSystem: 'orc' as const },
+      ],
+    });
+    const raceId = uuid();
+    await races.putRace(ctxA, seriesId, raceId, {
+      id: raceId, seriesId, raceNumber: 1, date: '2026-10-04', createdAt: Date.now(),
+    });
+    const startId = uuid();
+    const otherId = uuid();
+    const courseLegs = [
+      { distanceNm: 0.66, bearingDeg: 230, windDirectionDeg: 238, name: 'Start - Windward' },
+      { distanceNm: 0.84, bearingDeg: 39, windDirectionDeg: 238, name: 'Windward - Leeward' },
+    ];
+    await raceStarts.bulkPutRaceStarts(ctxA, raceId, {
+      starts: [
+        {
+          id: startId, raceId, fleetIds: [fleetA], startTime: '11:00:00',
+          distanceNm: 1.5, courseLegs, course: { name: 'Course 1', waypoints: [] },
+        },
+        { id: otherId, raceId, fleetIds: [fleetB], startTime: '11:05:00' },
+      ],
+    });
+
+    // The gun time alone: the fleets and the course stay.
+    const moved = await raceStarts.patchRaceStart(ctxA, raceId, startId, { startTime: '11:10:00' });
+    expect(moved.startTime).toBe('11:10:00');
+    expect(moved.fleetIds).toEqual([fleetA]);
+    expect(moved.courseLegs).toEqual(courseLegs);
+    expect(moved.course?.name).toBe('Course 1');
+    expect(moved.distanceNm).toBe(1.5);
+
+    // null clears.
+    const cleared = await raceStarts.patchRaceStart(ctxA, raceId, startId, {
+      courseLegs: null, course: null, distanceNm: null,
+    });
+    expect(cleared.courseLegs).toBeUndefined();
+    expect(cleared.course).toBeUndefined();
+    expect(cleared.distanceNm).toBeUndefined();
+    expect(cleared.startTime).toBe('11:10:00');
+
+    // Unknown fields are refused rather than silently ignored.
+    await expect(
+      raceStarts.patchRaceStart(ctxA, raceId, startId, { stage: 'final' }),
+    ).rejects.toThrow(/unrecognized key/i);
+
+    // A stale version is a conflict.
+    await expect(
+      raceStarts.patchRaceStart(ctxA, raceId, startId, { startTime: '11:20:00' }, { expectedVersion: 1 }),
+    ).rejects.toBeInstanceOf(ConflictError);
+
+    // Taking another start's fleet is refused.
+    await expect(
+      raceStarts.patchRaceStart(ctxA, raceId, startId, { fleetIds: [fleetA, fleetB] }),
+    ).rejects.toThrow('Fleet "ORC B" is already in another start of Race 1 (the 11:05:00 start)');
+
+    await expect(
+      raceStarts.patchRaceStart(ctxA, raceId, uuid(), { startTime: '12:00:00' }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    await expect(
+      raceStarts.patchRaceStart(ctxB, raceId, startId, { startTime: '12:00:00' }),
+    ).rejects.toBeInstanceOf(NotFoundError);
 
     await removeSeries(ctxA, seriesId);
   });
