@@ -1,0 +1,46 @@
+name: Public API compatibility
+
+# Within v1 the public API changes only by adding (ADR-015 §5, ADR-016 §5).
+# The committed OpenAPI description (docs/openapi/public-v1.json, regenerated
+# by `pnpm openapi:generate`, kept current by a unit test) is compared with
+# the one before the push or pull request, and a breaking change fails the
+# check. Operations still a preview carry `x-stability-level: alpha`, which
+# oasdiff leaves out of the comparison.
+
+on:
+  push:
+    branches: [main]
+    paths: ['docs/openapi/public-v1.json']
+  pull_request:
+    paths: ['docs/openapi/public-v1.json']
+
+permissions:
+  contents: read
+
+jobs:
+  breaking:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: The description before this change
+        id: base
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          mkdir -p /tmp/specs
+          cp docs/openapi/public-v1.json /tmp/specs/head.json
+          if git show "$BASE:docs/openapi/public-v1.json" > /tmp/specs/base.json 2>/dev/null; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No description before this change; nothing to compare."
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Refuse a breaking change
+        if: steps.base.outputs.found == 'true'
+        run: >
+          docker run --rm -v /tmp/specs:/specs docker.io/tufin/oasdiff:v1.33.0
+          breaking /specs/base.json /specs/head.json --fail-on ERR

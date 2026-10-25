@@ -1,0 +1,4488 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Sail Scoring public API",
+    "version": "1",
+    "description": "Two parts. The published results need no sign-in: results as their published pages show them, each resource following the page that shows it; find publications from /p/index.json and each workspace's index.json. The workspace calls, a preview, act in a workspace for a signed-in user, through an OAuth access token their app obtained with the authorization code flow (PKCE); the CLI signs in with the device authorization grant (RFC 8628) at /api/auth/device/code. Within v1 changes are additive; a breaking change is a new version, and the old one serves for a year after it. The preview's calls may still change until the label comes off."
+  },
+  "servers": [
+    {
+      "url": "https://app.sailscoring.ie/api/public/v1"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Published results",
+      "description": "Read-only, no sign-in."
+    },
+    {
+      "name": "Workspace (preview)",
+      "description": "Acting in a workspace for a signed-in user. A preview: shapes may still change."
+    }
+  ],
+  "paths": {
+    "/publications/{id}": {
+      "get": {
+        "tags": [
+          "Published results"
+        ],
+        "summary": "The publication, and which resources it publishes",
+        "security": [],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The publication, as its `index.json` entry links it.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The publication, and which resources it publishes",
+            "headers": {
+              "ETag": {
+                "description": "Send back as `If-None-Match` to be answered 304 while unchanged.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Publication"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Unchanged since the `If-None-Match` ETag."
+          },
+          "400": {
+            "description": "A query parameter was sent; the API takes none.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such publication, or it publishes no such resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/publications/{id}/standings": {
+      "get": {
+        "tags": [
+          "Published results"
+        ],
+        "summary": "Every fleet's standings",
+        "security": [],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The publication, as its `index.json` entry links it.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Every fleet's standings",
+            "headers": {
+              "ETag": {
+                "description": "Send back as `If-None-Match` to be answered 304 while unchanged.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Standings"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Unchanged since the `If-None-Match` ETag."
+          },
+          "400": {
+            "description": "A query parameter was sent; the API takes none.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such publication, or it publishes no such resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/publications/{id}/standings/{fleet}": {
+      "get": {
+        "tags": [
+          "Published results"
+        ],
+        "summary": "One fleet's standings",
+        "security": [],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The publication, as its `index.json` entry links it.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "fleet",
+            "in": "path",
+            "required": true,
+            "description": "The fleet's `key`.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One fleet's standings",
+            "headers": {
+              "ETag": {
+                "description": "Send back as `If-None-Match` to be answered 304 while unchanged.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Standings"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Unchanged since the `If-None-Match` ETag."
+          },
+          "400": {
+            "description": "A query parameter was sent; the API takes none.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such publication, or it publishes no such resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/publications/{id}/races": {
+      "get": {
+        "tags": [
+          "Published results"
+        ],
+        "summary": "The sailed races",
+        "security": [],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The publication, as its `index.json` entry links it.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The sailed races",
+            "headers": {
+              "ETag": {
+                "description": "Send back as `If-None-Match` to be answered 304 while unchanged.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Races"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Unchanged since the `If-None-Match` ETag."
+          },
+          "400": {
+            "description": "A query parameter was sent; the API takes none.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such publication, or it publishes no such resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/publications/{id}/races/{n}": {
+      "get": {
+        "tags": [
+          "Published results"
+        ],
+        "summary": "One race's results, by fleet",
+        "security": [],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The publication, as its `index.json` entry links it.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "n",
+            "in": "path",
+            "required": true,
+            "description": "The race's number in the series.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One race's results, by fleet",
+            "headers": {
+              "ETag": {
+                "description": "Send back as `If-None-Match` to be answered 304 while unchanged.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Race"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Unchanged since the `If-None-Match` ETag."
+          },
+          "400": {
+            "description": "A query parameter was sent; the API takes none.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such publication, or it publishes no such resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/publications/{id}/competitors": {
+      "get": {
+        "tags": [
+          "Published results"
+        ],
+        "summary": "The entry list",
+        "security": [],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The publication, as its `index.json` entry links it.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The entry list",
+            "headers": {
+              "ETag": {
+                "description": "Send back as `If-None-Match` to be answered 304 while unchanged.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Competitors"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Unchanged since the `If-None-Match` ETag."
+          },
+          "400": {
+            "description": "A query parameter was sent; the API takes none.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such publication, or it publishes no such resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/publications/{id}/schedule": {
+      "get": {
+        "tags": [
+          "Published results"
+        ],
+        "summary": "Every race, sailed or not, as of the Schedule page",
+        "security": [],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The publication, as its `index.json` entry links it.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Every race, sailed or not, as of the Schedule page",
+            "headers": {
+              "ETag": {
+                "description": "Send back as `If-None-Match` to be answered 304 while unchanged.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schedule"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Unchanged since the `If-None-Match` ETag."
+          },
+          "400": {
+            "description": "A query parameter was sent; the API takes none.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such publication, or it publishes no such resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces": {
+      "get": {
+        "tags": [
+          "Workspace (preview)"
+        ],
+        "summary": "The workspaces this token can act in",
+        "x-stability-level": "alpha",
+        "security": [
+          {
+            "oauth": [
+              "read"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-sailscoring-workspace",
+            "in": "header",
+            "required": false,
+            "description": "The workspace to act in, by id or slug. An app's token reaches only the workspace its grant names, and may leave this out; the CLI's names one of its user's.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The workspaces this token can act in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Workspaces"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request isn't what the call takes: `invalid`, with the fields at fault in `problems`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No access token, or one that has expired or been revoked: `unauthenticated`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Outside the grant's scopes or workspace, or the user's role there: `forbidden`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such series, race or start in the workspace: `not-found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "423": {
+            "description": "The series is archived or final, and read-only: `archived`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many calls for this grant; `Retry-After` says how long to wait.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspace/seasons": {
+      "get": {
+        "tags": [
+          "Workspace (preview)"
+        ],
+        "summary": "The workspace's seasons",
+        "x-stability-level": "alpha",
+        "security": [
+          {
+            "oauth": [
+              "read"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-sailscoring-workspace",
+            "in": "header",
+            "required": false,
+            "description": "The workspace to act in, by id or slug. An app's token reaches only the workspace its grant names, and may leave this out; the CLI's names one of its user's.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The workspace's seasons",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Seasons"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request isn't what the call takes: `invalid`, with the fields at fault in `problems`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No access token, or one that has expired or been revoked: `unauthenticated`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Outside the grant's scopes or workspace, or the user's role there: `forbidden`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such series, race or start in the workspace: `not-found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "423": {
+            "description": "The series is archived or final, and read-only: `archived`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many calls for this grant; `Retry-After` says how long to wait.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/publications": {
+      "get": {
+        "tags": [
+          "Workspace (preview)"
+        ],
+        "summary": "Every publication in the workspace",
+        "x-stability-level": "alpha",
+        "security": [
+          {
+            "oauth": [
+              "read"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-sailscoring-workspace",
+            "in": "header",
+            "required": false,
+            "description": "The workspace to act in, by id or slug. An app's token reaches only the workspace its grant names, and may leave this out; the CLI's names one of its user's.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Every publication in the workspace",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspacePublications"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request isn't what the call takes: `invalid`, with the fields at fault in `problems`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No access token, or one that has expired or been revoked: `unauthenticated`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Outside the grant's scopes or workspace, or the user's role there: `forbidden`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such series, race or start in the workspace: `not-found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "423": {
+            "description": "The series is archived or final, and read-only: `archived`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many calls for this grant; `Retry-After` says how long to wait.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/series": {
+      "get": {
+        "tags": [
+          "Workspace (preview)"
+        ],
+        "summary": "Every series in the workspace",
+        "x-stability-level": "alpha",
+        "security": [
+          {
+            "oauth": [
+              "read"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-sailscoring-workspace",
+            "in": "header",
+            "required": false,
+            "description": "The workspace to act in, by id or slug. An app's token reaches only the workspace its grant names, and may leave this out; the CLI's names one of its user's.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Every series in the workspace",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeriesList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request isn't what the call takes: `invalid`, with the fields at fault in `problems`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No access token, or one that has expired or been revoked: `unauthenticated`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Outside the grant's scopes or workspace, or the user's role there: `forbidden`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such series, race or start in the workspace: `not-found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "423": {
+            "description": "The series is archived or final, and read-only: `archived`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many calls for this grant; `Retry-After` says how long to wait.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/series/{id}": {
+      "get": {
+        "tags": [
+          "Workspace (preview)"
+        ],
+        "summary": "A series",
+        "x-stability-level": "alpha",
+        "security": [
+          {
+            "oauth": [
+              "read"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The series.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "x-sailscoring-workspace",
+            "in": "header",
+            "required": false,
+            "description": "The workspace to act in, by id or slug. An app's token reaches only the workspace its grant names, and may leave this out; the CLI's names one of its user's.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A series",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Series"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request isn't what the call takes: `invalid`, with the fields at fault in `problems`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No access token, or one that has expired or been revoked: `unauthenticated`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Outside the grant's scopes or workspace, or the user's role there: `forbidden`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such series, race or start in the workspace: `not-found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "423": {
+            "description": "The series is archived or final, and read-only: `archived`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many calls for this grant; `Retry-After` says how long to wait.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/series/{id}/fleets": {
+      "get": {
+        "tags": [
+          "Workspace (preview)"
+        ],
+        "summary": "A series' fleets",
+        "x-stability-level": "alpha",
+        "security": [
+          {
+            "oauth": [
+              "read"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The series.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "x-sailscoring-workspace",
+            "in": "header",
+            "required": false,
+            "description": "The workspace to act in, by id or slug. An app's token reaches only the workspace its grant names, and may leave this out; the CLI's names one of its user's.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A series' fleets",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Fleets"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request isn't what the call takes: `invalid`, with the fields at fault in `problems`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No access token, or one that has expired or been revoked: `unauthenticated`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Outside the grant's scopes or workspace, or the user's role there: `forbidden`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such series, race or start in the workspace: `not-found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "423": {
+            "description": "The series is archived or final, and read-only: `archived`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many calls for this grant; `Retry-After` says how long to wait.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/series/{id}/competitors": {
+      "get": {
+        "tags": [
+          "Workspace (preview)"
+        ],
+        "summary": "A series' entry list",
+        "x-stability-level": "alpha",
+        "security": [
+          {
+            "oauth": [
+              "read"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The series.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "x-sailscoring-workspace",
+            "in": "header",
+            "required": false,
+            "description": "The workspace to act in, by id or slug. An app's token reaches only the workspace its grant names, and may leave this out; the CLI's names one of its user's.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A series' entry list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompetitorList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request isn't what the call takes: `invalid`, with the fields at fault in `problems`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No access token, or one that has expired or been revoked: `unauthenticated`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Outside the grant's scopes or workspace, or the user's role there: `forbidden`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such series, race or start in the workspace: `not-found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "423": {
+            "description": "The series is archived or final, and read-only: `archived`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many calls for this grant; `Retry-After` says how long to wait.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/series/{id}/races": {
+      "get": {
+        "tags": [
+          "Workspace (preview)"
+        ],
+        "summary": "A series' races, with their starts",
+        "x-stability-level": "alpha",
+        "security": [
+          {
+            "oauth": [
+              "read"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The series.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "x-sailscoring-workspace",
+            "in": "header",
+            "required": false,
+            "description": "The workspace to act in, by id or slug. An app's token reaches only the workspace its grant names, and may leave this out; the CLI's names one of its user's.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A series' races, with their starts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RaceList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request isn't what the call takes: `invalid`, with the fields at fault in `problems`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No access token, or one that has expired or been revoked: `unauthenticated`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Outside the grant's scopes or workspace, or the user's role there: `forbidden`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such series, race or start in the workspace: `not-found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "423": {
+            "description": "The series is archived or final, and read-only: `archived`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many calls for this grant; `Retry-After` says how long to wait.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Workspace (preview)"
+        ],
+        "summary": "Add races, with their starts",
+        "description": "Added after the series' last race, and numbered by the server. A fleet starts once per race.",
+        "x-stability-level": "alpha",
+        "security": [
+          {
+            "oauth": [
+              "races"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The series.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "x-sailscoring-workspace",
+            "in": "header",
+            "required": false,
+            "description": "The workspace to act in, by id or slug. An app's token reaches only the workspace its grant names, and may leave this out; the CLI's names one of its user's.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Any string: a retried write with the same key is answered as the first was, and not done again.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRaces"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Add races, with their starts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RaceList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request isn't what the call takes: `invalid`, with the fields at fault in `problems`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No access token, or one that has expired or been revoked: `unauthenticated`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Outside the grant's scopes or workspace, or the user's role there: `forbidden`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such series, race or start in the workspace: `not-found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "423": {
+            "description": "The series is archived or final, and read-only: `archived`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many calls for this grant; `Retry-After` says how long to wait.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/series/{id}/races/{raceId}": {
+      "get": {
+        "tags": [
+          "Workspace (preview)"
+        ],
+        "summary": "A race, with its starts",
+        "x-stability-level": "alpha",
+        "security": [
+          {
+            "oauth": [
+              "read"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The series.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "raceId",
+            "in": "path",
+            "required": true,
+            "description": "The race.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "x-sailscoring-workspace",
+            "in": "header",
+            "required": false,
+            "description": "The workspace to act in, by id or slug. An app's token reaches only the workspace its grant names, and may leave this out; the CLI's names one of its user's.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A race, with its starts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Race"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request isn't what the call takes: `invalid`, with the fields at fault in `problems`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No access token, or one that has expired or been revoked: `unauthenticated`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Outside the grant's scopes or workspace, or the user's role there: `forbidden`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such series, race or start in the workspace: `not-found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "423": {
+            "description": "The series is archived or final, and read-only: `archived`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many calls for this grant; `Retry-After` says how long to wait.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Workspace (preview)"
+        ],
+        "summary": "Delete a race",
+        "description": "Later races are renumbered.",
+        "x-stability-level": "alpha",
+        "security": [
+          {
+            "oauth": [
+              "races"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The series.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "raceId",
+            "in": "path",
+            "required": true,
+            "description": "The race.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "x-sailscoring-workspace",
+            "in": "header",
+            "required": false,
+            "description": "The workspace to act in, by id or slug. An app's token reaches only the workspace its grant names, and may leave this out; the CLI's names one of its user's.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Any string: a retried write with the same key is answered as the first was, and not done again.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Done."
+          },
+          "400": {
+            "description": "The request isn't what the call takes: `invalid`, with the fields at fault in `problems`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No access token, or one that has expired or been revoked: `unauthenticated`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Outside the grant's scopes or workspace, or the user's role there: `forbidden`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such series, race or start in the workspace: `not-found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "423": {
+            "description": "The series is archived or final, and read-only: `archived`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many calls for this grant; `Retry-After` says how long to wait.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/races/{raceId}/finishes": {
+      "get": {
+        "tags": [
+          "Workspace (preview)"
+        ],
+        "summary": "A race's finishes, in finishing order",
+        "x-stability-level": "alpha",
+        "security": [
+          {
+            "oauth": [
+              "read"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "name": "raceId",
+            "in": "path",
+            "required": true,
+            "description": "The race.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "x-sailscoring-workspace",
+            "in": "header",
+            "required": false,
+            "description": "The workspace to act in, by id or slug. An app's token reaches only the workspace its grant names, and may leave this out; the CLI's names one of its user's.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A race's finishes, in finishing order",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FinishList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request isn't what the call takes: `invalid`, with the fields at fault in `problems`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No access token, or one that has expired or been revoked: `unauthenticated`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Outside the grant's scopes or workspace, or the user's role there: `forbidden`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such series, race or start in the workspace: `not-found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "423": {
+            "description": "The series is archived or final, and read-only: `archived`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many calls for this grant; `Retry-After` says how long to wait.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/races/{raceId}/starts/{startId}": {
+      "patch": {
+        "tags": [
+          "Workspace (preview)"
+        ],
+        "summary": "Change a start's gun time or fleets",
+        "x-stability-level": "alpha",
+        "security": [
+          {
+            "oauth": [
+              "races"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "name": "raceId",
+            "in": "path",
+            "required": true,
+            "description": "The race.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "startId",
+            "in": "path",
+            "required": true,
+            "description": "The start.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": false,
+            "description": "Refuse the write (409) if the start has changed since this version.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-sailscoring-workspace",
+            "in": "header",
+            "required": false,
+            "description": "The workspace to act in, by id or slug. An app's token reaches only the workspace its grant names, and may leave this out; the CLI's names one of its user's.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Any string: a retried write with the same key is answered as the first was, and not done again.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartChange"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Change a start's gun time or fleets",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Start"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request isn't what the call takes: `invalid`, with the fields at fault in `problems`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No access token, or one that has expired or been revoked: `unauthenticated`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Outside the grant's scopes or workspace, or the user's role there: `forbidden`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such series, race or start in the workspace: `not-found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Changed since the `If-Match` version: `conflict`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "423": {
+            "description": "The series is archived or final, and read-only: `archived`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many calls for this grant; `Retry-After` says how long to wait.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Workspace (preview)"
+        ],
+        "summary": "Delete a start",
+        "x-stability-level": "alpha",
+        "security": [
+          {
+            "oauth": [
+              "races"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "name": "raceId",
+            "in": "path",
+            "required": true,
+            "description": "The race.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "startId",
+            "in": "path",
+            "required": true,
+            "description": "The start.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "x-sailscoring-workspace",
+            "in": "header",
+            "required": false,
+            "description": "The workspace to act in, by id or slug. An app's token reaches only the workspace its grant names, and may leave this out; the CLI's names one of its user's.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Any string: a retried write with the same key is answered as the first was, and not done again.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Done."
+          },
+          "400": {
+            "description": "The request isn't what the call takes: `invalid`, with the fields at fault in `problems`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No access token, or one that has expired or been revoked: `unauthenticated`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Outside the grant's scopes or workspace, or the user's role there: `forbidden`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such series, race or start in the workspace: `not-found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "423": {
+            "description": "The series is archived or final, and read-only: `archived`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many calls for this grant; `Retry-After` says how long to wait.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/races/{raceId}/starts/{startId}/course": {
+      "put": {
+        "tags": [
+          "Workspace (preview)"
+        ],
+        "summary": "Set a start's course from an ORC constructed course document",
+        "description": "Read and converted as the race-start dialog's import does: bearings to true at the variation where the course is, on the race's day.",
+        "x-stability-level": "alpha",
+        "security": [
+          {
+            "oauth": [
+              "races"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "name": "raceId",
+            "in": "path",
+            "required": true,
+            "description": "The race.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "startId",
+            "in": "path",
+            "required": true,
+            "description": "The start.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": false,
+            "description": "Refuse the write (409) if the start has changed since this version.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "replace",
+            "in": "query",
+            "required": false,
+            "description": "`true` to replace legs the start already has.",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "x-sailscoring-workspace",
+            "in": "header",
+            "required": false,
+            "description": "The workspace to act in, by id or slug. An app's token reaches only the workspace its grant names, and may leave this out; the CLI's names one of its user's.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Any string: a retried write with the same key is answered as the first was, and not done again.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "An ORC constructed course document (`\"format\": \"orc-constructed-course\"`), as written: magnetic, with an anchor where there is one."
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Set a start's course from an ORC constructed course document",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Start"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request isn't what the call takes: `invalid`, with the fields at fault in `problems`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No access token, or one that has expired or been revoked: `unauthenticated`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Outside the grant's scopes or workspace, or the user's role there: `forbidden`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such series, race or start in the workspace: `not-found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The start already has legs and `replace` wasn't `true`, or it changed since the `If-Match` version: `conflict`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "423": {
+            "description": "The series is archived or final, and read-only: `archived`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many calls for this grant; `Retry-After` says how long to wait.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/series/{id}/publish": {
+      "get": {
+        "tags": [
+          "Workspace (preview)"
+        ],
+        "summary": "A series' publication",
+        "x-stability-level": "alpha",
+        "security": [
+          {
+            "oauth": [
+              "read"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The series.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "x-sailscoring-workspace",
+            "in": "header",
+            "required": false,
+            "description": "The workspace to act in, by id or slug. An app's token reaches only the workspace its grant names, and may leave this out; the CLI's names one of its user's.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A series' publication",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeriesPublication"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request isn't what the call takes: `invalid`, with the fields at fault in `problems`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No access token, or one that has expired or been revoked: `unauthenticated`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Outside the grant's scopes or workspace, or the user's role there: `forbidden`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such series, race or start in the workspace: `not-found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "423": {
+            "description": "The series is archived or final, and read-only: `archived`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many calls for this grant; `Retry-After` says how long to wait.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Workspace (preview)"
+        ],
+        "summary": "Publish the series",
+        "x-stability-level": "alpha",
+        "security": [
+          {
+            "oauth": [
+              "publish"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The series.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "x-sailscoring-workspace",
+            "in": "header",
+            "required": false,
+            "description": "The workspace to act in, by id or slug. An app's token reaches only the workspace its grant names, and may leave this out; the CLI's names one of its user's.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Any string: a retried write with the same key is answered as the first was, and not done again.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Publish"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Publish the series",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeriesPublication"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request isn't what the call takes: `invalid`, with the fields at fault in `problems`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No access token, or one that has expired or been revoked: `unauthenticated`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Outside the grant's scopes or workspace, or the user's role there: `forbidden`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such series, race or start in the workspace: `not-found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "423": {
+            "description": "The series is archived or final, and read-only: `archived`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many calls for this grant; `Retry-After` says how long to wait.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Workspace (preview)"
+        ],
+        "summary": "Unpublish the series",
+        "x-stability-level": "alpha",
+        "security": [
+          {
+            "oauth": [
+              "publish"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The series.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "x-sailscoring-workspace",
+            "in": "header",
+            "required": false,
+            "description": "The workspace to act in, by id or slug. An app's token reaches only the workspace its grant names, and may leave this out; the CLI's names one of its user's.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Any string: a retried write with the same key is answered as the first was, and not done again.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Done."
+          },
+          "400": {
+            "description": "The request isn't what the call takes: `invalid`, with the fields at fault in `problems`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No access token, or one that has expired or been revoked: `unauthenticated`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Outside the grant's scopes or workspace, or the user's role there: `forbidden`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such series, race or start in the workspace: `not-found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "423": {
+            "description": "The series is archived or final, and read-only: `archived`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many calls for this grant; `Retry-After` says how long to wait.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "FleetRef": {
+        "description": "A fleet of the publication.",
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "description": "The fleet within the publication, stable across publishes: the kebab-cased fleet name."
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "name"
+        ]
+      },
+      "Competitor": {
+        "description": "A boat entered in the series, with the details the series records.",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "fleetIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "description": "The fleets the boat is entered in."
+          },
+          "sailNumber": {
+            "type": "string"
+          },
+          "bowNumber": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "alternativeSailNumbers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Other sail numbers the boat is known by."
+          },
+          "boatName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "boatClass": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "names": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The primary person or people, as the series heads them (helm, owner, skipper)."
+          },
+          "helms": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "owners": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "crew": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "clubs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "nationality": {
+            "description": "Three-letter national code.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "excluded": {
+            "type": "boolean",
+            "description": "Entered, but not scored as an entrant."
+          }
+        },
+        "required": [
+          "id",
+          "fleetIds",
+          "sailNumber",
+          "bowNumber",
+          "alternativeSailNumbers",
+          "boatName",
+          "boatClass",
+          "names",
+          "helms",
+          "owners",
+          "crew",
+          "clubs",
+          "nationality",
+          "excluded"
+        ]
+      },
+      "Score": {
+        "description": "One race score in a standings row.",
+        "type": "object",
+        "properties": {
+          "points": {
+            "description": "Null in an archive, which holds what was printed.",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "code": {
+            "description": "A result or penalty code (`DNF`, `SCP`, `RDG`), or null.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "discarded": {
+            "type": "boolean"
+          },
+          "excluded": {
+            "description": "The race is not in the standings: nobody finished it, or it is not scored yet.",
+            "type": "boolean"
+          },
+          "display": {
+            "type": "string",
+            "description": "The cell as the page prints it, e.g. `(12.0 DNF)`."
+          }
+        },
+        "required": [
+          "points",
+          "code",
+          "discarded",
+          "display"
+        ]
+      },
+      "StandingsRow": {
+        "description": "One competitor's line in a standings table.",
+        "type": "object",
+        "properties": {
+          "rank": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rankDisplay": {
+            "type": "string",
+            "description": "The rank as printed, e.g. `1st`."
+          },
+          "competitor": {
+            "$ref": "#/components/schemas/Competitor"
+          },
+          "fleet": {
+            "description": "A championship row's fleet, where the championship has split.",
+            "type": "string"
+          },
+          "scores": {
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/Score"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "description": "One per column of `races`, in the same order; null where the competitor has no score."
+          },
+          "total": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "net": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "totalDisplay": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "netDisplay": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "summary": {
+            "description": "An archive's totals columns, as originally published.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "label": {
+                  "type": "string"
+                },
+                "value": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "label",
+                "value"
+              ]
+            }
+          }
+        },
+        "required": [
+          "rank",
+          "rankDisplay",
+          "competitor",
+          "scores",
+          "total",
+          "net",
+          "totalDisplay",
+          "netDisplay"
+        ]
+      },
+      "StandingsTable": {
+        "description": "A fleet's standings, as published.",
+        "type": "object",
+        "properties": {
+          "fleet": {
+            "$ref": "#/components/schemas/FleetRef"
+          },
+          "subSeries": {
+            "description": "The sub-series the table scores, or null for the whole series.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "scoringSystem": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "namesLabel": {
+            "type": "string",
+            "description": "What the competitors' `names` are headed, e.g. `Helm`."
+          },
+          "caption": {
+            "type": "string"
+          },
+          "races": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "race": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "The race's number in the series, the `n` of `races/{n}`. Null where a column is not one race."
+                },
+                "label": {
+                  "type": "string",
+                  "description": "The column heading, e.g. `R3`. A fleet that sat races out numbers its own."
+                },
+                "date": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "description": "A local date, `YYYY-MM-DD`, in the declared `timeZone`."
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "name": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "race",
+                "label",
+                "date",
+                "name"
+              ]
+            }
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StandingsRow"
+            }
+          }
+        },
+        "required": [
+          "fleet",
+          "subSeries",
+          "scoringSystem",
+          "namesLabel",
+          "races",
+          "rows"
+        ]
+      },
+      "Standings": {
+        "description": "Every fleet's standings, or one fleet's.",
+        "type": "object",
+        "properties": {
+          "timeZone": {
+            "type": "string",
+            "description": "The IANA time zone every local date and time in this resource is in."
+          },
+          "publication": {
+            "type": "string",
+            "description": "The publication resource this belongs to."
+          },
+          "publishedAt": {
+            "type": "string",
+            "description": "When the page this resource follows was last published."
+          },
+          "tables": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StandingsTable"
+            }
+          }
+        },
+        "required": [
+          "timeZone",
+          "publication",
+          "publishedAt",
+          "tables"
+        ]
+      },
+      "RaceSummary": {
+        "description": "A sailed race.",
+        "type": "object",
+        "properties": {
+          "race": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "A local date, `YYYY-MM-DD`, in the declared `timeZone`."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "starts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "time": {
+                  "description": "The gun, local `HH:MM:SS`; null where no time was set.",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "fleets": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "The keys of the fleets on this gun."
+                }
+              },
+              "required": [
+                "time",
+                "fleets"
+              ]
+            }
+          },
+          "fleets": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The keys of the fleets with results in this race."
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "race",
+          "name",
+          "date",
+          "starts",
+          "fleets",
+          "url"
+        ]
+      },
+      "Races": {
+        "description": "The sailed races.",
+        "type": "object",
+        "properties": {
+          "timeZone": {
+            "type": "string",
+            "description": "The IANA time zone every local date and time in this resource is in."
+          },
+          "publication": {
+            "type": "string",
+            "description": "The publication resource this belongs to."
+          },
+          "publishedAt": {
+            "type": "string",
+            "description": "When the page this resource follows was last published."
+          },
+          "races": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RaceSummary"
+            }
+          }
+        },
+        "required": [
+          "timeZone",
+          "publication",
+          "publishedAt",
+          "races"
+        ]
+      },
+      "RaceResult": {
+        "description": "One competitor's result in one race.",
+        "type": "object",
+        "properties": {
+          "competitor": {
+            "$ref": "#/components/schemas/Competitor"
+          },
+          "rank": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "points": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "display": {
+            "type": "string",
+            "description": "The points as the page prints them, e.g. `9.0 DNC`."
+          },
+          "finishTime": {
+            "description": "Local `HH:MM:SS`.",
+            "type": "string"
+          },
+          "elapsed": {
+            "description": "Elapsed time as printed, `H:MM:SS`.",
+            "type": "string"
+          },
+          "corrected": {
+            "description": "Corrected time as printed, `H:MM:SS`.",
+            "type": "string"
+          },
+          "rating": {
+            "description": "The rating applied in this race, headed as the fleet's `ratingLabel` says.",
+            "type": "number"
+          }
+        },
+        "required": [
+          "competitor",
+          "rank",
+          "points",
+          "code",
+          "display"
+        ]
+      },
+      "RaceFleet": {
+        "description": "One fleet's results in a race.",
+        "type": "object",
+        "properties": {
+          "fleet": {
+            "$ref": "#/components/schemas/FleetRef"
+          },
+          "subSeries": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "label": {
+            "type": "string",
+            "description": "The race as this fleet numbers it, e.g. `R2`."
+          },
+          "startTime": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ratingLabel": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RaceResult"
+            }
+          },
+          "table": {
+            "description": "An archive's race table, as originally published.",
+            "type": "object",
+            "properties": {
+              "caption": {
+                "type": "string"
+              },
+              "columns": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "rows": {
+                "type": "array",
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "required": [
+              "columns",
+              "rows"
+            ]
+          }
+        },
+        "required": [
+          "fleet",
+          "subSeries",
+          "label",
+          "startTime",
+          "ratingLabel",
+          "results"
+        ]
+      },
+      "Race": {
+        "description": "A race and its starts.",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "number": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "The race's number in the series. Deleting or reordering races renumbers them; use `id` to keep track of one."
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                "description": "A local date, `YYYY-MM-DD`."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "starts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Start"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "name",
+          "date",
+          "starts"
+        ]
+      },
+      "Entry": {
+        "description": "One competitor on the entry list.",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The competitor within this series: the same in every resource and every publish of it. Not related across series; use `identity` for that."
+          },
+          "identity": {
+            "description": "The competitor across series, where the workspace publishes competitor pages.",
+            "type": "object",
+            "properties": {
+              "slug": {
+                "type": "string"
+              },
+              "url": {
+                "type": "string",
+                "description": "The competitor's public timeline across the workspace's series."
+              }
+            },
+            "required": [
+              "slug",
+              "url"
+            ]
+          },
+          "sailNumber": {
+            "type": "string"
+          },
+          "bowNumber": {
+            "type": "string"
+          },
+          "entryNumber": {
+            "type": "string"
+          },
+          "tallyNumber": {
+            "type": "string"
+          },
+          "boatName": {
+            "type": "string"
+          },
+          "boatClass": {
+            "type": "string"
+          },
+          "names": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The primary person or people, headed as the resource's `namesLabel` says."
+          },
+          "helms": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "owners": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "crew": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "clubs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "nationality": {
+            "description": "Three-letter national code.",
+            "type": "string"
+          },
+          "worldSailingId": {
+            "type": "string"
+          },
+          "subdivisions": {
+            "description": "Prize-giving subdivisions, keyed by the column heading (\"Division\": \"Silver\").",
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "gender": {
+            "type": "string",
+            "enum": [
+              "M",
+              "F"
+            ]
+          },
+          "age": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "details": {
+            "description": "An archive's competitor columns, as originally published.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "label": {
+                  "type": "string"
+                },
+                "value": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "label",
+                "value"
+              ]
+            }
+          },
+          "fleets": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The names of the fleets the competitor is entered in."
+          },
+          "ratings": {
+            "description": "One per `ratingColumns` entry: the rating, empty when unrated, null when not entered in that fleet.",
+            "type": "array",
+            "items": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        },
+        "required": [
+          "id",
+          "sailNumber",
+          "names",
+          "fleets"
+        ]
+      },
+      "Competitors": {
+        "description": "The entry list.",
+        "type": "object",
+        "properties": {
+          "timeZone": {
+            "type": "string",
+            "description": "The IANA time zone every local date and time in this resource is in."
+          },
+          "publication": {
+            "type": "string",
+            "description": "The publication resource this belongs to."
+          },
+          "publishedAt": {
+            "type": "string",
+            "description": "When the page this resource follows was last published."
+          },
+          "count": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "namesLabel": {
+            "type": "string"
+          },
+          "groups": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "heading": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "ratingColumns": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "competitors": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Entry"
+                  }
+                }
+              },
+              "required": [
+                "heading",
+                "ratingColumns",
+                "competitors"
+              ]
+            }
+          }
+        },
+        "required": [
+          "timeZone",
+          "publication",
+          "publishedAt",
+          "count",
+          "namesLabel",
+          "groups"
+        ]
+      },
+      "ScheduleRace": {
+        "description": "A race on the schedule.",
+        "type": "object",
+        "properties": {
+          "race": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "The race's number in the series."
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "A local date, `YYYY-MM-DD`, in the declared `timeZone`."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "starts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "time": {
+                  "description": "The gun, local `HH:MM:SS`; null where no time was set.",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "fleets": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "The keys of the fleets on this gun."
+                }
+              },
+              "required": [
+                "time",
+                "fleets"
+              ]
+            },
+            "description": "Each gun and the fleets on it. A start may have no time, and a race may have no starts."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "sailed",
+              "scheduled"
+            ],
+            "description": "`sailed` once the race has results. A past race still `scheduled` was blown out, abandoned, or not yet entered."
+          },
+          "results": {
+            "description": "The results page of a sailed race.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "race",
+          "name",
+          "date",
+          "starts",
+          "status"
+        ]
+      },
+      "Schedule": {
+        "description": "Every race of the series, sailed or not, as of when the Schedule page was last published.",
+        "type": "object",
+        "properties": {
+          "timeZone": {
+            "type": "string",
+            "description": "The IANA time zone every local date and time in this resource is in."
+          },
+          "publication": {
+            "type": "string",
+            "description": "The publication resource this belongs to."
+          },
+          "publishedAt": {
+            "type": "string",
+            "description": "When the page this resource follows was last published."
+          },
+          "races": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ScheduleRace"
+            }
+          }
+        },
+        "required": [
+          "timeZone",
+          "publication",
+          "publishedAt",
+          "races"
+        ]
+      },
+      "Publication": {
+        "description": "A published series.",
+        "type": "object",
+        "properties": {
+          "timeZone": {
+            "type": "string",
+            "description": "The IANA time zone every local date and time in this resource is in."
+          },
+          "id": {
+            "type": "string",
+            "description": "Opaque; stable for as long as the series stays published."
+          },
+          "url": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "series",
+              "championship",
+              "archive"
+            ],
+            "description": "A scored series, a split-fleet championship, or results kept as originally published."
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "provisional",
+                  "final"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "workspace": {
+            "type": "object",
+            "properties": {
+              "slug": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "url": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "slug",
+              "name",
+              "url"
+            ]
+          },
+          "season": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "page": {
+            "type": "string",
+            "description": "The publication's results page."
+          },
+          "data": {
+            "description": "The publication's `.sailscoring.json` data file, or null.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "publishedAt": {
+            "type": "string",
+            "description": "When any page of the publication was last published."
+          },
+          "fleets": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string",
+                  "description": "The fleet within the publication, stable across publishes: the kebab-cased fleet name."
+                },
+                "name": {
+                  "type": "string"
+                },
+                "scoringSystem": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "key",
+                "name",
+                "scoringSystem"
+              ]
+            }
+          },
+          "resources": {
+            "type": "object",
+            "properties": {
+              "standings": {
+                "type": "object",
+                "properties": {
+                  "url": {
+                    "type": "string"
+                  },
+                  "publishedAt": {
+                    "type": "string",
+                    "description": "An instant, as an ISO 8601 timestamp in UTC (`…Z`)."
+                  }
+                },
+                "required": [
+                  "url",
+                  "publishedAt"
+                ]
+              },
+              "races": {
+                "type": "object",
+                "properties": {
+                  "url": {
+                    "type": "string"
+                  },
+                  "publishedAt": {
+                    "type": "string",
+                    "description": "An instant, as an ISO 8601 timestamp in UTC (`…Z`)."
+                  }
+                },
+                "required": [
+                  "url",
+                  "publishedAt"
+                ]
+              },
+              "competitors": {
+                "type": "object",
+                "properties": {
+                  "url": {
+                    "type": "string"
+                  },
+                  "publishedAt": {
+                    "type": "string",
+                    "description": "An instant, as an ISO 8601 timestamp in UTC (`…Z`)."
+                  }
+                },
+                "required": [
+                  "url",
+                  "publishedAt"
+                ]
+              },
+              "schedule": {
+                "type": "object",
+                "properties": {
+                  "url": {
+                    "type": "string"
+                  },
+                  "publishedAt": {
+                    "type": "string",
+                    "description": "An instant, as an ISO 8601 timestamp in UTC (`…Z`)."
+                  }
+                },
+                "required": [
+                  "url",
+                  "publishedAt"
+                ]
+              }
+            },
+            "description": "The resources the publication's pages publish, and when each was last published."
+          }
+        },
+        "required": [
+          "timeZone",
+          "id",
+          "url",
+          "name",
+          "kind",
+          "status",
+          "workspace",
+          "season",
+          "page",
+          "data",
+          "publishedAt",
+          "fleets",
+          "resources"
+        ]
+      },
+      "Error": {
+        "description": "What went wrong.",
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "enum": [
+              "invalid",
+              "unauthenticated",
+              "forbidden",
+              "not-found",
+              "conflict",
+              "archived",
+              "rate-limited",
+              "internal"
+            ],
+            "description": "What went wrong, as a stable code."
+          },
+          "message": {
+            "description": "What went wrong, for a person. Not stable: don't match on it.",
+            "type": "string"
+          },
+          "problems": {
+            "description": "For `invalid`: each field the request got wrong, by its path (`races.0.date`).",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "field": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "field",
+                "message"
+              ]
+            }
+          }
+        },
+        "required": [
+          "error"
+        ]
+      },
+      "Workspace": {
+        "description": "A workspace the token can act in.",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string",
+            "description": "The workspace in published URLs: `/p/{slug}`."
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "name"
+        ]
+      },
+      "Workspaces": {
+        "description": "The workspaces this token can act in: for an app, the one its grant names.",
+        "type": "object",
+        "properties": {
+          "workspaces": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Workspace"
+            }
+          }
+        },
+        "required": [
+          "workspaces"
+        ]
+      },
+      "Season": {
+        "description": "A season results are published under.",
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string",
+            "description": "As the publish call takes it, e.g. `2026`."
+          },
+          "current": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "label",
+          "current"
+        ]
+      },
+      "Seasons": {
+        "description": "The workspace's seasons, newest first.",
+        "type": "object",
+        "properties": {
+          "seasons": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Season"
+            }
+          }
+        },
+        "required": [
+          "seasons"
+        ]
+      },
+      "Series": {
+        "description": "A series: a regatta, a league, a season's racing.",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "venue": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "startDate": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                "description": "A local date, `YYYY-MM-DD`."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "endDate": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                "description": "A local date, `YYYY-MM-DD`."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "archived": {
+            "type": "boolean",
+            "description": "An archived series is read-only."
+          },
+          "asPublished": {
+            "type": "boolean",
+            "description": "An archive of results as originally published: read-only, never scored here."
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "venue",
+          "startDate",
+          "endDate",
+          "archived",
+          "asPublished"
+        ]
+      },
+      "SeriesList": {
+        "description": "Every series in the workspace.",
+        "type": "object",
+        "properties": {
+          "series": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Series"
+            }
+          }
+        },
+        "required": [
+          "series"
+        ]
+      },
+      "Fleet": {
+        "description": "A fleet of a series.",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "scoringSystem": {
+            "type": "string",
+            "description": "How the fleet is scored: `scratch`, `irc`, `orc`, `echo`, `py`, `nhc`, `vprs`, `tcf`. Open-ended: more may be added."
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "scoringSystem"
+        ]
+      },
+      "Fleets": {
+        "description": "A series' fleets, in order.",
+        "type": "object",
+        "properties": {
+          "fleets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Fleet"
+            }
+          }
+        },
+        "required": [
+          "fleets"
+        ]
+      },
+      "CompetitorList": {
+        "description": "A series' entry list.",
+        "type": "object",
+        "properties": {
+          "competitors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Competitor"
+            }
+          }
+        },
+        "required": [
+          "competitors"
+        ]
+      },
+      "CourseLeg": {
+        "description": "One leg of a start's course.",
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "distanceNm": {
+            "type": "number"
+          },
+          "bearingDeg": {
+            "type": "number"
+          },
+          "windDirectionDeg": {
+            "type": "number"
+          },
+          "windSpeedKts": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "distanceNm",
+          "bearingDeg",
+          "windDirectionDeg",
+          "windSpeedKts"
+        ]
+      },
+      "Course": {
+        "description": "A start's constructed course (ORC rule 402.5), as stored.",
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "north": {
+            "type": "string",
+            "enum": [
+              "true",
+              "magnetic"
+            ],
+            "description": "What the bearings are relative to: `true`, unless the course came with magnetic bearings and nothing said where it was, so they could not be converted."
+          },
+          "distanceNm": {
+            "description": "The course length the start states, else the sum of its legs.",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "legs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CourseLeg"
+            }
+          }
+        },
+        "required": [
+          "name",
+          "north",
+          "distanceNm",
+          "legs"
+        ]
+      },
+      "Start": {
+        "description": "A start of a race: a gun and the fleets on it.",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "fleetIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "description": "The fleets on this gun. A fleet starts once per race."
+          },
+          "startTime": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^([01]\\d|2[0-3]):[0-5]\\d(:[0-5]\\d)?$",
+                "description": "A local time of day, `HH:MM:SS` (or `HH:MM`)."
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The gun, `HH:MM:SS`; null for a start with no time."
+          },
+          "course": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Course"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "fleetIds",
+          "startTime",
+          "course"
+        ]
+      },
+      "RaceList": {
+        "description": "A series' races, in order.",
+        "type": "object",
+        "properties": {
+          "races": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Race"
+            }
+          }
+        },
+        "required": [
+          "races"
+        ]
+      },
+      "Finish": {
+        "description": "One boat's finish in a race, as recorded.",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "competitorId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null for a crossing whose sail number matched no entry."
+          },
+          "sailNumber": {
+            "description": "The sail number recorded, for a crossing that matched no entry.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "position": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Finishing order among the finishers; null for a boat that didn't finish."
+          },
+          "tiedWithPrevious": {
+            "type": "boolean"
+          },
+          "finishTime": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^([01]\\d|2[0-3]):[0-5]\\d(:[0-5]\\d)?$",
+                "description": "A local time of day, `HH:MM:SS` (or `HH:MM`)."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "elapsedSecs": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "resultCode": {
+            "description": "An RRS code (`DNF`, `OCS`, …) for a boat that didn't finish normally.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "penaltyCode": {
+            "description": "A scoring penalty (`ZFP`, `SCP`, `DPI`).",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "competitorId",
+          "sailNumber",
+          "position",
+          "tiedWithPrevious",
+          "finishTime",
+          "elapsedSecs",
+          "resultCode",
+          "penaltyCode"
+        ]
+      },
+      "FinishList": {
+        "description": "A race's finishes, in finishing order.",
+        "type": "object",
+        "properties": {
+          "finishes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Finish"
+            }
+          }
+        },
+        "required": [
+          "finishes"
+        ]
+      },
+      "WorkspacePublication": {
+        "description": "A series' published results.",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The publication, as `/publications/{id}` serves it."
+          },
+          "seriesId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "slug": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string",
+            "description": "The published results page."
+          },
+          "api": {
+            "description": "The publication in the published results API, where it has one.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "publishedAt": {
+            "type": "string",
+            "description": "An instant, as an ISO 8601 timestamp in UTC (`…Z`)."
+          }
+        },
+        "required": [
+          "id",
+          "seriesId",
+          "slug",
+          "url",
+          "api",
+          "publishedAt"
+        ]
+      },
+      "WorkspacePublications": {
+        "description": "Every publication in the workspace.",
+        "type": "object",
+        "properties": {
+          "publications": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspacePublication"
+            }
+          }
+        },
+        "required": [
+          "publications"
+        ]
+      },
+      "SeriesPublication": {
+        "description": "A series' publication, or null while it has none.",
+        "type": "object",
+        "properties": {
+          "publication": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WorkspacePublication"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "publication"
+        ]
+      },
+      "CreateRaces": {
+        "description": "Races to add after the series' last race, each with its starts. The server numbers them.",
+        "type": "object",
+        "properties": {
+          "races": {
+            "minItems": 1,
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "description": "Choose the id, so a retried call replaces rather than duplicates.",
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "date": {
+                  "type": "string",
+                  "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                  "description": "A local date, `YYYY-MM-DD`."
+                },
+                "name": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 120
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "starts": {
+                  "default": [],
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      "fleetIds": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        }
+                      },
+                      "startTime": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "pattern": "^([01]\\d|2[0-3]):[0-5]\\d(:[0-5]\\d)?$",
+                            "description": "A local time of day, `HH:MM:SS` (or `HH:MM`)."
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "fleetIds"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "date",
+                "starts"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "races"
+        ],
+        "additionalProperties": false
+      },
+      "StartChange": {
+        "description": "The parts of a start to change; a field left out keeps its value, and `null` clears it.",
+        "type": "object",
+        "properties": {
+          "startTime": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^([01]\\d|2[0-3]):[0-5]\\d(:[0-5]\\d)?$",
+                "description": "A local time of day, `HH:MM:SS` (or `HH:MM`)."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "fleetIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "Publish": {
+        "description": "How to publish a series.",
+        "type": "object",
+        "properties": {
+          "season": {
+            "description": "The season to publish under; defaults to the series' year.",
+            "type": "string",
+            "maxLength": 40
+          },
+          "folder": {
+            "type": "string",
+            "maxLength": 60
+          },
+          "slug": {
+            "description": "Honoured on the first publish only.",
+            "type": "string",
+            "maxLength": 80
+          },
+          "fleets": {
+            "description": "The fleets to publish, by name; all of them when left out.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "securitySchemes": {
+      "oauth": {
+        "type": "oauth2",
+        "description": "OAuth 2.0 with PKCE; apps are registered by Sail Scoring, not by themselves. Ask for `offline_access` to get a refresh token.",
+        "flows": {
+          "authorizationCode": {
+            "authorizationUrl": "https://app.sailscoring.ie/api/auth/oauth2/authorize",
+            "tokenUrl": "https://app.sailscoring.ie/api/auth/oauth2/token",
+            "refreshUrl": "https://app.sailscoring.ie/api/auth/oauth2/token",
+            "scopes": {
+              "read": "See the workspace’s series: entries, races, starts, finishes and what’s published",
+              "races": "Add and delete races, change their starts, and set each start’s course",
+              "publish": "Publish and unpublish results",
+              "offline_access": "Keep this access until you disconnect it, without asking you each time"
+            }
+          }
+        }
+      }
+    }
+  }
+}
