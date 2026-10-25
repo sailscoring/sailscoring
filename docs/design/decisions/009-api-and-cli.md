@@ -2,8 +2,12 @@
 
 **Status:** Accepted — partially implemented. M1–M3 (keyed API access, the
 import endpoint, the bulk-import CLI with publish / categorise / archive) and
-the M4 read surface have landed; M4 Tier 3 and M5–M8 are deferred and tracked
-in [horizon.md](../horizon.md).
+the M4 read surface have landed; M4 Tier 3 and M7 are deferred and tracked
+in [horizon.md](../horizon.md). M5 (self-service keys), M6 (spec and SDK) and
+M8 (a documented public API) are replaced by
+[ADR-016](016-authenticated-public-api.md): the CLI signs in with OAuth's device
+grant, and the public API is a separate, documented surface under
+`/api/public/v1`, with `/api/v1` staying the internal one the CLI calls.
 
 **Date:** 2026-06-15
 

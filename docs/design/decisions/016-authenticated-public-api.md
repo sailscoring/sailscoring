@@ -1,6 +1,7 @@
 # ADR-016: An authenticated public API
 
-**Status:** Proposed
+**Status:** Accepted (2026-10-25). Implemented by #695–#701; the authenticated
+part remains a preview (§5) until the first outside apps use it.
 
 **Date:** 2026-10-25
 

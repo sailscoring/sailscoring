@@ -21,18 +21,16 @@ The stretch of the read surface: `ratings irc|echo|vprs`, `member list`,
 in place, so each is a thin command over an existing GET. Tracked on the M4
 issue.
 
-### M5 — Token-management UX
+M5 (a self-service API-keys card), M6 (the OpenAPI description and an SDK) and
+M8 (a documented public API) are replaced by ADR-016: the CLI signs in with
+OAuth's device grant, and the public API under `/api/public/v1` has its
+OpenAPI description and documentation (`docs/public-api.md`). What's left of
+them is below.
 
-An `/account` "API keys" card (create / list / revoke, plaintext shown once,
-default-workspace picker), retiring the `provision-token` bootstrap script for
-normal users. Likely feature-gated while experimental.
+### An SDK for the public API
 
-### M6 — OpenAPI spec + TypeScript SDK
-
-Generate an OpenAPI 3.1 description from the Zod schemas (with a CI
-route-coverage assertion), extract the TS SDK (`api-repository` promoted to a
-publishable typed client), and refactor the CLI to ride it. The inflection
-point from "internal contract" toward a real public API.
+A typed client generated from `docs/openapi/public-v1.json`, published for app
+developers. ADR-016 leaves it until an app asks for one.
 
 ### M7 — CLI breadth (create / update / delete)
 
@@ -42,11 +40,6 @@ M4's reads, so the CLI can drive any workflow the app can. Includes proper
 distribution: a published npm package / `npx sailscoring`, and a standalone,
 dependency-free executable (Node SEA / Bun) to replace the current
 tsx-at-runtime bin.
-
-### M8 — Documented public API
-
-Stability / deprecation policy, published spec + docs, rate-limit / quota
-policy, and polyglot SDKs generated on demand — its own follow-up ADR.
 
 ---
 
@@ -1967,7 +1960,7 @@ layout and art direction — is enrichment a class layers on with data it alread
 holds. That split is the argument for the public API: we shouldn't *build* the
 Topper card, we should make it so a class can. The aspiration isn't a feature on
 our roadmap; it's **inspiring people to build cards like this for their own
-classes** on top of our record, and shaping the read API (M6/M8 above) so the join
+classes** on top of our record, and shaping the public API (ADR-016) so the join
 key and the rankings are the easy part.
 
 ---
