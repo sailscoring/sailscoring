@@ -104,6 +104,38 @@ describe.skipIf(!DATABASE_URL)('OAuth for outside apps and the CLI', () => {
     expect(await resolve('not-even-prefixed')).toBeNull();
   });
 
+  test('signing out ends the access token, and a refresh gives the app another', async () => {
+    const other = await signInFreshUser('oauth-signout');
+    try {
+      await setConnectedApps(other.personalWorkspaceId, true);
+      const tokens = await grantApp(other, appId, other.personalWorkspaceId);
+      const out = await request(other, '/api/auth/sign-out', { json: {} });
+      expect(out.status).toBe(200);
+      expect(await resolve(tokens.accessToken)).toBeNull();
+      const again = await exchange({ grant_type: 'refresh_token', refresh_token: tokens.refreshToken, client_id: appId });
+      expect((await resolve(again.accessToken))?.workspaceId).toBe(other.personalWorkspaceId);
+    } finally {
+      await removeUser(other);
+    }
+  });
+
+  test('a lapsed session takes the app’s access with it', async () => {
+    const other = await signInFreshUser('oauth-lapse');
+    try {
+      await setConnectedApps(other.personalWorkspaceId, true);
+      const tokens = await grantApp(other, appId, other.personalWorkspaceId);
+      await getDb()
+        .update(schema.session)
+        .set({ expiresAt: new Date(Date.now() - 1000) })
+        .where(eq(schema.session.userId, other.userId));
+      expect(await resolve(tokens.accessToken)).toBeNull();
+      const again = await exchange({ grant_type: 'refresh_token', refresh_token: tokens.refreshToken, client_id: appId });
+      expect(await resolve(again.accessToken)).toBeNull();
+    } finally {
+      await removeUser(other);
+    }
+  });
+
   test('the CLI signs in with the device grant, for every workspace', async () => {
     const tokens = await deviceSignIn(user, cliId);
     expect(await resolve(tokens.accessToken)).toEqual({
