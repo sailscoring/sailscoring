@@ -37,11 +37,13 @@ export function FinishSheetPreviewSummary({
   untimedHandicap,
 }: {
   /** A spreadsheet import, a scorer's review of a submission (both replace
-   *  the race's sheet), or a recorder's submit (which replaces nothing). */
+   *  the race's sheet), or a spreadsheet a recorder is about to submit
+   *  (which replaces only what they have recorded so far). */
   kind: 'import' | 'review' | 'submit';
   result: ParseFinishSheetResult;
   candidates: readonly Candidate[];
-  /** How many finishes the race's sheet has now; unused for a submit. */
+  /** How many finishes the race's sheet has now, or for a submit, the
+   *  recording. */
   existingFinishCount: number;
   outcome: { kept: CarryOutcomeItem[]; cleared: CarryOutcomeItem[] } | null;
   untimedHandicap: number;
@@ -83,6 +85,11 @@ export function FinishSheetPreviewSummary({
         <p className="text-sm font-medium text-destructive">
           {untimedHandicap} untimed finisher{untimedHandicap === 1 ? ' is' : 's are'} in a handicap fleet
           with a timed start — a finish without a time cannot be scored on corrected time.
+        </p>
+      )}
+      {!replaces && existingFinishCount > 0 && (
+        <p className="text-sm text-muted-foreground">
+          This replaces the {existingFinishCount} finish{existingFinishCount === 1 ? '' : 'es'} recorded so far.
         </p>
       )}
       {replaces && (

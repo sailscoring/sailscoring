@@ -127,9 +127,11 @@ export interface FinishTabProps {
   savedFinishes: Finish[] | undefined;
   finishSheetImportRef: Ref<FinishSheetImportHandle>;
   applyCsvImport: (result: ParseFinishSheetResult) => void | Promise<void>;
-  setEditingPenaltyEntryId: (competitorId: string) => void;
-  openRedressDialog: (competitorId: string, isFinisher: boolean) => void;
-  setResolvingEntry: (entry: FinishEntry & { kind: 'unknown' }) => void;
+  /** Open the penalty editor, the redress dialog, or the resolve dialog for
+   *  an unknown boat. Each one absent hides the controls that open it. */
+  setEditingPenaltyEntryId?: (competitorId: string) => void;
+  openRedressDialog?: (competitorId: string, isFinisher: boolean) => void;
+  setResolvingEntry?: (entry: FinishEntry & { kind: 'unknown' }) => void;
   /** Persistence helpers used by the inline finish-time editor. */
   patchCache: (updater: (rows: Finish[]) => Finish[]) => void;
   saveFinish: { mutate: (f: Finish) => unknown };
@@ -146,6 +148,14 @@ export interface FinishTabProps {
    * penalties and redress, and the track data all still show.
    */
   readOnly?: boolean;
+  /**
+   * The sheet is a recording to submit for a scorer's review, not the race's
+   * finish sheet, so it takes only what a submission carries: the order, the
+   * times, and a code for a boat that didn't finish. A tie or a code on a
+   * placed boat is the scorer's to set once it's applied, so neither is
+   * offered.
+   */
+  recording?: boolean;
 }
 
 export function FinishTab(props: FinishTabProps) {
@@ -158,7 +168,7 @@ export function FinishTab(props: FinishTabProps) {
     finishRecording, onSetFinishRecording, derived, savedFinishes,
     finishSheetImportRef, applyCsvImport,
     setEditingPenaltyEntryId, openRedressDialog, setResolvingEntry,
-    patchCache, saveFinish, leave, readOnly = false,
+    patchCache, saveFinish, leave, readOnly = false, recording = false,
   } = props;
   const {
     finishingOrder, tiedWithPrevious, finishTimes, elapsedSecs,
@@ -312,13 +322,16 @@ export function FinishTab(props: FinishTabProps) {
     error: pendingTimeError, setError: setPendingTimeError,
     inputRef: pendingTimeInputRef,
     confirm: confirmPendingTime, cancel: cancelPendingTime,
+    stamp: stampPendingTime,
   } = finishInput.pendingTime;
   const {
     flashedRowId, editingTimes, setEditingTimes,
     removeFinisher, toggleTiedWithPrevious, moveRowTo, reslotTimedRow,
     setNonFinisherCode, setFinisherCode,
   } = rowOps;
-  const codeLabels = NON_FINISHER_CODE_LABELS;
+  // RDG is set through the redress dialog, so it's offered only with one.
+  const nonFinisherCodes = (Object.keys(NON_FINISHER_CODE_LABELS) as NonFinisherCode[])
+    .filter((c) => c !== 'RDG' || openRedressDialog);
 
   // The non-finishers panel is a narrow triage list, not a peer of the
   // finishing order. When it's empty the finishing order takes the full width
@@ -393,7 +406,7 @@ export function FinishTab(props: FinishTabProps) {
           its own. Sized from its content, name and badge share the squeeze and
           both ellipsize. */}
       <span className="text-sm flex-auto truncate">{displayCompetitorLabel(competitor, { enabledCompetitorFields, showCrew })}</span>
-      {code === 'RDG' && !readOnly && (
+      {code === 'RDG' && !readOnly && openRedressDialog && (
         <button
           type="button"
           onClick={() => openRedressDialog(competitor.id, false)}
@@ -409,14 +422,14 @@ export function FinishTab(props: FinishTabProps) {
           className="w-36 shrink-0 text-xs text-muted-foreground text-right"
           data-testid={`non-finisher-code-${competitor.sailNumber}`}
         >
-          {codeLabels[code]}
+          {NON_FINISHER_CODE_LABELS[code]}
         </span>
       ) : (
       <Select
         value={code}
         onValueChange={(v) => {
           if (v === 'RDG') {
-            openRedressDialog(competitor.id, false);
+            openRedressDialog?.(competitor.id, false);
           } else {
             setNonFinisherCode(competitor.id, v as NonFinisherCode);
           }
@@ -426,9 +439,9 @@ export function FinishTab(props: FinishTabProps) {
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          {(Object.keys(codeLabels) as NonFinisherCode[]).map((c) => (
+          {nonFinisherCodes.map((c) => (
             <SelectItem key={c} value={c}>
-              {codeLabels[c]}
+              {NON_FINISHER_CODE_LABELS[c]}
             </SelectItem>
           ))}
         </SelectContent>
@@ -514,9 +527,10 @@ export function FinishTab(props: FinishTabProps) {
               </SelectContent>
             </Select>
           )}
-          {has('csv-finish-import') && !readOnly && (
+          {(has('csv-finish-import') || recording) && !readOnly && (
             <FinishSheetImport
               ref={finishSheetImportRef}
+              submitting={recording}
               candidates={importCandidates}
               needsFinishTime={needsFinishTime}
               existingFinishes={savedFinishes ?? []}
@@ -561,6 +575,9 @@ export function FinishTab(props: FinishTabProps) {
                   }
                 }}
               />
+              {stampPendingTime && (
+                <Button size="sm" variant="outline" onClick={stampPendingTime} title="The time now">Now</Button>
+              )}
               <Button size="sm" onClick={confirmPendingTime}>Add</Button>
               <button onClick={cancelPendingTime} aria-label="Cancel" className="text-muted-foreground hover:text-foreground">
                 <X className="h-4 w-4" />
@@ -864,14 +881,16 @@ export function FinishTab(props: FinishTabProps) {
                   )}
                   {!readOnly && (
                     <>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="shrink-0"
-                        onClick={() => setResolvingEntry(entry)}
-                      >
-                        Resolve
-                      </Button>
+                      {setResolvingEntry && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="shrink-0"
+                          onClick={() => setResolvingEntry(entry)}
+                        >
+                          Resolve
+                        </Button>
+                      )}
                       <button
                         onClick={() => removeFinisher(eid)}
                         aria-label={`Remove unknown ${entry.sailNumber}`}
@@ -1018,7 +1037,7 @@ export function FinishTab(props: FinishTabProps) {
                       tie
                     </span>
                   )
-                ) : !isTimed && index > 0 && !((() => { const prev = finishingOrder[index - 1]; return prev.kind === 'known' && needsFinishTime(prev.competitorId); })()) && (
+                ) : !recording && !isTimed && index > 0 && !((() => { const prev = finishingOrder[index - 1]; return prev.kind === 'known' && needsFinishTime(prev.competitorId); })()) && (
                   <label
                     className="flex items-center gap-1 text-xs text-muted-foreground shrink-0 cursor-pointer"
                     title="Tied with previous row (simultaneous finish, RRS A7)"
@@ -1074,8 +1093,8 @@ export function FinishTab(props: FinishTabProps) {
                 {penalty && (
                   <Badge
                     variant="outline"
-                    className={cn('text-xs shrink-0', !readOnly && 'cursor-pointer')}
-                    onClick={readOnly ? undefined : () => setEditingPenaltyEntryId(entry.competitorId)}
+                    className={cn('text-xs shrink-0', !readOnly && setEditingPenaltyEntryId && 'cursor-pointer')}
+                    onClick={readOnly || !setEditingPenaltyEntryId ? undefined : () => setEditingPenaltyEntryId(entry.competitorId)}
                   >
                     {penalty.code}
                     {penalty.override != null ? ` (${penalty.override}${penalty.code === 'DPI' ? 'pts' : '%'})` : ''}
@@ -1086,9 +1105,9 @@ export function FinishTab(props: FinishTabProps) {
                     variant="outline"
                     className={cn(
                       'text-xs shrink-0 border-amber-400 text-amber-700 dark:text-amber-400',
-                      !readOnly && 'cursor-pointer',
+                      !readOnly && openRedressDialog && 'cursor-pointer',
                     )}
-                    onClick={readOnly ? undefined : () => openRedressDialog(entry.competitorId, true)}
+                    onClick={readOnly || !openRedressDialog ? undefined : () => openRedressDialog(entry.competitorId, true)}
                   >
                     RDG
                   </Badge>
@@ -1112,7 +1131,7 @@ export function FinishTab(props: FinishTabProps) {
                 {/* Penalty and redress are infrequent — keep them off the row
                     behind an overflow menu so the boat name keeps the width.
                     The aria-labels below carry the sail number for addressing. */}
-                {!readOnly && (
+                {!readOnly && !recording && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button
@@ -1124,14 +1143,18 @@ export function FinishTab(props: FinishTabProps) {
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem onSelect={() => setEditingPenaltyEntryId(entry.competitorId)}>
-                      <Flag className="h-3.5 w-3.5" />
-                      Set scoring penalty
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => openRedressDialog(entry.competitorId, true)}>
-                      <Scale className="h-3.5 w-3.5" />
-                      {hasRedress ? 'Edit redress (RDG)' : 'Set redress (RDG)'}
-                    </DropdownMenuItem>
+                    {setEditingPenaltyEntryId && (
+                      <DropdownMenuItem onSelect={() => setEditingPenaltyEntryId(entry.competitorId)}>
+                        <Flag className="h-3.5 w-3.5" />
+                        Set scoring penalty
+                      </DropdownMenuItem>
+                    )}
+                    {openRedressDialog && (
+                      <DropdownMenuItem onSelect={() => openRedressDialog(entry.competitorId, true)}>
+                        <Scale className="h-3.5 w-3.5" />
+                        {hasRedress ? 'Edit redress (RDG)' : 'Set redress (RDG)'}
+                      </DropdownMenuItem>
+                    )}
                     {/* A boat who crossed the line and is then scored DSQ,
                         OCS, RET… stays at her crossing position with the
                         code on the row. */}

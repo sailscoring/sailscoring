@@ -64,6 +64,11 @@ export interface UseFinishInputArgs {
    *  the medal boats on a split-fleet companion race — and why, as the rest
    *  of a sentence after the sail number. Typing one is refused. */
   notInRace?: { ids: ReadonlySet<string>; reason: string };
+  /** The time of day now, for finishes taken down as the boats cross rather
+   *  than transcribed afterwards: a boat that needs a time starts with the
+   *  moment her sail number went in, and the time step offers "Now". Not
+   *  used for elapsed times, which no clock on the boat reads. */
+  stampTime?: () => string;
 }
 
 /**
@@ -79,10 +84,11 @@ export function useFinishInput(args: UseFinishInputArgs) {
     derived, nonFinishers, finishedIds,
     saveFinish, patchCache,
     commitOrderChange, flashRow,
-    ready, onIncludeCompetitor, notInRace,
+    ready, onIncludeCompetitor, notInRace, stampTime,
   } = args;
   const { finishingOrder, finishTimes, elapsedSecs, tiedWithPrevious, finishByCompetitorId } = derived;
   const byElapsed = finishRecording === 'elapsed';
+  const stamp = byElapsed ? undefined : stampTime;
 
   // Input field state
   const [sailInput, setSailInput] = useState('');
@@ -374,7 +380,7 @@ export function useFinishInput(args: UseFinishInputArgs) {
       setInputNotice('');
       setHighlightedIndex(-1);
       setPendingTimeEntry({ competitor, matchedOn, entered: entered ?? competitor.sailNumber });
-      setPendingTimeValue('');
+      setPendingTimeValue(stamp?.() ?? '');
       setPendingTimeError('');
     } else {
       addKnownFinisher(competitor, undefined, matchedOn, entered);
@@ -545,6 +551,14 @@ export function useFinishInput(args: UseFinishInputArgs) {
       inputRef: pendingTimeInputRef,
       confirm: confirmPendingTime,
       cancel: cancelPendingTime,
+      /** Put the time now in the box; absent unless finishes are taken live. */
+      stamp: stamp
+        ? () => {
+            setPendingTimeValue(stamp());
+            setPendingTimeError('');
+            pendingTimeInputRef.current?.focus();
+          }
+        : undefined,
     },
     suggestions,
     /** Already-finished boats matching the typed prefix — the dropdown's

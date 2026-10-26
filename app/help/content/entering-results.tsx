@@ -552,15 +552,20 @@ export default function EnteringResults() {
           Members). A recorder sees the workspace as a member does and can submit finishes,
           but can’t enter them on the finish sheet, change races or series, or publish.
           Their workspace has a <strong className="text-foreground">Record finishes</strong>{' '}
-          tab, made for a phone: they pick the race (today’s are first), add each boat as it
-          crosses, with a time if there is one (<strong className="text-foreground">Now</strong>{' '}
-          stamps the time now), code any that didn’t finish, note the start times they took,
-          and press <strong className="text-foreground">Submit for review</strong>. A sheet
-          kept in a spreadsheet can be imported instead, mapped column by column as the{' '}
+          tab: they pick the race (today’s are first) and take its finishes down on the same
+          finishing order you enter them on, on a phone as well as at a desk. A sail number
+          offers the boats it could be as it’s typed, a number on no entry goes in as an
+          unknown boat for you to resolve, and a boat that didn’t finish gets her code from the
+          non-finishers list. Where a fleet is timed, the time a boat goes in is filled in for
+          them, and <strong className="text-foreground">Now</strong> stamps it again. They note
+          the start times they took and press{' '}
+          <strong className="text-foreground">Submit for review</strong>. A sheet kept in a
+          spreadsheet can be imported instead, mapped column by column as the{' '}
           <a href="/help/entering-results#importing-finish-sheet" className="underline">finish sheet import</a> is.
-          Before they submit, the page tells them which sail numbers matched an entry and
-          which you’ll have to resolve. Until you apply it, they can correct it and submit
-          again, and the correction replaces what they sent before.
+          Ties, penalties and redress are yours to set once it’s applied. Submitting tells them
+          how many boats matched an entry and how many sail numbers you’ll have to resolve.
+          Until you apply it, they can correct it and submit again, and the correction
+          replaces what they sent before.
         </p>
         <p>
           A race with a sheet waiting says so on the{' '}

@@ -1,25 +1,15 @@
 /**
- * The Record finishes page (#671), as pure logic: the races a recorder picks
- * from, and turning what they took down into a submission upload. Client-
- * safe.
+ * The Record finishes page, as pure logic: the races a recorder picks from,
+ * and a recording taken down on the Finish tab turned into a submission
+ * upload and back. Client-safe.
  */
 
+import type { Candidate } from './finish-sheet-csv';
+import { finishRowsFromImport } from './finish-entry';
+import { readSubmission } from './finish-submission';
 import { normalizeTimeInput } from './time-parse';
-import type { FinishSubmission, SubmittedFinish } from './types';
+import type { Finish, FinishSubmission, SubmittedFinish } from './types';
 import type { SubmitFinishesInput } from './validation/finish-submission';
-
-/** One line of the recording as the recorder edits it. */
-export interface RecordingRow {
-  id: string;
-  /** Set when the row came from a sheet whose sail number matched an
-   *  entry; a typed row is matched by the scorer's review instead. */
-  competitorId: string | null;
-  sailNumber: string;
-  /** As typed; normalised on submit. */
-  finishTime: string;
-  elapsedSecs: number | null;
-  resultCode: string;
-}
 
 /** Days either side of today a recorder can pick a race from. */
 export const RACE_WINDOW_DAYS = 7;
@@ -48,58 +38,49 @@ export function groupRaces<T extends { race: { date: string } }>(
   };
 }
 
-export function rowsFromSubmission(
-  submission: FinishSubmission,
+/**
+ * A submission as the finish rows the Finish tab edits, read the way the
+ * scorer's review reads it: a sail number that has since been entered
+ * matches its boat, and a row the review would leave out is left out here.
+ */
+export function sheetFromSubmission(
+  raceId: string,
+  submission: Pick<FinishSubmission, 'finishes'>,
+  candidates: Candidate[],
   sailNumberOf: (competitorId: string) => string | undefined,
-): RecordingRow[] {
-  return submission.finishes.map((f) => ({
+): Finish[] {
+  return finishRowsFromImport(raceId, readSubmission(submission.finishes, candidates, sailNumberOf).finishes);
+}
+
+/** The recording's lines as an upload carries them: the finishers in
+ *  crossing order, then the boats given a code. A start check-in with
+ *  neither is no line of the sheet. */
+export function submittedFinishes(finishes: readonly Finish[]): SubmittedFinish[] {
+  const placed = finishes.filter((f) => f.sortOrder !== null).sort((a, b) => a.sortOrder! - b.sortOrder!);
+  const coded = finishes.filter((f) => f.sortOrder === null && f.resultCode);
+  return [...placed, ...coded].map((f) => ({
     id: f.id,
     competitorId: f.competitorId,
-    sailNumber: f.sailNumber ?? (f.competitorId ? sailNumberOf(f.competitorId) : undefined) ?? '',
-    finishTime: f.finishTime ?? '',
-    elapsedSecs: f.elapsedSecs,
-    resultCode: f.resultCode ?? '',
+    sailNumber: f.competitorId ? null : (f.unknownSailNumber ?? null),
+    finishTime: f.finishTime ?? null,
+    elapsedSecs: f.elapsedSecs ?? null,
+    resultCode: f.resultCode ?? null,
   }));
 }
 
-/** A row as the upload carries it, or why it can't be sent. */
-export function submittedFinishOf(row: RecordingRow): SubmittedFinish | { problem: string } {
-  const sail = row.sailNumber.trim();
-  if (!row.competitorId && !sail) return { problem: 'needs a sail number' };
-  let finishTime: string | null = null;
-  if (!row.resultCode && row.finishTime.trim()) {
-    finishTime = normalizeTimeInput(row.finishTime);
-    if (!finishTime) return { problem: `“${row.finishTime.trim()}” isn’t a time (HH:MM:SS)` };
-  }
-  return {
-    id: row.id,
-    competitorId: row.competitorId,
-    sailNumber: row.competitorId ? null : sail,
-    finishTime,
-    elapsedSecs: row.resultCode || finishTime ? null : row.elapsedSecs,
-    resultCode: row.resultCode || null,
-  };
-}
-
 /**
- * The upload for the rows as they stand, at `revision`, with the start
+ * The upload for the recording as it stands, at `revision`, with the start
  * times the recorder filled in (by start id; blank ones are left out). The
- * problems name the rows (1-based) and starts that can't be sent yet.
+ * problems name the start times that can't be sent yet.
  */
 export function uploadOf(args: {
-  rows: readonly RecordingRow[];
+  finishes: readonly Finish[];
   startTimes: Readonly<Record<string, string>>;
   recordedBy: string;
   complete: boolean;
   revision: number;
 }): { input: SubmitFinishesInput; problems: string[] } {
   const problems: string[] = [];
-  const finishes: SubmittedFinish[] = [];
-  args.rows.forEach((row, i) => {
-    const f = submittedFinishOf(row);
-    if ('problem' in f) problems.push(`Row ${i + 1} ${f.problem}.`);
-    else finishes.push(f);
-  });
   const starts: SubmitFinishesInput['starts'] = [];
   for (const [startId, raw] of Object.entries(args.startTimes)) {
     if (!raw.trim()) continue;
@@ -112,12 +93,8 @@ export function uploadOf(args: {
       revision: args.revision,
       recordedBy: args.recordedBy.trim() || null,
       starts,
-      finishes: finishes.map((f) => ({
-        id: f.id,
-        competitorId: f.competitorId,
-        sailNumber: f.sailNumber,
-        finishTime: f.finishTime,
-        elapsedSecs: f.elapsedSecs,
+      finishes: submittedFinishes(args.finishes).map((f) => ({
+        ...f,
         resultCode: f.resultCode as SubmitFinishesInput['finishes'][number]['resultCode'],
       })),
       complete: args.complete,

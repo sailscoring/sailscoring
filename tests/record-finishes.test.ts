@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { groupRaces, raceWindow, rowsFromSubmission, uploadOf, type RecordingRow } from '@/lib/record-finishes';
-import type { FinishSubmission } from '@/lib/types';
+import type { Candidate } from '@/lib/finish-sheet-csv';
+import { makeFinish } from '@/lib/finish-entry';
+import { groupRaces, raceWindow, sheetFromSubmission, uploadOf } from '@/lib/record-finishes';
+import type { Finish, SubmittedFinish } from '@/lib/types';
 
-const row = (over: Partial<RecordingRow>): RecordingRow => ({
-  id: 'r', competitorId: null, sailNumber: '', finishTime: '', elapsedSecs: null, resultCode: '', ...over,
-});
+const row = (over: Partial<Finish> & Pick<Finish, 'id'>): Finish => makeFinish('race', over);
 
 describe('the races a recorder picks from', () => {
   it('spans a week either side, across a month end', () => {
@@ -22,13 +22,15 @@ describe('the races a recorder picks from', () => {
 });
 
 describe('an upload of the recording', () => {
-  it('normalises times, names boats by id or sail number, and leaves blank start times out', () => {
+  it('sends the finishers in crossing order, then the coded boats, naming each by id or the number written down', () => {
     const { input, problems } = uploadOf({
-      rows: [
-        row({ id: 'a', sailNumber: ' 22 ', finishTime: '124213' }),
-        row({ id: 'b', competitorId: 'c15', sailNumber: '15', finishTime: '12:43' }),
-        row({ id: 'c', sailNumber: '254', finishTime: '12:44:00', resultCode: 'DNF' }),
-        row({ id: 'd', sailNumber: '9', elapsedSecs: 3725 }),
+      finishes: [
+        row({ id: 'b', competitorId: 'c15', sortOrder: 2, finishTime: '12:43:00', startPresent: true }),
+        row({ id: 'r', competitorId: 'c254', resultCode: 'RET' }),
+        row({ id: 'a', competitorId: null, unknownSailNumber: '999', sortOrder: 1 }),
+        row({ id: 'e', competitorId: 'c9', sortOrder: 3, elapsedSecs: 3725 }),
+        // A start check-in is no line of the sheet.
+        row({ id: 'k', competitorId: 'c7', startPresent: true }),
       ],
       startTimes: { s1: '11:02', s2: '' },
       recordedBy: ' Committee boat ',
@@ -41,45 +43,58 @@ describe('an upload of the recording', () => {
       recordedBy: 'Committee boat',
       starts: [{ startId: 's1', startTime: '11:02:00' }],
       finishes: [
-        { id: 'a', competitorId: null, sailNumber: '22', finishTime: '12:42:13', elapsedSecs: null, resultCode: null },
+        { id: 'a', competitorId: null, sailNumber: '999', finishTime: null, elapsedSecs: null, resultCode: null },
         { id: 'b', competitorId: 'c15', sailNumber: null, finishTime: '12:43:00', elapsedSecs: null, resultCode: null },
-        // A code wins over a time, as on an imported sheet.
-        { id: 'c', competitorId: null, sailNumber: '254', finishTime: null, elapsedSecs: null, resultCode: 'DNF' },
-        { id: 'd', competitorId: null, sailNumber: '9', finishTime: null, elapsedSecs: 3725, resultCode: null },
+        { id: 'e', competitorId: 'c9', sailNumber: null, finishTime: null, elapsedSecs: 3725, resultCode: null },
+        { id: 'r', competitorId: 'c254', sailNumber: null, finishTime: null, elapsedSecs: null, resultCode: 'RET' },
       ],
       complete: true,
     });
   });
 
-  it('says which rows and starts can’t be sent', () => {
+  it('says which start times can’t be sent', () => {
     const { input, problems } = uploadOf({
-      rows: [row({ id: 'a' }), row({ id: 'b', sailNumber: '7', finishTime: '25:61' })],
+      finishes: [],
       startTimes: { s1: 'soon' },
       recordedBy: '',
       complete: false,
       revision: 1,
     });
-    expect(problems).toEqual([
-      'Row 1 needs a sail number.',
-      'Row 2 “25:61” isn’t a time (HH:MM:SS).',
-      '“soon” isn’t a start time (HH:MM:SS).',
-    ]);
-    expect(input.finishes).toEqual([]);
+    expect(problems).toEqual(['“soon” isn’t a start time (HH:MM:SS).']);
+    expect(input.starts).toEqual([]);
     expect(input.recordedBy).toBeNull();
   });
 });
 
-describe('a submission back into rows', () => {
-  it('shows each boat by the number written down, or its entry’s', () => {
-    const rows = rowsFromSubmission({
-      finishes: [
-        { id: 'a', competitorId: 'c15', sailNumber: null, finishTime: '12:00:00', elapsedSecs: null, resultCode: null },
-        { id: 'b', competitorId: null, sailNumber: 'IRL 892', finishTime: null, elapsedSecs: null, resultCode: 'DNF' },
-      ],
-    } as FinishSubmission, (id) => ({ c15: '15' })[id]);
-    expect(rows).toEqual([
-      { id: 'a', competitorId: 'c15', sailNumber: '15', finishTime: '12:00:00', elapsedSecs: null, resultCode: '' },
-      { id: 'b', competitorId: null, sailNumber: 'IRL 892', finishTime: '', elapsedSecs: null, resultCode: 'DNF' },
+describe('a submission back into the recording', () => {
+  const candidates: Candidate[] = [
+    { id: 'c15', sailNumber: '15' },
+    { id: 'c22', sailNumber: '22' },
+  ] as Candidate[];
+  const sailNumberOf = (id: string) => candidates.find((c) => c.id === id)?.sailNumber;
+  const sent = (finishes: Partial<SubmittedFinish>[]) => ({
+    finishes: finishes.map((f, i) => ({
+      id: `f${i}`, competitorId: null, sailNumber: null, finishTime: null, elapsedSecs: null, resultCode: null, ...f,
+    })),
+  });
+
+  it('reads it as the review does: in order, matching a number entered since', () => {
+    const rows = sheetFromSubmission('race', sent([
+      { competitorId: 'c15', finishTime: '12:00:00' },
+      // Entered since it went in as an unknown boat.
+      { sailNumber: '22' },
+      { sailNumber: 'IRL 892' },
+    ]), candidates, sailNumberOf);
+    expect(rows.map((f) => [f.competitorId, f.unknownSailNumber ?? null, f.sortOrder, f.finishTime ?? null])).toEqual([
+      ['c15', null, 1, '12:00:00'],
+      ['c22', null, 2, null],
+      [null, 'IRL 892', 3, null],
     ]);
+    expect(rows.every((f) => f.raceId === 'race')).toBe(true);
+  });
+
+  it('keeps a coded boat out of the order', () => {
+    const rows = sheetFromSubmission('race', sent([{ competitorId: 'c22', resultCode: 'DNF' }]), candidates, sailNumberOf);
+    expect(rows.map((f) => [f.competitorId, f.sortOrder, f.resultCode])).toEqual([['c22', null, 'DNF']]);
   });
 });

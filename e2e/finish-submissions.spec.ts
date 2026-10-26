@@ -98,7 +98,8 @@ test('a scorer reviews a submitted finish sheet and applies it', async ({ page, 
 
 baseTest('a recorder takes a race down on the Record finishes page; the scorer applies it', async ({ browser }) => {
   const ctxScorer = await browser.newContext();
-  const ctxRecorder = await browser.newContext();
+  // The recorder is on a phone, on the committee boat.
+  const ctxRecorder = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const scorer = await ctxScorer.newPage();
   const recorder = await ctxRecorder.newPage();
   const errors: string[] = [];
@@ -130,30 +131,35 @@ baseTest('a recorder takes a race down on the Record finishes page; the scorer a
     await expect(picker.getByRole('heading', { name: 'Today' })).toBeVisible();
     await picker.getByRole('button', { name: /Race 1/ }).click();
 
-    // The finishing order, as the boats cross.
+    // The finishing order, as the boats cross, on the scorer's own Finish
+    // tab: a number matches as it's typed, and one on no entry is recorded
+    // as unknown for the scorer to resolve.
     const sail = recorder.getByLabel('Sail number');
-    const time = recorder.getByLabel('Finish time', { exact: true });
-    for (const [n, t] of [['22', '12:42:13'], ['15', '12:43:02'], ['999', '']]) {
-      await sail.fill(n);
-      await time.fill(t);
-      await recorder.getByRole('button', { name: 'Add', exact: true }).click();
-    }
-    const rows = recorder.getByTestId('recording-rows').getByRole('listitem');
+    await sail.fill('2');
+    await expect(recorder.getByRole('option', { name: /254.*Carol Walls/ })).toBeVisible();
+    await recorder.getByRole('option', { name: /22.*Bob Dickson/ }).click();
+    await sail.fill('15');
+    await sail.press('Enter');
+    await sail.fill('999');
+    await sail.press('Enter');
+    await recorder.getByRole('button', { name: 'Record as unknown' }).click();
+    const rows = recorder.locator('[data-entry-key]');
     await expect(rows).toHaveCount(3);
     await expect(rows.nth(0)).toContainText('Bob Dickson');
-    await expect(recorder.getByText('1 finisher has no finish time.')).toBeVisible();
-    await expect(recorder.getByText(/1 unresolved sail number/)).toBeVisible();
+    await expect(rows.nth(2)).toContainText('Unknown — not registered');
+    // Nothing a submission can't carry is offered.
+    await expect(recorder.getByRole('button', { name: 'Resolve' })).toHaveCount(0);
+    await expect(recorder.getByRole('button', { name: /Row actions/ })).toHaveCount(0);
     await recorder.getByLabel('Recorded by').fill('Committee boat');
     await recorder.getByRole('button', { name: 'Submit for review' }).click();
-    await expect(recorder.getByRole('status')).toHaveText(
+    await expect(recorder.getByTestId('record-message')).toHaveText(
       'Submitted for review: 2 boats matched, 1 sail number for the scorer to resolve.',
     );
     await expect(recorder.getByTestId('submission-status')).toContainText('Waiting for the scorer');
 
     // A boat that retired: correct it, and submit again.
-    await sail.fill('254');
-    await recorder.getByRole('button', { name: 'Add', exact: true }).click();
-    await recorder.getByLabel('Code for 254').selectOption('RET');
+    await recorder.getByTestId('non-finisher-254').getByRole('combobox').click();
+    await recorder.getByRole('option', { name: 'RET', exact: true }).click();
     await recorder.getByText('That’s every boat').click();
     await recorder.getByRole('button', { name: 'Submit again' }).click();
     await expect(recorder.getByTestId('submission-status')).toContainText('revision 2');

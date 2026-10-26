@@ -2,16 +2,18 @@
 
 import { useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { ArrowDown, ArrowLeft, ArrowUp, X } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 
-import { FinishSheetImport } from '@/components/finish-sheet-import';
-import { FinishSheetPreviewSummary } from '@/components/finish-sheet-preview-summary';
+import { FinishTab } from '@/components/finish-tab';
+import type { FinishSheetImportHandle } from '@/components/finish-sheet-import';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { useCompetitorsBySeries } from '@/hooks/use-competitors';
+import { useFinishInput } from '@/hooks/use-finish-input';
+import { useFinishRowOps } from '@/hooks/use-finish-row-ops';
 import {
   useRaceSubmissions,
   useRacesBetween,
@@ -19,19 +21,28 @@ import {
   useWithdrawFinishSubmission,
 } from '@/hooks/use-finish-submissions';
 import { useFleetsBySeries } from '@/hooks/use-fleets';
+import { useSeries } from '@/hooks/use-series';
 import type { DatedRace } from '@/lib/api-handlers/races';
-import type { ParseFinishSheetResult } from '@/lib/finish-sheet-csv';
-import { raceCandidates, readSubmission } from '@/lib/finish-submission';
+import { defaultEnabledCompetitorFields } from '@/lib/competitor-fields';
+import {
+  deriveFinishState,
+  deriveNonFinishers,
+  finishedCompetitorIds,
+  finishRowsFromImport,
+} from '@/lib/finish-entry';
+import { raceCandidates } from '@/lib/finish-submission';
+import { competitorsInRace, raceFleetIds, withRaceSailNumbers } from '@/lib/race-membership';
 import { formatRelativeTime } from '@/lib/relative-time';
-import { groupRaces, raceWindow, rowsFromSubmission, uploadOf, type RecordingRow } from '@/lib/record-finishes';
+import { groupRaces, raceWindow, sheetFromSubmission, uploadOf } from '@/lib/record-finishes';
 import { todayIsoDate } from '@/lib/race-schedule';
-import { SUBMITTABLE_CODES } from '@/lib/validation/finish-submission';
+import { normalizeTimeInput } from '@/lib/time-parse';
+import type { Finish } from '@/lib/types';
 
 /**
- * The Record finishes page (#671): for whoever records finishes on the
- * committee boat or in the finish hut, on a phone. Pick the race, take the
- * finishing order down (by hand, or from a spreadsheet), and submit it for a
- * scorer to review. Nothing here writes the finish sheet: a scorer applies a
+ * The Record finishes page: for whoever records finishes on the committee
+ * boat or in the finish hut, on a phone. Pick the race, take the finishing
+ * order down on the same Finish tab a scorer enters it on (or import a
+ * spreadsheet), and submit it for a scorer to review. Nothing here writes the finish sheet: a scorer applies a
  * submission or dismisses it, and until they apply it the recorder can
  * correct it and submit again.
  */
@@ -97,15 +108,17 @@ function RaceGroup({ title, races, onPick }: { title: string; races: DatedRace[]
   );
 }
 
-const newRowId = () => crypto.randomUUID().slice(0, 8);
-
 function nowHms(): string {
   const d = new Date();
   return [d.getHours(), d.getMinutes(), d.getSeconds()].map((n) => String(n).padStart(2, '0')).join(':');
 }
 
+// The recording lives in this page's state until it's submitted, so a row
+// edit the Finish tab makes has nothing further to save.
+const KEPT_IN_THE_DRAFT = { mutate: () => undefined };
+
 interface Draft {
-  rows: RecordingRow[];
+  finishes: Finish[];
   startTimes: Record<string, string>;
   recordedBy: string;
   complete: boolean;
@@ -113,11 +126,13 @@ interface Draft {
 
 function RaceRecording({ dated, userId, onBack }: { dated: DatedRace; userId: string; onBack: () => void }) {
   const { race, starts } = dated;
-  const { data: competitors } = useCompetitorsBySeries(race.seriesId);
+  const { data: series } = useSeries(race.seriesId);
+  const { data: storedCompetitors } = useCompetitorsBySeries(race.seriesId);
   const { data: fleets } = useFleetsBySeries(race.seriesId);
   const { data: submissions } = useRaceSubmissions(race.id, { enabled: true });
   const submit = useSubmitFinishSheet();
   const withdraw = useWithdrawFinishSubmission();
+  const finishSheetImportRef = useRef<FinishSheetImportHandle>(null);
 
   // The recorder's own latest submission for this race, if any: the page
   // picks up where it left off, and a submit revises it.
@@ -127,85 +142,91 @@ function RaceRecording({ dated, userId, onBack }: { dated: DatedRace; userId: st
 
   const fleetById = useMemo(() => new Map((fleets ?? []).map((f) => [f.id, f])), [fleets]);
   const sailNumberOf = useMemo(() => {
-    const m = new Map((competitors ?? []).map((c) => [c.id, c.sailNumber]));
+    const m = new Map((storedCompetitors ?? []).map((c) => [c.id, c.sailNumber]));
     return (id: string) => m.get(id);
-  }, [competitors]);
+  }, [storedCompetitors]);
   const candidates = useMemo(
-    () => raceCandidates(competitors ?? [], starts, (id) => fleetById.get(id)?.name),
-    [competitors, starts, fleetById],
+    () => raceCandidates(storedCompetitors ?? [], starts, (id) => fleetById.get(id)?.name),
+    [storedCompetitors, starts, fleetById],
   );
 
   // Edits live in a draft; until the first edit, the page shows the latest
   // submission as sent.
-  const [draft, setDraft] = useState<Draft | null>(null);
-  const shown: Draft = draft ?? {
-    rows: mine ? rowsFromSubmission(mine, sailNumberOf) : [],
+  const sent = useMemo<Draft>(() => ({
+    finishes: mine ? sheetFromSubmission(race.id, mine, candidates, sailNumberOf) : [],
     startTimes: Object.fromEntries((mine?.starts ?? []).map((s) => [s.startId, s.startTime])),
     recordedBy: mine?.recordedBy ?? '',
     complete: mine?.complete ?? false,
-  };
-  const edit = (change: (d: Draft) => Draft) => setDraft(change(shown));
-  const setRows = (rows: RecordingRow[]) => edit((d) => ({ ...d, rows }));
-
-  const [sail, setSail] = useState('');
-  const [time, setTime] = useState('');
-  const sailRef = useRef<HTMLInputElement>(null);
+  }), [mine, race.id, candidates, sailNumberOf]);
+  const [draft, setDraft] = useState<Draft | null>(null);
+  const shown = draft ?? sent;
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const edit = (change: (d: Draft) => Draft) => {
+    setDraft((d) => change(d ?? sent));
+    setMessage(null);
+  };
+  const patchCache = (updater: (rows: Finish[]) => Finish[]) =>
+    edit((d) => ({ ...d, finishes: updater(d.finishes) }));
+
+  // The starts as the recorder has them: a start time taken on the water
+  // stands in for the one the scorer set, so a handicap fleet asks for
+  // finish times as soon as its gun is known.
+  const raceStarts = useMemo(
+    () => starts.map((s) => {
+      const taken = normalizeTimeInput(shown.startTimes[s.id] ?? '');
+      return taken ? { ...s, startTime: taken } : s;
+    }),
+    [starts, shown.startTimes],
+  );
+  // The boats as this race sees them, each under the number she sails here.
+  // An excluded boat is no entrant, and including one is the scorer's call:
+  // her sail number goes in as an unknown boat for the scorer to resolve.
+  const competitors = useMemo(
+    () => withRaceSailNumbers(storedCompetitors ?? [], raceStarts).filter((c) => !c.excluded),
+    [storedCompetitors, raceStarts],
+  );
+  const competitorMap = useMemo(() => new Map(competitors.map((c) => [c.id, c])), [competitors]);
+  const inRaceCompetitors = useMemo(() => competitorsInRace(competitors, raceStarts), [competitors, raceStarts]);
+  const raceFleets = useMemo(() => raceFleetIds(raceStarts), [raceStarts]);
+
+  const derived = useMemo(() => deriveFinishState(shown.finishes), [shown.finishes]);
+  const finishedIds = finishedCompetitorIds(derived.finishingOrder);
+  const nonFinishers = deriveNonFinishers(inRaceCompetitors, finishedIds, derived.nonFinisherCodes, shown.finishes);
+  const rowOps = useFinishRowOps({
+    raceId: race.id,
+    derived,
+    saveFinish: KEPT_IN_THE_DRAFT,
+    deleteFinish: KEPT_IN_THE_DRAFT,
+    patchCache,
+  });
+  const finishInput = useFinishInput({
+    raceId: race.id,
+    // A handicap fleet whose start has no time yet still has her place taken
+    // down: the recorder can't add a start, and the scorer can time it later.
+    isHandicapSeries: false,
+    finishRecording: race.finishRecording,
+    competitors,
+    fleetById,
+    raceStarts,
+    derived,
+    nonFinishers,
+    finishedIds,
+    saveFinish: KEPT_IN_THE_DRAFT,
+    patchCache,
+    commitOrderChange: rowOps.commitOrderChange,
+    flashRow: rowOps.flashRow,
+    ready: storedCompetitors !== undefined && series !== undefined,
+    stampTime: nowHms,
+  });
 
   const upload = uploadOf({
-    rows: shown.rows,
+    finishes: shown.finishes,
     startTimes: shown.startTimes,
     recordedBy: shown.recordedBy,
     complete: shown.complete,
     revision: (mine?.revision ?? 0) + 1,
   });
-  const preview = useMemo(
-    () => readSubmission(upload.input.finishes.map((f) => ({
-      ...f,
-      competitorId: f.competitorId ?? null,
-      sailNumber: f.sailNumber ?? null,
-      finishTime: f.finishTime ?? null,
-      elapsedSecs: f.elapsedSecs ?? null,
-      resultCode: f.resultCode ?? null,
-    })), candidates, sailNumberOf),
-    [upload.input.finishes, candidates, sailNumberOf],
-  );
-  const boatName = (row: RecordingRow) => {
-    const c = row.competitorId
-      ? competitors?.find((x) => x.id === row.competitorId)
-      : candidates.find((x) => x.sailNumber.toLowerCase() === row.sailNumber.trim().toLowerCase());
-    return c?.boatName || c?.names?.[0] || '';
-  };
-
-  function addRow() {
-    const value = sail.trim();
-    if (!value) return;
-    setRows([...shown.rows, { id: newRowId(), competitorId: null, sailNumber: value, finishTime: time.trim(), elapsedSecs: null, resultCode: '' }]);
-    setSail('');
-    setTime('');
-    setMessage(null);
-    sailRef.current?.focus();
-  }
-
-  function move(i: number, by: -1 | 1) {
-    const rows = [...shown.rows];
-    const [r] = rows.splice(i, 1);
-    rows.splice(i + by, 0, r);
-    setRows(rows);
-  }
-
-  function fromSheet(result: ParseFinishSheetResult) {
-    setRows(result.finishes.map((f) => ({
-      id: newRowId(),
-      competitorId: f.competitorId,
-      sailNumber: f.competitorId ? (sailNumberOf(f.competitorId) ?? '') : (f.unknownSailNumber ?? ''),
-      finishTime: f.finishTime ?? '',
-      elapsedSecs: f.elapsedSecs ?? null,
-      resultCode: f.resultCode ?? '',
-    })));
-    setMessage(null);
-  }
 
   async function send() {
     setError(null);
@@ -235,6 +256,8 @@ function RaceRecording({ dated, userId, onBack }: { dated: DatedRace; userId: st
 
   const fleetsOf = (fleetIds: string[]) =>
     fleetIds.map((id) => fleetById.get(id)?.name).filter((n): n is string => Boolean(n)).join(', ') || 'Every fleet';
+  const enabledCompetitorFields = series?.enabledCompetitorFields ?? defaultEnabledCompetitorFields();
+  const showFleetBadge = (fleets ?? []).length > 1 || (fleets ?? []).some((f) => f.name !== 'Default');
 
   return (
     <div className="space-y-5" data-testid="record-race">
@@ -273,93 +296,39 @@ function RaceRecording({ dated, userId, onBack }: { dated: DatedRace; userId: st
         </section>
       )}
 
-      <section className="space-y-2">
-        <div className="flex items-center justify-between gap-2">
-          <h3 className="text-sm font-medium">Finishing order</h3>
-          <FinishSheetImport
-            submitting
-            candidates={candidates}
-            existingFinishes={[]}
-            onConfirm={fromSheet}
-            trigger={<Button variant="outline" size="sm">Import a spreadsheet</Button>}
+      {storedCompetitors === undefined || series === undefined ? (
+        <p className="text-sm text-muted-foreground">Loading the entry list…</p>
+      ) : (
+        <div className="rounded-lg border bg-card p-3 sm:p-5">
+          <FinishTab
+            recording
+            finishInput={finishInput}
+            rowOps={rowOps}
+            nonFinishers={nonFinishers}
+            competitors={competitors}
+            competitorMap={competitorMap}
+            fleetById={fleetById}
+            raceFleetIds={raceFleets}
+            showFleetBadge={showFleetBadge}
+            showCrew={enabledCompetitorFields.includes('crewName')}
+            enabledCompetitorFields={enabledCompetitorFields}
+            finishRecording={race.finishRecording}
+            derived={derived}
+            savedFinishes={shown.finishes}
+            finishSheetImportRef={finishSheetImportRef}
+            applyCsvImport={(result) => {
+              patchCache(() => finishRowsFromImport(race.id, result.finishes));
+              finishInput.reset();
+            }}
+            patchCache={patchCache}
+            saveFinish={KEPT_IN_THE_DRAFT}
+            leave={onBack}
           />
         </div>
-        <form
-          className="flex gap-2"
-          onSubmit={(e) => { e.preventDefault(); addRow(); }}
-        >
-          <Input
-            ref={sailRef}
-            aria-label="Sail number"
-            placeholder="Sail number"
-            className="flex-1 font-mono"
-            autoComplete="off"
-            value={sail}
-            onChange={(e) => setSail(e.target.value)}
-          />
-          <Input
-            aria-label="Finish time"
-            placeholder="HH:MM:SS"
-            inputMode="numeric"
-            className="w-28 font-mono"
-            value={time}
-            onChange={(e) => setTime(e.target.value)}
-          />
-          <Button type="button" variant="outline" onClick={() => setTime(nowHms())} title="The time now">Now</Button>
-          <Button type="submit" disabled={!sail.trim()}>Add</Button>
-        </form>
-        {shown.rows.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Add each boat as she finishes, in the order they cross. A time is optional.</p>
-        ) : (
-          <ol className="divide-y rounded-lg border bg-card" data-testid="recording-rows">
-            {shown.rows.map((row, i) => (
-              <li key={row.id} className="flex items-center gap-2 px-3 py-2">
-                <span className="w-6 text-right text-sm text-muted-foreground">{row.resultCode ? '' : i + 1 - shown.rows.slice(0, i).filter((r) => r.resultCode).length}</span>
-                <span className="font-mono font-medium">{row.sailNumber}</span>
-                <span className="flex-1 truncate text-sm text-muted-foreground">{boatName(row)}</span>
-                <Input
-                  aria-label={`Finish time for ${row.sailNumber}`}
-                  placeholder="time"
-                  inputMode="numeric"
-                  className="h-8 w-24 font-mono"
-                  disabled={Boolean(row.resultCode)}
-                  value={row.resultCode ? '' : row.finishTime}
-                  onChange={(e) => setRows(shown.rows.map((r) => (r.id === row.id ? { ...r, finishTime: e.target.value, elapsedSecs: null } : r)))}
-                />
-                <select
-                  aria-label={`Code for ${row.sailNumber}`}
-                  className="h-8 rounded-md border bg-background px-1 text-sm"
-                  value={row.resultCode}
-                  onChange={(e) => setRows(shown.rows.map((r) => (r.id === row.id ? { ...r, resultCode: e.target.value } : r)))}
-                >
-                  <option value="">—</option>
-                  {SUBMITTABLE_CODES.map((c) => <option key={c} value={c}>{c}</option>)}
-                </select>
-                <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={`Move ${row.sailNumber} up`} disabled={i === 0} onClick={() => move(i, -1)}>
-                  <ArrowUp className="h-4 w-4" />
-                </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={`Move ${row.sailNumber} down`} disabled={i === shown.rows.length - 1} onClick={() => move(i, 1)}>
-                  <ArrowDown className="h-4 w-4" />
-                </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={`Remove ${row.sailNumber}`} onClick={() => setRows(shown.rows.filter((r) => r.id !== row.id))}>
-                  <X className="h-4 w-4" />
-                </Button>
-              </li>
-            ))}
-          </ol>
-        )}
-      </section>
+      )}
 
-      {shown.rows.length > 0 && (
+      {shown.finishes.length > 0 && (
         <section className="space-y-3 rounded-lg border p-4">
-          <FinishSheetPreviewSummary
-            kind="submit"
-            result={preview}
-            candidates={candidates}
-            existingFinishCount={0}
-            outcome={null}
-            untimedHandicap={0}
-          />
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1">
               <Label htmlFor="recorded-by">Recorded by</Label>
@@ -391,7 +360,7 @@ function RaceRecording({ dated, userId, onBack }: { dated: DatedRace; userId: st
         </section>
       )}
 
-      {message && <p className="text-sm" role="status">{message}</p>}
+      {message && <p className="text-sm" role="status" data-testid="record-message">{message}</p>}
       {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
     </div>
   );
