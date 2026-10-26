@@ -59,6 +59,15 @@ const NO_REVISION_BY_DESIGN: Record<string, string> = {
   // `restoreTombstone` re-imports it, so a recovered series arrives already
   // restorable; a capture here would duplicate its newest revision.
   'trash.ts:series.restored': 'tombstone restores the embedded revision history',
+
+  // Finish sheet submissions are working data held beside a race, outside
+  // the `.sailscoring` file, so none of these changes a snapshot. Applying
+  // one writes the sheet through the ordinary finish writes, which capture
+  // their own revision; this entry only records the decision.
+  'finish-submissions.ts:finishes.submitted': 'submissions are not in the file format',
+  'finish-submissions.ts:finishes.submission-withdrawn': 'submissions are not in the file format',
+  'finish-submissions.ts:finishes.submission-applied': 'the finish writes capture the revision',
+  'finish-submissions.ts:finishes.submission-dismissed': 'submissions are not in the file format',
 };
 
 interface Call {

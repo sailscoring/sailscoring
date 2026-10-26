@@ -241,10 +241,11 @@ export async function reviewSubmission(
       `This submission was revised (it's at revision ${existing.revision}) since revision ${input.revision} was reviewed; review it again.`,
     );
   }
+  const applied = input.status === 'applied';
   await recordActivity(workspace, {
-    action: input.status === 'applied' ? 'finishes.submission-applied' : 'finishes.submission-dismissed',
+    action: applied ? 'finishes.submission-applied' : 'finishes.submission-dismissed',
     seriesId: race.seriesId,
-    summary: `${input.status === 'applied' ? 'Applied' : 'Dismissed'} finishes submitted by ${submitterLabel(reviewed)} for ${raceLabel(race)}`,
+    summary: `${applied ? 'Applied' : 'Dismissed'} finishes submitted by ${submitterLabel(reviewed)} for ${raceLabel(race)}`,
     metadata: { raceId, submissionId, revision: input.revision },
   });
   return reviewed;
