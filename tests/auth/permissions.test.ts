@@ -17,16 +17,32 @@ describe('ROLE_PERMISSIONS', () => {
     }
   });
 
-  test('scorer holds read + score only', () => {
+  test('scorer holds read + score (+ submit-finishes) only', () => {
     expect(hasPermission('scorer', 'read')).toBe(true);
     expect(hasPermission('scorer', 'score')).toBe(true);
+    expect(hasPermission('scorer', 'submit-finishes')).toBe(true);
     expect(hasPermission('scorer', 'manage-series')).toBe(false);
     expect(hasPermission('scorer', 'manage-workspace')).toBe(false);
+  });
+
+  test('recorder holds read + submit-finishes only', () => {
+    expect(hasPermission('recorder', 'read')).toBe(true);
+    expect(hasPermission('recorder', 'submit-finishes')).toBe(true);
+    expect(hasPermission('recorder', 'score')).toBe(false);
+    expect(hasPermission('recorder', 'manage-series')).toBe(false);
+    expect(hasPermission('recorder', 'manage-workspace')).toBe(false);
+  });
+
+  test('anyone who can score can also submit finishes', () => {
+    for (const role of Object.keys(ROLE_PERMISSIONS)) {
+      if (hasPermission(role, 'score')) expect(hasPermission(role, 'submit-finishes')).toBe(true);
+    }
   });
 
   test('member is the read-only tier', () => {
     expect(hasPermission('member', 'read')).toBe(true);
     expect(hasPermission('member', 'score')).toBe(false);
+    expect(hasPermission('member', 'submit-finishes')).toBe(false);
     expect(hasPermission('member', 'manage-series')).toBe(false);
     expect(hasPermission('member', 'manage-workspace')).toBe(false);
   });

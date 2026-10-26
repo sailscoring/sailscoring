@@ -102,6 +102,7 @@ export default async function WorkspacePage() {
         <MembersCard
           currentUserEmail={session?.user.email ?? null}
           canAssignScorer={features.includes('fine-grained-roles')}
+          canAssignRecorder={features.includes('finish-submissions')}
         />
       )}
       {canManageSeries && <SeasonsCard />}

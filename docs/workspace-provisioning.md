@@ -75,9 +75,11 @@ The default sign-in flow already gives every user a personal workspace
    pnpm provision-org add-member hyc carol@example.com
    ```
 
-   Roles are `owner`, `admin`, or `member` — defaults to `member`.
-   Roles map to Better Auth's organization roles directly; we don't
-   layer sailing-specific names on top.
+   Roles are `owner`, `admin`, `scorer`, `recorder`, or `member` —
+   defaults to `member`. A `scorer` runs race days (races, starts,
+   finishes, publishing) without changing series setup; a `recorder`
+   submits a race's finishes for a scorer to review, and changes nothing
+   directly (the `finish-submissions` feature below).
 
 4. **Panel members switch into the workspace.** From their
    `/account` or any signed-in page, the workspace switcher in the
@@ -244,6 +246,7 @@ The current gated keys are:
 | `race-management-metadata` | off | the **race record** (#338/#339): a per-race dialog — reached from the record line in a race's header, **Race record…** on its row in the **Races** tab, or `r` — holding the **conditions** the race was sailed in (wind as a min/max range in knots plus a 16-point direction, and a free-text course/tide note) and the **race management team** that ran it; plus a **Race management team** card on series **Settings** holding the event's *standing* team. The two levels are deliberately independent — no inheritance, no override — so a regatta uses the standing team, a club series with a rotating duty uses the per-race one, and a series that fills in both shows both. Roles are World Sailing's Race Management Manual vocabulary, fixed in code and race-management only (no jury titles): a club's "OOD" is a **Race Officer** and the person recording finishes is a **Recorder**, so two names for one job can't both appear. **Officials are published opt-in per series** — the **Publish the race management team** switch on that card is off by default, and while it is off no team reaches a published page *or* the JSON export embedded in it. Conditions publish regardless (they describe the racing, not a person). Only the authoring surfaces and the published display are gated; a series that already carries a record keeps it in its file and export. Off by default. **Revisit when ORC work starts:** wind is a *scoring* input for ORC performance-curve scoring, not just a display field, so a gate hiding the wind inputs would then be hiding a required input — at that point either split the gate or default it on. |
 | `proportional-discards` | off | a second **kind** of discard rule (#341) on the **Scoring** card of a series' **Settings** tab: an allowance stated as a proportion — "one discard for every three races sailed", "one third of the results are discarded" — instead of a threshold per step-up. Set as two numbers (the race count at which the first discard applies, and how many further races earn each one after that); the card reads back where the steps land so the setup can be checked against the sailing instruction it came from. Counted against races **sailed**, rounded down, and capped at the number of races sailed. It **replaces** the threshold list for scoring while set; the thresholds are kept so switching back loses nothing. Only the *authoring* UI is gated — a series that already carries a rule scores and publishes with it regardless, so turning the feature off never silently changes anyone's standings. Off by default while the wording proves out against real sailing instructions. |
 | `connected-apps` | off | **outside apps acting for the workspace's members** (ADR-016): with it on, a member can connect an app such as an ORC course-plotting page to this workspace through the OAuth consent flow, and the app can then use the authenticated public API (`/api/public/v1`) as that member, never beyond their role and only within the scopes they approved. Without it the workspace isn't offered at consent, and turning it off cuts every connected app off from the workspace at once (their grants come back into force if it's turned on again). The CLI's device sign-in is not affected: it isn't an outside app. Operator-managed: we switch it on workspace by workspace, on request. Apps themselves are registered with `pnpm oauth-client`. |
+| `finish-submissions` | off, operator-managed | **finish sheet submissions** (#671): a recording of one race's finishes, made by someone who may not be the scorer and held beside the race until a scorer applies it into the finish sheet or dismisses it. Unlocks the **`recorder`** role in the Members card role selects (`read` + `submit-finishes`: sees the workspace as a member does, submits finishes, changes nothing directly); the **Record finishes** page (`/workspace/record`, a workspace tab for anyone who can submit but not score) for entering a race's finishing order by hand or importing a spreadsheet; the **waiting submissions** panel on a race's Finish tab, where a scorer reviews each one against the current sheet and applies or dismisses it; and the public API's `submissions` scope and calls (`/api/public/v1/races/{raceId}/submissions`), so a race-day app can submit for its signed-in user — which also needs `connected-apps`. Scorers, admins and owners can submit too. Operator-managed while the review flow beds in with its first clubs and apps. |
 
 **Archivist credentials (ADR-010).** A class archive repo's CI pushes
 as-published series through `/api/v1/archive` with an API key whose user
@@ -286,6 +289,7 @@ be flipped here. The operator-managed set is deliberately small:
 | `split-fleets` | expert machinery pending real-event validation; audience stays enumerable |
 | `course-library` | its audience stays centrally controlled |
 | `connected-apps` | outside apps reach only the workspaces we choose |
+| `finish-submissions` | the review flow beds in with its first clubs and race-day apps |
 
 Every other key is self-service — including opt-in ones like `vprs` and
 `prizes`: a workspace it's been enabled for can hide it again itself. Because

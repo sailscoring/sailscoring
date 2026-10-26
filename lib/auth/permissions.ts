@@ -28,9 +28,13 @@ export type Permission =
    *  as-published series and manage archive-managed identities. Granted to
    *  the per-archive-repo CI credential via the `archivist` role; a leaked
    *  key can touch nothing but its workspace's already-public archive. */
-  | 'archive-ingest';
+  | 'archive-ingest'
+  /** Hand a race's finishes to the scorer for review: create, revise and
+   *  withdraw one's own finish sheet submissions. Never writes the finish
+   *  sheet itself; a scorer applies a submission or dismisses it. */
+  | 'submit-finishes';
 
-export type WorkspaceRole = 'owner' | 'admin' | 'member' | 'scorer' | 'archivist';
+export type WorkspaceRole = 'owner' | 'admin' | 'member' | 'scorer' | 'recorder' | 'archivist';
 
 const ALL_PERMISSIONS: readonly Permission[] = [
   'read',
@@ -38,6 +42,7 @@ const ALL_PERMISSIONS: readonly Permission[] = [
   'manage-series',
   'manage-workspace',
   'archive-ingest',
+  'submit-finishes',
 ];
 
 /**
@@ -50,7 +55,11 @@ const ALL_PERMISSIONS: readonly Permission[] = [
 export const ROLE_PERMISSIONS: Record<WorkspaceRole, readonly Permission[]> = {
   owner: ALL_PERMISSIONS,
   admin: ALL_PERMISSIONS,
-  scorer: ['read', 'score'],
+  scorer: ['read', 'score', 'submit-finishes'],
+  // Whoever records finishes on the water or in the finish hut: sees the
+  // workspace as a member does, and submits finish sheets for a scorer to
+  // review, but changes nothing directly.
+  recorder: ['read', 'submit-finishes'],
   member: ['read'],
   // The archive-repo CI credential (ADR-010): reads plus the ingest surface,
   // nothing else — it cannot touch full-fidelity series, members, or settings.

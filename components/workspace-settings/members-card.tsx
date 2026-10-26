@@ -72,19 +72,26 @@ function RoleSelect({
 export function MembersCard({
   currentUserEmail,
   canAssignScorer = false,
+  canAssignRecorder = false,
 }: {
   currentUserEmail: string | null;
   /** Whether the `scorer` role is offered — the `fine-grained-roles` feature. */
   canAssignScorer?: boolean;
+  /** Whether the `recorder` role is offered — the `finish-submissions` feature. */
+  canAssignRecorder?: boolean;
 }) {
   // The roles on offer in the invite and change-role selects. `archivist`
   // (the archive-repo CI credential role, ADR-010) is deliberately absent:
   // it is provisioned by operator tooling for API keys, never assigned to
   // people — a member holding it (or any other unoffered role) renders
   // read-only below, with Remove still available.
-  const roles: WorkspaceRole[] = canAssignScorer
-    ? ['owner', 'admin', 'scorer', 'member']
-    : ['owner', 'admin', 'member'];
+  const roles: WorkspaceRole[] = [
+    'owner',
+    'admin',
+    ...(canAssignScorer ? (['scorer'] as const) : []),
+    ...(canAssignRecorder ? (['recorder'] as const) : []),
+    'member',
+  ];
   const { data, isLoading, isError } = useFullWorkspace();
   const invite = useInviteMember();
   const updateRole = useUpdateMemberRole();
@@ -267,6 +274,10 @@ export function MembersCard({
             {canAssignScorer && (
               <> scorers can run race days — races, finishes, publishing —
               but can&apos;t change series setup;</>
+            )}
+            {canAssignRecorder && (
+              <> recorders can submit a race&apos;s finishes for a scorer to
+              review;</>
             )}{' '}
             admins have full access.
           </p>
