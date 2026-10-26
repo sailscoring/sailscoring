@@ -33,6 +33,7 @@ import {
   type SortKey,
 } from '@/lib/table-sort';
 import { compareSailNumbers } from '@/lib/sail-number-sort';
+import { cn } from '@/lib/utils';
 import {
   Table,
   TableBody,
@@ -40,6 +41,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  stripedRowClass,
 } from '@/components/ui/table';
 import {
   Dialog,
@@ -937,11 +939,16 @@ export default function CompetitorsPage({
             </TableRow>
           </TableHeader>
           <TableBody ref={competitorListRef}>
-            {sortedCompetitors.map((c) => (
+            {sortedCompetitors.map((c, index) => (
               <TableRow
                 key={c.id}
                 {...competitorRowProps(c.id)}
-                className={`group/row focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset${readOnly ? '' : ' cursor-pointer'}${isExcluded(c) || autoExcluded.has(c.id) ? ' text-muted-foreground' : ''}`}
+                className={cn(
+                  'group/row focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset',
+                  stripedRowClass(index),
+                  !readOnly && 'cursor-pointer',
+                  (isExcluded(c) || autoExcluded.has(c.id)) && 'text-muted-foreground',
+                )}
                 data-excluded={isExcluded(c) ? 'true' : autoExcluded.has(c.id) ? 'auto' : undefined}
                 onClick={(e) => {
                   if (readOnly) return;

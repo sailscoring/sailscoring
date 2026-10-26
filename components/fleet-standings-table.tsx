@@ -9,6 +9,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  stripedRowClass,
 } from '@/components/ui/table';
 import {
   DropdownMenu,
@@ -337,9 +338,10 @@ export function FleetStandingsTable({
         </TableRow>
       </TableHeader>
       <TableBody>
-        {displayStandings.map((standing) => (
+        {displayStandings.map((standing, index) => (
           <StandingRow
             key={standing.competitor.id}
+            index={index}
             standing={standing}
             races={races}
             raceCount={races.length}
@@ -373,6 +375,8 @@ export function FleetStandingsTable({
 }
 
 interface StandingRowProps {
+  /** Position in the table, for alternate-row shading. */
+  index: number;
   standing: Standing;
   races: FleetStandingsTableProps['races'];
   raceCount: number;
@@ -394,6 +398,7 @@ interface StandingRowProps {
 }
 
 function StandingRow({
+  index,
   standing,
   races,
   raceCount,
@@ -421,7 +426,7 @@ function StandingRow({
   return (
     <TableRow
       className={cn(
-        isFirst ? 'bg-primary/[0.06] font-medium' : 'odd:bg-muted/30',
+        isFirst ? 'bg-primary/[0.06] font-medium' : stripedRowClass(index),
       )}
     >
       <TableCell className="text-center">

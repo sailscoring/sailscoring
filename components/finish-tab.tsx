@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/select';
 import { FinishSheetImport, type FinishSheetImportHandle } from '@/components/finish-sheet-import';
 import { SortableList, DragHandle } from '@/components/ui/sortable-list';
+import { stripedRowClass } from '@/components/ui/table';
 import { useFeatures } from '@/components/features-provider';
 import { cn } from '@/lib/utils';
 import { competitorFleetNames, displayCompetitorLabel } from '@/lib/competitor-fields';
@@ -384,7 +385,7 @@ export function FinishTab(props: FinishTabProps) {
   // One non-finisher row: sail, fleet, name, a redress shortcut for RDG, and
   // the result-code dropdown. Shared by both the recorded and did-not-compete
   // groups so the two lists render identically.
-  const renderNonFinisherRow = ({ competitor, code }: NonFinisherView) => (
+  const renderNonFinisherRow = ({ competitor, code }: NonFinisherView, index: number) => (
     <div
       key={competitor.id}
       data-testid={`non-finisher-${competitor.sailNumber}`}
@@ -392,7 +393,7 @@ export function FinishTab(props: FinishTabProps) {
         'flex items-center gap-3 border rounded-lg px-4 py-2 transition-colors',
         code === 'RDG'
           ? 'border-amber-300 bg-amber-50 dark:bg-amber-950 dark:border-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900'
-          : 'hover:bg-muted/50',
+          : stripedRowClass(index),
       )}
     >
       <span className="font-mono font-medium w-16 shrink-0">
@@ -929,7 +930,7 @@ export function FinishTab(props: FinishTabProps) {
                   // scanning out to the finish time / actions.
                   hasRedress
                     ? 'border-amber-300 bg-amber-50 dark:bg-amber-950 dark:border-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900'
-                    : 'hover:bg-muted/50',
+                    : stripedRowClass(index),
                   isFlashed && 'ring-2 ring-primary',
                 )}
               >

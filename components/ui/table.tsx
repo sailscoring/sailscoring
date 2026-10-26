@@ -65,6 +65,21 @@ function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
   )
 }
 
+/**
+ * Alternate-row shading for the lists a scorer checks row by row — the finish
+ * sheet, the competitors table, standings — keyed on the row's position so it
+ * works for list items as well as table rows. A shaded row is the same colour
+ * as the default `muted` hover, so striped lists hover with a primary tint
+ * instead. Rows carrying their own highlight (amber warnings, the leader) skip
+ * the shading.
+ */
+function stripedRowClass(index: number) {
+  return cn(
+    index % 2 === 0 && "bg-muted",
+    "hover:bg-primary/15 dark:hover:bg-primary/20"
+  )
+}
+
 function TableHead({ className, ...props }: React.ComponentProps<"th">) {
   return (
     <th
@@ -113,4 +128,5 @@ export {
   TableRow,
   TableCell,
   TableCaption,
+  stripedRowClass,
 }
