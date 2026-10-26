@@ -32,6 +32,9 @@ export default function WorkspaceLayout({
     ...(has('rankings')
       ? { r: () => router.push('/workspace/rankings') }
       : {}),
+    ...(has('finish-submissions') && can('submit-finishes') && !can('score')
+      ? { f: () => router.push('/workspace/record') }
+      : {}),
     p: () => router.push('/workspace/published'),
     a: () => router.push('/workspace/activity'),
     t: () => router.push('/workspace'),

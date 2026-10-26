@@ -33,7 +33,7 @@ export function raceCandidates(
   competitors: readonly Competitor[],
   starts: readonly RaceStart[],
   fleetName: (fleetId: string) => string | undefined,
-): Candidate[] {
+): (Competitor & Candidate)[] {
   const fleetIds = raceFleetIds(starts as RaceStart[]);
   const inRace = (id: string) => fleetIds.size === 0 || fleetIds.has(id);
   return withRaceSailNumbers(competitors as Competitor[], starts)

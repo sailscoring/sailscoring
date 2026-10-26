@@ -813,7 +813,7 @@ export async function personalWorkspaceOf(
 export async function addMemberByEmail(
   orgId: string,
   email: string,
-  role: 'owner' | 'admin' | 'member' | 'scorer' = 'member',
+  role: 'owner' | 'admin' | 'member' | 'scorer' | 'recorder' = 'member',
 ): Promise<void> {
   const { db, close } = adminDb();
   try {

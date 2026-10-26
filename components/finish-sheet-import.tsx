@@ -96,7 +96,10 @@ export const FinishSheetImport = forwardRef<FinishSheetImportHandle, {
   needsFinishTime?: (competitorId: string) => boolean;
   onConfirm: (result: ParseFinishSheetResult) => void;
   trigger?: React.ReactNode;
-}>(function FinishSheetImport({ candidates, existingFinishes, needsFinishTime, onConfirm, trigger }, ref) {
+  /** The sheet becomes a recording to submit for review, not the race's
+   *  finishes: nothing is replaced, and the preview says so. */
+  submitting?: boolean;
+}>(function FinishSheetImport({ candidates, existingFinishes, needsFinishTime, onConfirm, trigger, submitting = false }, ref) {
   const [flow, setFlow] = useState<ImportFlow>({ step: 'idle' });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -294,7 +297,7 @@ export const FinishSheetImport = forwardRef<FinishSheetImportHandle, {
           </DialogHeader>
           {flow.step === 'preview' && (
             <FinishSheetPreviewSummary
-              kind="import"
+              kind={submitting ? 'submit' : 'import'}
               result={flow.result}
               candidates={candidates}
               existingFinishCount={existingFinishCount}
@@ -308,7 +311,7 @@ export const FinishSheetImport = forwardRef<FinishSheetImportHandle, {
               onClick={confirmImport}
               disabled={flow.step !== 'preview' || flow.result.finishes.length === 0}
             >
-              Import and replace
+              {submitting ? 'Use these finishes' : 'Import and replace'}
             </Button>
           </DialogFooter>
         </DialogContent>
