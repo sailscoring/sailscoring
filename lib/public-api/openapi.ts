@@ -233,6 +233,13 @@ export function publicApiOpenApi(origin: string): Json {
           description: 'Later races are renumbered.',
         }),
       },
+      '/races': authenticated('get', 'read', 'The races on a date, across the workspace\'s series', {
+        params: [
+          { name: 'date', in: 'query', required: true, description: 'The local date, `YYYY-MM-DD`.', schema: { type: 'string', format: 'date' } },
+        ],
+        result: 'DatedRaceList',
+        description: 'Every race dated that day in a series that isn\'t archived, with its starts and the series it scores for: a race day, whichever series each race counts in.',
+      }),
       '/races/{raceId}/finishes': authenticated('get', 'read', 'A race\'s finishes, in finishing order', {
         params: [raceId],
         result: 'FinishList',

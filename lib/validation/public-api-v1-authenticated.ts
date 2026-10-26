@@ -165,6 +165,21 @@ export const raceResource = named(
 
 export const racesResource = named(z.object({ races: z.array(raceResource) }), 'RaceList', 'A series\' races, in order.');
 
+export const datedRaceResource = named(
+  raceResource.extend({
+    seriesId: id,
+    seriesName: z.string(),
+  }),
+  'DatedRace',
+  'A race, with its starts and the series it scores for.',
+);
+
+export const datedRacesResource = named(
+  z.object({ races: z.array(datedRaceResource) }),
+  'DatedRaceList',
+  'The races on a date across the workspace\'s series, by series and then by number.',
+);
+
 export const finishResource = named(
   z.object({
     id,
@@ -273,5 +288,6 @@ export type CompetitorResource = z.infer<typeof competitorResource>;
 export type CourseResource = z.infer<typeof courseResource>;
 export type StartResource = z.infer<typeof startResource>;
 export type RaceResource = z.infer<typeof raceResource>;
+export type DatedRaceResource = z.infer<typeof datedRaceResource>;
 export type FinishResource = z.infer<typeof finishResource>;
 export type PublicationResource = z.infer<typeof publicationResource>;

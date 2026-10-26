@@ -13,7 +13,7 @@ import {
   listSeriesRaceStarts,
   patchRaceStart,
 } from '@/lib/api-handlers/race-starts';
-import { deleteRace, generateRaces, getRace, getRaceFlat, listRaces } from '@/lib/api-handlers/races';
+import { deleteRace, generateRaces, getRace, getRaceFlat, listRaces, listRacesBetween } from '@/lib/api-handlers/races';
 import { listSeasons } from '@/lib/api-handlers/seasons';
 import { getSeries, listSeries } from '@/lib/api-handlers/series';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
@@ -98,6 +98,19 @@ export async function listRacesPublic(workspace: WorkspaceContext, seriesId: str
 export async function getRacePublic(workspace: WorkspaceContext, seriesId: string, raceId: string) {
   const race = await getRace(workspace, seriesId, raceId);
   return raceResourceOf(race, await listRaceStarts(workspace, raceId));
+}
+
+/** The races on one date across the workspace's live series. */
+export async function listRacesOnDatePublic(workspace: WorkspaceContext, date: string | null) {
+  if (!date) throw new BadRequestError('Name the date: ?date=YYYY-MM-DD.');
+  const dated = await listRacesBetween(workspace, date, date);
+  return {
+    races: dated.map((d) => ({
+      ...raceResourceOf(d.race, d.starts),
+      seriesId: d.race.seriesId,
+      seriesName: d.seriesName,
+    })),
+  };
 }
 
 export async function listFinishesPublic(workspace: WorkspaceContext, raceId: string) {

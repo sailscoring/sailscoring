@@ -29,6 +29,7 @@ import * as seriesRoute from '@/app/api/public/v1/series/[id]/route';
 import * as fleetsRoute from '@/app/api/public/v1/series/[id]/fleets/route';
 import * as competitorsRoute from '@/app/api/public/v1/series/[id]/competitors/route';
 import * as racesRoute from '@/app/api/public/v1/series/[id]/races/route';
+import * as datedRacesRoute from '@/app/api/public/v1/races/route';
 import * as raceRoute from '@/app/api/public/v1/series/[id]/races/[raceId]/route';
 import * as finishesRoute from '@/app/api/public/v1/races/[raceId]/finishes/route';
 import * as startRoute from '@/app/api/public/v1/races/[raceId]/starts/[startId]/route';
@@ -288,6 +289,23 @@ describe.skipIf(!DATABASE_URL)('the public API, authenticated part', () => {
       token, method: 'DELETE', params: { raceId, startId: s2 },
     });
     expect(gone.status).toBe(404);
+  });
+
+  test('a day\'s races across the workspace', async () => {
+    const res = await call(datedRacesRoute.GET, '/races?date=2026-10-04', { token });
+    expect(res.status).toBe(200);
+    expect(res.body.races).toHaveLength(1);
+    expect(res.body.races[0]).toMatchObject({ number: 1, date: '2026-10-04', seriesId, seriesName: 'Autumn League' });
+    expect(res.body.races[0].starts.length).toBeGreaterThan(0);
+
+    const none = await call(datedRacesRoute.GET, '/races?date=2026-10-05', { token });
+    expect(none.body.races).toEqual([]);
+
+    const undated = await call(datedRacesRoute.GET, '/races', { token });
+    expect(undated.status).toBe(400);
+    expect(undated.body.error).toBe('invalid');
+    const malformed = await call(datedRacesRoute.GET, '/races?date=4-10-2026', { token });
+    expect(malformed.status).toBe(400);
   });
 
   test('what an app does is credited to the person and the app', async () => {

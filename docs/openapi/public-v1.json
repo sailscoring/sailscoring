@@ -1675,6 +1675,115 @@
         }
       }
     },
+    "/races": {
+      "get": {
+        "tags": [
+          "Workspace"
+        ],
+        "summary": "The races on a date, across the workspace's series",
+        "description": "Every race dated that day in a series that isn't archived, with its starts and the series it scores for: a race day, whichever series each race counts in.",
+        "security": [
+          {
+            "oauth": [
+              "read"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "name": "date",
+            "in": "query",
+            "required": true,
+            "description": "The local date, `YYYY-MM-DD`.",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "x-sailscoring-workspace",
+            "in": "header",
+            "required": false,
+            "description": "The workspace to act in, by id or slug. An app's token reaches only the workspace its grant names, and may leave this out; the CLI's names one of its user's.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The races on a date, across the workspace's series",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatedRaceList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request isn't what the call takes: `invalid`, with the fields at fault in `problems`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No access token, or one that has expired or been revoked: `unauthenticated`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Outside the grant's scopes or workspace, or the user's role there: `forbidden`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such series, race or start in the workspace: `not-found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "423": {
+            "description": "The series is archived or final, and read-only: `archived`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many calls for this grant; `Retry-After` says how long to wait.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/races/{raceId}/finishes": {
       "get": {
         "tags": [
@@ -4112,6 +4221,79 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/Race"
+            }
+          }
+        },
+        "required": [
+          "races"
+        ]
+      },
+      "DatedRace": {
+        "description": "A race, with its starts and the series it scores for.",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "number": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "The race's number in the series. Deleting or reordering races renumbers them; use `id` to keep track of one."
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                "description": "A local date, `YYYY-MM-DD`."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "starts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Start"
+            }
+          },
+          "seriesId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "seriesName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "name",
+          "date",
+          "starts",
+          "seriesId",
+          "seriesName"
+        ]
+      },
+      "DatedRaceList": {
+        "description": "The races on a date across the workspace's series, by series and then by number.",
+        "type": "object",
+        "properties": {
+          "races": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DatedRace"
             }
           }
         },

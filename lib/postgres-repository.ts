@@ -1368,6 +1368,32 @@ export class PostgresRaceRepository implements RaceRepository {
     return rows.map(raceRowToType);
   }
 
+  /**
+   * The races dated `from` to `to` (inclusive, `YYYY-MM-DD`) across the
+   * workspace's live series, with the series each belongs to: what a race
+   * day looks like from the committee boat, whichever series it scores for.
+   * Archived series are left out (they're read-only), and so are archives
+   * kept as published, which are never scored here.
+   */
+  async listBetween(from: string, to: string): Promise<{ race: Race; seriesName: string }[]> {
+    const rows = await this.db
+      .select({ race: schema.races, seriesName: schema.series.name })
+      .from(schema.races)
+      .innerJoin(schema.series, eq(schema.races.seriesId, schema.series.id))
+      .where(
+        and(
+          eq(schema.races.workspaceId, this.workspaceId),
+          eq(schema.series.workspaceId, this.workspaceId),
+          eq(schema.series.archived, false),
+          eq(schema.series.asPublished, false),
+          sql`${schema.races.date} >= ${from}`,
+          sql`${schema.races.date} <= ${to}`,
+        ),
+      )
+      .orderBy(asc(schema.races.date), asc(schema.series.name), asc(schema.races.raceNumber));
+    return rows.map((r) => ({ race: raceRowToType(r.race), seriesName: r.seriesName }));
+  }
+
   async get(id: string): Promise<Race | undefined> {
     const [row] = await this.db
       .select()

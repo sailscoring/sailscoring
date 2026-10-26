@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { NotFoundError } from '@/app/api/v1/_lib/handler';
+import { BadRequestError, NotFoundError } from '@/app/api/v1/_lib/handler';
 import { assertFleetsStartOnce } from '@/lib/api-handlers/race-starts';
 import { trackChange } from '@/lib/revision-log';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
@@ -14,7 +14,7 @@ import {
   racesGenerateSchema,
   racesReorderSchema,
 } from '@/lib/validation/race';
-import type { Race } from '@/lib/types';
+import type { Race, RaceStart } from '@/lib/types';
 
 async function assertSeriesInWorkspace(
   workspace: WorkspaceContext,
@@ -32,6 +32,39 @@ export async function listRaces(
   await assertSeriesInWorkspace(workspace, seriesId);
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   return repos.races.listBySeries(seriesId);
+}
+
+export interface DatedRace {
+  race: Race;
+  seriesName: string;
+  starts: RaceStart[];
+}
+
+const LOCAL_DATE = /^\d{4}-\d{2}-\d{2}$/;
+/** The longest span a dated read covers, so it stays a race day's read. */
+const MAX_SPAN_DAYS = 62;
+
+/**
+ * The races dated `from` to `to` (inclusive) across the workspace's live
+ * series, each with its series' name and its starts: a race day seen from
+ * the committee boat, whichever series each race scores for.
+ */
+export async function listRacesBetween(
+  workspace: WorkspaceContext,
+  from: string | null,
+  to: string | null,
+): Promise<DatedRace[]> {
+  if (!from || !LOCAL_DATE.test(from) || (to !== null && !LOCAL_DATE.test(to))) {
+    throw new BadRequestError('Name the dates as YYYY-MM-DD.');
+  }
+  const until = to ?? from;
+  const span = (Date.parse(until) - Date.parse(from)) / 86_400_000;
+  if (!(span >= 0)) throw new BadRequestError('The range ends before it starts.');
+  if (span > MAX_SPAN_DAYS) throw new BadRequestError(`A range covers ${MAX_SPAN_DAYS} days at most.`);
+  const repos = createRepos({ workspaceId: workspace.workspaceId });
+  const dated = await repos.races.listBetween(from, until);
+  const starts = await repos.raceStarts.listByRaces(dated.map((d) => d.race.id));
+  return dated.map((d) => ({ ...d, starts: starts.filter((s) => s.raceId === d.race.id) }));
 }
 
 export async function getRace(

@@ -81,6 +81,7 @@ GET    /series/{id}/races                            its races, each with its st
 POST   /series/{id}/races                            add races, with their starts
 GET    /series/{id}/races/{raceId}                   a race, with its starts
 DELETE /series/{id}/races/{raceId}                   delete a race
+GET    /races?date=YYYY-MM-DD                        the day's races, across every series
 GET    /races/{raceId}/finishes                      a race's finishes
 PATCH  /races/{raceId}/starts/{startId}              change a start's gun or fleets
 DELETE /races/{raceId}/starts/{startId}              delete a start
@@ -102,6 +103,9 @@ What the description can't say:
 - **Creating races**: they go after the series' last race and are numbered
   by the server. Choose their ids (and their starts') if you may retry, so a
   retry replaces rather than adds; or send an `Idempotency-Key`.
+- **A day's races** (`/races?date=`) come from every series that isn't
+  archived, each with its `seriesId` and `seriesName`: what a race-day app
+  shows on the committee boat, whichever series each race counts in.
 - **A fleet starts once per race.** A start that would take another start's
   fleet is refused, so a start can be found by its fleets.
 - **Times are local**: a gun is `HH:MM:SS` (`HH:MM` is accepted), on the
