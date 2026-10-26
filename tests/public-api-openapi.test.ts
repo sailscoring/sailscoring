@@ -8,7 +8,6 @@ import { publicApiOpenApi } from '@/lib/public-api/openapi';
 type Operation = {
   responses: Record<string, unknown>;
   security?: Record<string, string[]>[];
-  'x-stability-level'?: string;
   requestBody?: unknown;
 };
 type Doc = {
@@ -71,15 +70,13 @@ describe('the published results API description', () => {
     ]);
   });
 
-  it('needs no token for the published results, and a scoped one for the rest, as a preview', () => {
+  it('needs no token for the published results, and a scoped one for the rest', () => {
     for (const [path, ops] of Object.entries(doc.paths)) {
       for (const op of Object.values(ops)) {
         if (path.startsWith('/publications/{id}')) {
           expect(op.security, path).toEqual([]);
-          expect(op['x-stability-level'], path).toBeUndefined();
         } else {
           expect(op.security?.[0]?.oauth, path).toHaveLength(1);
-          expect(op['x-stability-level'], path).toBe('alpha');
         }
       }
     }

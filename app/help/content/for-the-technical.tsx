@@ -10,13 +10,14 @@ export default function ForTheTechnical() {
       <Section id="rest-api" title="The REST API">
         <p>
           Sail Scoring’s public API, under{' '}
-          <code className="text-foreground text-sm">/api/public/v1</code>, has two parts. The
-          published results need no sign-in: standings, race results, entry lists and schedules,
-          as the published pages show them, for a club website or a clubhouse screen. Beside them,
-          a preview, an app can act in a workspace for someone who has connected it: read the
-          series, set up races, starts and courses, and publish. Those calls take an OAuth access
-          token the app gets when its user connects it (see{' '}
+          <code className="text-foreground text-sm">/api/public/v1</code>, has two parts. An app
+          can act in a workspace for someone who has connected it: read the series, set up races,
+          starts and courses, and publish. Those calls take an OAuth access token the app gets when
+          its user connects it (see{' '}
           <a href="/help/collaboration#connected-apps" className="underline">Connecting an app</a>).
+          Beside them, the published results need no sign-in: standings, race results, entry lists
+          and schedules, as the published pages show them, for a club website or a clubhouse
+          screen.
         </p>
         <p>
           The API is described in OpenAPI at{' '}

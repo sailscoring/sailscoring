@@ -396,8 +396,7 @@ export const FEATURES = {
     // grant an app access to this workspace through the OAuth consent flow
     // only while this is on. Without it the workspace is not offered at
     // consent, and no app can be granted it. Operator-managed: we choose the
-    // workspaces outside apps reach while the authenticated public API is a
-    // preview. Turning it off cuts every app off from the workspace at once;
+    // workspaces outside apps reach. Turning it off cuts every app off from the workspace at once;
     // their grants come back into force if it's turned on again.
     label: 'Connected apps',
     helpSectionIds: ['connected-apps'],

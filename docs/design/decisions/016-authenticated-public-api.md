@@ -1,7 +1,8 @@
 # ADR-016: An authenticated public API
 
-**Status:** Accepted (2026-10-25). Implemented by #695–#701; the authenticated
-part remains a preview (§5) until the first outside apps use it.
+**Status:** Accepted (2026-10-25). Implemented by #695–#701. Amended
+2026-10-26: the authenticated part is no longer a preview (§5); its calls
+carry the same promise as the publications.
 
 **Date:** 2026-10-25
 
@@ -296,8 +297,8 @@ Three ways in, each for one kind of caller:
   refused.
 - **Only workspaces with the `connected-apps` gate on can be granted**, and
   the gate is checked on every call, so turning it off cuts every app off
-  from the workspace at once. It's operator-managed while the authenticated
-  part is a preview.
+  from the workspace at once. It's operator-managed: we switch it on
+  workspace by workspace.
 - **What a call may do is the user's role in that workspace, limited to the
   granted scopes.** The scopes start coarse:
 
@@ -358,11 +359,11 @@ findings:
 
 ### 5. Stability
 
-- **The authenticated part starts as a preview.** The documentation and the
-  OpenAPI description label it so until the first outside apps are using
-  it. While it's a preview its calls may still change incompatibly, with
-  notice to the registered apps; the promise below starts when the label
-  comes off. The publications part is not affected: its promise stands.
+- **The authenticated part started as a preview**, labelled so in the
+  documentation and the OpenAPI description, so that its calls could still
+  change incompatibly. *Amended 2026-10-26:* the label is off. Both parts
+  carry the promise below, the breaking-change check covers every
+  operation, and the documentation leads with the authenticated part.
 - **Within `v1`, changes are additive.** We never remove or rename a field,
   change what one means, add a required input, or narrow an input's
   validation, except to refuse data that was already invalid (such as
@@ -446,6 +447,8 @@ asks for one.
 - **The first apps find the calls awkward.** Expected. The preview label
   lets their developers' feedback change the calls before the promise
   starts, while the registered apps are the only ones depending on them.
+  With the label off (2026-10-26), an awkward call is fixed by adding to it,
+  or waits for a `v2`.
 
 ## Related Decisions
 

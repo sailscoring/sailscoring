@@ -4,8 +4,7 @@ name: Public API compatibility
 # The committed OpenAPI description (docs/openapi/public-v1.json, regenerated
 # by `pnpm openapi:generate`, kept current by a unit test) is compared with
 # the one before the push or pull request, and a breaking change fails the
-# check. Operations still a preview carry `x-stability-level: alpha`, which
-# oasdiff leaves out of the comparison.
+# check.
 
 on:
   push:

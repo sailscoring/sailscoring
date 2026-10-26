@@ -6,8 +6,8 @@ import '../validation/public-api-v1-authenticated';
 import { SCOPE_DESCRIPTIONS } from '../oauth-scopes';
 
 /**
- * The public API's OpenAPI 3.1 description: the published results (ADR-015)
- * and the authenticated calls beside them (ADR-016), generated from the Zod
+ * The public API's OpenAPI 3.1 description: the authenticated calls (ADR-016)
+ * and the published results beside them (ADR-015), generated from the Zod
  * schemas the requests and responses are built to, so it cannot describe a
  * shape the API does not serve.
  *
@@ -19,10 +19,6 @@ import { SCOPE_DESCRIPTIONS } from '../oauth-scopes';
  * client generated from a closed schema would reject the first one. A
  * request body stays closed, because a field the server doesn't know is
  * refused.
- *
- * The authenticated operations carry `x-stability-level: alpha` while they
- * are a preview: their shapes may still change, and the breaking-change
- * check leaves them alone until the label comes off.
  */
 
 type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
@@ -153,10 +149,9 @@ function authenticated(
   const write = method !== 'get';
   return {
     [method]: {
-      tags: ['Workspace (preview)'],
+      tags: ['Workspace'],
       summary,
       ...(opts.description ? { description: opts.description } : {}),
-      'x-stability-level': 'alpha',
       security: [{ oauth: [scope] }],
       parameters: [...(opts.params ?? []), workspaceHeader, ...(write ? [idempotencyKey] : [])],
       ...(opts.body
@@ -195,12 +190,12 @@ export function publicApiOpenApi(origin: string): Json {
       title: 'Sail Scoring public API',
       version: '1',
       description:
-        'Two parts. The published results need no sign-in: results as their published pages show them, each resource following the page that shows it; find publications from /p/index.json and each workspace\'s index.json. The workspace calls, a preview, act in a workspace for a signed-in user, through an OAuth access token their app obtained with the authorization code flow (PKCE); the CLI signs in with the device authorization grant (RFC 8628) at /api/auth/device/code. Within v1 changes are additive; a breaking change is a new version, and the old one serves for a year after it. The preview\'s calls may still change until the label comes off.',
+        'Two parts. The workspace calls act in a workspace for a signed-in user, through an OAuth access token their app obtained with the authorization code flow (PKCE): read its series, set up races, starts and courses, and publish; the CLI signs in with the device authorization grant (RFC 8628) at /api/auth/device/code. The published results need no sign-in: results as their published pages show them, each resource following the page that shows it; find publications from /p/index.json and each workspace\'s index.json. Within v1 changes are additive; a breaking change is a new version, and the old one serves for a year after it.',
     },
     servers: [{ url: `${origin}/api/public/v1` }],
     tags: [
+      { name: 'Workspace', description: 'Acting in a workspace for a signed-in user.' },
       { name: 'Published results', description: 'Read-only, no sign-in.' },
-      { name: 'Workspace (preview)', description: 'Acting in a workspace for a signed-in user. A preview: shapes may still change.' },
     ],
     paths: {
       '/publications/{id}': published('The publication, and which resources it publishes', 'Publication'),

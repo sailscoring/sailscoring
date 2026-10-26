@@ -3,7 +3,7 @@
   "info": {
     "title": "Sail Scoring public API",
     "version": "1",
-    "description": "Two parts. The published results need no sign-in: results as their published pages show them, each resource following the page that shows it; find publications from /p/index.json and each workspace's index.json. The workspace calls, a preview, act in a workspace for a signed-in user, through an OAuth access token their app obtained with the authorization code flow (PKCE); the CLI signs in with the device authorization grant (RFC 8628) at /api/auth/device/code. Within v1 changes are additive; a breaking change is a new version, and the old one serves for a year after it. The preview's calls may still change until the label comes off."
+    "description": "Two parts. The workspace calls act in a workspace for a signed-in user, through an OAuth access token their app obtained with the authorization code flow (PKCE): read its series, set up races, starts and courses, and publish; the CLI signs in with the device authorization grant (RFC 8628) at /api/auth/device/code. The published results need no sign-in: results as their published pages show them, each resource following the page that shows it; find publications from /p/index.json and each workspace's index.json. Within v1 changes are additive; a breaking change is a new version, and the old one serves for a year after it."
   },
   "servers": [
     {
@@ -12,12 +12,12 @@
   ],
   "tags": [
     {
-      "name": "Published results",
-      "description": "Read-only, no sign-in."
+      "name": "Workspace",
+      "description": "Acting in a workspace for a signed-in user."
     },
     {
-      "name": "Workspace (preview)",
-      "description": "Acting in a workspace for a signed-in user. A preview: shapes may still change."
+      "name": "Published results",
+      "description": "Read-only, no sign-in."
     }
   ],
   "paths": {
@@ -491,10 +491,9 @@
     "/workspaces": {
       "get": {
         "tags": [
-          "Workspace (preview)"
+          "Workspace"
         ],
         "summary": "The workspaces this token can act in",
-        "x-stability-level": "alpha",
         "security": [
           {
             "oauth": [
@@ -590,10 +589,9 @@
     "/workspace/seasons": {
       "get": {
         "tags": [
-          "Workspace (preview)"
+          "Workspace"
         ],
         "summary": "The workspace's seasons",
-        "x-stability-level": "alpha",
         "security": [
           {
             "oauth": [
@@ -689,10 +687,9 @@
     "/publications": {
       "get": {
         "tags": [
-          "Workspace (preview)"
+          "Workspace"
         ],
         "summary": "Every publication in the workspace",
-        "x-stability-level": "alpha",
         "security": [
           {
             "oauth": [
@@ -788,10 +785,9 @@
     "/series": {
       "get": {
         "tags": [
-          "Workspace (preview)"
+          "Workspace"
         ],
         "summary": "Every series in the workspace",
-        "x-stability-level": "alpha",
         "security": [
           {
             "oauth": [
@@ -887,10 +883,9 @@
     "/series/{id}": {
       "get": {
         "tags": [
-          "Workspace (preview)"
+          "Workspace"
         ],
         "summary": "A series",
-        "x-stability-level": "alpha",
         "security": [
           {
             "oauth": [
@@ -996,10 +991,9 @@
     "/series/{id}/fleets": {
       "get": {
         "tags": [
-          "Workspace (preview)"
+          "Workspace"
         ],
         "summary": "A series' fleets",
-        "x-stability-level": "alpha",
         "security": [
           {
             "oauth": [
@@ -1105,10 +1099,9 @@
     "/series/{id}/competitors": {
       "get": {
         "tags": [
-          "Workspace (preview)"
+          "Workspace"
         ],
         "summary": "A series' entry list",
-        "x-stability-level": "alpha",
         "security": [
           {
             "oauth": [
@@ -1214,10 +1207,9 @@
     "/series/{id}/races": {
       "get": {
         "tags": [
-          "Workspace (preview)"
+          "Workspace"
         ],
         "summary": "A series' races, with their starts",
-        "x-stability-level": "alpha",
         "security": [
           {
             "oauth": [
@@ -1321,11 +1313,10 @@
       },
       "post": {
         "tags": [
-          "Workspace (preview)"
+          "Workspace"
         ],
         "summary": "Add races, with their starts",
         "description": "Added after the series' last race, and numbered by the server. A fleet starts once per race.",
-        "x-stability-level": "alpha",
         "security": [
           {
             "oauth": [
@@ -1450,10 +1441,9 @@
     "/series/{id}/races/{raceId}": {
       "get": {
         "tags": [
-          "Workspace (preview)"
+          "Workspace"
         ],
         "summary": "A race, with its starts",
-        "x-stability-level": "alpha",
         "security": [
           {
             "oauth": [
@@ -1567,11 +1557,10 @@
       },
       "delete": {
         "tags": [
-          "Workspace (preview)"
+          "Workspace"
         ],
         "summary": "Delete a race",
         "description": "Later races are renumbered.",
-        "x-stability-level": "alpha",
         "security": [
           {
             "oauth": [
@@ -1689,10 +1678,9 @@
     "/races/{raceId}/finishes": {
       "get": {
         "tags": [
-          "Workspace (preview)"
+          "Workspace"
         ],
         "summary": "A race's finishes, in finishing order",
-        "x-stability-level": "alpha",
         "security": [
           {
             "oauth": [
@@ -1798,10 +1786,9 @@
     "/races/{raceId}/starts/{startId}": {
       "patch": {
         "tags": [
-          "Workspace (preview)"
+          "Workspace"
         ],
         "summary": "Change a start's gun time or fleets",
-        "x-stability-level": "alpha",
         "security": [
           {
             "oauth": [
@@ -1953,10 +1940,9 @@
       },
       "delete": {
         "tags": [
-          "Workspace (preview)"
+          "Workspace"
         ],
         "summary": "Delete a start",
-        "x-stability-level": "alpha",
         "security": [
           {
             "oauth": [
@@ -2074,11 +2060,10 @@
     "/races/{raceId}/starts/{startId}/course": {
       "put": {
         "tags": [
-          "Workspace (preview)"
+          "Workspace"
         ],
         "summary": "Set a start's course from an ORC constructed course document",
         "description": "Read and converted as the race-start dialog's import does: bearings to true at the variation where the course is, on the race's day.",
-        "x-stability-level": "alpha",
         "security": [
           {
             "oauth": [
@@ -2242,10 +2227,9 @@
     "/series/{id}/publish": {
       "get": {
         "tags": [
-          "Workspace (preview)"
+          "Workspace"
         ],
         "summary": "A series' publication",
-        "x-stability-level": "alpha",
         "security": [
           {
             "oauth": [
@@ -2349,10 +2333,9 @@
       },
       "post": {
         "tags": [
-          "Workspace (preview)"
+          "Workspace"
         ],
         "summary": "Publish the series",
-        "x-stability-level": "alpha",
         "security": [
           {
             "oauth": [
@@ -2475,10 +2458,9 @@
       },
       "delete": {
         "tags": [
-          "Workspace (preview)"
+          "Workspace"
         ],
         "summary": "Unpublish the series",
-        "x-stability-level": "alpha",
         "security": [
           {
             "oauth": [
