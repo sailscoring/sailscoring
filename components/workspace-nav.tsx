@@ -35,9 +35,9 @@ export function WorkspaceNav() {
   if (has('rankings')) {
     tabs.push({ label: 'Rankings', href: '/workspace/rankings' });
   }
-  // Finish sheet submissions: for whoever records finishes but doesn't
-  // score. A scorer enters finishes on the race itself.
-  if (has('finish-submissions') && can('submit-finishes') && !can('score')) {
+  // Finish sheet submissions: for whoever records finishes. A scorer enters
+  // them on the race itself, but sees the page a recorder is handed.
+  if (has('finish-submissions') && can('submit-finishes')) {
     tabs.push({ label: 'Record finishes', href: '/workspace/record' });
   }
   tabs.push({ label: 'Published', href: '/workspace/published' });

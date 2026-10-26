@@ -551,8 +551,9 @@ export default function EnteringResults() {
           <strong className="text-foreground">recorder</strong> role (Workspace settings →
           Members). A recorder sees the workspace as a member does and can submit finishes,
           but can’t enter them on the finish sheet, change races or series, or publish.
-          Their workspace has a <strong className="text-foreground">Record finishes</strong>{' '}
-          tab: they pick the race (today’s are first) and take its finishes down on the same
+          On the workspace’s{' '}
+          <a href="/workspace/record" className="underline">Record finishes</a> tab
+          (<strong className="text-foreground">g f</strong>), which you have too, they pick the race (today’s are first) and take its finishes down on the same
           finishing order you enter them on, on a phone as well as at a desk. A sail number
           offers the boats it could be as it’s typed, a number on no entry goes in as an
           unknown boat for you to resolve, and a boat that didn’t finish gets her code from the

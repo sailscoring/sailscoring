@@ -164,6 +164,10 @@ baseTest('a recorder takes a race down on the Record finishes page; the scorer a
     await recorder.getByRole('button', { name: 'Submit again' }).click();
     await expect(recorder.getByTestId('submission-status')).toContainText('revision 2');
 
+    // The scorer has the recorder's page too, to try it before handing it over.
+    await scorer.goto('/');
+    await expect(scorer.getByRole('link', { name: 'Record finishes' })).toBeVisible();
+
     // The scorer applies it from the race.
     await scorer.goto(`/series/${seriesId}/races/${raceId}`);
     const panel = scorer.getByTestId('finish-submissions-panel');
