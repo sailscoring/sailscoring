@@ -1,5 +1,6 @@
+import type { Page } from '@playwright/test';
 import { signedInTest as test, expect } from './fixtures';
-import { createSeriesQuick, enableFeatures } from './helpers';
+import { createSeriesQuick, enableFeatures, keyboardReorder } from './helpers';
 
 /**
  * Prizes happy path (#240), modelled on a one-design event whose NoR awards
@@ -22,9 +23,9 @@ const competitors = [
   { sailNumber: '6', name: 'Finn Casey', division: 'Silver' },
 ];
 
-test('prizes: division podiums allocate live and publish as a prize sheet', async ({ page, signedInEmail }) => {
-  await enableFeatures(page, signedInEmail, ['prizes']);
-
+/** Steps 1–3 of both tests: the series, its Division axis, the six boats and
+ *  one race finishing in sail order. */
+async function setUpUlsters(page: Page) {
   // ── 1. Series with a Division axis ────────────────────────────────────────
   await createSeriesQuick(page, { name: 'GP14 Ulsters 2026', venue: 'Sligo YC' });
   await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
@@ -53,6 +54,11 @@ test('prizes: division podiums allocate live and publish as a prize sheet', asyn
     await page.getByRole('button', { name: 'Add', exact: true }).click();
   }
   await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+}
+
+test('prizes: division podiums allocate live and publish as a prize sheet', async ({ page, signedInEmail }) => {
+  await enableFeatures(page, signedInEmail, ['prizes']);
+  await setUpUlsters(page);
 
   // ── 4. Prizes tab: two division podiums, recipients allocate live ────────
   await page.getByRole('navigation').getByRole('link', { name: 'Prizes' }).click();
@@ -128,4 +134,63 @@ test('prizes: division podiums allocate live and publish as a prize sheet', asyn
   await expect(page.getByText('Division is Gold')).toBeVisible();
   await expect(page.getByText('Aoife Byrne')).toBeVisible();
   await expect(page.getByText('Finn Casey')).toBeVisible();
+});
+
+/**
+ * A boat already placed in one prize is passed over for another (DBSC NoR
+ * 9.2's shape, here within one fleet): Overall takes 1, 2, 3; the Gold prize
+ * excludes Overall's prize-winners, so Gold's 1 and 3 are skipped and 5 wins
+ * it. Moving Gold above Overall changes nothing — the condition names its
+ * prize — and deleting Overall takes the condition with it.
+ */
+test('prizes: a boat placed in one prize is passed over for another', async ({ page, signedInEmail }) => {
+  await enableFeatures(page, signedInEmail, ['prizes']);
+  await setUpUlsters(page);
+
+  await page.getByRole('navigation').getByRole('link', { name: 'Prizes' }).click();
+  await expect(page).toHaveURL(/\/prizes$/);
+
+  await page.getByRole('button', { name: 'Add the first prize' }).click();
+  let dialog = page.getByRole('dialog', { name: 'Add prize' });
+  await dialog.getByLabel('Name').fill('Overall 1st, 2nd, 3rd');
+  await dialog.getByRole('button', { name: 'Add prize' }).click();
+  await expect(dialog).toBeHidden();
+
+  await page.getByRole('button', { name: 'Add prize' }).click();
+  dialog = page.getByRole('dialog', { name: 'Add prize' });
+  await dialog.getByLabel('Name').fill('Gold Fleet 1st');
+  await dialog.getByLabel('Places awarded').fill('1');
+  await dialog.getByRole('button', { name: 'Add condition' }).click();
+  await dialog.getByLabel('Axis value').click();
+  await page.getByRole('option', { name: 'Gold' }).click();
+  await dialog.getByRole('button', { name: 'Add condition' }).click();
+  await dialog.getByLabel('Condition field').nth(1).click();
+  await page.getByRole('option', { name: 'Not a prize-winner in' }).click();
+  // The other prize is the default, at any place.
+  await expect(dialog.getByLabel('Prize', { exact: true })).toContainText('Overall 1st, 2nd, 3rd');
+  await expect(dialog.getByLabel('Places', { exact: true })).toContainText('Any place');
+  await dialog.getByRole('button', { name: 'Add prize' }).click();
+  await expect(dialog).toBeHidden();
+
+  await expect(
+    page.getByText('Division is Gold · Not a prize-winner in Overall 1st, 2nd, 3rd · top finisher'),
+  ).toBeVisible();
+  await expect(page.getByRole('row').filter({ hasText: 'Emer Lynch' })).toContainText('1st');
+  const skipped = page.getByRole('list', { name: 'Skipped' });
+  await expect(skipped).toContainText('Skipped Aoife Byrne (1) — 1st in Overall 1st, 2nd, 3rd');
+  await expect(skipped).toContainText('Skipped Clodagh Nolan (3) — 3rd in Overall 1st, 2nd, 3rd');
+
+  // Presented first, Gold is still awarded after Overall.
+  await keyboardReorder(page, page.getByLabel('Drag to reorder').nth(1), 'ArrowUp');
+  await expect(page.getByRole('heading', { level: 3 }).first()).toHaveText('Gold Fleet 1st');
+  await expect(page.getByRole('row').filter({ hasText: 'Emer Lynch' })).toContainText('1st');
+
+  // Deleting Overall says it takes the condition with it; Gold then goes to 1.
+  await page.getByRole('button', { name: 'Delete Overall 1st, 2nd, 3rd' }).click();
+  const confirm = page.getByRole('dialog', { name: 'Delete prize?' });
+  await expect(confirm).toContainText('The condition naming it on “Gold Fleet 1st” will be removed too');
+  await confirm.getByRole('button', { name: 'Delete' }).click();
+  await expect(page.getByText('Division is Gold · top finisher')).toBeVisible();
+  await expect(page.getByRole('row').filter({ hasText: 'Aoife Byrne' })).toContainText('1st');
+  await expect(page.getByRole('list', { name: 'Skipped' })).toHaveCount(0);
 });

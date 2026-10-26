@@ -15,6 +15,7 @@ import { ordinal } from '@/lib/ordinal';
 import {
   allocatePrizes,
   describePrizeClauses,
+  prizeLoops,
   prizeWarningMessage,
   PRIZE_NAME_MAX_LENGTH,
   PRIZE_RECIPIENT_COUNT_MAX,
@@ -59,6 +60,24 @@ import {
  *  prefixed so it can't collide with the fixed kinds. */
 type ClauseField = 'fleet' | 'rank' | 'gender' | 'nationality' | 'club' | 'not-awarded' | `axis:${string}`;
 
+/** The not-awarded target picker's value for "any prize listed above". Prize
+ *  ids are UUIDs, so it can't collide with one. */
+const ANY_PRIZE_ABOVE = '__above__';
+
+/** Prizes newly on a loop in `next` that weren't in `current` — what a move
+ *  or an edit would create. */
+function newLoopNames(current: Prize[], next: Prize[]): string[] {
+  const before = prizeLoops(current);
+  return next.filter((p) => prizeLoops(next).has(p.id) && !before.has(p.id)).map((p) => p.name);
+}
+
+/** The other prizes' `not-awarded` conditions that name `prize`. */
+function conditionsNaming(prizes: Prize[], prize: Prize): Prize[] {
+  return prizes.filter((p) =>
+    p.id !== prize.id && p.clauses.some((c) => c.kind === 'not-awarded' && c.prizeId === prize.id),
+  );
+}
+
 function clauseField(c: PrizeClause): ClauseField {
   return c.kind === 'axis' ? `axis:${c.axisId}` : c.kind;
 }
@@ -75,6 +94,8 @@ export default function PrizesPage({
   const canEdit = !readOnly && can('manage-series');
   const [editing, setEditing] = useState<Prize | 'new' | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Prize | null>(null);
+  // Why the last drag didn't move anything, until the next one.
+  const [refusedMove, setRefusedMove] = useState<string | null>(null);
 
   const data = useSeriesData(seriesId, { finishes: true, raceStarts: true });
 
@@ -148,6 +169,12 @@ export default function PrizesPage({
         )}
       </div>
 
+      {refusedMove && (
+        <p role="status" className="text-sm text-amber-900 dark:text-amber-200">
+          {refusedMove}
+        </p>
+      )}
+
       {localPrizes.length === 0 ? (
         <Card>
           <CardContent className="py-10 text-center text-sm text-muted-foreground">
@@ -169,11 +196,20 @@ export default function PrizesPage({
           items={localPrizes}
           onReorder={(orderedIds) => {
             const byId = new Map(localPrizes.map((p) => [p.id, p]));
-            void persistPrizes(
-              orderedIds
-                .map((pid) => byId.get(pid))
-                .filter((p): p is Prize => p !== undefined),
-            );
+            const next = orderedIds
+              .map((pid) => byId.get(pid))
+              .filter((p): p is Prize => p !== undefined);
+            // Order only matters to a "prize above" condition; a move that
+            // would leave prizes waiting on each other is the one refused.
+            const looped = newLoopNames(localPrizes, next);
+            if (looped.length > 0) {
+              setRefusedMove(
+                `Not moved: in that order, ${looped.join(' and ')} would each wait for the other’s winners.`,
+              );
+              return;
+            }
+            setRefusedMove(null);
+            void persistPrizes(next);
           }}
           isDisabled={() => !canEdit}
         >
@@ -190,7 +226,7 @@ export default function PrizesPage({
                       <div className="min-w-0 flex-1">
                         <h3 className="font-medium">{prize.name}</h3>
                         <p className="text-xs text-muted-foreground mt-0.5">
-                          {describePrizeClauses(prize.clauses, fleets, axes)}
+                          {describePrizeClauses(prize.clauses, fleets, axes, localPrizes)}
                           {` · top ${prize.recipientCount === 1 ? 'finisher' : prize.recipientCount}`}
                         </p>
                       </div>
@@ -255,6 +291,18 @@ export default function PrizesPage({
                         No eligible competitors yet.
                       </p>
                     )}
+
+                    {allocation && allocation.skipped.length > 0 && (
+                      <ul className="text-xs text-muted-foreground space-y-0.5" aria-label="Skipped">
+                        {allocation.skipped.map((skip) => (
+                          <li key={skip.standing.competitor.id}>
+                            Skipped {formatPrimaryNames(skip.standing.competitor.names)} (
+                            {skip.standing.competitor.sailNumber}) — {ordinal(skip.place)} in{' '}
+                            {localPrizes.find((p) => p.id === skip.prizeId)?.name}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </CardContent>
                 </Card>
               </div>
@@ -266,6 +314,7 @@ export default function PrizesPage({
       {editing !== null && (
         <PrizeEditorDialog
           prize={editing === 'new' ? null : editing}
+          prizes={localPrizes}
           fleets={pickableFleets(fleets)}
           axes={axes}
           competitors={competitors}
@@ -288,6 +337,13 @@ export default function PrizesPage({
             <DialogTitle>Delete prize?</DialogTitle>
             <DialogDescription>
               &ldquo;{confirmDelete?.name}&rdquo; will be removed from the prize list.
+              {confirmDelete && conditionsNaming(localPrizes, confirmDelete).length > 0 && (
+                <>
+                  {' '}The condition naming it on{' '}
+                  {conditionsNaming(localPrizes, confirmDelete).map((p) => `“${p.name}”`).join(', ')}{' '}
+                  will be removed too, so those boats become eligible there.
+                </>
+              )}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -298,7 +354,16 @@ export default function PrizesPage({
               variant="destructive"
               onClick={async () => {
                 if (!confirmDelete) return;
-                await persistPrizes(localPrizes.filter((p) => p.id !== confirmDelete.id));
+                await persistPrizes(
+                  localPrizes
+                    .filter((p) => p.id !== confirmDelete.id)
+                    .map((p) => ({
+                      ...p,
+                      clauses: p.clauses.filter(
+                        (c) => c.kind !== 'not-awarded' || c.prizeId !== confirmDelete.id,
+                      ),
+                    })),
+                );
                 setConfirmDelete(null);
               }}
             >
@@ -313,6 +378,7 @@ export default function PrizesPage({
 
 function PrizeEditorDialog({
   prize,
+  prizes,
   fleets,
   axes,
   competitors,
@@ -320,6 +386,8 @@ function PrizeEditorDialog({
   onSave,
 }: {
   prize: Prize | null;
+  /** The whole list, for the conditions that name another prize. */
+  prizes: Prize[];
   fleets: { id: string; name: string }[];
   axes: { id: string; label: string }[];
   competitors: {
@@ -335,6 +403,22 @@ function PrizeEditorDialog({
   const [count, setCount] = useState(prize?.recipientCount ?? 3);
   const [clauses, setClauses] = useState<PrizeClause[]>(prize?.clauses ?? []);
   const [saving, setSaving] = useState(false);
+  // Minted up front so a new prize can be checked for loops before it exists.
+  const [prizeId] = useState(() => prize?.id ?? crypto.randomUUID());
+  const otherPrizes = prizes.filter((p) => p.id !== prizeId);
+
+  /** The list as it would be with this prize carrying `nextClauses` — a new
+   *  prize goes on the end, where Add puts it. */
+  function listWith(nextClauses: PrizeClause[]): Prize[] {
+    const draft: Prize = { id: prizeId, name: name.trim(), recipientCount: count, clauses: nextClauses };
+    return prizes.some((p) => p.id === prizeId)
+      ? prizes.map((p) => (p.id === prizeId ? draft : p))
+      : [...prizes, draft];
+  }
+  /** Whether clause `i` set to `clause` would put this prize on a loop. */
+  const wouldLoop = (i: number, clause: PrizeClause) =>
+    prizeLoops(listWith(clauses.map((c, j) => (j === i ? clause : c)))).has(prizeId);
+  const looped = prizeLoops(listWith(clauses)).has(prizeId);
 
   // Distinct recorded values per axis, for the value dropdown's suggestions.
   const axisValues = new Map<string, string[]>(
@@ -364,6 +448,9 @@ function PrizeEditorDialog({
     if (field === 'gender') return { kind: 'gender', value: 'F' };
     if (field === 'nationality') return { kind: 'nationality', value: nationalities[0] ?? '' };
     if (field === 'club') return { kind: 'club', value: clubs[0] ?? '' };
+    if (field === 'not-awarded') {
+      return otherPrizes.length > 0 ? { kind: 'not-awarded', prizeId: otherPrizes[0].id } : { kind: 'not-awarded' };
+    }
     const axisId = field.slice('axis:'.length);
     return { kind: 'axis', axisId, value: axisValues.get(axisId)?.[0] ?? '' };
   }
@@ -376,13 +463,15 @@ function PrizeEditorDialog({
   const valid =
     trimmedName.length > 0 &&
     count >= 1 &&
+    !looped &&
     clauses.every(
       (c) =>
         (c.kind === 'fleet' && c.fleetId) ||
         (c.kind === 'axis' && c.axisId && c.value.trim()) ||
         (c.kind === 'rank' && c.max >= 1) ||
         c.kind === 'gender' ||
-        ((c.kind === 'nationality' || c.kind === 'club') && c.value.trim()),
+        ((c.kind === 'nationality' || c.kind === 'club') && c.value.trim()) ||
+        c.kind === 'not-awarded',
     );
 
   return (
@@ -453,6 +542,9 @@ function PrizeEditorDialog({
                     )}
                     {(clubs.length > 0 || clause.kind === 'club') && (
                       <SelectItem value="club">Club</SelectItem>
+                    )}
+                    {(otherPrizes.length > 0 || clause.kind === 'not-awarded') && (
+                      <SelectItem value="not-awarded">Not a prize-winner in</SelectItem>
                     )}
                   </SelectContent>
                 </Select>
@@ -531,6 +623,64 @@ function PrizeEditorDialog({
                   </>
                 )}
 
+                {clause.kind === 'not-awarded' && (
+                  <>
+                    <Select
+                      value={clause.prizeId ?? ANY_PRIZE_ABOVE}
+                      onValueChange={(v) =>
+                        setClause(i, {
+                          kind: 'not-awarded',
+                          ...(v === ANY_PRIZE_ABOVE ? {} : { prizeId: v }),
+                          ...(clause.places != null ? { places: clause.places } : {}),
+                        })
+                      }
+                    >
+                      <SelectTrigger className="flex-1 min-w-0" aria-label="Prize">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {otherPrizes.map((p) => (
+                          <SelectItem
+                            key={p.id}
+                            value={p.id}
+                            // A prize that already waits on this one would wait forever.
+                            disabled={wouldLoop(i, { ...clause, prizeId: p.id })}
+                          >
+                            {p.name}
+                          </SelectItem>
+                        ))}
+                        {clause.prizeId != null && !otherPrizes.some((p) => p.id === clause.prizeId) && (
+                          <SelectItem value={clause.prizeId}>A deleted prize</SelectItem>
+                        )}
+                        <SelectItem
+                          value={ANY_PRIZE_ABOVE}
+                          disabled={wouldLoop(i, { kind: 'not-awarded', places: clause.places })}
+                        >
+                          Any prize above
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Select
+                      value={String(clause.places ?? 'any')}
+                      onValueChange={(v) => {
+                        const { places: _places, ...rest } = clause;
+                        setClause(i, v === 'any' ? rest : { ...rest, places: Number(v) });
+                      }}
+                    >
+                      <SelectTrigger className="w-28" aria-label="Places">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="any">Any place</SelectItem>
+                        <SelectItem value="1">1st only</SelectItem>
+                        {clause.places != null && clause.places > 1 && (
+                          <SelectItem value={String(clause.places)}>Top {clause.places}</SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </>
+                )}
+
                 <Button
                   variant="ghost"
                   size="icon"
@@ -541,6 +691,12 @@ function PrizeEditorDialog({
                 </Button>
               </div>
             ))}
+            {looped && (
+              <p className="text-xs text-amber-900 dark:text-amber-200">
+                These conditions would leave prizes waiting on each other’s winners, so
+                none of them could be awarded.
+              </p>
+            )}
             {clauses.length < PRIZE_CLAUSES_MAX && (
               <Button
                 variant="outline"
@@ -567,7 +723,7 @@ function PrizeEditorDialog({
               setSaving(true);
               try {
                 await onSave({
-                  id: prize?.id ?? crypto.randomUUID(),
+                  id: prizeId,
                   name: trimmedName,
                   recipientCount: count,
                   clauses,
