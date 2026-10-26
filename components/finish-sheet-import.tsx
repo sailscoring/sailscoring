@@ -34,11 +34,7 @@ import {
   type FinishSheetField,
   type ParseFinishSheetResult,
 } from '@/lib/finish-sheet-csv';
-import {
-  carryAcrossImport,
-  carryOutcome,
-  type CarryOutcomeItem,
-} from '@/lib/finish-entry';
+import { carryAcrossImport, carryOutcome } from '@/lib/finish-entry';
 import {
   parseTabularFile,
   TABULAR_IMPORT_ACCEPT,
@@ -46,6 +42,7 @@ import {
 } from '@/lib/import-table';
 import type { Finish } from '@/lib/types';
 import { SheetPickerDialog, ImportFileErrorDialog } from '@/components/import-file-dialogs';
+import { FinishSheetPreviewSummary, untimedHandicapCount } from '@/components/finish-sheet-preview-summary';
 
 const FIELD_LABELS: Record<FinishSheetField, string> = {
   sailNumber: 'Sail number',
@@ -172,32 +169,14 @@ export const FinishSheetImport = forwardRef<FinishSheetImportHandle, {
     () => (carried ? carryOutcome(existingFinishes, carried) : null),
     [carried, existingFinishes],
   );
-  const boatOf = (item: CarryOutcomeItem) =>
-    item.competitorId
-      ? candidates.find((c) => c.id === item.competitorId)?.sailNumber ?? item.competitorId
-      : item.unknownSailNumber ?? '?';
-  const listed = (items: CarryOutcomeItem[]) =>
-    items.map((i) => `${i.what} on ${boatOf(i)}`).join(', ');
-
   function confirmImport() {
     if (flow.step !== 'preview' || !carried) return;
     onConfirm({ ...flow.result, finishes: carried });
     reset();
   }
 
-  // Untimed finishers whose fleet actually needs a time (handicap scoring over
-  // a timed start) — a place-only sheet is fine for scratch, not for these.
-  const untimedHandicapCount =
-    flow.step === 'preview' && needsFinishTime
-      ? flow.result.finishes.filter(
-          (f) =>
-            f.sortOrder !== null &&
-            !f.finishTime &&
-            f.elapsedSecs == null &&
-            f.competitorId != null &&
-            needsFinishTime(f.competitorId),
-        ).length
-      : 0;
+  const untimedHandicap =
+    flow.step === 'preview' ? untimedHandicapCount(flow.result, needsFinishTime) : 0;
 
   return (
     <>
@@ -314,84 +293,14 @@ export const FinishSheetImport = forwardRef<FinishSheetImportHandle, {
             <DialogTitle>Confirm finish sheet import</DialogTitle>
           </DialogHeader>
           {flow.step === 'preview' && (
-            <div className="space-y-3">
-              <p className="text-sm">
-                {flow.result.summary.finishers} finisher
-                {flow.result.summary.finishers === 1 ? '' : 's'},{' '}
-                {flow.result.summary.coded} coded entr
-                {flow.result.summary.coded === 1 ? 'y' : 'ies'}
-                {flow.result.summary.unresolved > 0 && (
-                  <>
-                    {' '}({flow.result.summary.unresolved} unresolved sail number
-                    {flow.result.summary.unresolved === 1 ? '' : 's'})
-                  </>
-                )}
-                .
-              </p>
-              {flow.result.summary.matchedOnBow > 0 && (
-                <p className="text-sm text-muted-foreground">
-                  {flow.result.summary.matchedOnBow} row
-                  {flow.result.summary.matchedOnBow === 1 ? '' : 's'} matched on a bow
-                  number rather than a sail number.
-                </p>
-              )}
-              {flow.result.summary.untimed > 0 && (
-                <p className="text-sm text-muted-foreground">
-                  {flow.result.summary.untimed} finisher
-                  {flow.result.summary.untimed === 1 ? ' has' : 's have'} no finish
-                  time. If the sheet records times, check the Finish time column
-                  mapping.
-                </p>
-              )}
-              {untimedHandicapCount > 0 && (
-                <p className="text-sm font-medium text-destructive">
-                  {untimedHandicapCount} untimed finisher
-                  {untimedHandicapCount === 1 ? ' is' : 's are'} in a handicap fleet
-                  with a timed start — a finish without a time cannot be scored on
-                  corrected time.
-                </p>
-              )}
-              <p className="text-sm text-muted-foreground">
-                This will replace the {existingFinishCount} existing finish
-                {existingFinishCount === 1 ? '' : 'es'} for this race.
-              </p>
-              {outcome && outcome.kept.length > 0 && (
-                <p className="text-sm text-muted-foreground">
-                  Carried across from the current finishes: {listed(outcome.kept)}.
-                </p>
-              )}
-              {outcome && outcome.cleared.length > 0 && (
-                <p className="text-sm font-medium text-destructive">
-                  This import clears: {listed(outcome.cleared)}. Re-enter anything
-                  that should survive in the editor afterwards.
-                </p>
-              )}
-              {flow.result.warnings.length > 0 && (
-                <div>
-                  <p className="text-sm font-medium mb-1">
-                    {flow.result.warnings.length} warning
-                    {flow.result.warnings.length === 1 ? '' : 's'}:
-                  </p>
-                  <ul className="text-sm text-muted-foreground space-y-0.5 max-h-32 overflow-auto">
-                    {flow.result.warnings.map((w) => (
-                      <li key={w.rowIndex}>Row {w.rowIndex}: {w.reason}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              {flow.result.errors.length > 0 && (
-                <div>
-                  <p className="text-sm font-medium text-destructive mb-1">
-                    {flow.result.errors.length} row{flow.result.errors.length === 1 ? '' : 's'} will be skipped:
-                  </p>
-                  <ul className="text-sm text-muted-foreground space-y-0.5 max-h-32 overflow-auto">
-                    {flow.result.errors.map((err) => (
-                      <li key={err.rowIndex}>Row {err.rowIndex}: {err.reason}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
+            <FinishSheetPreviewSummary
+              kind="import"
+              result={flow.result}
+              candidates={candidates}
+              existingFinishCount={existingFinishCount}
+              outcome={outcome}
+              untimedHandicap={untimedHandicap}
+            />
           )}
           <DialogFooter>
             <Button variant="outline" onClick={reset}>Cancel</Button>

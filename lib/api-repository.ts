@@ -9,6 +9,9 @@ import type { MergeSuggestion } from './api-handlers/competitor-identity';
 import type { SeriesLocation } from './api-handlers/series';
 import type { StaleLink } from './competitor-identity-reconcile';
 import type { AsPublishedFleetView } from './api-handlers/archive';
+import type { SubmissionReceipt } from './api-handlers/finish-submissions';
+import type { DatedRace } from './api-handlers/races';
+import type { SubmitFinishesInput } from './validation/finish-submission';
 import type { RankingDto } from './api-handlers/rankings';
 import type { RankingConfig } from './ranking';
 import type { RankingStandingsData } from './ranking-standings';
@@ -48,6 +51,7 @@ import type {
   ConnectedApp,
   OrgRequest,
   Finish,
+  FinishSubmission,
   Fleet,
   FtpServer,
   Logo,
@@ -1751,4 +1755,39 @@ export async function unlinkCompetitorIdentity(
     method: 'POST',
     body: JSON.stringify({ competitorId }),
   });
+}
+
+// ─── Finish sheet submissions ────────────────────────────────────────────────
+
+/** The races dated `from` to `to` across the workspace's live series. */
+export function listRacesBetween(from: string, to: string): Promise<DatedRace[]> {
+  return apiFetch(`/api/v1/races?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
+}
+
+export function listRaceSubmissions(raceId: string): Promise<FinishSubmission[]> {
+  return apiFetch(`/api/v1/races/${raceId}/submissions`);
+}
+
+export function listPendingSeriesSubmissions(seriesId: string): Promise<FinishSubmission[]> {
+  return apiFetch(`/api/v1/series/${seriesId}/submissions`);
+}
+
+export function submitFinishSheet(
+  raceId: string,
+  submissionId: string,
+  input: SubmitFinishesInput,
+): Promise<SubmissionReceipt> {
+  return apiFetch(`/api/v1/races/${raceId}/submissions/${submissionId}`, { method: 'PUT', body: input });
+}
+
+export async function withdrawFinishSubmission(raceId: string, submissionId: string): Promise<void> {
+  await apiFetch(`/api/v1/races/${raceId}/submissions/${submissionId}`, { method: 'DELETE' });
+}
+
+export function reviewFinishSubmission(
+  raceId: string,
+  submissionId: string,
+  decision: { status: 'applied' | 'dismissed'; revision: number },
+): Promise<FinishSubmission> {
+  return apiFetch(`/api/v1/races/${raceId}/submissions/${submissionId}/review`, { method: 'POST', body: decision });
 }

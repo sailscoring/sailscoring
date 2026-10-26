@@ -66,6 +66,7 @@ import {
   type ResolveUnknownHandle,
 } from '@/components/race-entry/resolve-unknown-controller';
 import { CheckInTab } from '@/components/check-in-tab';
+import { FinishSubmissionsPanel } from '@/components/race-entry/finish-submissions-panel';
 import { FinishTab } from '@/components/finish-tab';
 import { RatingsTab } from '@/components/ratings-tab';
 import { SeriesTabFallback } from '@/components/series-tab-fallback';
@@ -514,6 +515,18 @@ export default function ResultEntryPage({
         competitors={competitors ?? []}
         visible={activeTab === 'finish' && canManageStarts && !readOnly}
       />
+
+      {activeTab === 'finish' && has('finish-submissions') && !readOnly && competitors && (
+        <FinishSubmissionsPanel
+          raceId={raceId}
+          competitors={competitors}
+          raceStarts={raceStarts}
+          fleets={fleets ?? []}
+          savedFinishes={savedFinishes ?? []}
+          needsFinishTime={finishInput.needsFinishTime}
+          applyImport={applyCsvImport}
+        />
+      )}
 
       {activeTab === 'finish' && (
         <div className="bg-card border rounded-lg p-5">

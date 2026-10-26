@@ -71,6 +71,15 @@ export const queryKeys = {
     bySeries: (seriesId: string) =>
       ['finishes', 'bySeries', seriesId] as const,
   },
+  finishSubmissions: {
+    all: ['finishSubmissions'] as const,
+    byRace: (raceId: string) => ['finishSubmissions', 'byRace', raceId] as const,
+    pendingBySeries: (seriesId: string) => ['finishSubmissions', 'pendingBySeries', seriesId] as const,
+  },
+  datedRaces: {
+    all: ['datedRaces'] as const,
+    between: (from: string, to: string) => ['datedRaces', from, to] as const,
+  },
   raceStarts: {
     all: ['raceStarts'] as const,
     byRace: (raceId: string) => ['raceStarts', 'byRace', raceId] as const,

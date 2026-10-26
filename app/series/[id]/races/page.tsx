@@ -20,6 +20,7 @@ import { useFleetsBySeries } from '@/hooks/use-fleets';
 import { useCompetitorsBySeries } from '@/hooks/use-competitors';
 import { useRaceStartsBySeries } from '@/hooks/use-race-starts';
 import { useRaceSenseImport } from '@/hooks/use-racesense-import';
+import { usePendingSeriesSubmissions } from '@/hooks/use-finish-submissions';
 import { pickableFleets } from '@/lib/split-fleets';
 import { useFinishesByRace, useFinishesBySeries } from '@/hooks/use-finishes';
 import { LastFinisherStrip } from '@/components/last-finisher-strip';
@@ -104,6 +105,12 @@ function RaceRow({
   const scoringOptionsGated = has('race-scoring-options');
   const raceRecordGated = has('race-management-metadata');
   const raceSenseGated = has('racesense-import');
+  // One query for the whole list: every row reads the series' waiting
+  // submissions from the same cache entry.
+  const { data: waitingSubmissions } = usePendingSeriesSubmissions(seriesId, {
+    enabled: has('finish-submissions') && !readOnly,
+  });
+  const waitingCount = waitingSubmissions?.filter((s) => s.raceId === race.id).length ?? 0;
   const [scoringOptionsOpen, setScoringOptionsOpen] = useState(false);
   const [raceRecordOpen, setRaceRecordOpen] = useState(false);
   // Controlled so the row can open it from the keyboard: the trigger is out
@@ -183,6 +190,11 @@ function RaceRow({
           {scoringOptionsGated && hasScoringOptions(race) && (
             <Badge variant="outline" className="ml-2 font-normal" data-testid="race-scoring-badge">
               {scoringOptionsSummary(race)}
+            </Badge>
+          )}
+          {waitingCount > 0 && (
+            <Badge className="ml-2 font-normal" data-testid="race-submissions-badge">
+              {waitingCount === 1 ? 'Finish sheet to review' : `${waitingCount} finish sheets to review`}
             </Badge>
           )}
           {raceSenseGated && trackDataCount > 0 && (
