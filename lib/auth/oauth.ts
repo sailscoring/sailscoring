@@ -35,7 +35,7 @@ export const ACCESS_TOKEN_PREFIX = 'ssat_';
 export const REFRESH_TOKEN_PREFIX = 'ssrt_';
 
 /** What an outside app may ask for. `offline_access` is the refresh token. */
-export const APP_SCOPES = ['read', 'races', 'publish'] as const;
+export const APP_SCOPES = ['read', 'races', 'submissions', 'publish'] as const;
 export type AppScope = (typeof APP_SCOPES)[number];
 
 /** The feature gate a workspace needs before an app can be granted it. */

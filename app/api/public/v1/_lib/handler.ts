@@ -25,6 +25,7 @@ import {
   type Permission,
   type WorkspaceContext,
 } from '@/lib/auth/require-workspace';
+import { FEATURES } from '@/lib/features';
 import { RefusedSettingError } from '@/lib/refused-setting-error';
 import type { PublicErrorCode } from '@/lib/validation/public-api-v1';
 
@@ -96,12 +97,18 @@ const FORBIDDEN_MESSAGES: Record<string, string> = {
   'connected-apps-off': 'Apps can’t be connected to this workspace at the moment.',
   'no-workspace': 'You are not a member of any workspace.',
   'no-active-workspace': 'Name a workspace in the x-sailscoring-workspace header.',
+  'submission-not-yours': 'Someone else made this submission; only they can revise or withdraw it.',
 };
 
 function forbiddenMessage(reason: string | undefined): string | undefined {
   if (!reason) return undefined;
   if (reason.startsWith('permission-denied:')) {
     return `Your role in this workspace doesn’t allow this (it needs ${reason.slice('permission-denied:'.length)}).`;
+  }
+  if (reason.startsWith('feature-disabled:')) {
+    const key = reason.slice('feature-disabled:'.length);
+    const label = (FEATURES as Record<string, { label: string } | undefined>)[key]?.label ?? key;
+    return `This workspace doesn’t have ${label.toLowerCase()} switched on.`;
   }
   if (reason.startsWith('insufficient-scope:')) {
     return `This app wasn’t granted the ${reason.slice('insufficient-scope:'.length)} scope.`;

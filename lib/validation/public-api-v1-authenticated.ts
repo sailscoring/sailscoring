@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { submitFinishesSchema } from './finish-submission';
 import { named } from './public-api-v1';
 
 /**
@@ -198,6 +199,63 @@ export const finishResource = named(
 
 export const finishesResource = named(z.object({ finishes: z.array(finishResource) }), 'FinishList', 'A race\'s finishes, in finishing order.');
 
+export const submittedStartResource = named(
+  z.object({
+    startId: id,
+    startTime: wallClock.describe('The start time taken on the water, `HH:MM:SS`.'),
+  }),
+  'SubmittedStart',
+  'A start time a submission records, for one of the race\'s starts.',
+);
+
+export const submittedFinishResource = named(
+  z.object({
+    id: z.string().describe('The row\'s own id, as submitted.'),
+    competitorId: id.nullable().describe('The boat, where the submission named it by id.'),
+    sailNumber: z.string().nullable().describe('The sail number written down, where the submission named the boat that way.'),
+    finishTime: wallClock.nullable(),
+    elapsedSecs: z.number().nullable(),
+    resultCode: z.string().nullable(),
+  }),
+  'SubmittedFinish',
+  'One row of a submitted finish sheet, as submitted.',
+);
+
+export const submissionResource = named(
+  z.object({
+    id,
+    raceId: id,
+    seriesId: id,
+    revision: z.number().int(),
+    status: z
+      .enum(['pending', 'applied', 'dismissed'])
+      .describe('`pending` until a scorer applies it to the finish sheet or dismisses it. A new revision is `pending` again.'),
+    recordedBy: z.string().nullable(),
+    complete: z.boolean(),
+    starts: z.array(submittedStartResource),
+    finishes: z.array(submittedFinishResource),
+    submittedBy: z.string().nullable().describe('The person who submitted it.'),
+    app: z.string().nullable().describe('The app it was submitted through, where it was.'),
+    submittedAt: isoTimestamp.describe('When the current revision arrived.'),
+    reviewedAt: isoTimestamp.nullable().describe('When a scorer last applied or dismissed it.'),
+    reviewedRevision: z.number().int().nullable().describe('The revision that review was of.'),
+    matched: z.number().int().describe('Rows naming a boat entered in the race.'),
+    unknownSailNumbers: z.array(z.string()).describe('Sail numbers that match no entry; the scorer resolves them.'),
+    skipped: z
+      .array(z.object({ id: z.string(), reason: z.string() }))
+      .describe('Rows the scorer\'s review will leave out, and why: a boat in no fleet racing in this race, a boat twice.'),
+    reviewUrl: z.string().describe('The race in Sail Scoring, where a scorer reviews it.'),
+  }),
+  'Submission',
+  'A recording of one race\'s finishes, held beside the race until a scorer applies it to the finish sheet or dismisses it.',
+);
+
+export const submissionsResource = named(
+  z.object({ submissions: z.array(submissionResource) }),
+  'SubmissionList',
+  'A race\'s submissions, the latest upload first.',
+);
+
 export const publicationResource = named(
   z.object({
     id: z.string().describe('The publication, as `/publications/{id}` serves it.'),
@@ -281,6 +339,12 @@ export const publishInput = named(
   'How to publish a series.',
 );
 
+export const submitFinishesInput = named(
+  submitFinishesSchema,
+  'SubmitFinishes',
+  'The whole recording of a race\'s finishes, at one revision: each upload replaces the last. Row order is crossing order.',
+);
+
 export type WorkspaceResource = z.infer<typeof workspaceResource>;
 export type SeriesResource = z.infer<typeof seriesResource>;
 export type FleetResource = z.infer<typeof fleetResource>;
@@ -291,3 +355,4 @@ export type RaceResource = z.infer<typeof raceResource>;
 export type DatedRaceResource = z.infer<typeof datedRaceResource>;
 export type FinishResource = z.infer<typeof finishResource>;
 export type PublicationResource = z.infer<typeof publicationResource>;
+export type SubmissionResource = z.infer<typeof submissionResource>;

@@ -93,9 +93,9 @@ describe('the published results API description', () => {
   });
 
   it('leaves responses open, as additive changes within v1 require, and request bodies closed', () => {
-    const { CreateRaces, StartChange, Publish, ...responses } = doc.components.schemas;
+    const { CreateRaces, StartChange, Publish, SubmitFinishes, ...responses } = doc.components.schemas;
     expect(JSON.stringify(responses)).not.toContain('"additionalProperties":false');
-    for (const input of [CreateRaces, StartChange, Publish]) {
+    for (const input of [CreateRaces, StartChange, Publish, SubmitFinishes]) {
       expect(JSON.stringify(input)).toContain('"additionalProperties":false');
     }
     expect(JSON.stringify(doc)).not.toContain('"$schema"');

@@ -19,7 +19,8 @@ one [OpenAPI 3.1 description](#the-description), one version, one
 # Acting in a workspace
 
 An app acting for the people who use it: an ORC course-plotting page
-setting up a day's races and a course for each start, or a race-day app
+setting up a day's races and a course for each start, a race-day app
+handing the finishes it recorded on the water to the scorer, or one
 publishing results after the last race. The calls act as the signed-in user,
 in one workspace they chose, and never beyond what their role there allows.
 
@@ -58,6 +59,7 @@ document is at `/.well-known/oauth-authorization-server`.
 |---|---|---|
 | `read` | Read the workspace's series, entries, races, starts, finishes and publications | reading |
 | `races` | Add and delete races, change and delete starts, set each start's course | scoring |
+| `submissions` | Submit a race's finishes for a scorer to review, and revise or withdraw its own submissions | submitting finishes: a recorder's role, or a scorer's |
 | `publish` | Publish and unpublish results | scoring |
 | `offline_access` | Keep its access with a refresh token | |
 
@@ -83,6 +85,10 @@ GET    /series/{id}/races/{raceId}                   a race, with its starts
 DELETE /series/{id}/races/{raceId}                   delete a race
 GET    /races?date=YYYY-MM-DD                        the day's races, across every series
 GET    /races/{raceId}/finishes                      a race's finishes
+GET    /races/{raceId}/submissions                   the race's finish sheet submissions
+PUT    /races/{raceId}/submissions/{submissionId}    submit the race's finishes, or revise them
+GET    /races/{raceId}/submissions/{submissionId}    a submission, and where the scorer is with it
+DELETE /races/{raceId}/submissions/{submissionId}    withdraw it
 PATCH  /races/{raceId}/starts/{startId}              change a start's gun or fleets
 DELETE /races/{raceId}/starts/{startId}              delete a start
 PUT    /races/{raceId}/starts/{startId}/course       set a start's course
@@ -106,6 +112,30 @@ What the description can't say:
 - **A day's races** (`/races?date=`) come from every series that isn't
   archived, each with its `seriesId` and `seriesName`: what a race-day app
   shows on the committee boat, whichever series each race counts in.
+- **A finish sheet submission** is a recording of one race's finishes held
+  beside the race until a scorer applies it to the finish sheet or
+  dismisses it; nothing an app sends is written to the sheet directly. The
+  workspace needs finish sheet submissions switched on, as well as
+  connected apps. Each upload is the whole recording at a higher
+  `revision`, replacing the last: an app recording offline uploads its
+  latest whenever it's back in range, and an "undo" is a row missing from
+  the next one. The app chooses the submission's id, so a retry is the same
+  upload again and changes nothing; a lower revision is refused (`409`), so
+  a phone reconnecting late can't overwrite a newer upload. It's the one
+  write that replaces a whole record, and the record is the app's own: it
+  holds nothing the server added.
+- **Submitted finishes** use the finish read's names: a row names its boat
+  by `competitorId` where the app knows the entry, else by the `sailNumber`
+  written down, with a `finishTime` (or a stopwatch's `elapsedSecs`), or a
+  `resultCode` for a boat that didn't finish. Row order is crossing order.
+  A sail number that matches no entry isn't an error: the answer lists it in
+  `unknownSailNumbers`, and the scorer resolves it, as on a typed sheet.
+  `skipped` lists the rows the scorer's review will leave out, and why. A
+  submission's `starts` are start times taken on the water, by start id.
+- **`status`** is `pending` until a scorer reviews it, then `applied` or
+  `dismissed`; a new revision is `pending` again. A submission is revised
+  and withdrawn only by whoever made it, and an applied one can't be
+  withdrawn.
 - **A fleet starts once per race.** A start that would take another start's
   fleet is refused, so a start can be found by its fleets.
 - **Times are local**: a gun is `HH:MM:SS` (`HH:MM` is accepted), on the
@@ -160,6 +190,42 @@ curl -s "${auth[@]}" -H 'Content-Type: application/json' -X PUT \
 # A general recall: the gun moves, and the course stays.
 curl -s "${auth[@]}" -H 'Content-Type: application/json' -X PATCH \
   $API/races/$R/starts/$START -d '{ "startTime": "11:10" }' | jq '{startTime, legs: (.course.legs | length)}'
+```
+
+And the committee boat handing the finishes to the scorer, from an app the
+recorder signed in to with `read submissions offline_access`:
+
+```sh
+# Today's races, whichever series they count in.
+curl -s "${auth[@]}" "$API/races?date=2026-10-04" | jq '.races[] | {id, seriesName, number}'
+
+# The recording so far: the app chose the id, and counts the revisions.
+SUB=$(uuidgen)
+curl -s "${auth[@]}" -H 'Content-Type: application/json' -X PUT $API/races/$R/submissions/$SUB -d '{
+  "revision": 1,
+  "recordedBy": "Committee boat",
+  "starts": [{ "startId": "'$START'", "startTime": "11:10:00" }],
+  "finishes": [
+    { "id": "f1", "competitorId": "<a boat id>", "finishTime": "12:42:13" },
+    { "id": "f2", "sailNumber": "IRL 892", "finishTime": "12:43:02" }
+  ],
+  "complete": false
+}' | jq '{status, matched, unknownSailNumbers, skipped}'
+
+# The last boat home, and the whole sheet again.
+curl -s "${auth[@]}" -H 'Content-Type: application/json' -X PUT $API/races/$R/submissions/$SUB -d '{
+  "revision": 2, "recordedBy": "Committee boat",
+  "starts": [{ "startId": "'$START'", "startTime": "11:10:00" }],
+  "finishes": [
+    { "id": "f1", "competitorId": "<a boat id>", "finishTime": "12:42:13" },
+    { "id": "f2", "sailNumber": "IRL 892", "finishTime": "12:43:02" },
+    { "id": "f3", "competitorId": "<another boat id>", "resultCode": "DNF" }
+  ],
+  "complete": true
+}' | jq '{revision, status}'
+
+# Later: has the scorer applied it?
+curl -s "${auth[@]}" $API/races/$R/submissions/$SUB | jq '{status, reviewedRevision}'
 ```
 
 # The published results

@@ -18,6 +18,7 @@
  *   pnpm oauth-client list
  *   pnpm oauth-client disable <client-id>
  *   pnpm oauth-client enable <client-id>
+ *   pnpm oauth-client scopes <client-id>
  */
 
 import { eq } from 'drizzle-orm';
@@ -101,6 +102,21 @@ export async function listClients(db: SailScoringDb) {
     .orderBy(oauthClient.createdAt);
 }
 
+/**
+ * Give a registered client every scope apps may ask for today. A client is
+ * registered with the scopes that existed then, and the provider refuses a
+ * request for any other; a scope added since (such as `submissions`) reaches
+ * an existing app only through this.
+ */
+export async function setClientScopes(db: SailScoringDb, clientId: string): Promise<boolean> {
+  const rows = await db
+    .update(oauthClient)
+    .set({ scopes: APP_SCOPE_STRING.split(' '), updatedAt: new Date() })
+    .where(eq(oauthClient.clientId, clientId))
+    .returning({ clientId: oauthClient.clientId });
+  return rows.length > 0;
+}
+
 export async function setClientDisabled(
   db: SailScoringDb,
   clientId: string,
@@ -144,6 +160,7 @@ function usage(): string {
   list
   disable <client-id>
   enable <client-id>
+  scopes <client-id>
 
 create registers an outside app. Without --confidential it's a public client
 (PKCE, no secret), for a web page or an app with no server of its own; with
@@ -157,6 +174,10 @@ the client id it prints in the CLI's configuration.
 
 disable stops an app's tokens working at once, and its users being asked;
 enable restores it.
+
+scopes gives an app registered earlier every scope apps may ask for now
+(${APP_SCOPE_STRING}); an app may ask only for the scopes it was registered
+with. Its users approve a new scope the next time the app asks for it.
 
 --owner is the operator registering the app: an existing account, recorded
 as the client's owner. Reads DATABASE_URL.`;
@@ -215,6 +236,13 @@ export async function runCli(argv: string[]): Promise<number> {
           );
         }
         return 0;
+      }
+      case 'scopes': {
+        const [clientId] = positional;
+        if (!clientId) throw new Error('scopes: <client-id> is required');
+        const found = await setClientScopes(db, clientId);
+        console.log(found ? `${clientId} may now ask for: ${APP_SCOPE_STRING}` : `no app with client id ${clientId}`);
+        return found ? 0 : 1;
       }
       case 'disable':
       case 'enable': {

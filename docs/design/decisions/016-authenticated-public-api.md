@@ -2,7 +2,8 @@
 
 **Status:** Accepted (2026-10-25). Implemented by #695–#701. Amended
 2026-10-26: the authenticated part is no longer a preview (§5); its calls
-carry the same promise as the publications.
+carry the same promise as the publications. Also amended 2026-10-26: a
+`submissions` scope for finish sheet submissions (§4, #671).
 
 **Date:** 2026-10-25
 
@@ -309,7 +310,10 @@ Three ways in, each for one kind of caller:
   | `publish` | Publishing and unpublishing | `score` |
 
   A narrower scope, such as finish submissions if #671 goes ahead, is added
-  with the calls it covers.
+  with the calls it covers. *Amended 2026-10-26:* #671 added `submissions`
+  (submitting a race's finishes for a scorer to review), which needs the
+  `submit-finishes` permission: the `recorder` role's, and every scoring
+  role's.
 - **Apps are registered by Mark**, each with its exact redirect URIs. There
   is no self-registration.
 - **Writes are credited to the person and the app**: the activity log reads
@@ -463,7 +467,8 @@ asks for one.
 - #701: implementing the authenticated part (§1–§3, §5, §6).
 - #700: OAuth for outside apps and the CLI (§4).
 - #695, #696, #697, #698: the calls and changes §3 depends on.
-- #671: finish submissions, set aside; not part of this decision.
+- #671: finish submissions, set aside from this decision and built on it
+  afterwards: the `submissions` scope in §4.
 
 ## References
 

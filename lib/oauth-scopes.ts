@@ -5,6 +5,7 @@
 export const SCOPE_DESCRIPTIONS: Record<string, string> = {
   read: 'See the workspace’s series: entries, races, starts, finishes and what’s published',
   races: 'Add and delete races, change their starts, and set each start’s course',
+  submissions: 'Submit a race’s finishes for a scorer to review, and revise or withdraw them',
   publish: 'Publish and unpublish results',
   offline_access: 'Keep this access until you disconnect it, without asking you each time',
 };

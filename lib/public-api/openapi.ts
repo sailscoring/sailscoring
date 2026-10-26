@@ -24,7 +24,7 @@ import { SCOPE_DESCRIPTIONS } from '../oauth-scopes';
 type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
 
 /** The request bodies, which stay closed. */
-const INPUTS = new Set(['CreateRaces', 'StartChange', 'Publish']);
+const INPUTS = new Set(['CreateRaces', 'StartChange', 'Publish', 'SubmitFinishes']);
 
 function open(value: Json): Json {
   if (Array.isArray(value)) return value.map(open);
@@ -124,12 +124,13 @@ const pathParam = (name: string, description: string) => ({
 const seriesId = pathParam('id', 'The series.');
 const raceId = pathParam('raceId', 'The race.');
 const startId = pathParam('startId', 'The start.');
+const submissionId = pathParam('submissionId', 'The submission: a UUID the app chooses when it first submits.');
 
 const authErrors = {
   '400': errorBody('The request isn\'t what the call takes: `invalid`, with the fields at fault in `problems`.'),
   '401': errorBody('No access token, or one that has expired or been revoked: `unauthenticated`.'),
   '403': errorBody('Outside the grant\'s scopes or workspace, or the user\'s role there: `forbidden`.'),
-  '404': errorBody('No such series, race or start in the workspace: `not-found`.'),
+  '404': errorBody('No such series, race, start or submission in the workspace: `not-found`.'),
   '423': errorBody('The series is archived or final, and read-only: `archived`.'),
   '429': errorBody('Too many calls for this grant; `Retry-After` says how long to wait.'),
 };
@@ -190,7 +191,7 @@ export function publicApiOpenApi(origin: string): Json {
       title: 'Sail Scoring public API',
       version: '1',
       description:
-        'Two parts. The workspace calls act in a workspace for a signed-in user, through an OAuth access token their app obtained with the authorization code flow (PKCE): read its series, set up races, starts and courses, and publish; the CLI signs in with the device authorization grant (RFC 8628) at /api/auth/device/code. The published results need no sign-in: results as their published pages show them, each resource following the page that shows it; find publications from /p/index.json and each workspace\'s index.json. Within v1 changes are additive; a breaking change is a new version, and the old one serves for a year after it.',
+        'Two parts. The workspace calls act in a workspace for a signed-in user, through an OAuth access token their app obtained with the authorization code flow (PKCE): read its series, set up races, starts and courses, submit a race\'s finishes for review, and publish; the CLI signs in with the device authorization grant (RFC 8628) at /api/auth/device/code. The published results need no sign-in: results as their published pages show them, each resource following the page that shows it; find publications from /p/index.json and each workspace\'s index.json. Within v1 changes are additive; a breaking change is a new version, and the old one serves for a year after it.',
     },
     servers: [{ url: `${origin}/api/public/v1` }],
     tags: [
@@ -244,6 +245,27 @@ export function publicApiOpenApi(origin: string): Json {
         params: [raceId],
         result: 'FinishList',
       }),
+      '/races/{raceId}/submissions': authenticated('get', 'submissions', 'A race\'s finish sheet submissions', {
+        params: [raceId],
+        result: 'SubmissionList',
+        description: 'Every submission for the race, whoever made it, the latest upload first.',
+      }),
+      '/races/{raceId}/submissions/{submissionId}': {
+        ...authenticated('get', 'submissions', 'A finish sheet submission', { params: [raceId, submissionId], result: 'Submission' }),
+        ...authenticated('put', 'submissions', 'Submit a race\'s finishes, or revise a submission', {
+          params: [raceId, submissionId],
+          body: { schema: ref('SubmitFinishes') },
+          result: 'Submission',
+          description:
+            'Held beside the race until a scorer applies it to the finish sheet or dismisses it; never written to the sheet directly. Each upload carries the whole recording at a higher `revision`, so an app recording offline uploads its latest whenever it\'s in range. The same revision sent again is a retry, and changes nothing. A sail number that matches no entry is not an error: `unknownSailNumbers` lists it, and the scorer resolves it. Needs the workspace\'s finish sheet submissions switched on.',
+          conflict: 'A higher revision of this submission is stored, or this one with other contents, or the id is another race\'s: `conflict`.',
+        }),
+        ...authenticated('delete', 'submissions', 'Withdraw a submission', {
+          params: [raceId, submissionId],
+          description: 'Only the person who submitted it, and not once it has been applied.',
+          conflict: 'It has been applied to the finish sheet: `conflict`.',
+        }),
+      },
       '/races/{raceId}/starts/{startId}': {
         ...authenticated('patch', 'races', 'Change a start\'s gun time or fleets', {
           params: [raceId, startId, ifMatch],

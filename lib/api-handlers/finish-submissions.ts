@@ -49,8 +49,12 @@ function submitterLabel(s: FinishSubmission): string {
 }
 
 /** What the race's sheet would make of a submission's rows, as the review
- *  will: matched boats, unknown sail numbers, rows left out. */
-async function matchFor(workspace: WorkspaceContext, race: Race, finishes: FinishSubmission['finishes']): Promise<SubmissionMatch> {
+ *  will: matched boats, unknown sail numbers, rows left out. Reads the
+ *  race's entries once, for any number of submissions. */
+export async function matcherFor(
+  workspace: WorkspaceContext,
+  race: Race,
+): Promise<(finishes: FinishSubmission['finishes']) => SubmissionMatch> {
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   const [competitors, fleets, starts] = await Promise.all([
     repos.competitors.listBySeries(race.seriesId),
@@ -59,12 +63,14 @@ async function matchFor(workspace: WorkspaceContext, race: Race, finishes: Finis
   ]);
   const fleetNames = new Map(fleets.map((f) => [f.id, f.name]));
   const sailNumbers = new Map(competitors.map((c) => [c.id, c.sailNumber]));
-  const read = readSubmission(
-    finishes,
-    raceCandidates(competitors, starts, (id) => fleetNames.get(id)),
-    (id) => sailNumbers.get(id),
-  );
-  return matchOf(finishes, read);
+  const candidates = raceCandidates(competitors, starts, (id) => fleetNames.get(id));
+  return (finishes) => matchOf(finishes, readSubmission(finishes, candidates, (id) => sailNumbers.get(id)));
+}
+
+/** The race, refused where the workspace has no such race. */
+export async function submissionRace(workspace: WorkspaceContext, raceId: string): Promise<Race> {
+  requireFeature(workspace, 'finish-submissions');
+  return raceOf(workspace, raceId);
 }
 
 export async function listSubmissionsForRace(workspace: WorkspaceContext, raceId: string): Promise<FinishSubmission[]> {
@@ -90,7 +96,7 @@ export async function getSubmissionForRace(
   const race = await raceOf(workspace, raceId);
   const submission = await getSubmission(workspace.workspaceId, submissionId);
   if (!submission || submission.raceId !== raceId) throw new NotFoundError('submission');
-  return { submission, match: await matchFor(workspace, race, submission.finishes) };
+  return { submission, match: (await matcherFor(workspace, race))(submission.finishes) };
 }
 
 /**
@@ -180,7 +186,7 @@ export async function submitFinishes(
       metadata: { raceId, submissionId, revision: input.revision },
     });
   }
-  return { submission: outcome.submission, match: await matchFor(workspace, race, finishes) };
+  return { submission: outcome.submission, match: (await matcherFor(workspace, race))(finishes) };
 }
 
 /** Withdraw one's own submission. */

@@ -58,7 +58,7 @@ describe.skipIf(!DATABASE_URL)('oauth-client script', () => {
       tokenEndpointAuthMethod: 'none',
       applicationType: 'web',
       grantTypes: ['authorization_code', 'refresh_token'],
-      scopes: ['read', 'races', 'publish', 'offline_access'],
+      scopes: ['read', 'races', 'submissions', 'publish', 'offline_access'],
       userId: operator.userId,
     });
 

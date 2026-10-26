@@ -213,7 +213,7 @@ export async function grantApp(
     redirect_uri: TEST_REDIRECT_URI,
     client_id: clientId,
     code_verifier: verifier,
-  });
+  }, user);
 }
 
 /** The device grant, as `sailscoring auth login` runs it. */
@@ -230,11 +230,17 @@ export async function deviceSignIn(user: SignedInUser, cliClientId: string): Pro
     grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
     device_code: code.device_code,
     client_id: cliClientId,
-  });
+  }, user);
 }
 
-export async function exchange(form: Record<string, string>): Promise<IssuedTokens> {
-  const res = await request(null, '/api/auth/oauth2/token', { form });
+/** The token endpoint, as the app calls it: no browser cookies. `from` puts
+ *  the call in that user's rate-limit bucket rather than one every test
+ *  file's exchanges share. */
+export async function exchange(form: Record<string, string>, from?: Pick<SignedInUser, 'ip'>): Promise<IssuedTokens> {
+  const res = await request(null, '/api/auth/oauth2/token', {
+    form,
+    ...(from ? { headers: { 'x-forwarded-for': from.ip } } : {}),
+  });
   const body = (await res.json()) as {
     access_token?: string;
     refresh_token?: string;

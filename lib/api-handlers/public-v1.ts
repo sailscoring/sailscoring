@@ -4,6 +4,14 @@ import { and, asc, eq } from 'drizzle-orm';
 import { BadRequestError, NotFoundError } from '@/app/api/v1/_lib/handler';
 import { listCompetitors } from '@/lib/api-handlers/competitors';
 import { listFinishes } from '@/lib/api-handlers/finishes';
+import {
+  getSubmissionForRace,
+  listSubmissionsForRace,
+  matcherFor,
+  submissionRace,
+  submitFinishes,
+  withdrawSubmission,
+} from '@/lib/api-handlers/finish-submissions';
 import { listFleets } from '@/lib/api-handlers/fleets';
 import { publishSeries, unpublishBySeries } from '@/lib/api-handlers/publish';
 import {
@@ -31,7 +39,9 @@ import {
   startResourceOf,
   storedWallClock,
 } from '@/lib/public-api/workspace-resources';
-import type { Race, RaceStart } from '@/lib/types';
+import type { FinishSubmission, Race, RaceStart } from '@/lib/types';
+import type { SubmissionMatch } from '@/lib/finish-submission';
+import type { SubmitFinishesInput } from '@/lib/validation/finish-submission';
 import type {
   createRacesInput,
   publishInput,
@@ -39,6 +49,7 @@ import type {
   RaceResource,
   startPatchInput,
   StartResource,
+  SubmissionResource,
 } from '@/lib/validation/public-api-v1-authenticated';
 import type { z } from 'zod';
 
@@ -272,4 +283,64 @@ export async function publishPublic(
 export async function unpublishPublic(workspace: WorkspaceContext, seriesId: string) {
   await getSeries(workspace, seriesId);
   await unpublishBySeries(workspace, seriesId);
+}
+
+// ─── Finish sheet submissions ────────────────────────────────────────────────
+
+function submissionResourceOf(s: FinishSubmission, match: SubmissionMatch): SubmissionResource {
+  return {
+    id: s.id,
+    raceId: s.raceId,
+    seriesId: s.seriesId,
+    revision: s.revision,
+    status: s.status,
+    recordedBy: s.recordedBy,
+    complete: s.complete,
+    starts: s.starts.map((st) => ({ startId: st.startId, startTime: st.startTime })),
+    finishes: s.finishes.map((f) => ({
+      id: f.id,
+      competitorId: f.competitorId,
+      sailNumber: f.sailNumber,
+      finishTime: f.finishTime,
+      elapsedSecs: f.elapsedSecs,
+      resultCode: f.resultCode,
+    })),
+    submittedBy: s.submittedBy?.name || null,
+    app: s.via?.name ?? null,
+    submittedAt: new Date(s.submittedAt).toISOString(),
+    reviewedAt: s.reviewedAt !== null ? new Date(s.reviewedAt).toISOString() : null,
+    reviewedRevision: s.reviewedRevision,
+    matched: match.matched,
+    unknownSailNumbers: match.unknownSailNumbers,
+    skipped: match.skipped,
+    reviewUrl: `${appOrigin()}/series/${s.seriesId}/races/${s.raceId}`,
+  };
+}
+
+export async function listSubmissionsPublic(workspace: WorkspaceContext, raceId: string) {
+  const race = await submissionRace(workspace, raceId);
+  const [submissions, match] = await Promise.all([
+    listSubmissionsForRace(workspace, raceId),
+    matcherFor(workspace, race),
+  ]);
+  return { submissions: submissions.map((s) => submissionResourceOf(s, match(s.finishes))) };
+}
+
+export async function getSubmissionPublic(workspace: WorkspaceContext, raceId: string, submissionId: string) {
+  const { submission, match } = await getSubmissionForRace(workspace, raceId, submissionId);
+  return submissionResourceOf(submission, match);
+}
+
+export async function submitFinishesPublic(
+  workspace: WorkspaceContext,
+  raceId: string,
+  submissionId: string,
+  input: SubmitFinishesInput,
+) {
+  const { submission, match } = await submitFinishes(workspace, raceId, submissionId, input);
+  return submissionResourceOf(submission, match);
+}
+
+export async function withdrawSubmissionPublic(workspace: WorkspaceContext, raceId: string, submissionId: string) {
+  await withdrawSubmission(workspace, raceId, submissionId);
 }
