@@ -123,8 +123,8 @@ export default function Collaboration() {
             course or a race-day app, can work in Sail Scoring as you once you connect it. Start
             from the app: it sends you to Sail Scoring, where you sign in if you aren’t already,
             choose which workspace it may work in, and see what it’s asking to do (read your series,
-            set up races and their starts and courses, publish results). Allow it, and you’re sent
-            back to the app.
+            set up races and their starts and courses, submit a race’s finishes for the scorer to
+            review, publish results). Allow it, and you’re sent back to the app.
           </p>
           <p>
             An app reaches only the workspace you chose, and can never do more than your own role

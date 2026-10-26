@@ -12,7 +12,7 @@ export default function ForTheTechnical() {
           Sail Scoring’s public API, under{' '}
           <code className="text-foreground text-sm">/api/public/v1</code>, has two parts. An app
           can act in a workspace for someone who has connected it: read the series, set up races,
-          starts and courses, and publish. Those calls take an OAuth access token the app gets when
+          starts and courses, submit a race’s finishes for the scorer to review, and publish. Those calls take an OAuth access token the app gets when
           its user connects it (see{' '}
           <a href="/help/collaboration#connected-apps" className="underline">Connecting an app</a>).
           Beside them, the published results need no sign-in: standings, race results, entry lists

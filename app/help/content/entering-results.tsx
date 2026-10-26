@@ -531,6 +531,69 @@ export default function EnteringResults() {
         </p>
       </Section>
       )}
+      {has('finish-submissions') && (
+      <Section id="finish-submissions" title="Finishes recorded by someone else">
+        <HelpShot
+          src="/help/shots/finish-submissions.webp"
+          alt="Reviewing a finish sheet the committee boat submitted: each boat's line now and as submitted."
+          caption="A submitted sheet is reviewed boat by boat before anything goes on the finish sheet."
+        />
+        <p>
+          The person who writes the finishes down is often not the scorer: a race officer on
+          the committee boat, a volunteer in the finish hut, or a race-day app on someone’s
+          phone. A <strong className="text-foreground">finish sheet submission</strong> lets
+          them hand you a race’s finishes without being able to change the results
+          themselves. It waits beside the race until you apply it to the finish sheet or
+          dismiss it.
+        </p>
+        <p>
+          Give whoever records finishes the{' '}
+          <strong className="text-foreground">recorder</strong> role (Workspace settings →
+          Members). A recorder sees the workspace as a member does and can submit finishes,
+          but can’t enter them on the finish sheet, change races or series, or publish.
+          Their workspace has a <strong className="text-foreground">Record finishes</strong>{' '}
+          tab, made for a phone: they pick the race (today’s are first), add each boat as it
+          crosses, with a time if there is one (<strong className="text-foreground">Now</strong>{' '}
+          stamps the time now), code any that didn’t finish, note the start times they took,
+          and press <strong className="text-foreground">Submit for review</strong>. A sheet
+          kept in a spreadsheet can be imported instead, mapped column by column as the{' '}
+          <a href="/help/entering-results#importing-finish-sheet" className="underline">finish sheet import</a> is.
+          Before they submit, the page tells them which sail numbers matched an entry and
+          which you’ll have to resolve. Until you apply it, they can correct it and submit
+          again, and the correction replaces what they sent before.
+        </p>
+        <p>
+          A race with a sheet waiting says so on the{' '}
+          <strong className="text-foreground">Races</strong> tab, and above the race’s
+          finishing order: who sent it, how many finishes, how long ago, and whether they’re
+          still recording. <strong className="text-foreground">Review</strong> (or{' '}
+          <strong className="text-foreground">v</strong>) shows what applying it would do,
+          before anything is written: the same summary a spreadsheet import gives, any start
+          times taken on the water, and a line for every boat comparing her place, time or
+          code on the current sheet with the submitted one. Sail numbers match exactly as
+          they do for an import, and a number that matches no entry becomes an unknown boat
+          you resolve as usual.
+        </p>
+        <p>
+          <strong className="text-foreground">Apply to the finish sheet</strong> replaces the
+          race’s finishes with the submitted ones, keeping the penalties, redress, ties and
+          check-ins a submitted sheet can’t express wherever they still apply, and sets the
+          start times. <strong className="text-foreground">Dismiss</strong> leaves the sheet
+          alone. Either way the recorder sees what you decided, and each step is in the{' '}
+          <a href="/help/collaboration#workspace-activity" className="underline">activity log</a>.
+          If they send a correction later, it waits for review again.
+        </p>
+        <p>
+          Two people recording the same race (two phones, or the committee boat and the
+          finish hut) each make their own submission, side by side; you choose which to
+          apply. A race-day app does the same thing for its user through the{' '}
+          <a href="/help/for-the-technical#rest-api" className="underline">public API</a>,
+          once it’s{' '}
+          <a href="/help/collaboration#connected-apps" className="underline">connected</a>{' '}
+          with the submissions permission.
+        </p>
+      </Section>
+      )}
       <Section id="redress" title="Redress (RDG)">
         <HelpShot
           src="/help/shots/redress.webp"

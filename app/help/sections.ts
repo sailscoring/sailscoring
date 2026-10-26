@@ -65,6 +65,7 @@ export const HELP_GROUPS: HelpGroupDef[] = [
       { id: 'penalty-codes', title: 'Additive penalty codes', keywords: ['zfp', 'scp', 'dpi', 'penalty', 'points penalty', 'protest', 'discretionary', 'turn'] },
       { id: 'importing-finish-sheet', title: 'Importing a finish sheet from a spreadsheet', feature: 'csv-finish-import', keywords: ['csv', 'excel', 'spreadsheet', 'paste results', 'import finishes'] },
       { id: 'racesense-import', title: 'Importing from RaceSense', feature: 'racesense-import', keywords: ['vakaros', 'tracker', 'gps', 'track data', 'xlsx'] },
+      { id: 'finish-submissions', title: 'Finishes recorded by someone else', feature: 'finish-submissions', keywords: ['recorder', 'race officer', 'committee boat', 'finish hut', 'submit', 'submission', 'review', 'race-day app', 'volunteer', 'record finishes'] },
       { id: 'redress', title: 'Redress (RDG)', keywords: ['rdg', 'average points', 'protest committee', 'a9', 'compensation'] },
       { id: 'start-check-in', title: 'Start check-in', keywords: ['roll call', 'came to the start', 'starters', 'signed on', 'a5 3'] },
     ],
@@ -249,6 +250,7 @@ const SECTION_FOR_ROUTE: Record<string, string> = {
   '/workspace/activity': 'workspace-activity',
   '/workspace/competitors': 'competitor-identity',
   '/workspace/published': 'publishing-results',
+  '/workspace/record': 'finish-submissions',
   '/workspace/rankings': 'rankings',
   '/workspace/rankings/:id': 'rankings',
 };

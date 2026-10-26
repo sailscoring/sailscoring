@@ -2212,6 +2212,53 @@ const SHOTS: Shot[] = [
       await shot('elapsed-times.png');
     },
   },
+  {
+    // Inventory: Finish sheet submissions — the scorer's review of a sheet
+    // the committee boat submitted for Race 3: two boats the other way round
+    // from the current sheet, one the recorder couldn't place, a start time
+    // taken on the water. LOCAL-only mutation: stages the submission, and
+    // dismisses it afterwards so Race 3 is left as it was.
+    slug: 'finish-submissions',
+    group: 'Entering results',
+    async capture({ page, seriesId, shot }) {
+      if (!LOCAL) throw new Error('finish-submissions stages a submission and is local-mode only');
+      await dbEnableOperatorFeature('finish-submissions');
+      const id = await seriesId();
+      const races = (await (await page.request.get(`${BASE}/api/v1/series/${id}/races`)).json()) as { id: string; raceNumber: number }[];
+      const raceId = races.find((r) => r.raceNumber === 3)!.id;
+      const current = (await (await page.request.get(`${BASE}/api/v1/races/${raceId}/finishes`)).json()) as {
+        competitorId: string | null; sortOrder: number | null; finishTime?: string; resultCode: string | null;
+      }[];
+      const starts = (await (await page.request.get(`${BASE}/api/v1/races/${raceId}/starts`)).json()) as { id: string; startTime?: string }[];
+      const order = current.filter((f) => f.sortOrder !== null && f.competitorId).sort((a, b) => a.sortOrder! - b.sortOrder!);
+      [order[2], order[3]] = [order[3], order[2]];
+      const submissionId = crypto.randomUUID();
+      const sent = await page.request.put(`${BASE}/api/v1/races/${raceId}/submissions/${submissionId}`, {
+        data: {
+          revision: 1,
+          recordedBy: 'Committee boat',
+          starts: starts.filter((st) => st.startTime).slice(0, 1).map((st) => ({ startId: st.id, startTime: '19:00:20' })),
+          finishes: [
+            ...order.map((f, i) => ({ id: `f${i + 1}`, competitorId: f.competitorId, finishTime: f.finishTime ?? null })),
+            { id: 'x', sailNumber: 'IRL 4411', finishTime: null },
+          ],
+          complete: true,
+        },
+      });
+      if (!sent.ok()) throw new Error(`staging the submission: ${sent.status()} ${await sent.text()}`);
+      await openRace(page, id, 3);
+      const panel = page.getByTestId('finish-submissions-panel');
+      await panel.waitFor();
+      await panel.getByRole('button', { name: 'Review' }).click();
+      await page.getByTestId('submission-diff').waitFor();
+      await settle(page);
+      await shot('finish-submissions.png');
+      await page.keyboard.press('Escape');
+      await page.request.post(`${BASE}/api/v1/races/${raceId}/submissions/${submissionId}/review`, {
+        data: { status: 'dismissed', revision: 1 },
+      });
+    },
+  },
 ];
 
 /** Open a published fleet page (by URL substring) in the anonymous context,
