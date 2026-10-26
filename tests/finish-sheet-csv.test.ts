@@ -630,3 +630,48 @@ describe('parseFinishSheetCsv elapsed times', () => {
     expect(result.finishes[0].elapsedSecs).toBeUndefined();
   });
 });
+
+describe('parseFinishSheetCsv — rows already identified', () => {
+  it('takes a row’s competitor id instead of matching its sail number', () => {
+    const result = parseFinishSheetCsv({
+      rows: [['', '12:00:00', ''], ['22', '12:01:00', ''], ['999', '12:02:00', '']],
+      columnMap: defaultMap,
+      candidates,
+      identified: ['c3', 'c2', null],
+      firstRowNumber: 1,
+    });
+    expect(result.errors).toEqual([]);
+    expect(result.finishes.map((f) => [f.competitorId, f.unknownSailNumber, f.sortOrder])).toEqual([
+      ['c3', undefined, 1],
+      ['c2', undefined, 2],
+      [null, '999', 3],
+    ]);
+    expect(result.warnings).toEqual([{ rowIndex: 3, reason: expect.stringMatching(/999 not registered/) }]);
+  });
+
+  it('skips an identified boat that isn’t in the race, or one used twice', () => {
+    const result = parseFinishSheetCsv({
+      rows: [['15', '', ''], ['77', '', ''], ['15', '', 'DNF']],
+      columnMap: defaultMap,
+      candidates,
+      identified: ['c1', 'elsewhere', 'c1'],
+      firstRowNumber: 1,
+    });
+    expect(result.finishes.map((f) => f.competitorId)).toEqual(['c1']);
+    expect(result.errors).toEqual([
+      { rowIndex: 2, reason: '77 isn\'t entered in a fleet in this race' },
+      { rowIndex: 3, reason: '15 already used earlier in this sheet' },
+    ]);
+  });
+
+  it('codes an identified boat that didn’t finish', () => {
+    const result = parseFinishSheetCsv({
+      rows: [['', '', 'ocs']],
+      columnMap: defaultMap,
+      candidates,
+      identified: ['c4'],
+    });
+    expect(result.finishes).toMatchObject([{ competitorId: 'c4', sortOrder: null, resultCode: 'OCS' }]);
+    expect(result.summary.coded).toBe(1);
+  });
+});

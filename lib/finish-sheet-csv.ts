@@ -127,6 +127,14 @@ export interface ParseFinishSheetInput {
    *  number (bare or nationality-qualified — see {@link sailNumberKeys}),
    *  falling back to bow number (see {@link parseFinishSheetCsv}). */
   candidates: Candidate[];
+  /** The boat each row already names by competitor id, where it does: a
+   *  submission from a race-day app that knew the entry. Such a row skips
+   *  sail number matching, and its sail number column is only for the
+   *  messages; an id that isn't one of the candidates skips the row. */
+  identified?: readonly (string | null | undefined)[];
+  /** What the first data row is called in the messages: 2 for a sheet whose
+   *  header is row 1 (the default), 1 for a list with no header. */
+  firstRowNumber?: number;
 }
 
 const CODE_SET = new Set<string>(BUILT_IN_CODES.map((c) => c.code));
@@ -177,7 +185,8 @@ function blankFinish(): Omit<Finish, 'id' | 'raceId' | 'competitorId' | 'sortOrd
 }
 
 export function parseFinishSheetCsv(input: ParseFinishSheetInput): ParseFinishSheetResult {
-  const { rows, columnMap, candidates } = input;
+  const { rows, columnMap, candidates, identified } = input;
+  const firstRowNumber = input.firstRowNumber ?? 2;
 
   // Build lookups
   const cols = {
@@ -251,7 +260,8 @@ export function parseFinishSheetCsv(input: ParseFinishSheetInput): ParseFinishSh
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
-    const csvRowNumber = i + 2; // +1 for header, +1 for 1-based
+    const csvRowNumber = i + firstRowNumber;
+    const knownId = identified?.[i] ?? null;
 
     // An entirely blank row is not data — sheets routinely end with empty
     // lines. Skip it rather than reporting a missing sail number.
@@ -263,7 +273,7 @@ export function parseFinishSheetCsv(input: ParseFinishSheetInput): ParseFinishSh
     const rawCode = cols.code >= 0 ? (row[cols.code]?.trim() ?? '') : '';
     const rawFleet = cols.fleet >= 0 ? (row[cols.fleet]?.trim() ?? '') : '';
 
-    if (!rawSail) {
+    if (!rawSail && !knownId) {
       errors.push({ rowIndex: csvRowNumber, reason: 'missing sail number' });
       continue;
     }
@@ -313,6 +323,35 @@ export function parseFinishSheetCsv(input: ParseFinishSheetInput): ParseFinishSh
     // underneath, as in keyboard finish entry: a value that is one boat's
     // registered sail number always resolves to that boat, and a lower tier
     // only rescues a row that would otherwise be unresolved.
+    if (knownId) {
+      const boat = rawSail || 'the boat';
+      const competitor = candidates.find((c) => c.id === knownId);
+      if (!competitor) {
+        errors.push({ rowIndex: csvRowNumber, reason: `${boat} isn't entered in a fleet in this race` });
+        continue;
+      }
+      if (usedCompetitorIds.has(competitor.id)) {
+        errors.push({ rowIndex: csvRowNumber, reason: `${competitor.sailNumber} already used earlier in this sheet` });
+        continue;
+      }
+      usedCompetitorIds.add(competitor.id);
+      if (hasCode) {
+        finishes.push({ ...blankFinish(), competitorId: competitor.id, sortOrder: null, resultCode: code });
+        codedCount++;
+      } else {
+        finisherCount++;
+        if (!recorded) untimedCount++;
+        finishes.push({
+          ...blankFinish(),
+          competitorId: competitor.id,
+          sortOrder: finisherCount,
+          resultCode: null,
+          ...recorded,
+        });
+      }
+      continue;
+    }
+
     const sailMatches = resolveSail(rawSail);
     const fallback =
       sailMatches.length === 0
