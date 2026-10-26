@@ -1174,6 +1174,64 @@ chosen and whether it's capped (pursuit races usually run to a time limit, not a
 course); how mixed-handicap-system fleets are handled in one pursuit start sequence; and
 whether start times round to sensible whole seconds/minutes for a startable sequence.
 
+### Combined-time races (legs summed into one result)
+
+Some races are sailed in legs, with a result for the whole race. GBSC's
+Cong–Galway race (Fergal Lyons) stops for lunch at Kilbeg. Each boat's time for
+Cong–Kilbeg is added to its time for Kilbeg–Galway, and the total is corrected
+with its PY. HalSail couldn't score it; Sailwave can.
+
+**Sailwave's equivalent** is "auto elapsed time" on a race (User Guide, *How do I
+combine leg times into a race time?*, `reference-docs:tool-manuals/sailwave/`).
+The scorer sets up three races: Leg 1, Leg 2 and an Overall race that nobody
+sails. On Overall they tick auto elapsed time and list the races to add up
+(`1,2`). Each boat's elapsed time there is then recomputed as the sum every
+time the series is scored. The legs are marked "Discard me first" and the
+discard profile is set to `0,0,2`, so only Overall counts in the series. A code
+on either leg carries into Overall, so a boat that sailed only one leg can't
+post a short total.
+
+The 2025 results
+(<https://www.sailwave.com/results/GBSC/DINGHIES/2025_Cong_Galway.htm>) show
+how it is used in practice:
+
+- Two starts (Keelboat and Hooker 11:00, Dinghy 11:10) in three fleets scored
+  separately. The Hookers have no PY, so they are scored on elapsed time.
+- Leg 2 restarts with one gun per start at the same 10-minute gap. Each leg is
+  an ordinary race with ordinary starts.
+- Sailwave **adds up the elapsed times and corrects the total**. Overall
+  corrected is round(ΣET × 1000 / PY). That differs by ±1s from adding up the
+  two corrected leg times for 7 of 24 dinghies, so matching Sailwave means
+  correcting the sum.
+- A Hawk 20 that was DNF on leg 2 is **NSC** overall. That doesn't match the
+  manual's copy-the-leg's-code rule; either the scorer overrode it or the rule
+  isn't what the manual says.
+- The page publishes only the three race tables, with no points, ranks or
+  series table. Overall *is* the result, and the discard trick exists only to
+  keep the legs out of a table nobody reads.
+
+Shape of the change:
+
+- **A combined race.** The scorer picks the leg races it adds up. Its elapsed
+  times are derived at scoring time, never stored, so correcting a leg updates
+  Overall.
+- **Codes.** A boat with no time on some leg gets no overall time, and it gets
+  a code instead. Which code to use (the leg's own, or always NSC/DNF) is open.
+- **Legs that don't score.** A plain "doesn't count in the series" setting on
+  the legs replaces Sailwave's discard-profile trick, so they don't show as
+  bracketed discards.
+- **Publishing.** Each leg's elapsed and corrected times are published
+  alongside Overall's, so a sailor can check their own sum.
+- **Sailwave import.** It should map an auto-elapsed race and its list of legs
+  onto the combined race. Today it doesn't read that setting.
+- **Finish data from outside.** RaceOps' finish-sheet submissions
+  (ADR-016) feed the two leg races, and Overall needs no further step.
+
+Open: whether a combined race spans fleets with different starts (Cong–Galway's
+doesn't); and whether the 2025 Keelboat table, which has PY numbers but no
+corrected times and an order that matches neither elapsed nor corrected time,
+was a setup slip in a page marked provisional.
+
 ### Qualifying and final series — deferred residue
 
 The split-fleet championship format — a large entry in rotating qualifying
