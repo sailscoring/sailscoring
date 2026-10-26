@@ -27,11 +27,12 @@ in one workspace they chose, and never beyond what their role there allows.
 ## Getting access
 
 1. **Register the app.** Apps are registered by Sail Scoring, not by
-   themselves: ask [mark@hyc.ie](mailto:mark@hyc.ie), saying what the app is
-   and its exact redirect URIs (https; or http on `127.0.0.1` while
-   developing). You get a client id. A web page or an app with no server of
-   its own is a public client, with no secret; an app with a server can have
-   a secret instead.
+   themselves: ask [mark@hyc.ie](mailto:mark@hyc.ie), saying what the app is,
+   the scopes it needs, and its exact redirect URIs (https; or http on
+   `127.0.0.1` while developing). You get a client id. A web page or an app
+   with no server of its own is a public client, with no secret; an app with
+   a server can have a secret instead. The app may ask only for the scopes it
+   was registered with.
 2. **Send the user through the authorization code flow, with PKCE**
    (`S256`):
 
@@ -45,7 +46,9 @@ in one workspace they chose, and never beyond what their role there allows.
    workspaces the app may act in, and approves the scopes. The browser comes
    back to the redirect URI with a `code`.
 3. **Exchange the code** at `POST /api/auth/oauth2/token`
-   (`grant_type=authorization_code`, with the `code_verifier`), and get an
+   (`grant_type=authorization_code`, with the `code_verifier`; an app with a
+   secret sends its client id and secret in an `Authorization: Basic` header,
+   and is refused if it sends them in the body), and get an
    access token (`ssat_…`, an hour) and, if you asked for `offline_access`,
    a refresh token (`ssrt_…`, 180 days). Renew with
    `grant_type=refresh_token`: each refresh returns a new refresh token, for
@@ -83,6 +86,43 @@ The app then sends the user through the flow again. Some things refuse calls
 (`403`) without ending the grant, which works again once they're undone: the
 user leaving the workspace, a role that doesn't allow the call, and connected
 apps being switched off for the workspace.
+
+## Connecting through a club's account
+
+Some apps are used by whoever is on duty rather than by people with their
+own accounts: a race desk where race officers sign in with a club PIN, say.
+Sending each of them through the flow isn't possible, so the club connects
+the app once, from an account of its own:
+
+1. **The club makes an account.** A workspace admin invites a club mailbox
+   (`racing@` the club's domain, say) to the workspace, with the role the
+   app needs: a scorer for `races` or `publish`, a recorder for
+   `submissions` and `read` alone. Whoever reads the mailbox accepts the
+   invitation and names the account for what it is: "Race Office".
+2. **Someone connects the app once,** going through the flow above as that
+   account. Sail Scoring signs people in with a link it emails them, so they
+   need the mailbox to hand. They choose the workspace and approve the
+   scopes, and can then sign out: the grant doesn't need the browser again.
+3. **The app keeps the grant alive.** It stores the refresh token on its
+   server, against the club, and refreshes at least every 180 days whether
+   anyone uses it or not. A scheduled job refreshing each club's token about
+   monthly carries it over an off-season.
+
+What that means for the club:
+
+- **Everything the app does is the club account's**, through the app: the
+  activity log reads "Race Office via" the app's name. If the club wants to
+  know which officer was on duty, that's for the app to record; Sail
+  Scoring sees the account.
+- **Anyone who can use the app can do what the account's role allows**,
+  within the scopes it was given. Give it the role the app needs, and no
+  more.
+- **Reconnecting needs the mailbox again**, when a grant ends (see above).
+  Make sure more than one person can read it.
+
+There is no grant to the club itself, without an account: the discovery
+document lists `client_credentials`, but no app is registered for it, and
+every call acts as an account and is limited by its role.
 
 ## Calls
 
