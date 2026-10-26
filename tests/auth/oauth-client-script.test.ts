@@ -85,6 +85,32 @@ describe.skipIf(!DATABASE_URL)('oauth-client script', () => {
     expect(row.clientSecret).not.toBe(app.clientSecret);
   });
 
+  test('an app is registered with only the scopes it asked for', async () => {
+    const app = await createAppClient({
+      owner: operator.email,
+      name: 'Race office',
+      redirectUris: ['https://example.com/cb'],
+      confidential: true,
+      scopes: ['read', 'races', 'publish', 'offline_access'],
+    });
+    created.push(app.clientId);
+    const [row] = await getDb()
+      .select({ scopes: schema.oauthClient.scopes })
+      .from(schema.oauthClient)
+      .where(eq(schema.oauthClient.clientId, app.clientId));
+    expect(row.scopes).toEqual(['read', 'races', 'publish', 'offline_access']);
+
+    await expect(
+      createAppClient({
+        owner: operator.email,
+        name: 'Greedy',
+        redirectUris: ['https://example.com/cb'],
+        confidential: false,
+        scopes: ['read', 'admin'],
+      }),
+    ).rejects.toThrow(/unknown scope admin/);
+  });
+
   test('an app being developed locally is registered with its loopback address', async () => {
     const app = await createAppClient({
       owner: operator.email,
