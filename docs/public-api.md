@@ -89,20 +89,28 @@ apps being switched off for the workspace.
 
 ## Connecting through a club's account
 
-Some apps are used by whoever is on duty rather than by people with their
-own accounts: a race desk where race officers sign in with a club PIN, say.
-Sending each of them through the flow isn't possible, so the club connects
-the app once, from an account of its own:
+Where you can, connect each person: an officer with their own account, as a
+recorder say, is named in the activity log for what they did, and a club can
+see who recorded which race. The app then keeps a refresh token for each
+person, and asks for only the scopes the page they're using needs.
+
+Some apps are used by whoever is on duty, though: a race desk where race
+officers sign in with a club PIN, say. For those, the club connects the app
+once, from an account of its own:
 
 1. **The club makes an account.** A workspace admin invites a club mailbox
    (`racing@` the club's domain, say) to the workspace, with the role the
    app needs: a scorer for `races` or `publish`, a recorder for
-   `submissions` and `read` alone. Whoever reads the mailbox accepts the
-   invitation and names the account for what it is: "Race Office".
+   `submissions` and `read` alone. Whoever reads the mailbox opens the
+   invitation, signs in with the link Sail Scoring then emails them, and
+   accepts. When Sail Scoring asks for a name, they give the account's:
+   "Race Office". Without one, the account shows as its email address.
 2. **Someone connects the app once,** going through the flow above as that
    account. Sail Scoring signs people in with a link it emails them, so they
    need the mailbox to hand. They choose the workspace and approve the
    scopes, and can then sign out: the grant doesn't need the browser again.
+   If they connect from the browser they accepted the invitation in, they're
+   already signed in, and no second email is needed.
 3. **The app keeps the grant alive.** It stores the refresh token on its
    server, against the club, and refreshes at least every 180 days whether
    anyone uses it or not. A scheduled job refreshing each club's token about
