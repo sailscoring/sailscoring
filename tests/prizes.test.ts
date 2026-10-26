@@ -6,7 +6,7 @@
  * Prizes tab surfaces.
  */
 import { describe, it, expect } from 'vitest';
-import { allocatePrize, allocatePrizes, describePrizeClauses, prizeWarningMessage } from '@/lib/prizes';
+import { allocatePrize, allocatePrizes, describePrizeClauses, prizeLoops, prizeWarningMessage } from '@/lib/prizes';
 import type { PrizeAllocationWarning, PrizeStandingsInput } from '@/lib/prizes';
 import type { Competitor, Fleet, Prize, Standing, SubdivisionAxis } from '@/lib/types';
 
@@ -258,6 +258,9 @@ describe('allocatePrize — warnings', () => {
       { kind: 'short', eligible: 1, requested: 3 },
       { kind: 'spans-fleets', fleetNames: ['A', 'B'] },
       { kind: 'tie-at-cut', rank: 3 },
+      { kind: 'unknown-prize' },
+      { kind: 'prize-loop', prizeNames: ['ECHO Overall'] },
+      { kind: 'prize-loop', prizeNames: [] },
     ];
     for (const w of warnings) {
       expect(prizeWarningMessage(w).length).toBeGreaterThan(0);
@@ -358,5 +361,158 @@ describe('allocatePrize — intrinsic competitor-field clauses (v18)', () => {
       [],
     );
     expect(text).toBe('Helm is female · Nationality is IRL · Club is HYC');
+  });
+});
+
+/**
+ * Prize exclusion: a boat placed in one prize is passed over for another and
+ * the places move down. Modelled on DBSC NoR 9.2 (a prize under IRC rules a
+ * boat out of the ECHO prize) and HYC Autumn League NoR 18.2 (a prize on IRC
+ * or Scratch rules a boat out of the HPH prize). The same six boats are
+ * scored in every fleet, as a class scored under several systems at once is.
+ *
+ *   IRC ranks:     a b c d e f
+ *   ECHO ranks:    d a b e f c
+ *   Scratch ranks: e d c b a f
+ */
+describe('allocatePrizes — not-awarded conditions', () => {
+  const irc = makeFleet('fl-irc', 'IRC', 0);
+  const echo = makeFleet('fl-echo', 'ECHO', 1);
+  const scratch = makeFleet('fl-scratch', 'Scratch', 2);
+  const boats = new Map(
+    ['a', 'b', 'c', 'd', 'e', 'f'].map((id) => [
+      id,
+      makeCompetitor(id, ['fl-irc', 'fl-echo', 'fl-scratch']),
+    ]),
+  );
+  const ranked = (fleet: Fleet, order: string): PrizeStandingsInput => ({
+    fleet,
+    standings: [...order].map((id, i) => makeStanding(boats.get(id)!, i + 1)),
+  });
+  const standings = [
+    ranked(irc, 'abcdef'),
+    ranked(echo, 'dabefc'),
+    ranked(scratch, 'edcbaf'),
+  ];
+
+  const fleetPrize = (id: string, name: string, fleetId: string, extra: Prize['clauses'] = []): Prize => ({
+    id,
+    name,
+    recipientCount: 3,
+    clauses: [{ kind: 'fleet', fleetId }, ...extra],
+  });
+  const ircOverall = fleetPrize('irc', 'IRC Overall', 'fl-irc');
+  const scratchOverall = { ...fleetPrize('scratch', 'Scratch Overall', 'fl-scratch'), recipientCount: 1 };
+  const sails = (a: { recipients: { standing: Standing }[] }) =>
+    a.recipients.map((r) => r.standing.competitor.id);
+
+  it('DBSC 9.2: an IRC prize-winner is passed over for the ECHO prize', () => {
+    const echoOverall = fleetPrize('echo', 'ECHO Overall', 'fl-echo', [
+      { kind: 'not-awarded', prizeId: 'irc' },
+    ]);
+    const [ircA, echoA] = allocatePrizes([ircOverall, echoOverall], standings, []);
+    expect(sails(ircA)).toEqual(['a', 'b', 'c']);
+    // d is 1st; a (IRC 1st) and b (IRC 2nd) are skipped; e and f move up.
+    expect(sails(echoA)).toEqual(['d', 'e', 'f']);
+    expect(echoA.skipped.map((s) => [s.standing.competitor.id, s.prizeId, s.place])).toEqual([
+      ['a', 'irc', 1],
+      ['b', 'irc', 2],
+    ]);
+    expect(echoA.warnings).toEqual([]);
+  });
+
+  it('the result does not depend on where the prizes sit in the list', () => {
+    const echoOverall = fleetPrize('echo', 'ECHO Overall', 'fl-echo', [
+      { kind: 'not-awarded', prizeId: 'irc' },
+    ]);
+    // Presented ECHO first: still awarded after IRC, still returned in list order.
+    const [echoA, ircA] = allocatePrizes([echoOverall, ircOverall], standings, []);
+    expect(echoA.prize.id).toBe('echo');
+    expect(sails(echoA)).toEqual(['d', 'e', 'f']);
+    expect(sails(ircA)).toEqual(['a', 'b', 'c']);
+  });
+
+  it('places: 1 passes over only the winner of the named prize', () => {
+    const echoOverall = fleetPrize('echo', 'ECHO Overall', 'fl-echo', [
+      { kind: 'not-awarded', prizeId: 'irc', places: 1 },
+    ]);
+    const [, echoA] = allocatePrizes([ircOverall, echoOverall], standings, []);
+    // b is IRC 2nd, which this condition doesn't exclude.
+    expect(sails(echoA)).toEqual(['d', 'b', 'e']);
+    expect(echoA.skipped.map((s) => s.standing.competitor.id)).toEqual(['a']);
+  });
+
+  it('HYC 18.2: two conditions rule out an IRC or a Scratch prize-winner', () => {
+    const hph = fleetPrize('hph', 'HPH Overall', 'fl-echo', [
+      { kind: 'not-awarded', prizeId: 'irc' },
+      { kind: 'not-awarded', prizeId: 'scratch' },
+    ]);
+    const [, scratchA, hphA] = allocatePrizes([ircOverall, scratchOverall, hph], standings, []);
+    expect(sails(scratchA)).toEqual(['e']);
+    // d, then a/b (IRC) and e (Scratch) skipped, then f; c (IRC 3rd) skipped too.
+    expect(sails(hphA)).toEqual(['d', 'f']);
+    expect(hphA.skipped.map((s) => s.standing.competitor.id)).toEqual(['a', 'b', 'e', 'c']);
+    expect(hphA.warnings).toContainEqual({ kind: 'short', eligible: 2, requested: 3 });
+  });
+
+  it('a boat skipped past the cut is not reported', () => {
+    const echoOne = { ...fleetPrize('echo', 'ECHO 1st', 'fl-echo', [
+      { kind: 'not-awarded', prizeId: 'irc' },
+    ]), recipientCount: 1 };
+    const [, echoA] = allocatePrizes([ircOverall, echoOne], standings, []);
+    // d takes the one place; a and b come after it and would not have won.
+    expect(sails(echoA)).toEqual(['d']);
+    expect(echoA.skipped).toEqual([]);
+  });
+
+  it('with no prize named, any prize listed above counts — one prize per boat', () => {
+    const fleet = standings.slice(1, 2); // ECHO alone: d a b e f c
+    const overall: Prize = { id: 'o', name: 'Overall 1st, 2nd', recipientCount: 2, clauses: [] };
+    const next: Prize = { id: 'n', name: 'Next 1st, 2nd', recipientCount: 2, clauses: [{ kind: 'not-awarded' }] };
+    const [overallA, nextA] = allocatePrizes([overall, next], fleet, []);
+    expect(sails(overallA)).toEqual(['d', 'a']);
+    expect(sails(nextA)).toEqual(['b', 'e']);
+    // Moved to the top, nothing is above it: position is the rule here.
+    const [topA] = allocatePrizes([next, overall], fleet, []);
+    expect(sails(topA)).toEqual(['d', 'a']);
+  });
+
+  it('a condition on a prize the series no longer has awards nobody', () => {
+    const echoOverall = fleetPrize('echo', 'ECHO Overall', 'fl-echo', [
+      { kind: 'not-awarded', prizeId: 'deleted' },
+    ]);
+    const [echoA] = allocatePrizes([echoOverall], standings, []);
+    expect(echoA.recipients).toEqual([]);
+    expect(echoA.warnings).toContainEqual({ kind: 'unknown-prize' });
+  });
+
+  it('prizes waiting on each other award nobody; a prize waiting on the loop is awarded', () => {
+    const a: Prize = fleetPrize('A', 'IRC Overall', 'fl-irc', [{ kind: 'not-awarded', prizeId: 'B' }]);
+    const b: Prize = fleetPrize('B', 'ECHO Overall', 'fl-echo', [{ kind: 'not-awarded', prizeId: 'A' }]);
+    const c: Prize = fleetPrize('C', 'Scratch Overall', 'fl-scratch', [{ kind: 'not-awarded', prizeId: 'A' }]);
+    const [aA, bA, cA] = allocatePrizes([a, b, c], standings, []);
+    expect(aA.recipients).toEqual([]);
+    expect(aA.warnings).toEqual([{ kind: 'prize-loop', prizeNames: ['ECHO Overall'] }]);
+    expect(bA.warnings).toEqual([{ kind: 'prize-loop', prizeNames: ['IRC Overall'] }]);
+    expect(sails(cA)).toEqual(['e', 'd', 'c']);
+    expect(prizeLoops([a, b, c])).toEqual(new Map([['A', ['B']], ['B', ['A']]]));
+  });
+
+  it('a prize that names itself is a loop of one', () => {
+    const self: Prize = fleetPrize('S', 'IRC Overall', 'fl-irc', [{ kind: 'not-awarded', prizeId: 'S' }]);
+    const [selfA] = allocatePrizes([self], standings, []);
+    expect(selfA.recipients).toEqual([]);
+    expect(selfA.warnings).toEqual([{ kind: 'prize-loop', prizeNames: [] }]);
+  });
+
+  it('describes the condition by the prize it names', () => {
+    const prizes = [ircOverall];
+    const describe1 = (clause: Prize['clauses'][number]) =>
+      describePrizeClauses([clause], [], [], prizes);
+    expect(describe1({ kind: 'not-awarded', prizeId: 'irc' })).toBe('Not a prize-winner in IRC Overall');
+    expect(describe1({ kind: 'not-awarded', prizeId: 'irc', places: 1 })).toBe('Not the winner of IRC Overall');
+    expect(describe1({ kind: 'not-awarded', prizeId: 'irc', places: 2 })).toBe('Not in the top 2 of IRC Overall');
+    expect(describe1({ kind: 'not-awarded' })).toBe('Not a prize-winner in a prize above');
+    expect(describe1({ kind: 'not-awarded', prizeId: 'gone' })).toBe('Not a prize-winner in a deleted prize');
   });
 });

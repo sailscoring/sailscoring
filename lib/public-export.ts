@@ -39,6 +39,7 @@ import type {
 } from './repository';
 import { instanceTimeZone } from './instance-time-zone';
 import { orcCertFromSummary, orcCertSummary } from './orc-certificate';
+import { withoutPrizes } from './prizes';
 import { hasConditions } from './race-conditions';
 import {
   OFFICIAL_CUSTOM_ROLE_MAX_LENGTH,
@@ -147,14 +148,19 @@ function importOfficials(
 /** A prize clause as it appears in the public export (#240). Fleet clauses
  *  refer to the fleet by name (fleet UUIDs are not carried in the export);
  *  axis ids are series-local opaque keys carried verbatim, like
- *  `subdivisionAxes`. */
+ *  `subdivisionAxes`. A `not-awarded` clause (v10+) passes over a boat
+ *  already placed in another prize: `prize` is that prize's 0-based position
+ *  in `series.prizes` (prizes carry no id here); absent means any prize
+ *  listed above this one. `places` limits it to that prize's top N; absent
+ *  means any place. */
 export type ExportPrizeClause =
   | { kind: 'fleet'; fleetName: string }
   | { kind: 'axis'; axisId: string; value: string }
   | { kind: 'rank'; max: number }
   | { kind: 'gender'; value: 'M' | 'F' }
   | { kind: 'nationality'; value: string }
-  | { kind: 'club'; value: string };
+  | { kind: 'club'; value: string }
+  | { kind: 'not-awarded'; prize?: number; places?: number };
 
 /** A prize as it appears in the public export (#240). No id — prize ids are
  *  series-local; importers mint fresh ones. */
@@ -185,8 +191,8 @@ export interface PublicSeriesExport {
    *  rank an undivided championship's fleets each on its own
    *  (`splitFleets.config.fleetRanking`, `medal.fromEachFleet`); v9 adds
    *  `course.north` on a start whose directions are magnetic rather than
-   *  true. Readers accept them all. */
-  version: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+   *  true; v10 adds the `not-awarded` prize clause. Readers accept them all. */
+  version: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
   /** Where the format, and what a reader may rely on, is documented. Written
    *  into every export so a reader handed only the file can find the
    *  contract. Optional: exports written before it was added lack it. */
@@ -1440,7 +1446,7 @@ export function buildPublicExportFromSnapshot(
     : undefined;
 
   return {
-    version: 9 as const,
+    version: 10 as const,
     formatDoc: PUBLIC_EXPORT_FORMAT_DOC,
     exportedAt: (opts?.exportedAt ?? new Date()).toISOString(),
     timeZone: instanceTimeZone(),
@@ -1482,22 +1488,29 @@ export function buildPublicExportFromSnapshot(
       ...(exportedDefaultStartSequence ? { defaultStartSequence: exportedDefaultStartSequence } : {}),
       ...(() => {
         // Prizes (#240): fleet clauses go out by fleet name; a prize whose
-        // fleet can't resolve is dropped whole rather than silently widened.
-        const prizes = (series.prizes ?? [])
-          .map((p): ExportPrize | null => {
-            const clauses: ExportPrizeClause[] = [];
-            for (const c of p.clauses) {
-              if (c.kind !== 'fleet') {
-                clauses.push(c);
-                continue;
-              }
-              const fleetName = fleetNameById.get(c.fleetId);
-              if (fleetName == null) return null;
-              clauses.push({ kind: 'fleet', fleetName });
-            }
-            return { name: p.name, recipientCount: p.recipientCount, clauses };
-          })
-          .filter((p): p is ExportPrize => p !== null);
+        // fleet can't resolve is dropped whole rather than silently widened,
+        // and so is one whose `not-awarded` condition names a dropped prize.
+        // The survivors' positions are what those conditions point at.
+        const unresolved = new Set(
+          (series.prizes ?? [])
+            .filter((p) => p.clauses.some((c) => c.kind === 'fleet' && !fleetNameById.has(c.fleetId)))
+            .map((p) => p.id),
+        );
+        const kept = withoutPrizes(series.prizes ?? [], unresolved);
+        const position = new Map(kept.map((p, i) => [p.id, i]));
+        const prizes = kept.map((p): ExportPrize => ({
+          name: p.name,
+          recipientCount: p.recipientCount,
+          clauses: p.clauses.map((c): ExportPrizeClause => {
+            if (c.kind === 'fleet') return { kind: 'fleet', fleetName: fleetNameById.get(c.fleetId)! };
+            if (c.kind !== 'not-awarded') return c;
+            return {
+              kind: 'not-awarded',
+              ...(c.prizeId != null ? { prize: position.get(c.prizeId)! } : {}),
+              ...(c.places != null ? { places: c.places } : {}),
+            };
+          }),
+        }));
         return prizes.length > 0 ? { prizes } : {};
       })(),
       ...(series.resultsStatus === 'final' ? { resultsStatus: 'final' as const } : {}),
@@ -1703,10 +1716,46 @@ export function buildPublicExportFromSnapshot(
 
 // ---- Importer ----
 
+/** Prizes (#240) back from an export: fleet clauses come back over the name
+ *  bridge, with fresh prize ids, and a `not-awarded` clause's position
+ *  becomes the id minted for the prize there. A prize whose fleet name is
+ *  unknown is dropped whole, and so is one naming a dropped prize or a
+ *  position the list doesn't have. */
+function importExportPrizes(
+  exported: ExportPrize[],
+  fleetIdByName: Map<string, string>,
+  newId: () => string,
+): Prize[] {
+  const ids = exported.map(() => newId());
+  const dropped = new Set<string>();
+  const prizes = exported.map((p, i): Prize => {
+    const clauses: Prize['clauses'] = [];
+    for (const c of p.clauses) {
+      if (c.kind === 'fleet') {
+        const fleetId = fleetIdByName.get(c.fleetName);
+        if (fleetId == null) dropped.add(ids[i]);
+        else clauses.push({ kind: 'fleet', fleetId });
+      } else if (c.kind === 'not-awarded') {
+        clauses.push({
+          kind: 'not-awarded',
+          // An out-of-range position names a prize the list doesn't have,
+          // which `withoutPrizes` treats as gone.
+          ...(c.prize != null ? { prizeId: ids[c.prize] ?? `missing-${c.prize}` } : {}),
+          ...(c.places != null ? { places: c.places } : {}),
+        });
+      } else {
+        clauses.push(c);
+      }
+    }
+    return { id: ids[i], name: p.name, recipientCount: p.recipientCount, clauses };
+  });
+  return withoutPrizes(prizes, dropped);
+}
+
 /** Export format versions this build can read. A file written by a newer
  *  build is refused rather than half-read: the version is what says which
  *  fields mean what. Mirrors `SUPPORTED_FORMAT_VERSIONS` on the file side. */
-const SUPPORTED_EXPORT_VERSIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+const SUPPORTED_EXPORT_VERSIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
 /**
  * Parse the text of a published `.sailscoring.json` data file.
@@ -1945,28 +1994,7 @@ export async function importPublicExport(
     // Axis ids are series-local opaque keys; carried verbatim so the imported
     // competitors' `subdivisions` maps still resolve.
     subdivisionAxes: data.series.subdivisionAxes ?? [],
-    // Prizes (#240): fleet clauses come back over the name bridge, with fresh
-    // prize ids; a prize whose fleet name is unknown is dropped whole.
-    prizes: (data.series.prizes ?? [])
-      .map((p): Prize | null => {
-        const clauses: Prize['clauses'] = [];
-        for (const c of p.clauses) {
-          if (c.kind !== 'fleet') {
-            clauses.push(c);
-            continue;
-          }
-          const fleetId = fleetIdByName.get(c.fleetName);
-          if (fleetId == null) return null;
-          clauses.push({ kind: 'fleet', fleetId });
-        }
-        return {
-          id: newId(),
-          name: p.name,
-          recipientCount: p.recipientCount,
-          clauses,
-        };
-      })
-      .filter((p): p is Prize => p !== null),
+    prizes: importExportPrizes(data.series.prizes ?? [], fleetIdByName, newId),
   };
   await repos.seriesRepo.save(newSeries);
 

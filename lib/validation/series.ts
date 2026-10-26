@@ -117,7 +117,9 @@ export const rrsOrgPushConfigSchema = z.object({
 });
 
 /** One conjunct of a prize's eligibility predicate (#240). Fleet ids are ours
- *  (UUID); axis ids are plain strings like `subdivisionAxes[].id`. */
+ *  (UUID); axis ids are plain strings like `subdivisionAxes[].id`. A
+ *  `not-awarded` clause naming a prize the list doesn't have, or one on a
+ *  loop, is an allocation warning, not a rejection. */
 export const prizeClauseSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('fleet'), fleetId: uuidSchema }),
   z.object({ kind: z.literal('axis'), axisId: z.string(), value: z.string() }),
@@ -125,6 +127,13 @@ export const prizeClauseSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('gender'), value: z.enum(['M', 'F']) }),
   z.object({ kind: z.literal('nationality'), value: z.string() }),
   z.object({ kind: z.literal('club'), value: z.string() }),
+  // A prize id is series-local, not a UUID by contract; absent = any prize
+  // listed above this one.
+  z.object({
+    kind: z.literal('not-awarded'),
+    prizeId: z.string().optional(),
+    places: z.number().int().positive().optional(),
+  }),
 ]);
 
 /** A prize (#240): bounds are structural only — allocation-level conditions

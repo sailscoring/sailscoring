@@ -1116,6 +1116,7 @@ export function renderPrizesHtml(
   const fontPercent = options?.fontPercent ?? 72;
   const nameHeader = PRIMARY_PERSON_LABEL_TEXT[context.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL];
 
+  const prizes = allocations.map((a) => a.prize);
   const sections = allocations.map(({ prize, recipients }) => {
     const rows = recipients.map((r, i) => {
       const cells = [
@@ -1143,7 +1144,7 @@ ${rows.join('\n')}
 </table></div>`
       : '<p>Not yet awarded.</p>';
     return `<h3>${esc(prize.name)}</h3>
-<p class="prize-eligibility">${esc(describePrizeClauses(prize.clauses, context.fleets, context.axes))}</p>
+<p class="prize-eligibility">${esc(describePrizeClauses(prize.clauses, context.fleets, context.axes, prizes))}</p>
 ${table}`;
   });
 

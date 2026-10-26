@@ -2021,6 +2021,7 @@ describe('renderPrizesHtml', () => {
       recipient(3, 7, '218403', 'Carol'),
     ],
     eligibleCount: 3,
+    skipped: [],
     warnings: [],
   };
 
@@ -2055,6 +2056,24 @@ describe('renderPrizesHtml', () => {
     );
     expect(multi).toContain('<th>Fleet</th>');
     expect(multi).toContain('<td>ILCA 6</td>');
+  });
+
+  it('names the prize a not-awarded condition excludes the winners of', () => {
+    const silver = {
+      ...allocation,
+      prize: {
+        id: 'p2',
+        name: 'Silver Fleet 1st',
+        recipientCount: 1,
+        clauses: [{ kind: 'not-awarded' as const, prizeId: 'p1' }],
+      },
+    };
+    const html = renderPrizesHtml(
+      { series: { name: 'ILCA Leinsters', venue: '' } },
+      [allocation, silver],
+      { fleets: [fleet], axes, multiFleet: false },
+    );
+    expect(html).toContain('Not a prize-winner in Gold Fleet 1st, 2nd &amp; 3rd');
   });
 });
 

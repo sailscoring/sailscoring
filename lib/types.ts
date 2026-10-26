@@ -159,6 +159,14 @@ export interface PublishingGroup {
  * rather than an equality one: an entry affiliated to several clubs is a
  * member of each, so a home-club trophy still finds a boat that also lists a
  * visiting club.
+ *
+ * `not-awarded` is the one clause that reads other prizes rather than the
+ * competitor: a boat already placed in the named prize (or, with no
+ * `prizeId`, in any prize listed above this one) is skipped and the places
+ * move down — "a boat winning a prize under IRC shall not be eligible for
+ * the ECHO prize". `places` narrows it to the top N of that prize (1 = only
+ * its winner); absent means any place. A named prize is awarded before the
+ * prizes that name it, wherever the two sit in the list.
  */
 export type PrizeClause =
   | { kind: 'fleet'; fleetId: string }
@@ -166,7 +174,8 @@ export type PrizeClause =
   | { kind: 'rank'; max: number }
   | { kind: 'gender'; value: 'M' | 'F' }
   | { kind: 'nationality'; value: string }
-  | { kind: 'club'; value: string };
+  | { kind: 'club'; value: string }
+  | { kind: 'not-awarded'; prizeId?: string; places?: number };
 
 /**
  * A named award: the top `recipientCount` eligible competitors ranked by

@@ -57,7 +57,7 @@ import {
 
 /** The clause-field picker's value: a fixed clause kind, or an axis id
  *  prefixed so it can't collide with the fixed kinds. */
-type ClauseField = 'fleet' | 'rank' | 'gender' | 'nationality' | 'club' | `axis:${string}`;
+type ClauseField = 'fleet' | 'rank' | 'gender' | 'nationality' | 'club' | 'not-awarded' | `axis:${string}`;
 
 function clauseField(c: PrizeClause): ClauseField {
   return c.kind === 'axis' ? `axis:${c.axisId}` : c.kind;

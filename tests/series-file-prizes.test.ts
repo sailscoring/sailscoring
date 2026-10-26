@@ -246,3 +246,81 @@ describe('public JSON export prizes round-trip', () => {
     expect('prizes' in data!.series).toBe(false);
   });
 });
+
+/** v70 / export v10: a `not-awarded` condition names another prize. In the
+ *  file the prize id travels verbatim; in the export, which carries no prize
+ *  ids, it is the named prize's position in the list. */
+describe('not-awarded prize conditions round-trip', () => {
+  const EXCLUDING: Prize[] = [
+    ...PRIZES,
+    {
+      id: 'p-silver',
+      name: 'Silver Fleet 1st',
+      recipientCount: 1,
+      clauses: [
+        { kind: 'not-awarded', prizeId: 'p-overall', places: 1 },
+        { kind: 'not-awarded' },
+      ],
+    },
+  ];
+  const withExcluding: SeriesSnapshot = {
+    ...snapshot,
+    series: { ...snapshot.series, prizes: EXCLUDING },
+  };
+
+  it('the .sailscoring file keeps the prize id the condition names', async () => {
+    const { repos: buildRepos } = makeRecordingRepos(withExcluding);
+    const file = await buildSeriesFile('s1', buildRepos);
+    const { repos, savedSeries } = makeRecordingRepos();
+    await openSeriesFromFile(file, repos);
+    const saved = savedSeries.at(-1)!;
+    expect(saved.prizes![2]).toEqual(EXCLUDING[2]);
+  });
+
+  it('a prize naming one the import drops is dropped too, not widened', async () => {
+    const { repos: buildRepos } = makeRecordingRepos(withExcluding);
+    const file: SeriesFile = await buildSeriesFile('s1', buildRepos);
+    file.series.prizes = structuredClone(file.series.prizes);
+    const clause = file.series.prizes![1].clauses[0];
+    if (clause.kind === 'fleet') clause.fleetId = 'fl-unknown';
+    const { repos, savedSeries } = makeRecordingRepos();
+    await openSeriesFromFile(file, repos);
+    expect(savedSeries.at(-1)!.prizes!.map((p) => p.id)).toEqual(['p-gold']);
+  });
+
+  it('the export names the prize by position, and the import mints it an id', async () => {
+    const data = buildPublicExportFromSnapshot(withExcluding);
+    expect(data!.series.prizes![2].clauses).toEqual([
+      { kind: 'not-awarded', prize: 1, places: 1 },
+      { kind: 'not-awarded' },
+    ]);
+    const { repos, savedSeries } = makeRecordingRepos();
+    await importPublicExport(data!, repos);
+    const saved = savedSeries.at(-1)!.prizes!;
+    expect(saved[2].clauses).toEqual([
+      { kind: 'not-awarded', prizeId: saved[1].id, places: 1 },
+      { kind: 'not-awarded' },
+    ]);
+  });
+
+  it('positions count only the prizes the export keeps', () => {
+    const prizes: Prize[] = [
+      { id: 'lost', name: 'Lost fleet', recipientCount: 1, clauses: [{ kind: 'fleet', fleetId: 'fl-gone' }] },
+      ...EXCLUDING,
+    ];
+    const data = buildPublicExportFromSnapshot({
+      ...snapshot,
+      series: { ...snapshot.series, prizes },
+    });
+    expect(data!.series.prizes!.map((p) => p.name)).toEqual(EXCLUDING.map((p) => p.name));
+    expect(data!.series.prizes![2].clauses[0]).toEqual({ kind: 'not-awarded', prize: 1, places: 1 });
+  });
+
+  it('an import naming a position the list lacks drops that prize', async () => {
+    const data = buildPublicExportFromSnapshot(withExcluding)!;
+    data.series.prizes![2].clauses[0] = { kind: 'not-awarded', prize: 7 };
+    const { repos, savedSeries } = makeRecordingRepos();
+    await importPublicExport(data, repos);
+    expect(savedSeries.at(-1)!.prizes!.map((p) => p.name)).toEqual(PRIZES.map((p) => p.name));
+  });
+});

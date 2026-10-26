@@ -43,6 +43,7 @@ import {
 } from './competitor-fields';
 import { isFleetRatingVariant } from './fleet-rating-variant';
 import { fleetIdFromPageKey, fleetPageKey } from './publish-pages';
+import { withoutPrizes } from './prizes';
 import { hasConditions } from './race-conditions';
 import { RefusedSettingError } from './refused-setting-error';
 import {
@@ -602,9 +603,15 @@ export interface SeriesFileRepos {
  *  magnetic figures rather than true. An older build reading a v69 file
  *  drops it and labels those figures true, off by the variation; ORC scores
  *  each leg's wind and current relative to its course, so it scores
- *  identically. */
-export const FORMAT_VERSION = 69;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69];
+ *  identically.
+ *
+ *  v70 widens the prize-clause union with `not-awarded`: a boat already
+ *  placed in the named prize (or in any prize listed above, when none is
+ *  named) is passed over. Prize ids travel verbatim, so the reference holds
+ *  across a round trip. Like v18, the bump exists so a build that predates
+ *  the kind refuses the file instead of importing a prize it can't decide. */
+export const FORMAT_VERSION = 70;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -1585,7 +1592,8 @@ function remapPublishingGroups(
 /** Re-key fleet references inside prize clauses onto the freshly-minted fleet
  *  ids. A prize whose fleet clause can't resolve is dropped whole — silently
  *  removing the clause would *widen* its eligibility, which is worse than
- *  losing the prize (the scorer re-adds it in the editor). Axis ids are stable
+ *  losing the prize (the scorer re-adds it in the editor) — and so is a prize
+ *  whose `not-awarded` condition names a dropped one. Axis ids are stable
  *  across round-trips, so axis clauses travel verbatim. */
 export function remapPrizes(
   prizes: Prize[] | undefined,
@@ -1593,9 +1601,9 @@ export function remapPrizes(
 ): Prize[] {
   if (!prizes) return [];
   const out: Prize[] = [];
+  const dropped = new Set<string>();
   for (const prize of prizes) {
     const clauses: Prize['clauses'] = [];
-    let dropped = false;
     for (const clause of prize.clauses) {
       if (clause.kind !== 'fleet') {
         clauses.push(clause);
@@ -1603,14 +1611,16 @@ export function remapPrizes(
       }
       const newId = fleetIdMap.get(clause.fleetId);
       if (!newId) {
-        dropped = true;
+        dropped.add(prize.id);
         break;
       }
       clauses.push({ ...clause, fleetId: newId });
     }
-    if (!dropped) out.push({ ...prize, clauses });
+    out.push({ ...prize, clauses });
   }
-  return out;
+  // Prize ids travel verbatim, so a `not-awarded` condition still names its
+  // prize — unless that prize was just dropped, which takes this one too.
+  return withoutPrizes(out, dropped);
 }
 
 /** Rewrite whole-series per-fleet race exclusions through the id remaps applied
