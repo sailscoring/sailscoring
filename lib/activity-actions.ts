@@ -76,6 +76,12 @@ export const ACTIVITY_ACTIONS = [
   'finishes.entered',
   'finishes.cleared',
   'finish.deleted',
+  // Finish sheet submissions: a recording handed to the scorer, and the
+  // scorer's decision on it. Revisions of one submission fold together.
+  'finishes.submitted',
+  'finishes.submission-withdrawn',
+  'finishes.submission-applied',
+  'finishes.submission-dismissed',
   'starts.updated',
   'starts.cleared',
   'ratings.updated',

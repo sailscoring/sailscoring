@@ -17,10 +17,35 @@ import {
   type ParseFinishSheetResult,
 } from './finish-sheet-csv';
 import type { ImportedFinish } from './finish-entry';
+import { raceFleetIds, withRaceSailNumbers } from './race-membership';
 import { formatElapsedInput } from './time-parse';
-import type { Finish, SubmittedFinish } from './types';
+import type { Competitor, Finish, RaceStart, SubmittedFinish } from './types';
 
 const COLUMNS: FinishSheetColumnMap = { 0: 'sailNumber', 1: 'finishTime', 2: 'elapsed', 3: 'resultCode' };
+
+/**
+ * What a race's sheet matches sail numbers against: the boats in the race's
+ * fleets (every boat, while the race has no starts), each under the number
+ * it sails in this race and with those fleets' names, so a sheet's class
+ * column can tell a shared sail number apart.
+ */
+export function raceCandidates(
+  competitors: readonly Competitor[],
+  starts: readonly RaceStart[],
+  fleetName: (fleetId: string) => string | undefined,
+): Candidate[] {
+  const fleetIds = raceFleetIds(starts as RaceStart[]);
+  const inRace = (id: string) => fleetIds.size === 0 || fleetIds.has(id);
+  return withRaceSailNumbers(competitors as Competitor[], starts)
+    .filter((c) => c.fleetIds.some(inRace))
+    .map((c) => ({
+      ...c,
+      fleetNames: c.fleetIds
+        .filter(inRace)
+        .map(fleetName)
+        .filter((name): name is string => Boolean(name)),
+    }));
+}
 
 /**
  * A submission's finishes, read as an imported sheet. `candidates` are the
