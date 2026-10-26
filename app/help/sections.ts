@@ -135,7 +135,7 @@ export const HELP_GROUPS: HelpGroupDef[] = [
       { id: 'sailwave-import', title: 'Importing from Sailwave', feature: 'sailwave-import', keywords: ['sailwave', 'blw', 'migrate', 'move from sailwave'] },
       { id: 'sailwave-export', title: 'Exporting to Sailwave', feature: 'sailwave-export', keywords: ['sailwave', 'blw', 'export'] },
       { id: 'json-export', title: 'Open in Sail Scoring, and the data behind published results', keywords: ['json', 'data', 'open in sail scoring', 'api', 'raw results', 'spectator', 'index.json', 'integration', 'developer'] },
-      { id: 'results-api', title: 'Results for apps', keywords: ['api', 'app', 'race day app', 'clubhouse screen', 'widget', 'integration', 'developer', 'raceops'] },
+      { id: 'results-api', title: 'Results for apps', keywords: ['api', 'app', 'race day app', 'clubhouse screen', 'widget', 'integration', 'developer'] },
     ],
   },
   {

@@ -2130,7 +2130,7 @@ const SHOTS: Shot[] = [
     group: 'Collaboration and accounts',
     async capture({ page, shot }) {
       await dbEnableOperatorFeature('connected-apps');
-      const clientId = await dbRegisterOAuthApp('tradboats.ie/course', 'https://tradboats.ie/course');
+      const clientId = await dbRegisterOAuthApp('Course Plotter', 'https://courseplotter.example.com');
       const query = new URLSearchParams({
         response_type: 'code',
         client_id: clientId,

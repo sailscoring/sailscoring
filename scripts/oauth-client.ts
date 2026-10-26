@@ -12,8 +12,8 @@
  * acts in every workspace its user belongs to.
  *
  * Usage (production: against the production DATABASE_URL):
- *   pnpm oauth-client create --owner mark@example.com --name "tradboats.ie/course" \
- *     --uri https://tradboats.ie/course --redirect-uris https://tradboats.ie/course/callback
+ *   pnpm oauth-client create --owner mark@example.com --name "Course Plotter" \
+ *     --uri https://courseplotter.example.com --redirect-uris https://courseplotter.example.com/callback
  *   pnpm oauth-client create-cli --owner mark@example.com
  *   pnpm oauth-client list
  *   pnpm oauth-client disable <client-id>

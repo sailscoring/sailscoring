@@ -181,7 +181,7 @@ requests go from the browser straight to the API, which allows any origin.
 
 # Acting in a workspace (preview)
 
-An app acting for the people who use it: Pat Tanner's course-plotting page
+An app acting for the people who use it: an ORC course-plotting page
 setting up a day's races and a course for each start, or a race-day app
 publishing results after the last race. The calls act as the signed-in user,
 in one workspace they chose, and never beyond what their role there allows.

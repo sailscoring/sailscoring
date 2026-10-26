@@ -115,7 +115,7 @@ export default function Collaboration() {
         <Section id="connected-apps" title="Connecting an app">
           <HelpShot
             src="/help/shots/connected-apps.webp"
-            alt="Connecting an app: what tradboats.ie/course is asking to do in My Workspace, with Allow and Deny."
+            alt="Connecting an app: what Course Plotter is asking to do in My Workspace, with Allow and Deny."
             caption="Connecting an app: what it asks to do, in the workspace you chose, before you allow it."
           />
           <p>
@@ -129,8 +129,8 @@ export default function Collaboration() {
           <p>
             An app reaches only the workspace you chose, and can never do more than your own role
             there allows: if you can only read a workspace, so can the app. What it changes is
-            recorded in the activity log as yours, made through the app (“Pat Tanner via
-            tradboats.ie/course”). To use an app in two workspaces, connect it to each.
+            recorded in the activity log as yours, made through the app (“Aoife Ryan via
+            Course Plotter”). To use an app in two workspaces, connect it to each.
           </p>
           <p>
             Your <strong className="text-foreground">account page</strong> lists every app you’ve
