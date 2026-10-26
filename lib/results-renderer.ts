@@ -1264,7 +1264,9 @@ ${byBoat}
 </div>`;
 }
 
-/** The stylesheet for the prize-giving sheet. As with the starters
+/** The stylesheet for the prize-giving sheet. Each prize in the running
+ *  order is a table of its own, so the name takes a fixed share of the width
+ *  and the sail numbers stand in one column down the page. As with the starters
  *  checklist, the sheet is a view of the page rather than its print-media
  *  alter ego: under the body class it replaces the prize page on screen as
  *  well as on paper, so the browser's own Print, from a phone's share sheet
@@ -1290,6 +1292,7 @@ table.pgtable th { background: none; color: #555; font-size: 9pt; font-weight: 6
 table.pgtable td { border: 0; border-bottom: 0.3mm solid #999; padding: 1.6mm 1.5mm; vertical-align: middle; font-size: 13pt; line-height: 1.2; }
 table.pgtable td.place { font-weight: 700; white-space: nowrap; width: 1%; }
 table.pgtable td.name { font-weight: 600; }
+.pgprize table.pgtable td.name { width: 45%; }
 table.pgtable td.name .pgboat { display: block; font-size: 10pt; font-weight: 400; color: #333; }
 table.pgtable td.sail { white-space: nowrap; font-variant-numeric: tabular-nums; width: 1%; }
 table.pgtable td.club { font-size: 10pt; color: #333; }
