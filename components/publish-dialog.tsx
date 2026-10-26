@@ -44,11 +44,13 @@ import { PageNoteEditor } from '@/components/page-note-editor';
 import { useSubSeriesBySeries } from '@/hooks/use-sub-series';
 import { useSplitFleetState } from '@/hooks/use-split-fleets';
 import { useRacesBySeries } from '@/hooks/use-races';
-import { useUpdateSeriesNotes, useUpdateSeriesPublishPrefs } from '@/hooks/use-series';
+import { useUpdateSeriesNotes } from '@/hooks/use-series';
 import { useConfirm } from '@/components/confirm-dialog';
 import { useFeatures } from '@/components/features-provider';
-import { FtpPublishPane } from '@/components/ftp-publish-pane';
-import type { Fleet, PublicationStatus, Series } from '@/lib/types';
+import { FtpSettingsPane } from '@/components/ftp-settings-pane';
+import { configuredFtpPaths, resolveFtpServerId } from '@/lib/ftp-publish';
+import { useFtpServers } from '@/hooks/use-ftp-servers';
+import type { Fleet, FtpPublishOutcome, PublicationStatus, Series } from '@/lib/types';
 
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '');
 
@@ -67,8 +69,10 @@ export interface PublishDialogProps {
   fleets: Fleet[];
   open: boolean;
   onClose: () => void;
-  /** Whether FTP upload is available (feature-gated + manage-workspace). When
-   *  true the dialog offers a persistent switch to the FTP destination. */
+  /** Whether the scorer can set where pages go on the club's own web server
+   *  (feature-gated + manage-workspace: the server rows carry credentials).
+   *  When true the dialog offers the FTP tab. Anyone who can publish sends
+   *  pages to the paths it holds. */
   canFtp: boolean;
   /** Races waiting for a course. Pages carrying the fleets these belong to are
    *  refused by the server, so the dialog marks them before Publish is pressed
@@ -136,13 +140,11 @@ interface SuppressedRow {
  */
 export function PublishDialog({ series, fleets, open, onClose, canFtp, unscored = [] }: PublishDialogProps) {
   const updateNotes = useUpdateSeriesNotes();
-  const updatePublishPrefs = useUpdateSeriesPublishPrefs();
   const confirm = useConfirm();
   const { has } = useFeatures();
-  // Destination mode. Persisted per-series (`series.publishMode`) so the dialog
-  // reopens where the scorer left it; clamped to Sail Scoring when FTP isn't
-  // available so a workspace that loses the feature isn't stranded in FTP mode.
-  const [mode, setMode] = useState<'sailscoring' | 'ftp'>('sailscoring');
+  // The FTP tab holds where pages go on the club's own site; publishing is
+  // always from the Pages tab, which is where the dialog opens.
+  const [tab, setTab] = useState<'pages' | 'ftp'>('pages');
   // Sub-series publish one page per (block, fleet) with server-derived
   // `{block}/{leaf}` paths, so the per-fleet URL editors don't apply.
   const { data: subSeriesList } = useSubSeriesBySeries(series.id);
@@ -218,6 +220,8 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, unscored 
     'loading' | 'idle' | 'publishing' | 'unpublishing' | 'retracting'
   >('loading');
   const [error, setError] = useState<string | null>(null);
+  // How the last publish fared on the club's own site, when it went there.
+  const [ftpOutcome, setFtpOutcome] = useState<FtpPublishOutcome | null>(null);
   // Which note is open in the editor, by note key — `SERIES_NOTE` for the one
   // that goes on every page. Writing a note here is a series edit like any
   // other, so the "N edits since" line above lights up the moment it is
@@ -319,28 +323,13 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, unscored 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, series.id, racesKnown]);
 
-  // Seed the destination mode from the series each time the dialog opens.
+  // Every open starts on the Pages tab, with no news from an earlier publish.
   useEffect(() => {
     if (!open) return;
-    const stored = series.publishMode ?? 'sailscoring';
-    setMode(stored === 'ftp' && canFtp ? 'ftp' : 'sailscoring');
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    setTab('pages');
+    setFtpOutcome(null);
   }, [open]);
   /* eslint-enable react-hooks/set-state-in-effect */
-
-  // Flip destination and persist the choice so it sticks for next time. Fire
-  // and forget — a preference write shouldn't block the UI, and a failure just
-  // means the dialog reopens in the previous mode.
-  //
-  // Through the publish-prefs write, not a series save: opening a dialog on a
-  // different tab is not an edit to the series, and filing it as one told the
-  // scorer they had changed a setting and left the publish indicators
-  // counting an edit that never happened.
-  function switchMode(next: 'sailscoring' | 'ftp') {
-    if (next === mode || (next === 'ftp' && !canFtp)) return;
-    setMode(next);
-    updatePublishPrefs.mutate({ id: series.id, prefs: { publishMode: next } });
-  }
 
   /** What each non-fleet page is, for the row's caption — shared by the
    *  multi-fleet row list and the extra-page rows of a single-fleet series. */
@@ -660,9 +649,30 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, unscored 
       ])
     : [];
 
+  // The pages that go to the club's own site when published: those with an
+  // FTP path. Shown to everyone who can publish, since publishing is what
+  // sends them; only the FTP tab, for those who can see the server, sets them.
+  const ftpPaths = has('ftp-upload') ? configuredFtpPaths(pages, series) : {};
+  const ftpPageNames = pages.filter((p) => ftpPaths[p.key]).map((p) =>
+    p.isDefault && p.kind === 'fleet' ? lonePageLabel : p.name,
+  );
+  // The server they go to, by name where the viewer can see the list; else
+  // the one the series last uploaded to.
+  const { data: ftpServers } = useFtpServers({ enabled: canFtp && ftpPageNames.length > 0 });
+  const ftpServer = ftpServers?.find((s) => s.id === resolveFtpServerId(ftpServers, series));
+  const ftpHostLabel = ftpServer?.host || series.ftpHost || 'your website';
+  const ftpServerMissing = ftpServers !== undefined && !ftpServer;
+  /** A page as the FTP outcome names it: the lone page by the dialog's label
+   *  for it, a block's page with its block. */
+  const outcomeLabel = (p: { fleetName: string; subSeriesName?: string }): string => {
+    const name = p.fleetName === defaultPage?.name && defaultPage.kind === 'fleet' ? lonePageLabel : p.fleetName;
+    return p.subSeriesName ? `${p.subSeriesName} · ${name}` : name;
+  };
+
   async function handlePublish() {
     setPhase('publishing');
     setError(null);
+    setFtpOutcome(null);
     try {
       // Multi-fleet: send the selection, plus sub-path overrides for the editable
       // (unfrozen) fleets in it. Only send a path the scorer actually changed —
@@ -771,7 +781,10 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, unscored 
       // with. Adopt it, or the published preview reads the suggestion back as
       // the top-level segment.
       setSlug(result.slug);
-      setStatus((s) => (s ? { ...s, published: result } : s));
+      // The outcome is news about this publish, not part of the publication.
+      const { ftp, ...publication } = result;
+      setStatus((s) => (s ? { ...s, published: publication } : s));
+      setFtpOutcome(ftp ?? null);
       setPhase('idle');
     } catch (e) {
       setPhase('idle');
@@ -966,23 +979,24 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, unscored 
           <DialogTitle>Publish results</DialogTitle>
           {canFtp && (
             <div
-              role="group"
-              aria-label="Publish destination"
+              role="tablist"
+              aria-label="Publish settings"
               className="mt-1 inline-flex self-start rounded-md bg-muted p-0.5 text-sm"
             >
               {(
                 [
-                  ['sailscoring', 'Sail Scoring pages'],
+                  ['pages', 'Pages'],
                   ['ftp', 'Your website (FTP)'],
                 ] as const
               ).map(([value, label]) => (
                 <button
                   key={value}
                   type="button"
-                  aria-pressed={mode === value}
-                  onClick={() => switchMode(value)}
+                  role="tab"
+                  aria-selected={tab === value}
+                  onClick={() => setTab(value)}
                   className={`rounded px-3 py-1 font-medium transition-colors ${
-                    mode === value
+                    tab === value
                       ? 'bg-background text-foreground shadow-sm'
                       : 'text-muted-foreground hover:text-foreground'
                   }`}
@@ -994,13 +1008,22 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, unscored 
           )}
         </DialogHeader>
 
-        {mode === 'ftp' ? (
-          <FtpPublishPane
-            series={series}
-            pages={pages}
-            lonePageLabel={lonePageLabel}
-            onClose={onClose}
-          />
+        {tab === 'ftp' ? (
+          <>
+            <FtpSettingsPane
+              series={series}
+              pages={pages}
+              lonePageLabel={lonePageLabel}
+              hasBlocks={hasBlocks}
+              onClose={onClose}
+            />
+            <DialogFooter>
+              <Button variant="outline" onClick={onClose}>
+                Close
+              </Button>
+              <Button onClick={() => setTab('pages')}>Back to pages</Button>
+            </DialogFooter>
+          </>
         ) : (
         <>
         {isLoading ? (
@@ -1521,6 +1544,18 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, unscored 
               </div>
             )}
 
+            {ftpPageNames.length > 0 && !ftpOutcome && (
+              <p
+                className={`text-xs ${ftpServerMissing ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'}`}
+                data-testid="ftp-publish-hint"
+              >
+                {ftpServerMissing
+                  ? `${formatNameList(ftpPageNames)} ${ftpPageNames.length === 1 ? 'has' : 'have'} a path on your website, but no FTP server is chosen — pick one on the Your website tab.`
+                  : `Publishing ${formatNameList(ftpPageNames)} also uploads ${ftpPageNames.length === 1 ? 'it' : 'them'} to ${ftpHostLabel}.`}
+              </p>
+            )}
+            {ftpOutcome && <FtpOutcomeNote outcome={ftpOutcome} label={outcomeLabel} />}
+
             {error && <p className="text-sm text-destructive">{error}</p>}
           </div>
         )}
@@ -1561,5 +1596,51 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, unscored 
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * How a publish fared on the club's own site. The publication itself stands
+ * whatever this says — so a failure reads as what's missing from the club's
+ * site, and publishing again is the retry.
+ */
+function FtpOutcomeNote({
+  outcome,
+  label,
+}: {
+  outcome: FtpPublishOutcome;
+  label: (p: { fleetName: string; subSeriesName?: string }) => string;
+}) {
+  const names = (ps: { fleetName: string; subSeriesName?: string }[]) => formatNameList(ps.map(label));
+  const missing = [...(outcome.failed ? [outcome.failed] : []), ...outcome.notAttempted];
+  return (
+    <div className="space-y-1 text-sm" data-testid="ftp-outcome">
+      {outcome.uploaded.length > 0 && (
+        <p className="text-green-600 dark:text-green-400">
+          Uploaded {names(outcome.uploaded)} to {outcome.host}.
+        </p>
+      )}
+      {outcome.host === null && missing.length > 0 && (
+        <p className="text-destructive">
+          Not uploaded to your website: no FTP server is chosen for this series. Pick one on
+          the Your website tab, then publish again.
+        </p>
+      )}
+      {outcome.failed && (
+        <p className="text-destructive">
+          Couldn&apos;t upload {label(outcome.failed)} to {outcome.host}: {outcome.failed.error}.{' '}
+          {missing.length === 1
+            ? 'It is published here but not on your website.'
+            : `${names(missing)} are published here but not on your website.`}{' '}
+          Publish again to retry.
+        </p>
+      )}
+      {outcome.unmapped.length > 0 && (
+        <p className="text-xs text-muted-foreground">
+          No path on your website for {names(outcome.unmapped)}, so{' '}
+          {outcome.unmapped.length === 1 ? 'it stays' : 'they stay'} here only.
+        </p>
+      )}
+    </div>
   );
 }

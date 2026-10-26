@@ -79,8 +79,8 @@ export const FEATURES = {
   },
   'ftp-upload': {
     // Operator-managed (not self-service): HYC is the only workspace that needs
-    // it, and it's slated for removal with scupper — so we keep it off the
-    // self-service card and toggle it by hand.
+    // it, so we keep it off the self-service card and toggle it by hand. With
+    // it on, publishing a page also uploads it to the club's own site.
     label: 'FTP upload',
     helpSectionIds: [],
     selfService: false,

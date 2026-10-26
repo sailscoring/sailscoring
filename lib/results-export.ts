@@ -125,42 +125,6 @@ export function fleetBilgeSlug(prefix: string, fleetName: string, isSingleDefaul
   return `${prefix}/standings-${seriesSlug(fleetName)}`;
 }
 
-/** Insert a fleet suffix before the file extension in an FTP path. */
-export function fleetFtpPath(base: string, fleetName: string, isSingleDefault: boolean): string {
-  if (isSingleDefault || !base) return base;
-  const suffix = '-' + seriesSlug(fleetName);
-  const lastDot = base.lastIndexOf('.');
-  const lastSlash = base.lastIndexOf('/');
-  if (lastDot > lastSlash) return base.slice(0, lastDot) + suffix + base.slice(lastDot);
-  return base + suffix;
-}
-
-/**
- * Prefilled remote paths for the FTP destination, one per page the series
- * publishes, keyed by page key. A stored entry is used verbatim — the path a
- * scorer typed is theirs, whatever naming convention it follows (#131).
- *
- * Two fallbacks for a page with no entry of its own: a fleet's page reads the
- * entry the fleet id used to key (paths were per fleet before they were per
- * page), and anything still missing derives from the legacy single `ftpPath`
- * — bare for the lone default page, suffixed with the page's slug otherwise.
- */
-export function derivePrefillPaths(
-  pages: PublishPage[],
-  ftpPaths: Record<string, string> | undefined,
-  legacyFtpPath: string,
-): Record<string, string> {
-  const stored = ftpPaths ?? {};
-  const paths: Record<string, string> = {};
-  for (const page of pages) {
-    paths[page.key] =
-      stored[page.key] ??
-      (page.fleetId ? stored[page.fleetId] : undefined) ??
-      (page.isDefault ? legacyFtpPath : fleetFtpPath(legacyFtpPath, page.name, false));
-  }
-  return paths;
-}
-
 /** One entry of `buildFleetHtmlFiles`' output: a fleet's page, a (sub-series,
  *  fleet) page, or — `isCombined` — a combined page carrying several fleets'
  *  results under a publishing group's name. */

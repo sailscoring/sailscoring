@@ -4,7 +4,6 @@
  */
 import { apiFetch } from './api-client';
 import type { DirectorySettings, FeatureKey } from './features';
-import type { FtpUploadInput } from './validation/publish';
 import type { MergeSuggestion } from './api-handlers/competitor-identity';
 import type { SeriesLocation } from './api-handlers/series';
 import type { StaleLink } from './competitor-identity-reconcile';
@@ -990,29 +989,6 @@ export function checkWorldSailingIds(seriesId: string): Promise<WorldSailingChec
  *  current publication if any) — drives the publish dialog. */
 export function getPublication(seriesId: string): Promise<PublicationStatus> {
   return apiFetch<PublicationStatus>(`/api/v1/series/${seriesId}/publish`);
-}
-
-/**
- * Record a completed FTP upload to a club's own web server: where each
- * page went, which pages were left out, and how many reached the server.
- *
- * The upload runs in the browser, so this is the only account of it the server
- * gets. It stores the provenance and records the upload in the activity feed
- * and the version history, the way an in-app publish is recorded.
- */
-export function recordFtpUpload(
-  seriesId: string,
-  upload: FtpUploadInput,
-): Promise<Series> {
-  // Named fields rather than the argument itself: the endpoint's schema is
-  // strict, and a caller passing something wider — its own mutation
-  // variables, say, carrying the series id for the URL — would otherwise
-  // send a key the server rejects the whole call over.
-  const { serverId, host, paths, excluded, pageCount } = upload;
-  return apiFetch<Series>(`/api/v1/series/${seriesId}/ftp-upload`, {
-    method: 'POST',
-    body: { ...(serverId ? { serverId } : {}), host, paths, excluded, pageCount },
-  });
 }
 
 /** Unpublish this series' live publication (the publish dialog's convenience

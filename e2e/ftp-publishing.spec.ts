@@ -1,20 +1,95 @@
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
+
+import type { Page } from '@playwright/test';
 import { signedInTest as test, expect } from './fixtures';
 import { addCompetitor, createFleets, createSeriesQuick, enableFeatures } from './helpers';
 
 /**
- * E2E tests for FTP publishing (issue #54).
+ * E2E tests for publishing to a club's own web server.
  *
- * Covers:
- *   - Adding, editing, and deleting an FTP server in workspace settings
- *   - FTP upload dialog on the Standings tab shows the configured server
- *   - FTP upload dialog shows a "no servers" message when none are configured
+ * Publishing a page on Sail Scoring also uploads it, server-side, to the FTP
+ * path the series holds for it; the Publish dialog's FTP tab is where those
+ * paths are set. FTP servers on the RFC 6761 `.test` TLD never reach the
+ * relay: the upload is appended to `tests/.ftp-uploads.log`, which is how
+ * these tests see what went where — and a `fail.` host fails, for the error
+ * path. The relay itself is covered by scupper's own tests.
  *
- * Does not test the actual upload (requires a live scupper service and FTP
- * server); that is covered by scupper's own integration tests.
- *
- * FTP upload is a gated experimental feature (#155), so each test enables it
- * for the signed-in user's personal workspace first.
+ * FTP upload is a gated feature (#155), so each test enables it for the
+ * signed-in user's personal workspace first.
  */
+
+const FTP_LOG = path.join(process.cwd(), 'tests', '.ftp-uploads.log');
+
+async function uploadsTo(host: string): Promise<{ host: string; path: string; html: string }[]> {
+  try {
+    const text = await fs.readFile(FTP_LOG, 'utf8');
+    return text
+      .split('\n')
+      .filter((l) => l.trim().length > 0)
+      .map((l) => JSON.parse(l))
+      .filter((u) => u.host === host);
+  } catch {
+    return [];
+  }
+}
+
+/** A host of this test's own, so parallel tests never read each other's
+ *  uploads out of the shared log. */
+function testHost(prefix = 'ftp'): string {
+  return `${prefix}.${crypto.randomUUID().slice(0, 8)}.club.test`;
+}
+
+async function addServer(page: Page, host: string) {
+  await page.goto('/workspace');
+  await page.getByRole('button', { name: 'Add server' }).click();
+  await page.getByLabel('Host').fill(host);
+  await page.getByLabel('Username').fill('scorer');
+  await page.locator('#ftp-password').fill('s3cret');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByText(`ftp://${host}:21`)).toBeVisible();
+}
+
+const HELMS = ['Alice', 'Bob'];
+
+/** A series with a sailed race, on its Standings tab. Two fleets when asked
+ *  for, with a boat in each. */
+async function createSailedSeries(page: Page, name: string, fleets?: string[]) {
+  await createSeriesQuick(page, { name });
+  if (fleets) {
+    await createFleets(page, fleets);
+    await page.getByRole('link', { name: 'Competitors' }).click();
+  }
+  const boats = (fleets ?? [undefined]).map((fleet, i) => ({ sailNumber: `${i + 1}`, fleet }));
+  for (const [i, boat] of boats.entries()) {
+    await addCompetitor(page, { sailNumber: boat.sailNumber, name: HELMS[i], ...(boat.fleet ? { fleet: boat.fleet } : {}) });
+  }
+  await page.getByRole('link', { name: 'Races' }).click();
+  await page.getByRole('button', { name: 'Add race' }).click();
+  await page.getByText('Race 1').click();
+  for (const boat of boats) {
+    await page.getByLabel('Sail number').fill(boat.sailNumber);
+    await page.getByRole('button', { name: 'Add' }).click();
+  }
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+  await page.getByRole('link', { name: 'Standings' }).click();
+}
+
+async function openPublish(page: Page) {
+  await page.getByRole('button', { name: 'Publish' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Publish results' });
+  await expect(dialog).toBeVisible();
+  return dialog;
+}
+
+/** Wait for the quiet publish-prefs write a pick or a typed path makes. */
+function prefsWrite(page: Page) {
+  return page.waitForResponse(
+    (r) => /\/api\/v1\/series\/[0-9a-f-]{36}\/publish-prefs$/.test(new URL(r.url()).pathname)
+      && r.request().method() === 'PATCH'
+      && r.ok(),
+  );
+}
 
 test.beforeEach(async ({ page, signedInEmail }) => {
   await enableFeatures(page, signedInEmail, ['ftp-upload']);
@@ -68,441 +143,197 @@ test('FTP server settings: password visibility toggle', async ({ page }) => {
   await expect(passwordInput).toHaveAttribute('type', 'password');
 });
 
-test('Publish dialog · FTP mode: no-servers message, then remembered across reopen', async ({ page }) => {
-  // ── Set up a series with one race so Standings tab is reachable ───────────
-  await createSeriesQuick(page, { name: 'FTP Test Series' });
+test('Publish dialog · FTP tab: settings only, with no way to publish to FTP alone', async ({ page }) => {
+  await createSailedSeries(page, 'FTP Tab Series');
 
-  await page.getByRole('button', { name: 'Add competitor' }).click();
-  await page.getByLabel('Sail number').fill('1');
-  await page.getByLabel('Competitor name').fill('Alice');
-  await page.getByRole('button', { name: 'Save' }).click();
+  // The dialog opens on its Pages tab; the FTP tab is beside it.
+  const dialog = await openPublish(page);
+  await expect(dialog.getByRole('tab', { name: 'Pages' })).toHaveAttribute('aria-selected', 'true');
+  await dialog.getByRole('tab', { name: 'Your website (FTP)' }).click();
 
-  await page.getByRole('link', { name: 'Races' }).click();
-  await page.getByRole('button', { name: 'Add race' }).click();
-  await page.getByText('Race 1').click();
-  await page.getByLabel('Sail number').fill('1');
-  await page.getByRole('button', { name: 'Add' }).click();
-  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+  // No servers yet: the tab points at Workspace Settings.
+  await expect(dialog.getByText('No FTP servers configured.')).toBeVisible();
+  await expect(dialog.getByRole('link', { name: 'Add one in Workspace Settings.' })).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Upload' })).toHaveCount(0);
+  await page.keyboard.press('Escape');
 
-  await page.getByRole('link', { name: 'Standings' }).click();
-
-  // ── Publish opens in Sail Scoring mode; switch to the FTP destination ─────
-  await page.getByRole('button', { name: 'Publish' }).click();
-  await expect(page.getByRole('dialog', { name: 'Publish results' })).toBeVisible();
-  await page.getByRole('button', { name: 'Your website (FTP)' }).click();
-
-  // No servers yet: the FTP pane shows the workspace link and hides Upload.
-  await expect(page.getByText('No FTP servers configured.')).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Add one in Workspace Settings.' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Upload' })).not.toBeVisible();
-  await page.getByRole('button', { name: 'Cancel' }).click();
-
-  // ── Add a server ─────────────────────────────────────────────────────────
-  await page.goto('/workspace');
-  await page.getByRole('button', { name: 'Add server' }).click();
-  await page.getByLabel('Host').fill('ftp.example.com');
-  await page.getByLabel('Username').fill('scorer');
-  await page.locator('#ftp-password').fill('s3cret');
-  await page.getByRole('button', { name: 'Save' }).click();
-  await expect(page.getByText('ftp://ftp.example.com:21')).toBeVisible();
-
-  // ── Reopen Publish: the series remembers FTP mode (persisted on the switch),
-  //    so it lands in the FTP pane directly — no second switch needed ────────
+  await addServer(page, testHost());
   await page.goto('/');
-  await page.getByText('FTP Test Series').click();
+  await page.getByText('FTP Tab Series').click();
   await page.getByRole('link', { name: 'Standings' }).click();
-  await page.getByRole('button', { name: 'Publish' }).click();
-  await expect(page.getByRole('dialog', { name: 'Publish results' })).toBeVisible();
-  await expect(page.getByText('No FTP servers configured.')).not.toBeVisible();
-  await expect(page.getByLabel('Path')).toBeVisible(); // single-fleet FTP path input
-  await expect(page.getByRole('button', { name: 'Upload' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Upload' })).toBeDisabled();
-  // The destination toggle shows FTP as the active mode, with the way back.
-  await expect(
-    page.getByRole('button', { name: 'Your website (FTP)' }),
-  ).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.getByRole('button', { name: 'Sail Scoring pages' })).toBeVisible();
+
+  // With one: a path per page, and still nothing that uploads by itself.
+  const again = await openPublish(page);
+  await again.getByRole('tab', { name: 'Your website (FTP)' }).click();
+  await expect(again.getByLabel('Standings path')).toBeVisible();
+  await expect(again.getByRole('button', { name: 'Upload' })).toHaveCount(0);
+  await expect(again.getByRole('button', { name: 'Publish', exact: true })).toHaveCount(0);
+  await again.getByRole('button', { name: 'Back to pages' }).click();
+  await expect(again.getByRole('button', { name: 'Publish', exact: true })).toBeVisible();
 });
 
 /**
  * The server choice is remembered on the series, so a scorer who publishes to
  * the same club server week after week never re-picks it. Covers all three
- * ways the pane resolves a server: the sole configured one, nothing when
+ * ways the tab resolves a server: the sole configured one, nothing when
  * several could be meant, and the one the scorer picked.
  */
-test('Publish dialog · FTP mode: the server choice is remembered', async ({ page }) => {
-  // ── One server configured ────────────────────────────────────────────────
-  await page.goto('/workspace');
-  await page.getByRole('button', { name: 'Add server' }).click();
-  await page.getByLabel('Host').fill('ftp.first.example');
-  await page.getByLabel('Username').fill('scorer');
-  await page.locator('#ftp-password').fill('s3cret');
-  await page.getByRole('button', { name: 'Save' }).click();
-  await expect(page.getByText('ftp://ftp.first.example:21')).toBeVisible();
-
-  // ── A series with a race, so Standings and Publish are reachable ─────────
-  await createSeriesQuick(page, { name: 'Remembered Server' });
-  await addCompetitor(page, { sailNumber: '1', name: 'Alice' });
-  await page.getByRole('link', { name: 'Races' }).click();
-  await page.getByRole('button', { name: 'Add race' }).click();
-  await page.getByText('Race 1').click();
-  await page.getByLabel('Sail number').fill('1');
-  await page.getByRole('button', { name: 'Add' }).click();
-  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
-
-  await page.getByRole('link', { name: 'Standings' }).click();
-  await page.getByRole('button', { name: 'Publish' }).click();
-  await page.getByRole('button', { name: 'Your website (FTP)' }).click();
+test('Publish dialog · FTP tab: the server choice is remembered', async ({ page }) => {
+  const first = testHost('first');
+  const second = testHost('second');
+  await addServer(page, first);
+  await createSailedSeries(page, 'Remembered Server');
 
   // The only server there is, is the one meant: no picking required.
-  await expect(page.getByRole('combobox')).toContainText('ftp.first.example');
-  await page.getByRole('button', { name: 'Cancel' }).click();
+  let dialog = await openPublish(page);
+  await dialog.getByRole('tab', { name: 'Your website (FTP)' }).click();
+  await expect(dialog.getByRole('combobox')).toContainText(first);
+  await page.keyboard.press('Escape');
 
-  // ── A second server: now the pane can't guess, and says so ───────────────
-  await page.goto('/workspace');
-  await page.getByRole('button', { name: 'Add server' }).click();
-  await page.getByLabel('Host').fill('ftp.second.example');
-  await page.getByLabel('Username').fill('scorer');
-  await page.locator('#ftp-password').fill('s3cret');
-  await page.getByRole('button', { name: 'Save' }).click();
-  await expect(page.getByText('ftp://ftp.second.example:21')).toBeVisible();
-
+  // A second server: now the tab can't guess, and says so.
+  await addServer(page, second);
   await page.goto('/');
   await page.getByText('Remembered Server').click();
   await page.getByRole('link', { name: 'Standings' }).click();
-  await page.getByRole('button', { name: 'Publish' }).click();
-  await expect(page.getByRole('combobox')).toContainText('Select a server');
+  dialog = await openPublish(page);
+  await dialog.getByRole('tab', { name: 'Your website (FTP)' }).click();
+  await expect(dialog.getByRole('combobox')).toContainText('Select a server');
 
-  // ── Pick the second one; the choice is written to the series on the pick,
-  //    with no upload needed to record it. A publish-prefs write, not a series
-  //    save: choosing where results go is not an edit to the series ────────
-  const saved = page.waitForResponse(
-    (r) => /\/api\/v1\/series\/[0-9a-f-]{36}\/publish-prefs$/.test(new URL(r.url()).pathname)
-      && r.request().method() === 'PATCH'
-      && r.ok(),
-  );
-  await page.getByRole('combobox').click();
-  await page.getByRole('option', { name: /ftp\.second\.example/ }).click();
+  // Pick the second one; the choice is written on the pick.
+  const saved = prefsWrite(page);
+  await dialog.getByRole('combobox').click();
+  await page.getByRole('option', { name: new RegExp(second.replace(/\./g, '\\.')) }).click();
   await saved;
 
-  // ── A fresh load opens on it ─────────────────────────────────────────────
+  // A fresh load opens on it.
   await page.goto('/');
   await page.getByText('Remembered Server').click();
   await page.getByRole('link', { name: 'Standings' }).click();
-  await page.getByRole('button', { name: 'Publish' }).click();
-  await expect(page.getByRole('combobox')).toContainText('ftp.second.example');
+  dialog = await openPublish(page);
+  await dialog.getByRole('tab', { name: 'Your website (FTP)' }).click();
+  await expect(dialog.getByRole('combobox')).toContainText(second);
 });
 
-test('Publish dialog · FTP mode: per-page selection lets you upload a subset', async ({ page }) => {
-  // ── Configure a server ────────────────────────────────────────────────────
-  await page.goto('/workspace');
-  await page.getByRole('button', { name: 'Add server' }).click();
-  await page.getByLabel('Host').fill('ftp.example.com');
-  await page.getByLabel('Username').fill('scorer');
-  await page.locator('#ftp-password').fill('s3cret');
-  await page.getByRole('button', { name: 'Save' }).click();
-  await expect(page.getByText('ftp://ftp.example.com:21')).toBeVisible();
-
-  // ── Series with two fleets, a competitor in each, and one race so the
-  //    Standings tab (and the Publish button) render ────────────────────────
-  await createSeriesQuick(page, { name: 'Multi Fleet FTP' });
-  await createFleets(page, ['Fast', 'Slow']);
-
-  await page.getByRole('link', { name: 'Competitors' }).click();
-  await addCompetitor(page, { sailNumber: '1', name: 'Alice', fleet: 'Fast' });
-  await addCompetitor(page, { sailNumber: '2', name: 'Bob', fleet: 'Slow' });
-
-  await page.getByRole('link', { name: 'Races' }).click();
-  await page.getByRole('button', { name: 'Add race' }).click();
-  await page.getByText('Race 1').click();
-  await page.getByLabel('Sail number').fill('1');
-  await page.getByRole('button', { name: 'Add' }).click();
-  await page.getByLabel('Sail number').fill('2');
-  await page.getByRole('button', { name: 'Add' }).click();
-  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
-
-  await page.getByRole('link', { name: 'Standings' }).click();
-  await page.getByRole('button', { name: 'Publish' }).click();
-  const dialog = page.getByRole('dialog', { name: 'Publish results' });
-  await expect(dialog).toBeVisible();
-  await page.getByRole('button', { name: 'Your website (FTP)' }).click();
-  await expect(page.getByLabel('Fast path')).toBeVisible();
-
-  // Pick the server (a fresh series has no saved host to auto-select).
-  await page.getByRole('combobox').click();
-  await page.getByRole('option', { name: /ftp\.example\.com/ }).click();
-
-  const fastPath = page.getByLabel('Fast path');
-  const slowPath = page.getByLabel('Slow path');
-  await expect(fastPath).toBeVisible();
-  await expect(slowPath).toBeVisible();
-
-  // Every page ticked by default → both inputs enabled, Upload gated on paths.
-  await expect(page.getByRole('button', { name: 'Upload' })).toBeDisabled();
-  await fastPath.fill('/public_html/fast.html');
-  await slowPath.fill('/public_html/slow.html');
-  await expect(page.getByRole('button', { name: 'Upload' })).toBeEnabled();
-
-  // Untick Slow: its input disables, but Fast is still selected + has a path,
-  // so a partial upload is allowed.
-  await page.getByRole('checkbox', { name: 'Upload Slow' }).uncheck();
-  await expect(slowPath).toBeDisabled();
-  await expect(page.getByRole('button', { name: 'Upload' })).toBeEnabled();
-
-  // Untick Fast too: nothing selected → Upload disabled.
-  await page.getByRole('checkbox', { name: 'Upload Fast' }).uncheck();
-  await expect(page.getByRole('button', { name: 'Upload' })).toBeDisabled();
-
-  // The master "All pages" toggle re-selects everything.
-  await page.getByRole('checkbox', { name: 'All pages' }).check();
-  await expect(fastPath).toBeEnabled();
-  await expect(slowPath).toBeEnabled();
-  await expect(page.getByRole('button', { name: 'Upload' })).toBeEnabled();
-});
-
-/**
- * Page ticks are remembered too: the pane opens on the pages that have gone
- * out before, minus any the scorer unticked when they last uploaded.
- *
- * Both records are written by a successful upload, which needs a live scupper
- * relay and FTP server, so they go in through /api/v1 the way the FTP host
- * does in series-file.spec.ts — the read side is what this covers.
- */
-test('Publish dialog · FTP mode: page ticks are remembered', async ({ page, signedInEmail }) => {
+test('Publish dialog · FTP tab: the same pages as Pages, each path saved as typed', async ({ page, signedInEmail }) => {
   await enableFeatures(page, signedInEmail, ['ftp-upload', 'entry-list']);
-  await page.goto('/workspace');
-  await page.getByRole('button', { name: 'Add server' }).click();
-  await page.getByLabel('Host').fill('ftp.example.com');
-  await page.getByLabel('Username').fill('scorer');
-  await page.locator('#ftp-password').fill('s3cret');
-  await page.getByRole('button', { name: 'Save' }).click();
-  await expect(page.getByText('ftp://ftp.example.com:21')).toBeVisible();
+  const host = testHost();
+  await addServer(page, host);
+  await createSailedSeries(page, 'Same Pages', ['Fast', 'Slow']);
 
-  await createSeriesQuick(page, { name: 'Remembered Pages' });
-  const seriesId = page.url().match(/\/series\/([^/]+)/)![1];
-  await createFleets(page, ['Fast', 'Slow']);
-  await page.getByRole('link', { name: 'Competitors' }).click();
-  await addCompetitor(page, { sailNumber: '1', name: 'Alice', fleet: 'Fast' });
-  await addCompetitor(page, { sailNumber: '2', name: 'Bob', fleet: 'Slow' });
-  await page.getByRole('link', { name: 'Races' }).click();
-  await page.getByRole('button', { name: 'Add race' }).click();
-  await page.getByText('Race 1').click();
-  await page.getByLabel('Sail number').fill('1');
-  await page.getByRole('button', { name: 'Add' }).click();
-  await page.getByLabel('Sail number').fill('2');
-  await page.getByRole('button', { name: 'Add' }).click();
-  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
-
-  // ── Both fleet pages uploaded before; Entries never has been ─────────────
-  await page.evaluate(async (id) => {
-    const fleets = await (await fetch(`/api/v1/series/${id}/fleets`)).json();
-    const fleetId = (name: string) => fleets.find((f: { name: string }) => f.name === name).id;
-    const get = await fetch(`/api/v1/series/${id}`);
-    const series = await get.json();
-    series.ftpPaths = {
-      [`fleet:${fleetId('Fast')}`]: '/public_html/fast.html',
-      [`fleet:${fleetId('Slow')}`]: '/public_html/slow.html',
-    };
-    const put = await fetch(`/api/v1/series/${id}`, {
-      method: 'PUT',
-      headers: { 'content-type': 'application/json', 'If-Match': String(series.version) },
-      body: JSON.stringify(series),
-    });
-    if (!put.ok) throw new Error(`PUT series ${id}: ${put.status}`);
-  }, seriesId);
-
-  await page.getByRole('link', { name: 'Standings' }).click();
-  await page.getByRole('button', { name: 'Publish' }).click();
-  await page.getByRole('button', { name: 'Your website (FTP)' }).click();
-  await expect(page.getByRole('checkbox', { name: 'Upload Fast' })).toBeChecked();
-  await expect(page.getByRole('checkbox', { name: 'Upload Slow' })).toBeChecked();
-  // A page that has never gone out isn't swept into the next upload.
-  await expect(page.getByRole('checkbox', { name: 'Upload Entries' })).not.toBeChecked();
-  await page.getByRole('button', { name: 'Cancel' }).click();
-
-  // ── Slow left out of the last upload, though it has gone out before ──────
-  await page.evaluate(async (id) => {
-    const fleets = await (await fetch(`/api/v1/series/${id}/fleets`)).json();
-    const slow = fleets.find((f: { name: string }) => f.name === 'Slow').id;
-    const get = await fetch(`/api/v1/series/${id}`);
-    const series = await get.json();
-    series.ftpPagesExcluded = [`fleet:${slow}`];
-    const put = await fetch(`/api/v1/series/${id}`, {
-      method: 'PUT',
-      headers: { 'content-type': 'application/json', 'If-Match': String(series.version) },
-      body: JSON.stringify(series),
-    });
-    if (!put.ok) throw new Error(`PUT series ${id}: ${put.status}`);
-  }, seriesId);
-
-  await page.reload();
-  await page.getByRole('button', { name: 'Publish' }).click();
-  await expect(page.getByRole('checkbox', { name: 'Upload Fast' })).toBeChecked();
-  await expect(page.getByRole('checkbox', { name: 'Upload Slow' })).not.toBeChecked();
-  await expect(page.getByRole('checkbox', { name: 'Upload Entries' })).not.toBeChecked();
-});
-
-test('Publish dialog: FTP offers the same pages as Sail Scoring', async ({ page, signedInEmail }) => {
-  await enableFeatures(page, signedInEmail, ['ftp-upload', 'entry-list']);
-  await page.goto('/workspace');
-  await page.getByRole('button', { name: 'Add server' }).click();
-  await page.getByLabel('Host').fill('ftp.example.com');
-  await page.getByLabel('Username').fill('scorer');
-  await page.locator('#ftp-password').fill('s3cret');
-  await page.getByRole('button', { name: 'Save' }).click();
-  await expect(page.getByText('ftp://ftp.example.com:21')).toBeVisible();
-
-  await createSeriesQuick(page, { name: 'Same Pages' });
-  await createFleets(page, ['Fast', 'Slow']);
-  await page.getByRole('link', { name: 'Competitors' }).click();
-  await addCompetitor(page, { sailNumber: '1', name: 'Alice', fleet: 'Fast' });
-  await addCompetitor(page, { sailNumber: '2', name: 'Bob', fleet: 'Slow' });
-
-  await page.getByRole('link', { name: 'Races' }).click();
-  await page.getByRole('button', { name: 'Add race' }).click();
-  await page.getByText('Race 1').click();
-  await page.getByLabel('Sail number').fill('1');
-  await page.getByRole('button', { name: 'Add' }).click();
-  await page.getByLabel('Sail number').fill('2');
-  await page.getByRole('button', { name: 'Add' }).click();
-  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
-
-  await page.getByRole('link', { name: 'Standings' }).click();
-  await page.getByRole('button', { name: 'Publish' }).click();
-  const dialog = page.getByRole('dialog', { name: 'Publish results' });
-  await expect(dialog).toBeVisible();
-
-  // The entry list (#423) is a page like any other on the Sail Scoring side …
+  const dialog = await openPublish(page);
+  // The entry list is a page like any other on the Pages tab …
   await expect(dialog.getByRole('checkbox', { name: 'Publish Entries' })).toBeVisible();
-
-  // … and on the club's own web server, with a remote path of its own.
-  await page.getByRole('button', { name: 'Your website (FTP)' }).click();
+  // … and has a path of its own on the FTP tab.
+  await dialog.getByRole('tab', { name: 'Your website (FTP)' }).click();
   await expect(dialog.getByLabel('Fast path')).toBeVisible();
   await expect(dialog.getByLabel('Slow path')).toBeVisible();
   await expect(dialog.getByLabel('Entries path')).toBeVisible();
-  await expect(dialog.getByRole('checkbox', { name: 'Upload Entries' })).toBeVisible();
+
+  const saved = prefsWrite(page);
+  await dialog.getByLabel('Fast path').fill('/public_html/results/fast.html');
+  await dialog.getByLabel('Slow path').focus();
+  await saved;
+
+  // Back on the Pages tab, the dialog says where publishing will send Fast.
+  await dialog.getByRole('tab', { name: 'Pages' }).click();
+  await expect(dialog.getByTestId('ftp-publish-hint')).toHaveText(
+    `Publishing Fast also uploads it to ${host}.`,
+  );
+
+  // Remembered across a fresh load.
+  await page.reload();
+  const again = await openPublish(page);
+  await again.getByRole('tab', { name: 'Your website (FTP)' }).click();
+  await expect(again.getByLabel('Fast path')).toHaveValue('/public_html/results/fast.html');
+  await expect(again.getByLabel('Slow path')).toHaveValue('');
 });
 
 /**
- * Opening the Publish dialog is not an edit to the series.
- *
- * Switching destination and picking a server both write to the series row —
- * that is how they are remembered — but they went through the general series
- * save, which recorded them as "Updated series settings" on the History tab.
- * A scorer who had only opened a dialog was told they had changed a setting,
- * and the version bump left the publish indicator counting an edit that never
- * happened.
+ * Setting where results go is not an edit to the series. The pick and the
+ * paths are written to the series row — that is how they are remembered —
+ * through the quiet publish-prefs write, so nothing on the History tab says a
+ * setting changed, and the publish indicator counts no edit.
  */
-test('Publish dialog · FTP mode: choosing a destination is not recorded as a settings edit', async ({ page }) => {
-  await page.goto('/workspace');
-  await page.getByRole('button', { name: 'Add server' }).click();
-  await page.getByLabel('Host').fill('ftp.quiet.example');
-  await page.getByLabel('Username').fill('scorer');
-  await page.locator('#ftp-password').fill('s3cret');
-  await page.getByRole('button', { name: 'Save' }).click();
-  await expect(page.getByText('ftp://ftp.quiet.example:21')).toBeVisible();
+test('Publish dialog · FTP tab: setting it up is not recorded as a settings edit', async ({ page }) => {
+  const host = testHost();
+  await addServer(page, host);
+  await createSailedSeries(page, 'Quiet Prefs Series');
 
-  await createSeriesQuick(page, { name: 'Quiet Prefs Series' });
-  await addCompetitor(page, { sailNumber: '1', name: 'Alice' });
-  await page.getByRole('link', { name: 'Races' }).click();
-  await page.getByRole('button', { name: 'Add race' }).click();
-  await page.getByText('Race 1').click();
-  await page.getByLabel('Sail number').fill('1');
-  await page.getByRole('button', { name: 'Add' }).click();
-  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+  const dialog = await openPublish(page);
+  await dialog.getByRole('tab', { name: 'Your website (FTP)' }).click();
+  await expect(dialog.getByRole('combobox')).toContainText(host);
+  const saved = prefsWrite(page);
+  await dialog.getByLabel('Standings path').fill('/public_html/results/quiet.html');
+  await dialog.getByLabel('Standings path').blur();
+  await saved;
+  await page.keyboard.press('Escape');
 
-  // Switch destination, which persists `publishMode`, and land on the server.
-  await page.getByRole('link', { name: 'Standings' }).click();
-  const prefsWritten = page.waitForResponse(
-    (r) => /\/api\/v1\/series\/[0-9a-f-]{36}\/publish-prefs$/.test(new URL(r.url()).pathname)
-      && r.request().method() === 'PATCH'
-      && r.ok(),
-  );
-  await page.getByRole('button', { name: 'Publish' }).click();
-  await page.getByRole('button', { name: 'Your website (FTP)' }).click();
-  await prefsWritten;
-  await expect(page.getByRole('combobox')).toContainText('ftp.quiet.example');
-  await page.getByRole('button', { name: 'Cancel' }).click();
-
-  // Nothing in the history says a setting changed.
   await page.getByRole('navigation').getByRole('link', { name: 'History' }).click();
   await expect(page).toHaveURL(/\/series\/[0-9a-f-]{36}\/history$/);
   const revisions = page.getByTestId('revision-list');
   await expect(revisions).toContainText('Added Race 1');
   await expect(revisions).not.toContainText('Updated series settings');
 
-  // Nor in the workspace feed, which is where that row came from.
   await page.goto('/workspace/activity');
   await expect(page.getByTestId('activity-entry').first()).toBeVisible();
   await expect(page.locator('[data-action="series.updated"]')).toHaveCount(0);
 });
 
-/**
- * An upload to a club's own web server is recorded.
- *
- * It used to leave no trace of itself at all: the scupper call runs in the
- * browser, so the only server-side write was the provenance, and that arrived
- * as a general series save reading "Updated series settings". The History tab
- * couldn't say when results last went out to the club, and offered no state to
- * restore to.
- *
- * The upload itself needs a live scupper relay and FTP server, so the record
- * goes in through /api/v1 the way the FTP host does in series-file.spec.ts;
- * what this covers is that the record is a publishing milestone.
- */
-test('Publish dialog · FTP mode: an upload is pinned in the history', async ({ page }) => {
-  await createSeriesQuick(page, { name: 'Recorded Upload Series' });
-  const seriesId = page.url().match(/\/series\/([^/]+)/)![1];
-  await addCompetitor(page, { sailNumber: '1', name: 'Alice' });
-  await page.getByRole('link', { name: 'Races' }).click();
-  await page.getByRole('button', { name: 'Add race' }).click();
-  await page.getByText('Race 1').click();
-  await page.getByLabel('Sail number').fill('1');
-  await page.getByRole('button', { name: 'Add' }).click();
-  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+test('publishing a page also uploads it to the club site', async ({ page }) => {
+  const host = testHost();
+  await addServer(page, host);
+  await createSailedSeries(page, 'Club Site Series', ['Fast', 'Slow']);
 
-  const versionBefore = await page.evaluate(async (id) => {
-    const series = await (await fetch(`/api/v1/series/${id}`)).json();
-    return series.version as number;
-  }, seriesId);
+  const dialog = await openPublish(page);
+  await dialog.getByRole('tab', { name: 'Your website (FTP)' }).click();
+  const saved = prefsWrite(page);
+  await dialog.getByLabel('Fast path').fill('/public_html/results/fast.html');
+  await dialog.getByLabel('Fast path').blur();
+  await saved;
+  await dialog.getByRole('tab', { name: 'Pages' }).click();
+  await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
 
-  await page.evaluate(async (id) => {
-    const res = await fetch(`/api/v1/series/${id}/ftp-upload`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        host: 'ftp.example.com',
-        paths: { standings: '/public_html/standings.html' },
-        excluded: [],
-        pageCount: 2,
-      }),
-    });
-    if (!res.ok) throw new Error(`POST ftp-upload ${id}: ${res.status}`);
-  }, seriesId);
+  // Both pages are live here; Fast went to the club site too.
+  await expect(dialog.getByRole('link', { name: /\/fast$/ })).toBeVisible();
+  const outcome = dialog.getByTestId('ftp-outcome');
+  await expect(outcome).toContainText(`Uploaded Fast to ${host}.`);
+  await expect(outcome).toContainText('No path on your website for Slow, so it stays here only.');
 
-  // The History tab pins it the way it pins an in-app publish: a Published
-  // badge, naming where the results went.
-  await page.getByRole('navigation').getByRole('link', { name: 'History' }).click();
-  await expect(page).toHaveURL(/\/series\/[0-9a-f-]{36}\/history$/);
-  const revisions = page.getByTestId('revision-list');
-  await expect(revisions).toContainText('Uploaded 2 pages to ftp.example.com');
-  await expect(revisions).toContainText('Published');
-  // And not as a settings edit, which is all it used to leave.
-  await expect(revisions).not.toContainText('Updated series settings');
+  const uploads = await uploadsTo(host);
+  expect(uploads.map((u) => u.path)).toEqual(['/public_html/results/fast.html']);
+  expect(uploads[0].html).toContain('Alice');
+  expect(uploads[0].html).not.toContain('Bob');
 
-  // The workspace feed has it too.
+  // Publishing again with nothing changed still sends it: that is the retry.
+  await dialog.getByRole('button', { name: 'Re-publish' }).click();
+  await expect(dialog.getByTestId('ftp-outcome')).toContainText(`Uploaded Fast to ${host}.`);
+  expect(await uploadsTo(host)).toHaveLength(2);
+
+  // The workspace feed has the upload.
   await page.goto('/workspace/activity');
-  await expect(page.locator('[data-action="publish.ftp-uploaded"]')).toContainText(
-    'Uploaded 2 pages to ftp.example.com',
+  await expect(page.locator('[data-action="publish.ftp-uploaded"]').first()).toContainText(
+    `Uploaded 1 page to ${host}`,
   );
-  await expect(page.locator('[data-action="series.updated"]')).toHaveCount(0);
+});
 
-  // Recording the upload is not itself an edit, so the series reads as fully
-  // published rather than one edit behind the moment it finished.
-  const after = await page.evaluate(async (id) => {
-    const series = await (await fetch(`/api/v1/series/${id}`)).json();
-    return { version: series.version, uploaded: series.ftpUploadedVersion };
-  }, seriesId);
-  expect(after.version).toBe(versionBefore);
-  expect(after.uploaded).toBe(versionBefore);
+test('a failed upload leaves the results published here, and says so', async ({ page }) => {
+  const host = testHost('fail');
+  await addServer(page, host);
+  await createSailedSeries(page, 'Failing Upload Series');
+
+  const dialog = await openPublish(page);
+  await dialog.getByRole('tab', { name: 'Your website (FTP)' }).click();
+  const saved = prefsWrite(page);
+  await dialog.getByLabel('Standings path').fill('/public_html/results/standings.html');
+  await dialog.getByLabel('Standings path').blur();
+  await saved;
+  await dialog.getByRole('tab', { name: 'Pages' }).click();
+  await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
+
+  const outcome = dialog.getByTestId('ftp-outcome');
+  await expect(outcome).toContainText(`Couldn't upload Standings to ${host}: FTP error: 530 Login incorrect`);
+  await expect(outcome).toContainText('Publish again to retry.');
+  // Published on Sail Scoring all the same.
+  await expect(dialog.getByText(/^Last published/)).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Re-publish' })).toBeVisible();
 });

@@ -268,7 +268,7 @@ describe('registry invariants', () => {
 describe('self-service classification', () => {
   it('operator-managed keys are excluded from the self-service set', () => {
     // The deliberately small operator-only set (issue #278): identity adoption
-    // stays centrally managed, and ftp-upload is on its way out with scupper.
+    // stays centrally managed, and ftp-upload is HYC-only.
     for (const k of [
       'ftp-upload',
       'competitor-identity',

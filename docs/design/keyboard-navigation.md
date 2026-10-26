@@ -91,7 +91,6 @@ Non-finisher result code dropdowns use Radix UI Select, which handles `ArrowDown
 |-----|--------|
 | `p` | Publish results |
 | `x` | Export HTML |
-| `f` | Upload via FTP |
 
 ### Modals and dialogs
 

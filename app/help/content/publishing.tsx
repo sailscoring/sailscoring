@@ -183,45 +183,49 @@ export default function Publishing() {
           <>
             <HelpShot
               src="/help/shots/ftp-upload.webp"
-              alt="The Publish dialog uploading to a club's own web server: a remote path per page."
-              caption="Uploading to your own web server: a remote path per page, ticked one by one."
+              alt="The Publish dialog's Your website (FTP) tab: the server, and a remote path for each page."
+              caption="Where each page goes on your own web server: set once, used by every publish."
             />
             <p>
-              <strong className="text-foreground">Upload via FTP:</strong>{' '}
-              if your club has a web hosting account, you can push results directly to it without
-              downloading and uploading files manually. Sail Scoring relays FTP uploads through the
-              scupper service — the browser cannot connect to an FTP server directly.
+              <strong className="text-foreground">Your own website (FTP):</strong>{' '}
+              if your club has a web hosting account, the pages you publish can go onto it too,
+              without downloading and uploading files by hand. Publishing a page on Sail Scoring
+              also uploads it to your website, over FTP, so the two always carry the same results.
             </p>
             <p>
               <strong className="text-foreground">FTP one-time setup:</strong> open the workspace
               switcher in the page header and choose{' '}
               <strong className="text-foreground">Workspace settings</strong>, then click{' '}
-              <strong className="text-foreground">Add server</strong>. Enter a label (e.g.{' '}
-              <em>Club website</em>), the FTP hostname, port (default 21), username, and password.
-              Tick <strong className="text-foreground">FTPS (TLS)</strong> if your host requires an
-              encrypted connection. You can configure multiple servers and switch between them at upload
-              time. Credentials are stored encrypted, scoped to your workspace, and are never included
-              in series file exports.
+              <strong className="text-foreground">Add server</strong>. Enter the FTP hostname, port
+              (default 21), username, and password. Tick{' '}
+              <strong className="text-foreground">FTPS (TLS)</strong> if your host requires an
+              encrypted connection. Credentials are stored encrypted, scoped to your workspace, and
+              are never included in series file exports.
             </p>
             <p>
-              <strong className="text-foreground">Uploading:</strong> on the{' '}
-              <strong className="text-foreground">Standings</strong> tab, click{' '}
-              <strong className="text-foreground">Publish</strong> (or press{' '}
-              <strong className="text-foreground">p</strong>) and choose{' '}
-              <strong className="text-foreground">Your website (FTP)</strong> at the top of the
-              dialog. Select the server, enter the remote path for the results file (e.g.{' '}
-              <code className="text-foreground text-sm">/public_html/results/fleet-a.html</code>),
-              and click <strong className="text-foreground">Upload</strong>. The series remembers
-              this choice and reopens in FTP mode next time — switch back to{' '}
-              <strong className="text-foreground">Sail Scoring pages</strong> whenever you like.
-              A series that publishes several pages shows one path per page — each fleet, each
-              extra page, the prize list, the entry list — every one with a checkbox, so you can
-              upload just the pages you tick. The two destinations offer the same pages: what
-              you can put on Sail Scoring’s pages, you can put on your own site.
+              <strong className="text-foreground">Where each page goes:</strong> in the{' '}
+              <strong className="text-foreground">Publish</strong> dialog, open the{' '}
+              <strong className="text-foreground">Your website (FTP)</strong> tab. Pick the
+              server, and give each page the remote path it should go to (e.g.{' '}
+              <code className="text-foreground text-sm">/public_html/results/fleet-a.html</code>).
+              A page with no path stays off your website. Paths save as you type them and are
+              remembered per series, so this is done once, not every week. Setting them needs a
+              workspace manager, since it uses the server’s credentials; once they are set,
+              anyone who can publish sends the pages there.
             </p>
             <p>
-              If the upload fails, the raw FTP error from the server is shown — this is usually
-              enough to diagnose a wrong path, bad credentials, or a permission problem.
+              <strong className="text-foreground">Publishing:</strong> back on the{' '}
+              <strong className="text-foreground">Pages</strong> tab, publish as usual. Each page
+              you publish that has a path goes to your website as well, and the dialog says which
+              pages went. A page on your website is the page published here, with its links to
+              the series’ other pages pointing at their copies on your website where they
+              have one. Unpublishing a page here leaves the copy on your website alone.
+            </p>
+            <p>
+              If an upload fails, Sail Scoring tries it again a couple of times before giving up.
+              The results stay published here either way, and the dialog shows the raw FTP error
+              from the server — usually enough to diagnose a wrong path, bad credentials, or a
+              permission problem. Publish again to retry.
             </p>
           </>
         )}

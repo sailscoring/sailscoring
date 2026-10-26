@@ -33,6 +33,8 @@ import { CHAMPIONSHIP_PAGE, RACE_RESULTS_PAGE, SCORING_NOTES_PAGE } from '@/lib/
 import { isAuxiliaryPage } from '@/lib/published-index';
 import { readCourseBackground } from '@/lib/course-cards/backgrounds-server';
 import { buildFleetHtmlFiles } from '@/lib/results-export';
+import type { FtpUploader } from '@/lib/scupper';
+import { publishToFtp } from './publish-ftp';
 import type { UnscorableRace } from '@/lib/results-export';
 import type { ExportRepos } from '@/lib/public-export';
 import { publicationFacts } from '@/lib/public-api/facts';
@@ -46,7 +48,7 @@ import type {
   PublishedSeriesPage,
   Series,
 } from '@/lib/types';
-import type { FtpUploadInput, PublishInput } from '@/lib/validation/publish';
+import type { PublishInput } from '@/lib/validation/publish';
 
 const MAX_SLUG_LENGTH = 60;
 
@@ -142,6 +144,10 @@ export function exportReposFor(workspaceId: string): ExportRepos {
  */
 export interface PublishOptions {
   rebuildOnly?: boolean;
+  /** Stand-ins for the scupper relay and the pause between attempts, for
+   *  tests of the upload to a club's own site. */
+  ftpUpload?: FtpUploader;
+  ftpSleep?: (ms: number) => Promise<void>;
 }
 
 /**
@@ -371,29 +377,36 @@ export async function publishSeries(
   }
   const dataPath = `/p/${workspace.workspaceSlug}/${slug}/${dataSubPath}`;
 
-  const build = await buildFleetHtmlFiles(
-    exportReposFor(workspace.workspaceId),
-    seriesId,
-    `${appBase()}/p/${workspace.workspaceSlug}/${slug}${breadcrumbFolder ? `/${breadcrumbFolder}` : ''}`,
-    // The prize sheet (#240) publishes only for workspaces with the feature
-    // on; a prize list imported into an ungated workspace stays unpublished.
-    {
-      includePrizes: workspace.features.includes('prizes'),
-      includeEntryList: workspace.features.includes('entry-list'),
-      includeSchedule: workspace.features.includes('schedule-page'),
-      includeTrackData: workspace.features.includes('racesense-import'),
-      includePageNotes: workspace.features.includes('page-notes'),
-      raceResultsHref,
-      ...(scoringNotesHref ? { scoringNotesHref } : {}),
-      dataPath,
-      // A rebuild says what the publish it re-renders said: the results are
-      // provisional as of when the scorer published them, not as of now.
-      ...(opts.rebuildOnly ? { generatedAt: new Date(existing!.publishedAt) } : {}),
-      // The charts published courses are drawn on, read off disk: this is
-      // the one place pages are built on the server.
-      loadCourseBackground: readCourseBackground,
-    },
-  );
+  // A rebuild says what the publish it re-renders said: the results are
+  // provisional as of when the scorer published them, not as of now. Pinned
+  // either way, so the club-site copy of a championship, built again with
+  // its own links, says the same as the page published here.
+  const generatedAt = opts.rebuildOnly ? new Date(existing!.publishedAt) : new Date();
+  const buildPages = (hrefs: { raceResultsHref?: string; scoringNotesHref?: string }) =>
+    buildFleetHtmlFiles(
+      exportReposFor(workspace.workspaceId),
+      seriesId,
+      `${appBase()}/p/${workspace.workspaceSlug}/${slug}${breadcrumbFolder ? `/${breadcrumbFolder}` : ''}`,
+      // The prize sheet (#240) publishes only for workspaces with the feature
+      // on; a prize list imported into an ungated workspace stays unpublished.
+      {
+        includePrizes: workspace.features.includes('prizes'),
+        includeEntryList: workspace.features.includes('entry-list'),
+        includeSchedule: workspace.features.includes('schedule-page'),
+        includeTrackData: workspace.features.includes('racesense-import'),
+        includePageNotes: workspace.features.includes('page-notes'),
+        ...hrefs,
+        dataPath,
+        generatedAt,
+        // The charts published courses are drawn on, read off disk: this is
+        // the one place pages are built on the server.
+        loadCourseBackground: readCourseBackground,
+      },
+    );
+  const build = await buildPages({
+    raceResultsHref,
+    ...(scoringNotesHref ? { scoringNotesHref } : {}),
+  });
   if (!build) throw new NotFoundError('series has no publishable results');
   const allFiles = build.files;
   const exportJson = build.exportJson ?? null;
@@ -536,6 +549,9 @@ export async function publishSeries(
   // carried. It is rendered again here with the links, before the hash, so a
   // schedule whose links changed is a changed page.
   const scheduleFile = toBuild.find((f) => f.isSchedule && f.schedule);
+  // Kept for the club's site, whose copy links each race to the results'
+  // copy there instead.
+  let renderSchedule: ((hrefFor: (target: string) => string) => string) | undefined;
   if (scheduleFile?.schedule) {
     const liveResults = new Map<string, string>();
     for (const p of carried) {
@@ -557,12 +573,16 @@ export async function publishSeries(
     // A race whose fleets' results are on several pages links to the
     // publication's own page, which lists them all.
     const landing = `${base}${breadcrumbFolder ? `/${breadcrumbFolder}` : ''}`;
-    const rows = scheduleFile.schedule.rows.map((row) => {
-      if (!row.sailed) return row;
-      const target = resultsPath(row.starts.flatMap((st) => st.fleetNames));
-      return { ...row, resultsHref: target ? relativeSubPath(schedulePath, target) : landing };
-    });
-    scheduleFile.html = scheduleFile.schedule.render(rows);
+    const schedule = scheduleFile.schedule;
+    renderSchedule = (hrefFor) =>
+      schedule.render(
+        schedule.rows.map((row) => {
+          if (!row.sailed) return row;
+          const target = resultsPath(row.starts.flatMap((st) => st.fleetNames));
+          return { ...row, resultsHref: target ? hrefFor(target) : landing };
+        }),
+      );
+    scheduleFile.html = renderSchedule((target) => relativeSubPath(schedulePath, target));
     if (scheduleFile.view?.kind === 'schedule') {
       scheduleFile.view = {
         kind: 'schedule',
@@ -574,6 +594,39 @@ export async function publishSeries(
       };
     }
   }
+
+  // The pages built now go to the club's own site too, where the series has
+  // FTP paths — after the publication is saved, which stands whatever the
+  // upload does. Not on a rebuild: the operator re-render is not the scorer
+  // sending results anywhere.
+  const withFtp = async (
+    result: PublishResult,
+    livePages: PublishedSeriesPage[],
+  ): Promise<PublishResult> => {
+    if (opts.rebuildOnly) return result;
+    const ftp = await publishToFtp({
+      workspace,
+      series,
+      files: toBuild,
+      publicationBase: `${appBase()}/p/${workspace.workspaceSlug}/${slug}`,
+      livePageAt: new Map(livePages.map((p) => [p.subPath, p.fleetName])),
+      ...(build.summary?.splitFleet
+        ? {
+            championship: {
+              raceResults: subPathFor({ fleetName: RACE_RESULTS_PAGE, isDefault: false }),
+              ...(scoringNotesLive
+                ? { scoringNotes: subPathFor({ fleetName: SCORING_NOTES_PAGE, isDefault: false }) }
+                : {}),
+              rebuild: async (hrefs) => (await buildPages(hrefs))?.files ?? [],
+            },
+          }
+        : {}),
+      ...(renderSchedule ? { renderSchedule } : {}),
+      ...(opts.ftpUpload ? { upload: opts.ftpUpload } : {}),
+      ...(opts.ftpSleep ? { sleep: opts.ftpSleep } : {}),
+    });
+    return ftp ? { ...result, ftp } : result;
+  };
 
   // Hash over exactly what this publish yields: freshly-rendered pages for the
   // built fleets, the data file's JSON, plus each carried page's blob URL as a
@@ -590,7 +643,11 @@ export async function publishSeries(
   // plus any page retracted by suppression, whose blob has no successor.
   let supersededPages: PublishedSeriesPage[] = [];
   if (existing) {
-    if (existing.contentHash === hash) return toResult(workspace.workspaceSlug, existing);
+    // Unchanged on Sail Scoring, but the club's site still gets the pages:
+    // publishing again is how a scorer retries an upload that failed.
+    if (existing.contentHash === hash) {
+      return withFtp(toResult(workspace.workspaceSlug, existing), existing.pages);
+    }
     // Superseded = the pages being rebuilt this round; a page that carries
     // (unticked fleet, or the prizes page under `prizes: false`) keeps its blob.
     supersededPages = existing.pages.filter(
@@ -811,68 +868,7 @@ export async function publishSeries(
     });
   }
 
-  return toResult(workspace.workspaceSlug, published);
-}
-
-/**
- * Record a completed FTP upload to a club's own web server.
- *
- * The upload runs in the browser, against the scupper relay, so nothing
- * server-side witnesses it — this call is the only account of it there will
- * be. Before this endpoint existed the account was a general series PUT,
- * which put "Updated series settings" in the history and left publishing to a
- * club site absent from it entirely: no milestone, no restore point, and no
- * answer to when results last went out to the club.
- *
- * So it does what an in-app publish does. The provenance goes to the quiet
- * publish-prefs write, and then the upload is recorded as a publishing act:
- * an activity entry, a pinned `publish` revision capturing exactly what went
- * out, and a seal on the open editing session so later edits start a fresh
- * version instead of folding back into the pre-upload one.
- *
- * The paths merge into what the series already holds, so a page left unticked
- * keeps the path its last upload used; the exclusions replace the stored list,
- * which is the tick state as it stood. `ftpUploadedVersion` is the series'
- * live version, read here rather than guessed by the caller — the prefs write
- * doesn't bump it, so the version this upload reflects is simply the current
- * one.
- */
-export async function recordFtpUpload(
-  workspace: WorkspaceContext,
-  seriesId: string,
-  input: FtpUploadInput,
-): Promise<Series> {
-  const repos = createRepos({ workspaceId: workspace.workspaceId });
-  const series = await repos.series.get(seriesId);
-  if (!series) throw new NotFoundError('series');
-
-  const saved = await repos.series.setPublishPrefs(seriesId, {
-    ftpServerId: input.serverId,
-    ftpHost: input.host,
-    ftpPaths: { ...(series.ftpPaths ?? {}), ...input.paths },
-    ftpPagesExcluded: input.excluded,
-    ftpLastUploadedAt: Date.now(),
-    ftpUploadedVersion: series.version ?? 1,
-  });
-  if (!saved) throw new NotFoundError('series');
-
-  const what =
-    `Uploaded ${input.pageCount} page${input.pageCount === 1 ? '' : 's'} to ${input.host}`;
-  const activityEntryId = await recordActivity(workspace, {
-    action: 'publish.ftp-uploaded',
-    seriesId,
-    summary: what,
-  });
-  const actor = { workspaceId: workspace.workspaceId, userId: workspace.userId };
-  await sealOpenRevisions(workspace.workspaceId, seriesId);
-  await captureRevision(actor, seriesId, {
-    kind: 'publish',
-    label: what,
-    // As on an in-app publish: the revision claims its own entry, so the
-    // History tab attributes the upload to the version that captured it.
-    activityEntryId: activityEntryId ?? undefined,
-  });
-  return saved;
+  return withFtp(toResult(workspace.workspaceSlug, published), pages);
 }
 
 /**

@@ -347,12 +347,12 @@ export interface Series {
   // Publishing
   ftpServerId?: string;  // the workspace FTP server this series uploads to, remembered as soon as it is picked; absent on a series that has never had one chosen (or one imported from another workspace, where the id means nothing — `ftpHost` is the fallback)
   ftpHost: string;   // host of that server, kept alongside the id so a series carried between workspaces can still be matched by host (empty if not yet published)
-  ftpPath: string;   // legacy single path; falls back here when ftpPaths has no entry for a page (series uploaded before per-page paths landed)
-  ftpPaths: Record<string, string>;  // last-uploaded remote path per published page, keyed by PublishPage.key ('fleet:{id}', 'group:{id}', 'prizes', …); entries keyed by a bare fleetId are the pre-page form and are still read
-  ftpPagesExcluded?: string[];  // PublishPage keys the scorer left unticked on the last FTP upload; they stay unticked next time. Absent/empty is the common case
-  publishMode?: 'sailscoring' | 'ftp';  // which destination the Publish dialog opens in (default 'sailscoring'); 'ftp' only takes effect when the ftp-upload feature is enabled
+  ftpPath: string;   // legacy single path; the lone default page falls back here when ftpPaths has no entry for it (series uploaded before per-page paths landed)
+  ftpPaths: Record<string, string>;  // remote path per published page, keyed by PublishPage.key ('fleet:{id}', 'group:{id}', 'prizes', …) — publishing a page uploads it here; blank = not uploaded. Entries keyed by a bare fleetId are the pre-page form and are still read
+  ftpPagesExcluded?: string[];  // no longer read: the pages left unticked on an FTP-only upload, from before FTP rode along with publishing. Kept so stored files round-trip
+  publishMode?: 'sailscoring' | 'ftp';  // no longer read: which destination the Publish dialog opened in, from before FTP rode along with publishing. Kept so stored files round-trip
   ftpLastUploadedAt?: number;   // epoch ms of the last successful FTP upload (absent = never uploaded)
-  ftpUploadedVersion?: number;  // series version reflected by that upload; drives the "N edits since" indicator, mirroring the in-app publishedVersion
+  ftpUploadedVersion?: number;  // series version reflected by that upload (bookkeeping; the publication's own version drives the "N edits since" indicator)
   includeJsonExport: boolean;  // embed public JSON export in exported HTML (default true)
   publishRatingCalculations?: boolean;  // NHC/ECHO progressive rating-calculation explainability columns/header (default true)
   showPerRaceRatingsInSummary?: boolean;  // NHC/ECHO: render applied rating beneath each score in the summary table and add a seed-rating column (default true)
@@ -1668,6 +1668,36 @@ export interface PublishResult {
   // Public URL of the publication's `.sailscoring.json` data file (ADR-012),
   // when it published one.
   dataUrl?: string;
+  // How the pages this publish built fared on the club's own web server.
+  // Present only on the publish response itself, and only for a series in an
+  // `ftp-upload` workspace with an FTP path for at least one page.
+  ftp?: FtpPublishOutcome;
+}
+
+/** A page of a publish, as the FTP outcome reports it: which page, and the
+ *  remote path it was bound for. */
+export interface FtpPageOutcome {
+  fleetName: string;
+  subSeriesName?: string;
+  path: string;
+}
+
+/**
+ * What a publish put on a club's own web server. The pages upload one at a
+ * time and the run stops at the first that fails even after retrying — the
+ * rest would almost certainly fail the same way — so the answer is the pages
+ * that went, the one that didn't, and those never tried.
+ */
+export interface FtpPublishOutcome {
+  /** The server the pages went to; null when the series has paths but no
+   *  server resolves (none chosen among several, or the chosen one deleted). */
+  host: string | null;
+  uploaded: FtpPageOutcome[];
+  failed: (FtpPageOutcome & { error: string }) | null;
+  notAttempted: FtpPageOutcome[];
+  /** Pages this publish built that have no FTP path, so stay off the club's
+   *  site. */
+  unmapped: { fleetName: string; subSeriesName?: string }[];
 }
 
 /**

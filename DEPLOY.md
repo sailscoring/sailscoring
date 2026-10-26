@@ -254,8 +254,8 @@ Development is *only* used to populate `.env.local` via `vercel env pull`.
 | `COMPETITOR_ID_KEY`            | random (set, **long-lived**) | same as Production | unset (derived)     | yes for prod/preview |
 | `ORC_API_KEY`                  | from ORC (sas.orc.org) | same as Production | unset, or the same key in `.env.local` | yes |
 | `BLOB_READ_WRITE_TOKEN`        | from Vercel Blob (managed) | from Vercel Blob (managed, if connected) | unset → `published_blobs` fallback | yes (managed) |
-| `NEXT_PUBLIC_SCUPPER_URL`      | `https://scupper.sailscoring.ie` (legacy) | (same)   | (same)               | no         |
-| `NEXT_PUBLIC_SCUPPER_API_KEY`  | from scupper project (legacy) | from scupper project | from scupper project | no         |
+| `SCUPPER_URL`                  | `https://scupper.sailscoring.ie` | (same)   | (same), or unset     | no         |
+| `SCUPPER_API_KEY`              | from scupper project | from scupper project | from scupper project, or unset | yes |
 
 ### Notes on the trickier ones
 
@@ -339,6 +339,13 @@ doesn't need it.
 not added by hand. Leave it **unset on Development** so publishing uses the
 `published_blobs` Postgres fallback; it's set on Production (and Preview, if
 you connected the store there).
+
+**`SCUPPER_URL` / `SCUPPER_API_KEY`** — the FTP relay the publish handler
+uploads through, for workspaces with the `ftp-upload` feature. Server-side
+only: the key no longer ships to the browser. The handler still reads the
+old `NEXT_PUBLIC_SCUPPER_URL` / `NEXT_PUBLIC_SCUPPER_API_KEY` names as a
+fallback, so add the new ones, redeploy, then remove the old pair (and
+rotate the key in the scupper project, since the old one was public).
 
 **`CRON_SECRET`** — shared secret for the Vercel crons defined in
 `vercel.json` (`/api/cron/sweep-idempotency` and `sweep-deleted-series`
@@ -509,7 +516,7 @@ BETTER_AUTH_URL=http://localhost:3000
 CREDENTIAL_KEY=...                          # 64 hex chars (`openssl rand -hex 32`)
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 # BLOB_READ_WRITE_TOKEN intentionally unset — publishing uses the published_blobs Postgres fallback locally
-# NEXT_PUBLIC_SCUPPER_URL / NEXT_PUBLIC_SCUPPER_API_KEY — legacy FTP relay, only needed for the gated scupper path
+# SCUPPER_URL / SCUPPER_API_KEY — FTP relay, only needed for the gated ftp-upload feature (a `.test` FTP host logs to tests/.ftp-uploads.log instead)
 # RESEND_API_KEY intentionally unset — dev sender writes to log
 RESEND_FROM="Sail Scoring <noreply@sailscoring.ie>"
 ```

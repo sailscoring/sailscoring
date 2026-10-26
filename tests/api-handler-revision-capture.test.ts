@@ -43,7 +43,9 @@ const NO_REVISION_BY_DESIGN: Record<string, string> = {
   // `trackChange` would file it as an ordinary coalescing auto revision, and
   // the point of the publish milestone is that it doesn't coalesce.
   'publish.ts:publish.published': 'captures a publish revision directly',
-  'publish.ts:publish.ftp-uploaded': 'captures a publish revision directly',
+  // Rides along with a publish, whose own revision already captures what went
+  // out; an unchanged republish that re-sends the pages has nothing new to pin.
+  'publish-ftp.ts:publish.ftp-uploaded': 'the publish it rides along with captures the revision',
 
   // Taking results down changes no series data: the row, its competitors and
   // its results are all exactly as they were, and only the public copy goes.

@@ -15,7 +15,6 @@ import {
   deleteSeriesCascade,
   listSeriesNames,
   locateSeries,
-  recordFtpUpload,
   setSeriesCategory,
   setSeriesNotes,
   setSeriesPublishPrefs,
@@ -25,7 +24,6 @@ import type { SeriesLocation } from '@/lib/api-handlers/series';
 import type { SeriesNotes, SeriesPublishPrefs } from '@/lib/repository';
 import { ConflictApiError } from '@/lib/api-client';
 import type { Series } from '@/lib/types';
-import type { FtpUploadInput } from '@/lib/validation/publish';
 
 import { queryKeys } from './query-keys';
 import { keepNewerVersionedRow, keepNewerVersionedRows } from './query-version-guard';
@@ -261,31 +259,6 @@ export function useUpdateSeriesNotes() {
     },
     // Same scope as the row saves, so a note can't interleave with an
     // in-flight save of the same row.
-    scope: { id: 'series' },
-  });
-}
-
-/**
- * Record a completed FTP upload. Stores where each page went and puts
- * the upload in the activity feed and the version history — the account of an
- * upload that the browser-side scupper call leaves no trace of.
- */
-export function useRecordFtpUpload() {
-  const qc = useQueryClient();
-  return useMutation({
-    // The id addresses the series; everything else is the body. Handing the
-    // whole variables object over as the body posts the id too, which the
-    // endpoint's strict schema rejects.
-    mutationFn: ({ id, ...upload }: { id: string } & FtpUploadInput) =>
-      recordFtpUpload(id, upload),
-    onSuccess: (saved) => {
-      qc.setQueryData(queryKeys.series.detail(saved.id), saved);
-      qc.invalidateQueries({ queryKey: queryKeys.series.list() });
-      // The upload pinned a revision and logged an entry, so the History tab's
-      // two reads are both stale.
-      qc.invalidateQueries({ queryKey: queryKeys.revisions.all });
-      qc.invalidateQueries({ queryKey: queryKeys.activity.all });
-    },
     scope: { id: 'series' },
   });
 }
