@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import type { Candidate } from '@/lib/finish-sheet-csv';
-import { diffSheets, matchOf, readSubmission } from '@/lib/finish-submission';
-import type { Finish, SubmittedFinish } from '@/lib/types';
+import { diffSheets, matchOf, raceCandidates, readSubmission } from '@/lib/finish-submission';
+import type { Competitor, Finish, RaceStart, SubmittedFinish } from '@/lib/types';
 
 const candidates: Candidate[] = [
   { id: 'c1', sailNumber: '15', fleetIds: ['f1'] },
@@ -91,5 +91,25 @@ describe('diffSheets', () => {
     expect(diffSheets(current, incoming)).toEqual([
       { competitorId: 'c1', unknownSailNumber: null, before: { place: 1, time: '1:01', code: null }, after: { place: 1, time: '1:01', code: null }, changed: false },
     ]);
+  });
+});
+
+describe('raceCandidates', () => {
+  const boat = (id: string, fleetIds: string[]): Competitor =>
+    ({ id, seriesId: 's', sailNumber: id.toUpperCase(), fleetIds, names: ['A'], gender: '', age: null, createdAt: 0 }) as Competitor;
+  const start = (fleetIds: string[]): RaceStart => ({ id: `st-${fleetIds.join()}`, raceId: 'r', fleetIds });
+  const names: Record<string, string> = { f1: 'Class 1', f2: 'Class 2' };
+
+  it('is the boats in the race\'s fleets, with those fleets\' names', () => {
+    const got = raceCandidates([boat('a', ['f1']), boat('b', ['f2']), boat('c', ['f1', 'f2'])], [start(['f1'])], (id) => names[id]);
+    expect(got.map((c) => [c.id, c.fleetNames])).toEqual([
+      ['a', ['Class 1']],
+      ['c', ['Class 1']],
+    ]);
+  });
+
+  it('is every boat while the race has no starts, fleets or not', () => {
+    const got = raceCandidates([boat('a', ['f1']), boat('q', [])], [], (id) => names[id]);
+    expect(got.map((c) => c.id)).toEqual(['a', 'q']);
   });
 });

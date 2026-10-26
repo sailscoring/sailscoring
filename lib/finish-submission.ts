@@ -37,7 +37,7 @@ export function raceCandidates(
   const fleetIds = raceFleetIds(starts as RaceStart[]);
   const inRace = (id: string) => fleetIds.size === 0 || fleetIds.has(id);
   return withRaceSailNumbers(competitors as Competitor[], starts)
-    .filter((c) => c.fleetIds.some(inRace))
+    .filter((c) => fleetIds.size === 0 || c.fleetIds.some(inRace))
     .map((c) => ({
       ...c,
       fleetNames: c.fleetIds
