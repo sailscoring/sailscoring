@@ -1338,6 +1338,62 @@ export interface Finish {
   version?: number;                     // server-side concurrency token (see Series.version)
 }
 
+/** Where a finish sheet submission stands with the scorer. A new revision of
+ *  an applied or dismissed submission is pending again: it's a correction
+ *  the scorer hasn't seen. */
+export type FinishSubmissionStatus = 'pending' | 'applied' | 'dismissed';
+
+/** A start time taken on the water, for one of the race's starts. */
+export interface SubmittedStart {
+  startId: string;
+  startTime: string;               // "HH:MM:SS", local, on the race's date
+}
+
+/** One row of a submitted finish sheet. Row order is crossing order. A row
+ *  names its boat by `competitorId` where the recorder knew the entry, else
+ *  by the `sailNumber` written down, which the scorer's review matches as an
+ *  imported sheet's would be. A boat that didn't finish carries a
+ *  `resultCode` and no time. */
+export interface SubmittedFinish {
+  id: string;
+  competitorId: string | null;
+  sailNumber: string | null;
+  finishTime: string | null;       // "HH:MM:SS"
+  elapsedSecs: number | null;
+  resultCode: string | null;
+}
+
+/**
+ * A finish sheet submission: a recording of one race's finishes, made by
+ * someone who may not be the scorer, held beside the race until a scorer
+ * applies it into the finish sheet or dismisses it. Each upload replaces the
+ * whole recording at a higher `revision`. Working data, like the activity
+ * log: never part of the `.sailscoring` file, and gone with its race.
+ */
+export interface FinishSubmission {
+  id: string;
+  raceId: string;
+  seriesId: string;
+  revision: number;
+  /** A label for the device or the person, as the recorder gave it. */
+  recordedBy: string | null;
+  starts: SubmittedStart[];
+  finishes: SubmittedFinish[];
+  /** False while the recorder is still taking finishes down. */
+  complete: boolean;
+  status: FinishSubmissionStatus;
+  submittedBy: { id: string; name: string | null } | null;
+  /** The outside app it came through, when it did. */
+  via: { clientId: string; name: string } | null;
+  createdAt: number;
+  /** When the current revision arrived. */
+  submittedAt: number;
+  reviewedBy: { id: string; name: string | null } | null;
+  reviewedAt: number | null;
+  /** The revision the last review was of. */
+  reviewedRevision: number | null;
+}
+
 // Calculated, not stored
 export interface RaceScore {
   competitorId: string;

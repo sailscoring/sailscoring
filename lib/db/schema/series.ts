@@ -48,6 +48,9 @@ import type {
   RaceDiscardPolicy,
   RaceFleetExclusion,
   FinishTrackData,
+  FinishSubmissionStatus,
+  SubmittedFinish,
+  SubmittedStart,
   RaceOfficial,
   RaceSenseLink,
   RrsOrgPushConfig,
@@ -1443,6 +1446,49 @@ export const idempotencyKeys = pgTable('idempotency_keys', {
   uniqueIndex('idempotency_keys_pk').on(table.workspaceId, table.key),
   index('idempotency_keys_created_idx').on(table.createdAt),
 ]);
+
+/**
+ * Finish sheet submissions (#671): a recording of one race's finishes, held
+ * beside the race until a scorer applies it into the finish sheet or
+ * dismisses it. The row is the submission's current revision; each upload
+ * replaces `starts`, `finishes` and `complete` at a higher `revision`.
+ * Working data rather than series state, so it isn't in the `.sailscoring`
+ * file or the revision snapshots; it goes with its race.
+ *
+ * The user columns are plain text, not foreign keys, for the activity log's
+ * reason: the record outlives an account. `via_*` names the outside app a
+ * submission came through.
+ */
+export const finishSubmissions = pgTable(
+  'finish_submissions',
+  {
+    id: uuid('id').primaryKey(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'cascade' }),
+    raceId: uuid('race_id')
+      .notNull()
+      .references(() => races.id, { onDelete: 'cascade' }),
+    revision: integer('revision').notNull(),
+    recordedBy: text('recorded_by'),
+    starts: jsonb('starts').$type<SubmittedStart[]>().notNull(),
+    finishes: jsonb('finishes').$type<SubmittedFinish[]>().notNull(),
+    complete: boolean('complete').notNull().default(false),
+    status: text('status').$type<FinishSubmissionStatus>().notNull().default('pending'),
+    submittedByUserId: text('submitted_by_user_id'),
+    viaClientId: text('via_client_id'),
+    viaName: text('via_name'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    submittedAt: timestamp('submitted_at', { withTimezone: true }).notNull().defaultNow(),
+    reviewedByUserId: text('reviewed_by_user_id'),
+    reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
+    reviewedRevision: integer('reviewed_revision'),
+  },
+  (table) => [
+    index('finish_submissions_race_idx').on(table.raceId),
+    index('finish_submissions_workspace_status_idx').on(table.workspaceId, table.status),
+  ],
+);
 
 /**
  * Activity log (#153, ADR-008 Phase 10). Workspace-scoped, append-only record
