@@ -897,16 +897,16 @@ const SHOTS: Shot[] = [
     },
   },
   {
-    // Inventory: FTP upload to your own site — the Publish dialog's second
-    // destination, with a remote path per published page (#541). Sits after
-    // the entry-list shots on purpose: their gate is on by then, so the
-    // picture shows what the destination is for — every page the series
-    // publishes, the entry list among them, not just the fleets.
+    // Inventory: FTP upload to your own site — the Publish dialog's FTP tab,
+    // with a remote path per published page. Sits after the entry-list shots
+    // on purpose: their gate is on by then, so the picture shows every page
+    // the series publishes, the entry list among them, not just the fleets.
     //
     // Operator-gated, and it needs a server to upload to, so local mode
     // flips the gate and adds a throwaway one. The paths are typed in to
-    // show what the rows are for; nothing is uploaded, and the series is put
-    // back in Sail Scoring mode so later shots open the dialog as found.
+    // show what the rows are for — and save as they are typed, so they are
+    // cleared again afterwards: a later shot that publishes would otherwise
+    // try to upload to a server that isn't there.
     slug: 'ftp-upload',
     group: 'Publishing',
     async capture({ page, seriesId, shot }) {
@@ -934,7 +934,7 @@ const SHOTS: Shot[] = [
       await page.getByRole('button', { name: 'Publish…', exact: true }).click();
       const dialog = page.getByRole('dialog');
       await dialog.waitFor();
-      await dialog.getByRole('button', { name: 'Your website (FTP)' }).click();
+      await dialog.getByRole('tab', { name: 'Your website (FTP)' }).click();
       await dialog.getByRole('combobox').click();
       await page.getByRole('option', { name: new RegExp(host.replace('.', '\\.')) }).click();
 
@@ -954,9 +954,9 @@ const SHOTS: Shot[] = [
       await settle(page);
       await shot('ftp-upload.png');
 
-      // Leave the dialog where it was found: the destination is remembered
-      // per series, and every later shot of it expects Sail Scoring pages.
-      await dialog.getByRole('button', { name: 'Sail Scoring pages' }).click();
+      // Leave the series as it was found: no page bound for the club site.
+      for (const input of rows) await input.fill('');
+      await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
       await settle(page);
       await page.keyboard.press('Escape');
       await dialog.waitFor({ state: 'hidden' }).catch(() => {});
