@@ -858,51 +858,54 @@ const SHOTS: Shot[] = [
     // Inventory: Prizes — the sample league's Class 1 scored under IRC and
     // ECHO at once, with DBSC NoR 9.2's rule: a boat placed in the IRC prize
     // is passed over for the ECHO one. The tab shows both podiums and the
-    // boats the ECHO prize skipped. The prizes are put back as they were.
+    // boats the ECHO prize skipped.
     slug: 'prizes',
     group: 'Publishing',
     async capture({ page, seriesId, shot }) {
       await ensureFeature(page, 'prizes');
       const id = await seriesId();
-      const series = (await (await page.request.get(`${BASE}/api/v1/series/${id}`)).json()) as Record<string, unknown>;
-      const fleets = (await (await page.request.get(`${BASE}/api/v1/series/${id}/fleets`)).json()) as { id: string; name: string }[];
-      const fleetId = (name: string) => {
-        const fleet = fleets.find((f) => f.name === name);
-        if (!fleet) throw new Error(`prizes shot: no fleet named ${name}`);
-        return fleet.id;
-      };
-      const ircId = crypto.randomUUID();
-      const putPrizes = async (prizes: unknown) => {
-        const current = (await (await page.request.get(`${BASE}/api/v1/series/${id}`)).json()) as Record<string, unknown>;
-        const res = await page.request.put(`${BASE}/api/v1/series/${id}`, { data: { ...current, prizes } });
-        if (!res.ok()) throw new Error(`prizes shot: PUT series ${res.status()}`);
-      };
-      await putPrizes([
-        {
-          id: ircId,
-          name: 'Class 1 IRC 1st, 2nd, 3rd',
-          recipientCount: 3,
-          clauses: [{ kind: 'fleet', fleetId: fleetId('Class 1 IRC') }],
-        },
-        {
-          id: crypto.randomUUID(),
-          name: 'Class 1 ECHO 1st, 2nd, 3rd',
-          recipientCount: 3,
-          clauses: [
-            { kind: 'fleet', fleetId: fleetId('Class 1 ECHO') },
-            { kind: 'not-awarded', prizeId: ircId },
-          ],
-        },
-      ]);
-      try {
+      await withSamplePrizes(page, id, async () => {
         await page.goto(`${BASE}/series/${id}/prizes`);
         await page.getByRole('heading', { name: 'Class 1 ECHO 1st, 2nd, 3rd' }).waitFor();
         await settle(page);
         // Full page: the skipped boats sit under the second podium.
         await shot('prizes.png', { fullPage: true });
-      } finally {
-        await putPrizes(series.prizes ?? []);
-      }
+      });
+    },
+  },
+  {
+    // Inventory: Prize-giving sheet — the same two prizes' running order as
+    // it prints. Taken from Preview's rendering of the Prizes page rather than
+    // a publish, so the sample league's public pages stay as the other shots
+    // expect; the view is the body class its address sets.
+    slug: 'prize-giving-sheet',
+    group: 'Publishing',
+    async capture({ page, anon, seriesId, shot }) {
+      await ensureFeature(page, 'prizes');
+      const id = await seriesId();
+      await withSamplePrizes(page, id, async () => {
+        await page.goto(`${BASE}/series/${id}/standings`);
+        await settle(page);
+        await page.getByRole('button', { name: 'Preview', exact: true }).click();
+        const dialog = page.getByRole('dialog');
+        await dialog.getByRole('heading', { name: 'Preview results' }).waitFor();
+        await dialog.getByRole('combobox').last().click();
+        await page.getByRole('option', { name: 'Prizes', exact: true }).click();
+        const frameEl = page.locator('iframe[title="Results preview"]');
+        await page.frameLocator('iframe[title="Results preview"]').locator('.pgsheet').waitFor({ state: 'attached' });
+        const frame = await (await frameEl.elementHandle())!.contentFrame();
+        const html = await frame!.content();
+        await page.keyboard.press('Escape');
+        await dialog.waitFor({ state: 'hidden' }).catch(() => {});
+
+        const pub = await anon.newPage();
+        await pub.setContent(html);
+        await pub.evaluate(() => document.body.classList.add('prizegiving'));
+        await pub.emulateMedia({ media: 'print' });
+        await settle(pub);
+        await shot('prize-giving-sheet.png', { page: pub });
+        await pub.close();
+      });
     },
   },
   {
@@ -2545,6 +2548,47 @@ async function openRace(page: Page, seriesId: string, raceNumber: number) {
  * with it ticked, which is why the dialog's button reads Re-publish the
  * second time round.
  */
+/** Give the sample league two prizes for the length of `body`, then put its
+ *  prize list back: Class 1's IRC podium, and its ECHO podium passing over
+ *  the IRC prize-winners (DBSC NoR 9.2). */
+async function withSamplePrizes(page: Page, id: string, body: () => Promise<void>): Promise<void> {
+  const original = (await (await page.request.get(`${BASE}/api/v1/series/${id}`)).json()) as { prizes?: unknown };
+  const fleets = (await (await page.request.get(`${BASE}/api/v1/series/${id}/fleets`)).json()) as { id: string; name: string }[];
+  const fleetId = (name: string) => {
+    const fleet = fleets.find((f) => f.name === name);
+    if (!fleet) throw new Error(`sample prizes: no fleet named ${name}`);
+    return fleet.id;
+  };
+  const putPrizes = async (prizes: unknown) => {
+    const current = (await (await page.request.get(`${BASE}/api/v1/series/${id}`)).json()) as Record<string, unknown>;
+    const res = await page.request.put(`${BASE}/api/v1/series/${id}`, { data: { ...current, prizes } });
+    if (!res.ok()) throw new Error(`sample prizes: PUT series ${res.status()}`);
+  };
+  const ircId = crypto.randomUUID();
+  await putPrizes([
+    {
+      id: ircId,
+      name: 'Class 1 IRC 1st, 2nd, 3rd',
+      recipientCount: 3,
+      clauses: [{ kind: 'fleet', fleetId: fleetId('Class 1 IRC') }],
+    },
+    {
+      id: crypto.randomUUID(),
+      name: 'Class 1 ECHO 1st, 2nd, 3rd',
+      recipientCount: 3,
+      clauses: [
+        { kind: 'fleet', fleetId: fleetId('Class 1 ECHO') },
+        { kind: 'not-awarded', prizeId: ircId },
+      ],
+    },
+  ]);
+  try {
+    await body();
+  } finally {
+    await putPrizes(original.prizes ?? []);
+  }
+}
+
 async function publishEntriesPage(page: Page, seriesId: string, suffix = '/entries'): Promise<string> {
   await page.goto(`${BASE}/series/${seriesId}/standings`);
   await settle(page);

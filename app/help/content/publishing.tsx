@@ -680,6 +680,42 @@ export default function Publishing() {
           </p>
         </Section>
       )}
+      {has('prizes') && (
+        <Section id="prize-giving-sheet" title="The prize-giving sheet">
+          <HelpShot
+            src="/help/shots/prize-giving-sheet.webp"
+            alt="The prize-giving sheet: each prize's places with a box to tick, and a boat passed over named under its prize."
+            caption="The running order the compere reads from: places as published, a box to tick as each is presented."
+          />
+          <p>
+            The published Prizes page carries a{' '}
+            <strong className="text-foreground">prize-giving sheet</strong> to print for the
+            people running the ceremony. Follow{' '}
+            <strong className="text-foreground">Prize-giving sheet</strong> in the page’s footer,
+            or open the Prizes page in <strong className="text-foreground">Preview</strong> to get
+            it before you publish. Like the starters checklist it is a view of the page with an
+            address of its own, so you see it before you print it, and printing it — or saving it
+            as a PDF — is your browser’s ordinary Print.{' '}
+            <strong className="text-foreground">Back to the prizes</strong> returns.
+          </p>
+          <p>
+            The <strong className="text-foreground">running order</strong> is for the compere:
+            each prize in the order of your prize list — drag the prizes on the Prizes tab into
+            the order the ceremony runs — with its places as published, a box to tick as each
+            is presented, and who to call up, their sail number and club. A boat name and club
+            appear when your results publish those columns. A prize no boat is eligible for says
+            so, and a boat passed over because it already holds another prize is named under it,
+            which is the question the compere will be asked.
+          </p>
+          <p>
+            The <strong className="text-foreground">by-boat</strong> list starts on a page of its
+            own, for whoever lays out the prize table: every boat that won something, once, with
+            all its prizes together, so the trophies can be grouped and the skipper comes up
+            once. The sheet heads itself with the series name and whether the results are final
+            — print it again if a protest changes the standings.
+          </p>
+        </Section>
+      )}
       {has('logo-library') && (
       <Section id="logo-library" title="The logo library">
         <HelpShot

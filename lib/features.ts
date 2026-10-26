@@ -259,11 +259,11 @@ export const FEATURES = {
   'prizes': {
     // Prize allocation (#240): the Prizes tab (named awards with an
     // eligibility predicate over fleet / subdivision axes / rank, top-N by
-    // series standing) and the published prize-sheet page. Opt-in (default
-    // off) while the predicate model proves out against real NoRs, per the
-    // containment model.
+    // series standing), the published prize-sheet page and its prize-giving
+    // sheet view. Opt-in (default off) while the predicate model proves out
+    // against real NoRs, per the containment model.
     label: 'Prizes',
-    helpSectionIds: ['prizes'],
+    helpSectionIds: ['prizes', 'prize-giving-sheet'],
   },
   'page-notes': {
     // Explanatory notes on published pages (#511): the note editor in the
