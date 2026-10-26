@@ -479,11 +479,15 @@ export function FinishTab(props: FinishTabProps) {
   // once the sheet carries either. Clearing the rows unlocks it.
   const hasRecordedTimes = finishTimes.size > 0 || elapsedSecs.size > 0;
 
+  // Side by side by the width the tab has, not the window's: the Record
+  // finishes page holds it in a column a phone could, and a non-finishers
+  // panel squeezed beside the order there pushes its rows out of the card.
   return (
+    <div className="@container">
     <div
       className={cn(
         'grid grid-cols-1 gap-8',
-        showNonFinishersPanel && 'md:grid-cols-[3fr_2fr]',
+        showNonFinishersPanel && '@3xl:grid-cols-[3fr_2fr]',
       )}
     >
       {/* Left: finishing order. min-w-0 lets the grid track honour its
@@ -1300,6 +1304,7 @@ export function FinishTab(props: FinishTabProps) {
           </div>
       </div>
       )}
+    </div>
     </div>
   );
 }
