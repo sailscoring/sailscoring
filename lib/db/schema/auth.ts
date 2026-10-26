@@ -280,7 +280,9 @@ export const apikey = pgTable(
 // ─── OAuth (ADR-016) ─────────────────────────────────────────────────────────
 // Hand-written to mirror the field schema of @better-auth/oauth-provider and
 // its device authorization grant; the keys are the plugin's model names,
-// which is how the Drizzle adapter finds them.
+// which is how the Drizzle adapter finds them. The two token tables'
+// `session_id` is always NULL: a trigger (migration 0122) clears it, so a
+// grant outlives the browser session it was approved in.
 
 /** An app registered to ask users for access: an outside app, or the CLI. */
 export const oauthClient = pgTable(

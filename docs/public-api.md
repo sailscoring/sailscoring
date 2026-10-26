@@ -47,8 +47,9 @@ in one workspace they chose, and never beyond what their role there allows.
 3. **Exchange the code** at `POST /api/auth/oauth2/token`
    (`grant_type=authorization_code`, with the `code_verifier`), and get an
    access token (`ssat_…`, an hour) and, if you asked for `offline_access`,
-   a refresh token (`ssrt_…`, 90 days). Renew with
-   `grant_type=refresh_token`.
+   a refresh token (`ssrt_…`, 180 days). Renew with
+   `grant_type=refresh_token`: each refresh returns a new refresh token, for
+   another 180 days, and the old one stops working.
 4. **Call the API** with `Authorization: Bearer ssat_…`.
 
 The workspace must have connected apps switched on; Sail Scoring switches
@@ -65,10 +66,23 @@ document is at `/.well-known/oauth-authorization-server`.
 
 A grant covers **one workspace**. An app that should reach two is connected
 to each, and keeps a token for each. The user can see and disconnect it from
-their account page. An access token is tied to the browser session the user
-approved it in: signing out ends it, and the refresh token gets a new one; a
-session that lapses (90 days without using Sail Scoring in that browser)
-ends the grant, and the app asks again.
+their account page.
+
+A grant doesn't depend on the browser it was approved in: the user can sign
+out, or never open Sail Scoring again, and the app carries on. It lasts as
+long as the app refreshes at least once every 180 days. It ends when:
+
+- the app goes 180 days without refreshing;
+- the app presents a refresh token that has already been replaced. That is
+  treated as a stolen token, and ends every grant the user gave the app, so
+  refresh one at a time, and store the new refresh token before using the
+  new access token;
+- the user disconnects the app from their account page.
+
+The app then sends the user through the flow again. Some things refuse calls
+(`403`) without ending the grant, which works again once they're undone: the
+user leaving the workspace, a role that doesn't allow the call, and connected
+apps being switched off for the workspace.
 
 ## Calls
 

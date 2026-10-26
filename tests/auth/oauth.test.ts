@@ -105,14 +105,14 @@ describe.skipIf(!DATABASE_URL)('OAuth for outside apps and the CLI', () => {
     expect(await resolve('not-even-prefixed')).toBeNull();
   });
 
-  test('signing out ends the access token, and a refresh gives the app another', async () => {
+  test('signing out leaves the app’s access as it was', async () => {
     const other = await signInFreshUser('oauth-signout');
     try {
       await setConnectedApps(other.personalWorkspaceId, true);
       const tokens = await grantApp(other, appId, other.personalWorkspaceId);
       const out = await request(other, '/api/auth/sign-out', { json: {} });
       expect(out.status).toBe(200);
-      expect(await resolve(tokens.accessToken)).toBeNull();
+      expect((await resolve(tokens.accessToken))?.workspaceId).toBe(other.personalWorkspaceId);
       const again = await exchange({ grant_type: 'refresh_token', refresh_token: tokens.refreshToken, client_id: appId });
       expect((await resolve(again.accessToken))?.workspaceId).toBe(other.personalWorkspaceId);
     } finally {
@@ -120,7 +120,7 @@ describe.skipIf(!DATABASE_URL)('OAuth for outside apps and the CLI', () => {
     }
   });
 
-  test('a lapsed session takes the app’s access with it', async () => {
+  test('a lapsed session leaves the app’s access as it was', async () => {
     const other = await signInFreshUser('oauth-lapse');
     try {
       await setConnectedApps(other.personalWorkspaceId, true);
@@ -129,9 +129,20 @@ describe.skipIf(!DATABASE_URL)('OAuth for outside apps and the CLI', () => {
         .update(schema.session)
         .set({ expiresAt: new Date(Date.now() - 1000) })
         .where(eq(schema.session.userId, other.userId));
-      expect(await resolve(tokens.accessToken)).toBeNull();
+      expect((await resolve(tokens.accessToken))?.workspaceId).toBe(other.personalWorkspaceId);
       const again = await exchange({ grant_type: 'refresh_token', refresh_token: tokens.refreshToken, client_id: appId });
-      expect(await resolve(again.accessToken)).toBeNull();
+      expect((await resolve(again.accessToken))?.workspaceId).toBe(other.personalWorkspaceId);
+
+      // No token remembers the session, and each refresh gives the grant
+      // another 180 days.
+      const db = getDb();
+      const accessRows = await db.select().from(schema.oauthAccessToken).where(eq(schema.oauthAccessToken.userId, other.userId));
+      const refreshRows = await db.select().from(schema.oauthRefreshToken).where(eq(schema.oauthRefreshToken.userId, other.userId));
+      const rows = [...accessRows, ...refreshRows];
+      expect(rows.length).toBeGreaterThan(0);
+      expect(rows.filter((r) => r.sessionId !== null)).toEqual([]);
+      const latest = refreshRows.find((r) => !r.revoked);
+      expect(latest?.expiresAt?.getTime()).toBeGreaterThan(Date.now() + 179 * 24 * 60 * 60 * 1000);
     } finally {
       await removeUser(other);
     }

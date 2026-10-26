@@ -3,7 +3,9 @@
 **Status:** Accepted (2026-10-25). Implemented by #695–#701. Amended
 2026-10-26: the authenticated part is no longer a preview (§5); its calls
 carry the same promise as the publications. Also amended 2026-10-26: a
-`submissions` scope for finish sheet submissions (§4, #671).
+`submissions` scope for finish sheet submissions (§4, #671); and a grant
+outlives the browser session it was approved in, with refresh tokens of
+180 days (§4, #702).
 
 **Date:** 2026-10-25
 
@@ -344,13 +346,23 @@ findings:
   carry an `ssat_` prefix and refresh tokens `ssrt_`, which keeps the
   api-key plugin (which takes any bearer token as a key) from seeing them.
   Access tokens last an hour and refresh tokens 90 days, longer than an
-  offline race day by far.
+  offline race day by far. *Amended 2026-10-26:* refresh tokens last 180
+  days (#702). Each refresh starts the period again, so it is the longest
+  an app may go unused and keep its grant, and 180 days covers an
+  off-season.
 - **An access token is tied to the browser session it was approved in.** The
   provider checks that session on every call. Signing out of that browser
   ends the access token, but the app's refresh token gets it a new one that
   isn't tied to any session, so the app carries on. A session that lapses
   instead (90 days without using Sail Scoring in that browser) takes the
-  app's access with it, and the app asks again.
+  app's access with it, and the app asks again. *Amended 2026-10-26:* no
+  longer (#702). A refresh never kept the session alive, so a club's race
+  desk, connected once from a shared account nobody signs in to between
+  seasons, lost its grant every spring, while signing out would have kept
+  it. The provider has no option to stop linking tokens to the session, so
+  a trigger keeps `session_id` empty in both token tables, and a token is
+  checked on its own expiry and revocation, its app, its workspace and its
+  user's role. The CLI's tokens are treated the same way.
 - **Magic-link sign-in needed one change.** The provider resumes the app's
   request only when the session is created in the same request as the
   sign-in, which a magic link never does. The sign-in page makes the link's

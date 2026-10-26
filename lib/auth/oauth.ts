@@ -145,9 +145,12 @@ export const oauthOptions = {
   disableJwtPlugin: true,
   allowDynamicClientRegistration: false,
   accessTokenExpiresIn: 60 * 60,
-  // Long enough for an app used once a week through a season; the session
-  // the grant was approved in lasts 90 days on the same terms.
-  refreshTokenExpiresIn: 90 * DAY,
+  // Each refresh starts the period again, so this is the longest an app may
+  // go unused and keep its grant: an off-season, for a club's race-day app.
+  // A grant doesn't depend on the browser session it was approved in (the
+  // token tables never store that link; see the 0122 migration), so this is
+  // the only clock on it.
+  refreshTokenExpiresIn: 180 * DAY,
   prefix: { opaqueAccessToken: ACCESS_TOKEN_PREFIX, refreshToken: REFRESH_TOKEN_PREFIX },
   postLogin: {
     page: '/oauth/workspace',
@@ -185,8 +188,8 @@ export interface ResolvedAccessToken {
  * Our own companion plugin, two server-only endpoints:
  *
  * - `resolveAccessToken` resolves an access token with the provider's own
- *   validation (expiry, revocation, a disabled client, the session it was
- *   approved in), for the route wrappers to call.
+ *   validation (expiry, revocation, a disabled client), for the route
+ *   wrappers to call.
  * - `registerOAuthApp` registers an app on the operator's behalf, for
  *   `scripts/oauth-client.ts`. The provider's admin registration acts as a
  *   signed-in owner; a script has no session, so this one runs it as the
