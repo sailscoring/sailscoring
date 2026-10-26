@@ -627,6 +627,11 @@ export default function Publishing() {
       )}
       {has('prizes') && (
         <Section id="prizes" title="Prizes">
+          <HelpShot
+            src="/help/shots/prizes.webp"
+            alt="The Prizes tab: a class's IRC and ECHO podiums, the ECHO prize skipping the IRC prize-winners."
+            caption="A class scored under IRC and ECHO: the ECHO prize passes over the IRC prize-winners."
+          />
           <p>
             The <strong className="text-foreground">Prizes</strong> tab turns the Notice of Race’s
             prize list into named awards allocated live from the series standings. A prize is a
@@ -640,6 +645,20 @@ export default function Publishing() {
             recipients, updating as results come in. Press{' '}
             <strong className="text-foreground">a</strong> to add a prize; drag to reorder the
             prize-giving sheet.
+          </p>
+          <p>
+            Many Notices of Race stop a boat winning twice — a boat winning a prize under IRC isn’t
+            eligible for the ECHO prize, or no boat takes more than one prize. Add a{' '}
+            <strong className="text-foreground">Not a prize-winner in</strong> condition and choose
+            the prize it names (add one condition per prize for “IRC or Scratch”), or{' '}
+            <strong className="text-foreground">Any prize above</strong> for one prize per boat, and
+            whether any place rules a boat out or only <strong className="text-foreground">1st</strong>.
+            A boat it rules out is skipped and the places below move up; each prize lists the boats
+            it skipped and why, so you can check them before the prize-giving. A prize that names
+            another is always worked out after it, so you can order the list the way the prize-giving
+            runs — only “any prize above” depends on where a prize sits. Use the number of places,
+            not a series-rank condition, when places should move up: a rank condition still reads
+            the boat’s place in the standings.
           </p>
           <p>
             Importing a Sailwave file that defines prizes brings them in automatically — fleet,

@@ -855,6 +855,57 @@ const SHOTS: Shot[] = [
     },
   },
   {
+    // Inventory: Prizes — the sample league's Class 1 scored under IRC and
+    // ECHO at once, with DBSC NoR 9.2's rule: a boat placed in the IRC prize
+    // is passed over for the ECHO one. The tab shows both podiums and the
+    // boats the ECHO prize skipped. The prizes are put back as they were.
+    slug: 'prizes',
+    group: 'Publishing',
+    async capture({ page, seriesId, shot }) {
+      await ensureFeature(page, 'prizes');
+      const id = await seriesId();
+      const series = (await (await page.request.get(`${BASE}/api/v1/series/${id}`)).json()) as Record<string, unknown>;
+      const fleets = (await (await page.request.get(`${BASE}/api/v1/series/${id}/fleets`)).json()) as { id: string; name: string }[];
+      const fleetId = (name: string) => {
+        const fleet = fleets.find((f) => f.name === name);
+        if (!fleet) throw new Error(`prizes shot: no fleet named ${name}`);
+        return fleet.id;
+      };
+      const ircId = crypto.randomUUID();
+      const putPrizes = async (prizes: unknown) => {
+        const current = (await (await page.request.get(`${BASE}/api/v1/series/${id}`)).json()) as Record<string, unknown>;
+        const res = await page.request.put(`${BASE}/api/v1/series/${id}`, { data: { ...current, prizes } });
+        if (!res.ok()) throw new Error(`prizes shot: PUT series ${res.status()}`);
+      };
+      await putPrizes([
+        {
+          id: ircId,
+          name: 'Class 1 IRC 1st, 2nd, 3rd',
+          recipientCount: 3,
+          clauses: [{ kind: 'fleet', fleetId: fleetId('Class 1 IRC') }],
+        },
+        {
+          id: crypto.randomUUID(),
+          name: 'Class 1 ECHO 1st, 2nd, 3rd',
+          recipientCount: 3,
+          clauses: [
+            { kind: 'fleet', fleetId: fleetId('Class 1 ECHO') },
+            { kind: 'not-awarded', prizeId: ircId },
+          ],
+        },
+      ]);
+      try {
+        await page.goto(`${BASE}/series/${id}/prizes`);
+        await page.getByRole('heading', { name: 'Class 1 ECHO 1st, 2nd, 3rd' }).waitFor();
+        await settle(page);
+        // Full page: the skipped boats sit under the second podium.
+        await shot('prizes.png', { fullPage: true });
+      } finally {
+        await putPrizes(series.prizes ?? []);
+      }
+    },
+  },
+  {
     // Inventory: Starters checklist — the published competitor list as it
     // prints for the committee boat: one table per start, tick boxes. The
     // sheet is a view of the page with its own address, so the capture goes
