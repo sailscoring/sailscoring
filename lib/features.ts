@@ -406,11 +406,9 @@ export const FEATURES = {
     // Finish sheets handed to the scorer for review rather than written
     // straight in: the `recorder` role, the Record finishes page, the
     // waiting-submissions panel on a race's Finish tab, and the public API's
-    // `submissions` calls. Operator-managed while the review flow beds in
-    // with its first clubs and race-day apps.
+    // `submissions` calls (which also need `connected-apps`).
     label: 'Finish sheet submissions',
     helpSectionIds: ['finish-submissions'],
-    selfService: false,
   },
 } as const satisfies Record<string, FeatureDef>;
 

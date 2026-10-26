@@ -18,7 +18,7 @@ import {
  * someone who may not be the scorer, held beside the race until a scorer
  * applies it to the finish sheet or dismisses it.
  *
- * Gated behind the operator-managed `finish-submissions` feature.
+ * Gated behind the self-service `finish-submissions` feature.
  */
 
 /** A quick series with three boats and one race; returns the ids and leaves
