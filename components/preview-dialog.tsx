@@ -186,19 +186,21 @@ export function PreviewDialog({ series, fleets, open, onClose, onPublish, canEdi
   // The print dialog derives its suggested filename from the *top* document's
   // title (not the iframe's), which is the app shell ("Sail Scoring"). Swap in
   // a descriptive title for the duration of any print of the frame — ours
-  // above, or one the document starts itself, like the competitor list's
-  // "Print starters checklist" button — so the saved PDF is named after the
-  // series and fleet, or after the checklist, then restore it.
+  // above, or the browser's own from one of the page's sheet views (the
+  // starters checklist, the prize-giving sheet) — so the saved PDF is named
+  // after the series and fleet, or after the sheet, then restore it.
   function watchFramePrints(frame: HTMLIFrameElement) {
     const win = frame.contentWindow;
     if (!win || !current) return;
     let previousTitle: string | null = null;
     win.addEventListener('beforeprint', () => {
       previousTitle = document.title;
-      const checklist = win.document.body.classList.contains('starters');
-      document.title = checklist
+      const body = win.document.body.classList;
+      document.title = body.contains('starters')
         ? `${series.name} - Starters checklist`
-        : fleetPdfTitle(series.name, current);
+        : body.contains('prizegiving')
+          ? `${series.name} - Prize-giving sheet`
+          : fleetPdfTitle(series.name, current);
     });
     win.addEventListener('afterprint', () => {
       if (previousTitle !== null) document.title = previousTitle;

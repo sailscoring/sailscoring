@@ -12,7 +12,8 @@ import {
   type CompetitorListRow,
   type CompetitorListGroup,
 } from '@/lib/results-renderer';
-import type { ResultCode } from '@/lib/types';
+import type { CompetitorFieldKey, ResultCode } from '@/lib/types';
+import type { PrizeAllocation } from '@/lib/prizes';
 
 // ---- Fixtures ----
 
@@ -2074,6 +2075,97 @@ describe('renderPrizesHtml', () => {
       { fleets: [fleet], axes, multiFleet: false },
     );
     expect(html).toContain('Not a prize-winner in Gold Fleet 1st, 2nd &amp; 3rd');
+  });
+
+  describe('the prize-giving sheet', () => {
+    const series = { name: 'ILCA Leinsters', venue: 'Sligo YC' };
+    const withBoat = (r: ReturnType<typeof recipient>, boatName: string, clubs: string[]) => ({
+      ...r,
+      standing: { ...r.standing, competitor: { ...r.standing.competitor, boatName, clubs } },
+    });
+    const gold = {
+      ...allocation,
+      recipients: [
+        withBoat(recipient(1, 1, '218401', 'Alice <A>'), 'Checkmate', ['HYC', 'RStGYC']),
+        recipient(2, 4, '218402', 'Bob'),
+        recipient(3, 7, '218403', 'Carol'),
+      ],
+    };
+    const lady = {
+      prize: { id: 'p2', name: 'Lady 1st', recipientCount: 1, clauses: [] },
+      recipients: [withBoat(recipient(1, 1, '218401', 'Alice <A>'), 'Checkmate', ['HYC', 'RStGYC'])],
+      eligibleCount: 1,
+      skipped: [],
+      warnings: [],
+    };
+    const silver = {
+      prize: { id: 'p3', name: 'Silver 1st', recipientCount: 1, clauses: [] },
+      recipients: [],
+      eligibleCount: 0,
+      skipped: [{ ...recipient(1, 4, '218402', 'Bob'), prizeId: 'p1', place: 2 }],
+      warnings: [],
+    };
+    const render = (allocations: PrizeAllocation[], fields: CompetitorFieldKey[] = ['boatName', 'club'], chrome = {}) =>
+      renderPrizesHtml({ series, generatedAt: new Date('2026-09-12T16:30:00Z'), ...chrome }, allocations, {
+        fleets: [fleet],
+        axes,
+        multiFleet: false,
+        primaryPersonLabel: 'helm',
+        enabledCompetitorFields: fields,
+      });
+
+    it('is a view of the prize page with its own address', () => {
+      const html = render([gold]);
+      expect(html).toContain('<div class="prizesheet">');
+      expect(html).toContain('<div class="pgsheet">');
+      expect(html).toContain('<p class="pgnav"><a class="pglink" href="#prize-giving">Prize-giving sheet</a><a class="pgback" href="#prizes">Back to the prizes</a></p>');
+      expect(html).toContain('body.prizegiving .prizesheet');
+      expect(html).toContain('<style id="prizegiving-page" media="not all"');
+      const script = html.slice(html.indexOf("getElementById('prizegiving-page')"));
+      expect(script).toContain("location.hash==='#prize-giving'");
+      expect(script).toContain("classList.toggle('prizegiving',on)");
+      expect(script).not.toContain('window.print');
+    });
+
+    it('lists each prize in order, places as published, with a box to tick', () => {
+      const html = render([gold, lady]);
+      const running = html.slice(html.indexOf('Running order'), html.indexOf('By boat'));
+      expect(running.indexOf('Gold Fleet 1st, 2nd &amp; 3rd')).toBeLessThan(running.indexOf('Lady 1st'));
+      expect(running).toContain('<tr><td class="tick"></td><td class="place">1st</td><td class="name">Alice &lt;A&gt;<span class="pgboat">Checkmate</span></td><td class="sail">218401</td><td class="club">HYC, RStGYC</td></tr>');
+      expect(running.indexOf('<td class="place">1st</td>')).toBeLessThan(running.indexOf('<td class="place">3rd</td>'));
+    });
+
+    it('names a boat and a club only where the results publish them', () => {
+      const html = render([gold], []);
+      expect(html).toContain('<td class="name">Alice &lt;A&gt;</td><td class="sail">218401</td></tr>');
+      expect(html).not.toContain('Checkmate');
+      expect(html).not.toContain('<td class="club">');
+    });
+
+    it('says when a prize is not awarded, and who was passed over', () => {
+      const html = render([gold, silver]);
+      expect(html).toContain('<h3 class="pghead">Silver 1st</h3>\n<p class="pgnone">Not awarded — no boat is eligible.</p>');
+      expect(html).toContain('<p class="pgskip">Passed over: Bob (218402), 2nd in Gold Fleet 1st, 2nd &amp; 3rd</p>');
+    });
+
+    it('lists each prize-winning boat once, with all its prizes', () => {
+      const html = render([gold, lady]);
+      const byBoat = html.slice(html.indexOf('By boat'));
+      expect(byBoat.match(/<td class="sail">218401<\/td>/g)).toHaveLength(1);
+      expect(byBoat).toContain('<td class="awards"><span>1st — Gold Fleet 1st, 2nd &amp; 3rd</span><span>1st — Lady 1st</span></td>');
+      expect(byBoat).toContain('<th>Helm</th>');
+    });
+
+    it('says whether the results are final', () => {
+      expect(render([gold])).toContain('<span class="pgstatus">Provisional results as of');
+      expect(render([gold], [], { resultsFinal: true })).toContain('<span class="pgstatus">Final results</span>');
+    });
+
+    it('is left out when nobody has won anything', () => {
+      const html = render([silver]);
+      expect(html).not.toContain('pgsheet');
+      expect(html).not.toContain('#prize-giving');
+    });
   });
 });
 

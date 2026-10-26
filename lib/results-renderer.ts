@@ -22,6 +22,7 @@ import {
 } from './track-data';
 import {
   PRIMARY_PERSON_LABEL_TEXT,
+  formatClubs,
   formatPrimaryNames,
   DEFAULT_PRIMARY_PERSON_LABEL,
   DEFAULT_SUBDIVISION_LABEL,
@@ -1100,6 +1101,9 @@ export type PrizesPageChrome = DocumentChrome;
  * the results. Allocation warnings are deliberately NOT rendered: they are
  * authoring concerns (the Prizes tab shows them); the published sheet just
  * shows the places that could be awarded.
+ *
+ * The page also carries the prize-giving sheet, a view of it with an address
+ * of its own (see {@link renderPrizeGivingSheet}).
  */
 export function renderPrizesHtml(
   chrome: PrizesPageChrome,
@@ -1110,6 +1114,9 @@ export function renderPrizesHtml(
     /** Show a Fleet column on recipient rows (multi-fleet series). */
     multiFleet: boolean;
     primaryPersonLabel?: PrimaryPersonLabel;
+    /** The series' published competitor columns: the prize-giving sheet
+     *  names a boat and a club only where the results already do. */
+    enabledCompetitorFields?: CompetitorFieldKey[];
   },
   options?: { fontPercent?: number },
 ): string {
@@ -1148,12 +1155,169 @@ ${rows.join('\n')}
 ${table}`;
   });
 
-  const content = sections.join('\n');
+  const content = `<div class="prizesheet">\n${sections.join('\n')}\n</div>`;
+  const sheet = renderPrizeGivingSheet(allocations, chrome, {
+    nameHeader,
+    showBoat: context.enabledCompetitorFields?.includes('boatName') ?? false,
+    showClub: context.enabledCompetitorFields?.includes('club') ?? false,
+  });
   return renderHtmlDocument(
     { ...chrome, fleetName: 'Prizes' },
-    `<style>.prize-eligibility { color: #555; margin: -4px 0 10px 0; }</style>\n${content}`,
-    { fontPercent, hasNhcDetail: false, hasEchoDetail: false, flagDefs: '' },
+    `<style>.prize-eligibility { color: #555; margin: -4px 0 10px 0; }</style>\n${content}${sheet ? `\n${sheet}` : ''}`,
+    { fontPercent, hasNhcDetail: false, hasEchoDetail: false, flagDefs: '', prizeGiving: sheet !== '' },
   );
+}
+
+/**
+ * The prize-giving sheet, rendered into the prize page and shown in place of
+ * it under the `prizegiving` body class (the `#prize-giving` address). It is
+ * printed for the people running the prize-giving, and has a section for each.
+ *
+ * The running order is for the compere: each prize in list order — the order
+ * the scorer arranged for the ceremony — and its places as published, 1st
+ * first, each row a box to tick as the prize is presented, then the place,
+ * who to call up, the sail number and the club, set large enough to read at
+ * arm's length. A prize nobody is eligible for says so, so the compere moves
+ * on rather than calls a name that isn't there. Where a boat was passed over
+ * because it already holds another prize, the sheet says so under the prize:
+ * that is the question the compere gets asked from the floor.
+ *
+ * The by-boat list is for whoever lays out the prize table: every boat that
+ * won anything, once, with all its prizes together — so its trophies can be
+ * grouped and its skipper comes up once. Jon Eskdale's SWPrize offers the
+ * same grouping to Sailwave users. It starts on a page of its own, since it
+ * goes to a different person.
+ *
+ * Like the starters checklist, it drops the logos and headings for one line
+ * naming the series, and says whether the results are final: a sheet printed
+ * before the protest time is up should say it might change.
+ */
+function renderPrizeGivingSheet(
+  allocations: PrizeAllocation[],
+  chrome: Pick<DocumentChrome, 'series' | 'generatedAt' | 'resultsFinal' | 'finalisedAt'>,
+  columns: { nameHeader: string; showBoat: boolean; showClub: boolean },
+): string {
+  if (allocations.every((a) => a.recipients.length === 0)) return '';
+  const { nameHeader, showBoat, showClub } = columns;
+  const nameById = new Map(allocations.map((a) => [a.prize.id, a.prize.name]));
+  const who = (c: PrizeAllocation['recipients'][number]['standing']['competitor']) =>
+    `${esc(formatPrimaryNames(c.names))}${showBoat && c.boatName ? `<span class="pgboat">${esc(c.boatName)}</span>` : ''}`;
+  const club = (c: PrizeAllocation['recipients'][number]['standing']['competitor']) =>
+    showClub ? `<td class="club">${esc(formatClubs(c.clubs))}</td>` : '';
+
+  const running = allocations.map(({ prize, recipients, skipped }) => {
+    const body = recipients.length > 0
+      ? `<table class="pgtable" cellspacing="0" cellpadding="0" border="0">
+<tbody>
+${recipients
+  .map(({ position, standing: { competitor: c } }) =>
+    `<tr><td class="tick"></td><td class="place">${esc(ordinal(position))}</td><td class="name">${who(c)}</td><td class="sail">${esc(c.sailNumber)}</td>${club(c)}</tr>`)
+  .join('\n')}
+</tbody>
+</table>`
+      : '<p class="pgnone">Not awarded — no boat is eligible.</p>';
+    const skips = skipped
+      .map((s) =>
+        `<p class="pgskip">Passed over: ${esc(formatPrimaryNames(s.standing.competitor.names))} (${esc(s.standing.competitor.sailNumber)}), ${esc(ordinal(s.place))} in ${esc(nameById.get(s.prizeId) ?? '')}</p>`)
+      .join('\n');
+    return `<section class="pgprize">
+<h3 class="pghead">${esc(prize.name)}</h3>
+${body}${skips ? `\n${skips}` : ''}
+</section>`;
+  });
+
+  // Every boat with a prize, in the order the running order first calls it.
+  const boats = new Map<string, { competitor: PrizeAllocation['recipients'][number]['standing']['competitor']; awards: string[] }>();
+  for (const { prize, recipients } of allocations) {
+    for (const { position, standing: { competitor } } of recipients) {
+      const entry = boats.get(competitor.id) ?? { competitor, awards: [] };
+      entry.awards.push(`${ordinal(position)} — ${prize.name}`);
+      boats.set(competitor.id, entry);
+    }
+  }
+  const byBoat = `<table class="pgtable pgboats" cellspacing="0" cellpadding="0" border="0">
+<thead>
+<tr><th></th><th>SailNo</th><th>${esc(nameHeader)}</th>${showClub ? '<th>Club</th>' : ''}<th>Prizes</th></tr>
+</thead>
+<tbody>
+${[...boats.values()]
+  .map(({ competitor: c, awards }) =>
+    `<tr><td class="tick"></td><td class="sail">${esc(c.sailNumber)}</td><td class="name">${who(c)}</td>${club(c)}<td class="awards">${awards.map((a) => `<span>${esc(a)}</span>`).join('')}</td></tr>`)
+  .join('\n')}
+</tbody>
+</table>`;
+
+  const status = chrome.resultsFinal
+    ? `Final results${chrome.finalisedAt ? `, declared ${formatDate(chrome.finalisedAt)}` : ''}`
+    : chrome.generatedAt
+      ? `Provisional results as of ${formatTime(chrome.generatedAt)} on ${formatDate(chrome.generatedAt)}`
+      : '';
+  return `<div class="pgsheet">
+<div class="pgident">
+<span class="pgfor">${esc(chrome.series.name)}${chrome.series.venue ? ` — ${esc(chrome.series.venue)}` : ''}</span>
+${status ? `<span class="pgstatus">${esc(status)}</span>` : ''}
+</div>
+<h2 class="pgsection">Running order</h2>
+${running.join('\n')}
+<h2 class="pgsection pgbyboat">By boat</h2>
+${byBoat}
+</div>`;
+}
+
+/** The stylesheet for the prize-giving sheet. As with the starters
+ *  checklist, the sheet is a view of the page rather than its print-media
+ *  alter ego: under the body class it replaces the prize page on screen as
+ *  well as on paper, so the browser's own Print, from a phone's share sheet
+ *  or anywhere else, prints the sheet with no script involved. Print adds
+ *  only the pagination — a prize kept whole, the by-boat list on a fresh
+ *  page — and hides the footer, which is the way back on screen. */
+function renderPrizeGivingCss(): string {
+  return `.pgsheet { display: none; }
+body.prizegiving .pgsheet { display: block; text-align: left; max-width: 190mm; margin: 0 auto; }
+body.prizegiving .prizesheet, body.prizegiving .caption, body.prizegiving > h2, body.prizegiving h3.seriestitle, body.prizegiving .seriesofficials, body.prizegiving .pagenotes, body.prizegiving table.headertable { display: none; }
+.pgback { display: none; }
+body.prizegiving .pgback { display: inline; }
+body.prizegiving .pglink { display: none; }
+.pgsheet p { text-align: left; }
+.pgident { display: flex; justify-content: space-between; align-items: baseline; gap: 6mm; margin: 0 0 4mm 0; font-size: 10pt; }
+.pgident .pgfor { font-weight: 600; }
+.pgident .pgstatus { flex: none; color: #333; }
+h2.pgsection { font-size: 15pt; margin: 6mm 0 1mm 0; }
+.pgprize { margin: 0 0 5mm 0; }
+h3.pghead { font-size: 13pt; margin: 3mm 0 1mm 0; color: #1a1a1a; }
+table.pgtable { width: 100%; margin: 0; border: 0; }
+table.pgtable th { background: none; color: #555; font-size: 9pt; font-weight: 600; text-align: left; border: 0; border-bottom: 0.3mm solid #999; padding: 1mm 1.5mm; }
+table.pgtable td { border: 0; border-bottom: 0.3mm solid #999; padding: 1.6mm 1.5mm; vertical-align: middle; font-size: 13pt; line-height: 1.2; }
+table.pgtable td.place { font-weight: 700; white-space: nowrap; width: 1%; }
+table.pgtable td.name { font-weight: 600; }
+table.pgtable td.name .pgboat { display: block; font-size: 10pt; font-weight: 400; color: #333; }
+table.pgtable td.sail { white-space: nowrap; font-variant-numeric: tabular-nums; width: 1%; }
+table.pgtable td.club { font-size: 10pt; color: #333; }
+table.pgtable td.awards { font-size: 11pt; }
+table.pgtable td.awards span { display: block; }
+table.pgtable td.tick { width: 5mm; padding-left: 0; }
+table.pgtable td.tick::before { content: ""; display: block; width: 5mm; height: 5mm; border: 0.4mm solid #1a1a1a; box-sizing: border-box; }
+.pgnone { font-size: 11pt; color: #555; margin: 1mm 0 0 0; }
+.pgskip { font-size: 10pt; color: #444; margin: 1.5mm 0 0 0; }
+@media print {
+  body.prizegiving .credit, .pgnav { display: none; }
+  .pgprize { break-inside: avoid; }
+  h2.pgbyboat { break-before: page; }
+  table.pgboats tr { break-inside: avoid; }
+}
+`;
+}
+
+/** The prize-giving sheet's page box, switched on with the view — see
+ *  {@link renderStartersPageCss}. */
+function renderPrizeGivingPageCss(): string {
+  return `<style id="prizegiving-page" media="not all" type="text/css">@page { margin: 10mm; }</style>`;
+}
+
+/** The links between the prize page and the prize-giving sheet, on a line of
+ *  their own above the credit, like the starters checklist's. */
+function renderPrizeGivingButton(): string {
+  return `<p class="pgnav"><a class="pglink" href="#prize-giving">Prize-giving sheet</a><a class="pgback" href="#prizes">Back to the prizes</a></p>\n`;
 }
 
 /** Chrome for the competitor-list page: the shared document fields, with no
@@ -1699,15 +1863,22 @@ function renderStartersButton(): string {
  *  sheet instead. Printing now has nothing to do with script: the page is
  *  already the sheet. */
 function renderStartersScript(): string {
+  return renderSheetViewScript({ fragment: 'starters', bodyClass: 'starters', pageCssId: 'starters-page', title: 'Starters checklist' });
+}
+
+/** The same reflection for any sheet that is a view of its page: the
+ *  fragment that addresses it, the body class its stylesheet keys on, its
+ *  page-box stylesheet, and what a PDF saved from it is called. */
+function renderSheetViewScript(view: { fragment: string; bodyClass: string; pageCssId: string; title: string }): string {
   return `<script>(function(){
 var title=document.title;
 var h1=document.querySelector('h1');
-var pageCss=document.getElementById('starters-page');
+var pageCss=document.getElementById('${view.pageCssId}');
 function apply(){
-  var on=location.hash==='#starters';
-  document.body.classList.toggle('starters',on);
+  var on=location.hash==='#${view.fragment}';
+  document.body.classList.toggle('${view.bodyClass}',on);
   if(pageCss)pageCss.media=on?'print':'not all';
-  document.title=on?('Starters checklist'+(h1?' \\u2014 '+h1.textContent:'')):title;
+  document.title=on?('${view.title}'+(h1?' \\u2014 '+h1.textContent:'')):title;
 }
 apply();
 window.addEventListener('hashchange',apply);
@@ -1721,14 +1892,14 @@ window.addEventListener('hashchange',apply);
 export function renderHtmlDocument(
   chrome: DocumentChrome,
   content: string,
-  flags: { fontPercent: number; hasNhcDetail: boolean; hasEchoDetail: boolean; flagDefs: string; startersChecklist?: boolean },
+  flags: { fontPercent: number; hasNhcDetail: boolean; hasEchoDetail: boolean; flagDefs: string; startersChecklist?: boolean; prizeGiving?: boolean },
 ): string {
   const { series, fleetName, leftLogoUrl, rightLogoUrl, leftUrl, rightUrl, generatedAt, resultsFinal, finalisedAt, seriesIndexUrl, openInAppUrl, dataFileUrl, officials, seriesNote, pageNote, ircRatingSource, scoringNotesUrl, hidePageHeading, omitFooterDataLinks } = chrome;
   const footerDataLinks = !omitFooterDataLinks && !scoringNotesUrl;
   const notesLink = scoringNotesUrl
     ? ` <span class="noteslink">&middot; <a href="${esc(scoringNotesUrl)}">Scoring notes</a></span>`
     : '';
-  const { fontPercent, hasNhcDetail, hasEchoDetail, flagDefs, startersChecklist } = flags;
+  const { fontPercent, hasNhcDetail, hasEchoDetail, flagDefs, startersChecklist, prizeGiving } = flags;
   const titleSuffix = fleetName ? ` \u2014 ${esc(fleetName)}` : '';
   const title = `Results for ${series.name}${series.venue ? ' at ' + series.venue : ''}${
     fleetName ? ' \u2014 ' + fleetName : ''
@@ -1878,8 +2049,8 @@ th[aria-sort="descending"]::after { content: " ▼"; font-size: 0.75em; }
   .headerlogo { height: 64px; margin: 0 auto 10px auto; }
   .headerlogo-right { margin: 0 auto 10px auto; }
 }
-${startersChecklist ? renderStartersChecklistCss() : ''}${hasNhcDetail ? 'body.hide-nhc-detail .nhc-detail { display: none; }\np.nhc-toggle { text-align: center; margin: 0 0 10px 0; font-size: 0.9em; }\ndiv.nhc-explainer { max-width: 640px; margin: 0 auto 16px auto; padding: 10px 14px; border: 1px #ccd solid; background: #f6f6fb; font-size: 0.9em; text-align: left; }\ndiv.nhc-explainer p { text-align: left; margin: 0 0 6px 0; }\ndiv.nhc-explainer p:last-child { margin-bottom: 0; }\ndiv.nhc-explainer .formula { font-family: monospace; }\ndiv.nhc-explainer dl { margin: 4px 0 0 0; }\ndiv.nhc-explainer dt { font-weight: bold; display: inline; }\ndiv.nhc-explainer dd { display: inline; margin: 0 0 0 4px; }\ndiv.nhc-explainer dd:after { content: ""; display: block; }\n' : ''}${hasEchoDetail ? 'body.hide-echo-detail .echo-detail { display: none; }\np.echo-toggle { text-align: center; margin: 0 0 10px 0; font-size: 0.9em; }\ndiv.echo-explainer { max-width: 640px; margin: 0 auto 16px auto; padding: 10px 14px; border: 1px #ccd solid; background: #f6f6fb; font-size: 0.9em; text-align: left; }\ndiv.echo-explainer p { text-align: left; margin: 0 0 6px 0; }\ndiv.echo-explainer p:last-child { margin-bottom: 0; }\ndiv.echo-explainer .formula { font-family: monospace; }\ndiv.echo-explainer dl { margin: 4px 0 0 0; }\ndiv.echo-explainer dt { font-weight: bold; display: inline; }\ndiv.echo-explainer dd { display: inline; margin: 0 0 0 4px; }\ndiv.echo-explainer dd:after { content: ""; display: block; }\n' : ''}</style>
-${startersChecklist ? renderStartersPageCss() : ''}
+${startersChecklist ? renderStartersChecklistCss() : ''}${prizeGiving ? renderPrizeGivingCss() : ''}${hasNhcDetail ? 'body.hide-nhc-detail .nhc-detail { display: none; }\np.nhc-toggle { text-align: center; margin: 0 0 10px 0; font-size: 0.9em; }\ndiv.nhc-explainer { max-width: 640px; margin: 0 auto 16px auto; padding: 10px 14px; border: 1px #ccd solid; background: #f6f6fb; font-size: 0.9em; text-align: left; }\ndiv.nhc-explainer p { text-align: left; margin: 0 0 6px 0; }\ndiv.nhc-explainer p:last-child { margin-bottom: 0; }\ndiv.nhc-explainer .formula { font-family: monospace; }\ndiv.nhc-explainer dl { margin: 4px 0 0 0; }\ndiv.nhc-explainer dt { font-weight: bold; display: inline; }\ndiv.nhc-explainer dd { display: inline; margin: 0 0 0 4px; }\ndiv.nhc-explainer dd:after { content: ""; display: block; }\n' : ''}${hasEchoDetail ? 'body.hide-echo-detail .echo-detail { display: none; }\np.echo-toggle { text-align: center; margin: 0 0 10px 0; font-size: 0.9em; }\ndiv.echo-explainer { max-width: 640px; margin: 0 auto 16px auto; padding: 10px 14px; border: 1px #ccd solid; background: #f6f6fb; font-size: 0.9em; text-align: left; }\ndiv.echo-explainer p { text-align: left; margin: 0 0 6px 0; }\ndiv.echo-explainer p:last-child { margin-bottom: 0; }\ndiv.echo-explainer .formula { font-family: monospace; }\ndiv.echo-explainer dl { margin: 4px 0 0 0; }\ndiv.echo-explainer dt { font-weight: bold; display: inline; }\ndiv.echo-explainer dd { display: inline; margin: 0 0 0 4px; }\ndiv.echo-explainer dd:after { content: ""; display: block; }\n' : ''}</style>
+${startersChecklist ? renderStartersPageCss() : ''}${prizeGiving ? renderPrizeGivingPageCss() : ''}
 </head>
 <body${[hasNhcDetail ? 'hide-nhc-detail' : '', hasEchoDetail ? 'hide-echo-detail' : ''].filter(Boolean).length > 0 ? ` class="${[hasNhcDetail ? 'hide-nhc-detail' : '', hasEchoDetail ? 'hide-echo-detail' : ''].filter(Boolean).join(' ')}"` : ''}>
 ${seriesIndexUrl ? `<p class="breadcrumb"><a href="${esc(seriesIndexUrl)}" target="_top" rel="noopener">&larr; ${esc(series.name)}</a></p>\n` : ''}<table class="headertable" cellspacing="0" width="100%" cellpadding="0" border="0">
@@ -1903,11 +2074,11 @@ ${fleetName && !hidePageHeading ? `<h2>${esc(fleetName)}</h2>` : ''}
 ${renderPageNotes(seriesNote, pageNote)}${flagDefs}
 ${content}
 ${renderOfficialsDetails(officials)}${ircRatingSource ? `<p class="ratingsource">IRC ratings from the ${esc(ircRatingSource.source)}${ircRatingSource.updatedAt ? `, published ${esc(ircRatingSource.updatedAt)}` : ''}. Each boat's certificate number is on its rating cell.</p>
-` : ''}${startersChecklist ? renderStartersButton() : ''}<p class="credit credit-inline"><a href="https://sailscoring.ie" target="_top" rel="noopener"><svg viewBox="205 205 840 840" width="15" height="15" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><path fill="#fb3a3b" d="M551,757.3c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-125.9,125.9c29.4-.8,58.5-.7,87.4.3l191.1-191.1c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-177.3,177.3c33.3,1.8,66.2,4.7,98.7,8.8l59.9-59.9c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-48.4,48.4c87.3,12.9,171.9,34.6,253.4,65.8-95.4-229.3-112.6-465-9.6-706L315.1,906.2c31.6-3.2,62.9-5.5,93.9-6.9l142.1-142Z"/></svg>Sail Scoring</a>${footerDataLinks && openInAppUrl ? ` &mdash; <a href="${esc(openInAppUrl)}" target="_top" rel="noopener">Open in Sail Scoring</a>` : ''}${footerDataLinks && dataFileUrl ? ` &mdash; <a href="${esc(dataFileUrl)}" target="_top" rel="noopener">Data (.sailscoring.json)</a>` : ''}</p>
+` : ''}${startersChecklist ? renderStartersButton() : ''}${prizeGiving ? renderPrizeGivingButton() : ''}<p class="credit credit-inline"><a href="https://sailscoring.ie" target="_top" rel="noopener"><svg viewBox="205 205 840 840" width="15" height="15" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><path fill="#fb3a3b" d="M551,757.3c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-125.9,125.9c29.4-.8,58.5-.7,87.4.3l191.1-191.1c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-177.3,177.3c33.3,1.8,66.2,4.7,98.7,8.8l59.9-59.9c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-48.4,48.4c87.3,12.9,171.9,34.6,253.4,65.8-95.4-229.3-112.6-465-9.6-706L315.1,906.2c31.6-3.2,62.9-5.5,93.9-6.9l142.1-142Z"/></svg>Sail Scoring</a>${footerDataLinks && openInAppUrl ? ` &mdash; <a href="${esc(openInAppUrl)}" target="_top" rel="noopener">Open in Sail Scoring</a>` : ''}${footerDataLinks && dataFileUrl ? ` &mdash; <a href="${esc(dataFileUrl)}" target="_top" rel="noopener">Data (.sailscoring.json)</a>` : ''}</p>
 ${hasNhcDetail ? renderNhcToggleScript() : ''}
 ${hasEchoDetail ? renderEchoToggleScript() : ''}
 ${renderSortScript()}
-${startersChecklist ? renderStartersScript() : ''}
+${startersChecklist ? renderStartersScript() : ''}${prizeGiving ? renderSheetViewScript({ fragment: 'prize-giving', bodyClass: 'prizegiving', pageCssId: 'prizegiving-page', title: 'Prize-giving sheet' }) : ''}
 </body>
 </html>`;
 }

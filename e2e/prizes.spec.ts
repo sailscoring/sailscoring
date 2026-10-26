@@ -7,7 +7,8 @@ import { createSeriesQuick, enableFeatures, keyboardReorder } from './helpers';
  * 1st/2nd/3rd overall in each of the Gold and Silver Divisions: set up a
  * Division subdivision axis, add prizes with an axis condition on the Prizes
  * tab, watch recipients allocate live from the standings, and publish the
- * prize sheet as its own page beside the standings page.
+ * prize sheet as its own page beside the standings page, with its
+ * prize-giving sheet view.
  *
  * Series: "GP14 Ulsters 2026", 6 boats, 1 race finishing in sail order.
  *   Gold:   1 (rank 1), 3 (rank 3), 5 (rank 5)  → Gold podium  1, 3, 5
@@ -132,8 +133,27 @@ test('prizes: division podiums allocate live and publish as a prize sheet', asyn
   await expect(page.getByRole('heading', { name: 'Gold Fleet 1st, 2nd, 3rd' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Silver Fleet 1st, 2nd, 3rd' })).toBeVisible();
   await expect(page.getByText('Division is Gold')).toBeVisible();
-  await expect(page.getByText('Aoife Byrne')).toBeVisible();
-  await expect(page.getByText('Finn Casey')).toBeVisible();
+  // The prize page proper — the prize-giving sheet below it is hidden.
+  const sheet = page.locator('.prizesheet');
+  await expect(sheet.getByText('Aoife Byrne')).toBeVisible();
+  await expect(sheet.getByText('Finn Casey')).toBeVisible();
+
+  // ── 6. The prize-giving sheet: a view of the prize page, its own address ──
+  await page.getByRole('link', { name: 'Prize-giving sheet' }).click();
+  await expect(page).toHaveURL(/#prize-giving$/);
+  await expect(page.getByRole('heading', { name: 'Running order' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'By boat' })).toBeVisible();
+  // The prize page itself gives way to the sheet.
+  await expect(page.getByText('Division is Gold')).toBeHidden();
+  const gold = page.locator('.pgprize').filter({ hasText: 'Gold Fleet 1st, 2nd, 3rd' });
+  await expect(gold.getByRole('row').nth(0)).toContainText('1st');
+  await expect(gold.getByRole('row').nth(0)).toContainText('Aoife Byrne');
+  await expect(page.locator('table.pgboats').getByRole('row').filter({ hasText: 'Finn Casey' }))
+    .toContainText('3rd — Silver Fleet 1st, 2nd, 3rd');
+  await expect(page).toHaveTitle(/^Prize-giving sheet/);
+  await page.getByRole('link', { name: 'Back to the prizes' }).click();
+  await expect(page.getByText('Division is Gold')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Running order' })).toBeHidden();
 });
 
 /**

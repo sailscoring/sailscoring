@@ -1601,6 +1601,7 @@ export async function buildFleetHtmlFiles(
           axes,
           multiFleet: !isSingleDefault,
           primaryPersonLabel: series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
+          enabledCompetitorFields: series.enabledCompetitorFields ?? defaultEnabledCompetitorFields(),
         },
       ),
     });
