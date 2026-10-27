@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -64,6 +64,7 @@ import {
 import {
   groupActiveByCategory,
   groupArchivedByYear,
+  seriesMatchesSearch,
 } from '@/lib/series-list';
 import type { ActivityEntry, Category, DeletedSeriesEntry, Series } from '@/lib/types';
 
@@ -323,6 +324,8 @@ export default function HomePage() {
   const [showHelp, setShowHelp] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [showTrash, setShowTrash] = useState(false);
+  const [query, setQuery] = useState('');
+  const searchRef = useRef<HTMLInputElement>(null);
   // The Trash entry whose last Recover failed, and why.
   const [recoverFailure, setRecoverFailure] = useState<{ id: string; message: string } | null>(null);
   const openFlow = useOpenSeriesFile();
@@ -331,8 +334,11 @@ export default function HomePage() {
   // the orphaned-page warning. Only fetched while the dialog is open.
   const { data: pendingPublication } = usePublicationStatus(pendingDelete?.id ?? null);
 
-  // No description: the dialog's static Global section documents `?` itself.
-  useShortcuts([{ key: '?', handler: () => setShowHelp(true) }]);
+  useShortcuts([
+    // No description: the dialog's static Global section documents `?` itself.
+    { key: '?', handler: () => setShowHelp(true) },
+    { key: '/', description: 'Search series', handler: () => searchRef.current?.focus() },
+  ]);
 
   async function handleConfirmDelete() {
     if (!pendingDelete) return;
@@ -370,16 +376,29 @@ export default function HomePage() {
 
   const cats = categories ?? [];
   const allSeries = seriesList ?? [];
+  // The search box narrows active and archived series alike; the Trash is
+  // left out of it.
+  const searching = query.trim() !== '';
+  const matching = allSeries.filter((s) => seriesMatchesSearch(s, query, cats));
   const activeGroups = groupActiveByCategory(
+    matching.filter((s) => !s.archived),
+    cats,
+  );
+  const archivedGroups = groupArchivedByYear(matching.filter((s) => s.archived));
+  const archivedCount = archivedGroups.reduce((n, g) => n + g.series.length, 0);
+  const archivedTotal = allSeries.filter((s) => s.archived).length;
+  // Searching overrides the Archived collapse — hiding matches behind a
+  // closed toggle would read as "no results".
+  const archivedOpen = searching || showArchived;
+  const trashList = trash ?? [];
+  // Flat (no section headers) when nothing is categorised — preserves the
+  // original look for workspaces that don't use categories. Decided on the
+  // whole list so the page's shape doesn't change as a search narrows it.
+  const allActiveGroups = groupActiveByCategory(
     allSeries.filter((s) => !s.archived),
     cats,
   );
-  const archivedGroups = groupArchivedByYear(allSeries.filter((s) => s.archived));
-  const archivedCount = archivedGroups.reduce((n, g) => n + g.series.length, 0);
-  const trashList = trash ?? [];
-  // Flat (no section headers) when nothing is categorised — preserves the
-  // original look for workspaces that don't use categories.
-  const flatActive = activeGroups.length <= 1 && activeGroups[0]?.category == null;
+  const flatActive = allActiveGroups.length <= 1 && allActiveGroups[0]?.category == null;
 
   const renderCard = (s: Series, sortable?: SortableRenderProps) => (
     <SeriesCard
@@ -411,21 +430,44 @@ export default function HomePage() {
     reorderSeries.mutate(fullOrder);
   }
 
-  const renderActiveGroup = (g: (typeof activeGroups)[number]) => (
-    <SortableList
-      items={g.series}
-      onReorder={(ids) => handleReorderGroup(groupKey(g), ids)}
-    >
-      {(s, sortable) => renderCard(s, sortable)}
-    </SortableList>
-  );
+  // No drag-reorder while searching: the reorder rebuilds the global order
+  // from the groups on screen, so dropping a row in a narrowed list would
+  // lose the place of every series the search hides.
+  const renderActiveGroup = (g: (typeof activeGroups)[number]) =>
+    searching ? (
+      g.series.map((s) => renderCard(s))
+    ) : (
+      <SortableList
+        items={g.series}
+        onReorder={(ids) => handleReorderGroup(groupKey(g), ids)}
+      >
+        {(s, sortable) => renderCard(s, sortable)}
+      </SortableList>
+    );
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <h1 className="text-2xl font-semibold">Series</h1>
+        {allSeries.length > 0 && (
+          <Input
+            ref={searchRef}
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key !== 'Escape') return;
+              // First Escape clears the search; a second leaves the box.
+              if (query !== '') setQuery('');
+              else e.currentTarget.blur();
+            }}
+            placeholder="Search series…"
+            aria-label="Search series"
+            className="h-8 w-56 text-sm"
+          />
+        )}
         {canManage && (
-          <div className="flex gap-2">
+          <div className="ml-auto flex gap-2">
             <Button variant="outline" onClick={openFlow.start}>
               Import Series
             </Button>
@@ -458,6 +500,10 @@ export default function HomePage() {
         )
       )}
 
+      {searching && matching.length === 0 && (
+        <p className="text-muted-foreground">No series match &ldquo;{query.trim()}&rdquo;.</p>
+      )}
+
       {seriesList !== undefined && (seriesList.length > 0 || trashList.length > 0) && (
         <div className="space-y-6">
           {/* Active series, partitioned by category — drag-reorder within a group */}
@@ -479,20 +525,26 @@ export default function HomePage() {
           {/* Archived series — collapsed by default, grouped by event year */}
           {archivedCount > 0 && (
             <div className="border-t pt-4">
-              <button
-                type="button"
-                className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground hover:text-foreground"
-                aria-expanded={showArchived}
-                onClick={() => setShowArchived((v) => !v)}
-              >
-                {showArchived ? (
-                  <ChevronDown className="h-4 w-4" />
-                ) : (
-                  <ChevronRight className="h-4 w-4" />
-                )}
-                Archived ({archivedCount})
-              </button>
-              {showArchived && (
+              {searching ? (
+                <h2 className="text-sm font-semibold text-muted-foreground">
+                  Archived ({archivedCount} of {archivedTotal})
+                </h2>
+              ) : (
+                <button
+                  type="button"
+                  className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground hover:text-foreground"
+                  aria-expanded={showArchived}
+                  onClick={() => setShowArchived((v) => !v)}
+                >
+                  {showArchived ? (
+                    <ChevronDown className="h-4 w-4" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4" />
+                  )}
+                  Archived ({archivedCount})
+                </button>
+              )}
+              {archivedOpen && (
                 <div className="mt-3 space-y-6">
                   {archivedGroups.map((g) => (
                     <section key={g.year ?? 'undated'} className="space-y-2">
@@ -509,7 +561,7 @@ export default function HomePage() {
 
           {/* Trash — soft-deleted series, recoverable for 30 days. Collapsed
               by default; a trashed series can't be opened, only recovered. */}
-          {trashList.length > 0 && (
+          {trashList.length > 0 && !searching && (
             <div className="border-t pt-4">
               <button
                 type="button"

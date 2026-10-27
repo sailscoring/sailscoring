@@ -38,7 +38,7 @@ export const HELP_GROUPS: HelpGroupDef[] = [
     blurb: 'Setting up a series: entries, fleets, starts, and the race calendar.',
     sections: [
       { id: 'creating-a-series', title: 'Creating a series', keywords: ['new series', 'setup wizard', 'start a regatta', 'event', 'league'] },
-      { id: 'organising-series', title: 'Organising the series list: categories and archive', keywords: ['category', 'archive', 'folder', 'series list', 'tidy', 'hide old series'] },
+      { id: 'organising-series', title: 'Organising the series list: categories, archive, and search', keywords: ['category', 'archive', 'folder', 'series list', 'tidy', 'hide old series', 'search', 'find a series', 'filter'] },
       { id: 'adding-competitors', title: 'Adding competitors', keywords: ['entry list', 'boat', 'helm', 'crew', 'sail number', 'bow number', 'entrant', 'sailor', 'nationality', 'club'] },
       { id: 'excluded-competitors', title: 'Competitors that are not entered', keywords: ['exclude', 'did not enter', 'non-entrant', 'withdraw', 'scratch entry', 'remove a boat', 'sailwave exclude'] },
       { id: 'sorting-the-competitor-list', title: 'Sorting the competitor list', keywords: ['sort', 'order', 'alphabetical', 'filter'] },

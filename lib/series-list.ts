@@ -88,3 +88,25 @@ export function groupArchivedByYear(series: Series[]): YearGroup[] {
   }
   return groups;
 }
+
+/**
+ * Whether a series matches the home list's search box. The query is split
+ * into words and every word must appear somewhere in the series name, venue,
+ * event year, or category name — so "howth 2021" finds a series held at Howth
+ * in 2021, whichever field each word comes from. Case-insensitive; an empty
+ * query matches everything.
+ */
+export function seriesMatchesSearch(
+  s: Series,
+  query: string,
+  categories: Category[],
+): boolean {
+  const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return true;
+  const categoryName = categories.find((c) => c.id === s.categoryId)?.name;
+  const haystack = [s.name, s.venue, seriesEventYear(s), categoryName]
+    .filter((v) => v != null && v !== '')
+    .join(' ')
+    .toLowerCase();
+  return words.every((w) => haystack.includes(w));
+}

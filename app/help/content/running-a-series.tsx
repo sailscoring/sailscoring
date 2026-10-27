@@ -29,7 +29,7 @@ export default function RunningASeries() {
           After saving, you land on the Competitors tab, ready for the next step.
         </p>
       </Section>
-      <Section id="organising-series" title="Organising the series list: categories and archive">
+      <Section id="organising-series" title="Organising the series list: categories, archive, and search">
         <HelpShot
           src="/help/shots/archive-trash.webp"
           alt="Archived series group by year at the foot of the list; deleted series wait in the Trash for 30 days."
@@ -84,6 +84,21 @@ export default function RunningASeries() {
           typing the series name to confirm. If the series had a published results page, that page
           stays online but disconnected; recovering won’t reconnect it, so unpublish first if
           you don’t want it to remain public.
+        </p>
+        <HelpShot
+          src="/help/shots/series-search.webp"
+          alt="Searching the series list for a venue finds an active series and an archived one."
+          caption="Searching for a venue finds the series held there, active and archived alike."
+        />
+        <p>
+          To find a series without scrolling, type in the{' '}
+          <strong className="text-foreground">Search series</strong> box beside the heading, or
+          press <kbd className="px-1 border rounded text-xs">/</kbd> to jump to it. The search looks at each series’ name, venue, year,
+          and category, and every word you type has to match somewhere — so{' '}
+          <em>howth 2023</em> finds the series held at Howth in 2023. Archived series are searched
+          too: matches show without opening the Archived section, with a count of how many
+          matched. Press <kbd className="px-1 border rounded text-xs">Esc</kbd> to clear the search. Drag-reordering is paused while a
+          search is narrowing the list, and the Trash isn’t searched.
         </p>
       </Section>
       <Section id="adding-competitors" title="Adding competitors">

@@ -2060,6 +2060,31 @@ const SHOTS: Shot[] = [
     },
   },
   {
+    // Inventory: Series search — a search on the home list finding a series
+    // in the archive. Runs after archive-trash, which leaves the championship
+    // archived; a single-shot run, which has only the sign-up samples,
+    // archives the regatta instead and searches for the venue it shares with
+    // the active league. LOCAL-only.
+    slug: 'series-search',
+    group: 'Running a series',
+    async capture({ page, shot }) {
+      if (!LOCAL) throw new Error('series-search stages data and is local-mode only');
+      await page.goto(`${BASE}/`);
+      await settle(page);
+      let query = 'championship';
+      if ((await page.getByRole('button', { name: /Archived \(/ }).count()) === 0) {
+        await page.getByRole('button', { name: 'Actions for Sample Junior Regatta 2026' }).click();
+        await page.getByRole('menuitem', { name: 'Archive' }).click();
+        await page.getByRole('button', { name: /Archived \(/ }).waitFor();
+        query = 'howth';
+      }
+      await page.getByLabel('Search series').fill(query);
+      await page.getByRole('heading', { name: /Archived \(\d+ of \d+\)/ }).waitFor();
+      await settle(page);
+      await shot('series-search.png');
+    },
+  },
+  {
     // Inventory: Workspace activity log — the workspace Activity tab after
     // everything this run has done, archive-trash's deletion included, so the
     // feed carries a workspace-level entry among the series-scoped ones.
