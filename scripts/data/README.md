@@ -8,6 +8,7 @@ artifacts they produce.
 | Path | Consumed by | Refresh policy |
 |------|-------------|----------------|
 | `rya-py/` | `generate-rya-py.ts` (`pnpm generate:rya-py`) → `lib/rya-py/generated/py-list.ts` | ⚠ **Refresh annually** — live build input; the RYA republishes the PY lists about once a year. See `rya-py/README.md`. |
+| `orc-sample-course.json` | `generate-sample-series.ts` (`pnpm generate:sample-series`) → the ORC sample series | **Frozen.** HYC's Autumn League 2026 offshore J2 as an ORC constructed course document (`docs/design/orc/constructed-course-format.md`), the way an app that builds courses hands one over. The sample's constructed-course starts import it. |
 | `irc-echo-ratings.csv` | `generate-sample-series.ts` (`pnpm generate:sample-series`) → the club-racing sample series | **Frozen — do not refresh.** A one-off snapshot of the Irish Sailing IRC/ECHO listing, kept only as seed input for the synthetic sample series. The app fetches Irish Sailing **live** (`lib/irish-sailing-ratings.ts`), so a stale snapshot here affects nothing real. |
 
 The distinction is a deliberate rule: a committed data file survives only if

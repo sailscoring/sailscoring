@@ -1,0 +1,18 @@
+{
+  "format": "orc-constructed-course",
+  "version": 1,
+  "name": "Offshore J2",
+  "north": "magnetic",
+  "anchor": { "lat": 53.41319, "lng": -6.06192 },
+  "legs": [
+    { "name": "SL – Z", "distance": 1.0, "course": 158, "windDirection": 161 },
+    { "name": "Z – O", "distance": 1.56, "course": 351, "windDirection": 161 },
+    { "name": "O – U", "distance": 1.19, "course": 314, "windDirection": 161 },
+    { "name": "U – K", "distance": 1.96, "course": 147, "windDirection": 161 },
+    { "name": "K – H", "distance": 1.36, "course": 326, "windDirection": 161 },
+    { "name": "H – K", "distance": 1.36, "course": 146, "windDirection": 161 },
+    { "name": "K – Q", "distance": 0.72, "course": 186, "windDirection": 161 },
+    { "name": "Q – HM", "distance": 0.27, "course": 237, "windDirection": 161 },
+    { "name": "HM – FH", "distance": 0.23, "course": 238, "windDirection": 161 }
+  ]
+}

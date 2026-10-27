@@ -225,9 +225,9 @@ describe('sample series files', () => {
   it('orc: every method scores through the per-race option, PCS numbers coherent', () => {
     const { file, fleets, competitors, races, raceStarts, finishes } = load('orc.sailscoring');
 
-    expect(file.formatVersion).toBe(68);
-    // Placed for the leg-table course's magnetic variation, which has no
-    // marks of its own.
+    expect(file.formatVersion).toBe(70);
+    // Placed for the magnetic variation of legs typed with nothing to place
+    // them.
     expect(file.series.venuePosition).toEqual({ lat: 53.393, lng: -6.066 });
     const orcFleet = fleets.find((f) => f.scoringSystem === 'orc')!;
     const ircFleet = fleets.find((f) => f.scoringSystem === 'irc')!;
@@ -261,32 +261,22 @@ describe('sample series files', () => {
     const r3 = optionOf('or-3');
     expect(r3?.option).toBe('CC');
     expect(r3?.courseModel).toBe('CC');
-    // The constructed course is HYC's Autumn League 2026 offshore J2 over
-    // the sample's library: the line (committee boat and pin, measured from
-    // its middle), a laid Z, the card's charted marks,
-    // and the run home past Rowan Rocks and the Howth Mark to the finish.
-    // Its length is the sum of nine legs each recorded to 0.01 NM, so it
-    // is a hundredth off the geometry's own figure.
+    // The constructed course is HYC's Autumn League 2026 offshore J2,
+    // imported as an app that builds courses hands it over: nine legs from
+    // the middle of the line, round a laid Z and the club's charted marks,
+    // and home past Rowan Rocks and the Howth Mark to the finish, each
+    // recorded to 0.01 NM.
     expect(r3?.distanceNm).toBeCloseTo(9.65, 2);
     const cc = raceStarts.find((s) => s.orcOption === 'CC')!;
-    expect(cc.course?.name).toBe('J2 — 26 Sep R3');
-    expect(cc.course?.waypoints.map((w) => w.label)).toEqual(['SL', 'Z', 'O', 'U', 'K', 'H', 'K', 'Q', 'HM', 'FH']);
-    expect(cc.course?.waypoints[0].ends?.map((e) => [e.end, e.label])).toEqual([['starboard', 'Start'], ['port', 'Pin']]);
-    expect(cc.course?.windDirectionDeg).toBe(160);
-    expect(file.marks).toHaveLength(26);
-    // Two courses, defined the two different ways: J2 from the club's card,
-    // and the committee's own leg table with no marks behind it.
-    expect(file.courses?.map((c) => c.card?.courseId)).toEqual(['J2', undefined]);
-    const [fromCard, fromLegs] = file.courses!;
-    expect(fromCard.marks).toHaveLength(10);
-    expect(fromCard.legs).toBeUndefined();
-    expect(fromLegs.name).toBe('RC triangle — Thursdays');
-    expect(fromLegs.marks).toEqual([]);
-    expect(fromLegs.legs).toEqual([
-      { distanceNm: 1.6, bearingDeg: 160 },
-      { distanceNm: 1.9, bearingDeg: 275 },
-      { distanceNm: 1.8, bearingDeg: 45 },
+    expect(cc.course?.name).toBe('Offshore J2');
+    expect(cc.course?.anchor).toEqual({ lat: 53.41319, lng: -6.06192 });
+    expect(cc.courseLegs?.map((l) => l.name)).toEqual([
+      'SL – Z', 'Z – O', 'O – U', 'U – K', 'K – H', 'H – K', 'K – Q', 'Q – HM', 'HM – FH',
     ]);
+    // 161°M at 1.1°W on the day.
+    expect(cc.course?.windDirectionDeg).toBeCloseTo(159.9, 1);
+    expect(cc.course?.legs).toHaveLength(9);
+    expect(cc.course?.legsEdited).toBeUndefined();
     // Implied winds recover the generation's fresh-breeze targets.
     expect(r3?.scoringWind).toBeGreaterThan(16);
     expect(r3?.scoringWind).toBeLessThan(21);

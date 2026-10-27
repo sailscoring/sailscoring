@@ -159,7 +159,7 @@ describe.skipIf(skip)('seedFeatureSample', () => {
     expect(options.filter((o) => o != null).sort()).toEqual(['CC', 'CC_TOT', 'IRL_5B_WL_M_TOT', 'WL']);
     expect(options.filter((o) => o == null)).toHaveLength(1);
     const cc = startRows.find((s) => s.orcOption === 'CC')!;
-    // J2 from the card, run home to the finish: nine legs.
+    // Offshore J2, run home to the finish: nine legs.
     expect(cc.courseLegs).toHaveLength(9);
     // Performance curves derive the wind, so those legs carry no speed.
     expect(cc.courseLegs!.every((leg) => leg.windSpeedKts == null)).toBe(true);
