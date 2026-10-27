@@ -449,197 +449,25 @@ setting. The live read path and the explicitly provisional publication remain op
 
 ## Course data from the water
 
-[`orc/course-days.md`](orc/course-days.md) proposes where this lives: a
-workspace-level course day rather than the series libraries. It also draws
-the line between scoring and race management, and orders the work below
-into steps.
+Collecting where the marks were laid, building a race's course from a
+club's card, and checking it on the water are a course tool's work: a race
+officer's page, a mark-laying RIB's, a club's own builder. Each hands the
+course to Sail Scoring as an [ORC constructed course](orc/constructed-course-format.md)
+document, imported on the race start or sent through the public API's
+course call (ADR-016), and Sail Scoring scores and publishes its legs.
 
-### Collecting course data from the committee boat, RIBs, and competitors
-
-The course builder takes a club's course card and the positions of the marks
-that were laid for the race. In practice those positions come from people on
-the water, and the scorer is usually ashore. The positions arrive by text
-message or on paper, and the scorer uses judgement to build the course from
-them:
-
-- **The course card** gives the mark order, rounding sides, and the wind the
-  course was set for.
-- **The committee boat** gives its own position, the pin, and any other marks
-  it lays. It also has the best view of wind and current through the race.
-- **The mark-laying RIBs** give the laid marks. A position is only valid from
-  the time it was laid, and marks get moved.
-- **Competitors' tracks** give independent evidence of where the marks were
-  and which course was actually sailed.
-
-A proof of concept overlaid all four for the RCYC Autumn League on 27
-September 2026: Pat Tanner's course card and positions, the course as built in
-Sail Scoring, and one competitor's Garmin GPX. It found things that no single
-source showed:
-
-- The track passed every laid mark at 4–14 m, which corroborated the laid
-  positions.
-- The card measured the first and last legs from the middle of the line.
-  The course builder measured them from the committee boat, which put them
-  5° and 11° off the card.
-- The start and finish crossings in the track both fit a race-office clock
-  running about 5 s ahead of GPS.
-- The windward legs passed through the start line.
-
-The idea is to let each of these sources record its data in Sail Scoring
-directly, and to show the scorer all of it together:
-
-- **A course-builder role.** Someone on the committee boat signs in and builds
-  the course without being a scorer. It could be a new entry in
-  `lib/auth/org-roles.ts` and `lib/auth/permissions.ts`, able to manage marks
-  and courses but not competitors, finishes, or publishing. It would probably
-  want the series scope described under Per-series scorer scope. Finish sheet
-  submissions (#671) add a submit-only role for whoever records finishes on the same
-  boat; the two are probably one race-officer role, and should be designed together.
-- **A mark-collection page.** The course builder sends a link to each RIB. The
-  crew needs no account and no other position source: they pick a mark, press
-  "Record mark position" to save the phone's GPS fix with a timestamp, and see
-  what they've recorded. Each mark then holds a list of dated fixes, each with
-  its source, and the scorer chooses which one a race uses. That covers the
-  "Windward moved 10:47" case, which today is a note in a text message.
-- **A race officer's course page.** The committee boat builds and checks the
-  course from the day's fixes, before the start and after the gun.
-- **A track-submission page.** A similar link lets competitors upload a track
-  (GPX, or an export from their device) against their entry and see it
-  overlaid on the course. Tracks are evidence for checking marks and legs, not
-  a scoring input. For each rounding the course builder would report the
-  closest approach, and it would flag any mark the fleet passed well clear of.
-- **Wind and current.** ORC legs already carry wind direction and speed, and
-  optionally current, but the scorer has to estimate them. Readings logged from
-  the committee boat through the race, and from the RIBs at the marks, would
-  fill these in directly. Tracks give a cross-check: the angle midway between
-  a boat's two tacks on a beat is the wind direction.
-
-#### Pat Tanner's pages: the requirements to build in
-
-Pat Tanner (RCYC) built and is running the first two of these for RCYC's
-Autumn League 2026 ORC trial: a RIB page (`tradboats.ie/record/`) and a race
-officer's page (`tradboats.ie/course/`). Their source is MIT, in
-`github.com/Bateleur88/cork-harbour-orc` (`pages/`). Sail Scoring could either import their
-output or do everything they do itself; that decision is still to be made
-with Pat. If we were to bring everything they do into Sail Scoring, these
-would be the requirements:
-
-*RIB page*
-
-- Pick the date, race and mark (quick picks for the club's laid marks, or a
-  typed name), then one button records the fix: position, accuracy, time,
-  device, and an optional "who's recording" name.
-- Works with no signal: fixes queue on the phone and upload when there is
-  signal, and the page itself opens offline. Unsent fixes and deletes survive
-  until sent; starting a new day warns about any still pending.
-- A fix can be cancelled or deleted, and re-assigned when it was recorded
-  under the wrong race.
-- A backup message of the day's fixes, ready to send by WhatsApp.
-- **Only a fresh position is saved.** A phone can return its last known
-  position with that position's old time, even when asked for a new one
-  (Android Chrome ignores `maximumAge: 0`). On the first race day, 4 October
-  2026, half the fixes were between 24 seconds and 12.5 minutes old. So:
-  - A position more than 5 s older than the tap is ignored, and the page
-    keeps listening.
-  - A fresh position at ±5 m or better is saved at once. Otherwise the most
-    accurate fresh one is saved after 10 s. With none by 20 s, nothing is
-    saved and the crew is asked to stay at the mark and record again.
-  - A large "hold still" panel with a countdown is shown while waiting, and
-    "Saved" appears only once a fresh position is stored. Cancelling,
-    locking the screen or leaving the page saves nothing.
-  - Each fix stores the tap time beside the position's own time, so the age
-    of every position can be measured afterwards.
-  - The check relies on the phone's clock, so a phone more than a few
-    seconds out refuses every fix; the page should say why.
-  - Still open: a RIB still closing on the mark gets a fresh position that
-    isn't at the mark. A low speed, or two close positions, could be
-    required before saving.
-
-*Race officer's page: building the course*
-
-- The day's fixes, refreshed automatically, with a "Record committee boat
-  here" button using the race officer's own phone. Marks can also be typed
-  as positions or read from a pasted WhatsApp message.
-- A course comes from the card, keeping its route (including passages around
-  shallow water, sailscoring/course-cards#16), or from tapping marks in rounding
-  order. One course per race and start; a race's starts, the classes in each,
-  and start times are set per race.
-- **Laid and moored marks are treated differently.** A laid mark takes the
-  newest fix with exactly its name, or else the card position, which is flagged
-  as a planning position. A moored mark always uses its charted position. A
-  near-miss name is suggested and never applied automatically. The race
-  officer can pin any fix or the card position, and go back to automatic.
-- **Fixes are bound to time.** A fix recorded after the start is never picked
-  automatically. A mark moved during the race keeps both positions, and each
-  rounding uses the one in place at the time (on 21 September 2026 Leeward
-  09:05 was used for one rounding and 09:34 for the other).
-- Start and finish line ends are chosen separately: the recorded committee
-  boat and pin, or the card's mark standing in until they are recorded. A
-  card's finish decides itself: at a mark, the finish is the mark itself, not
-  a line. Finish options for a hand-built course are the start line, committee
-  boat and finish pin, or at the last mark.
-- The first and last hops measured from a recorded line, rather than the
-  card's start point, are labelled as not checked against depth. A warning
-  appears when the line's midpoint is more than 500 m from the card's start.
-- Fix accuracy is shown, with a warning when it is poor.
-
-*Race officer's page: checking it*
-
-- Legs in sailing order with bearing (°M and °T, variation computed for the
-  date and place; see #660), distance, true wind angle and the type of leg
-  (beat, reach, run), plus the total. Drawn as a sketch and on the chart.
-- Start line length, how far it is off square to the wind, and which end is
-  favoured and by how much.
-- Whether the windward mark is square to the wind, and how far to move it
-  ("move 11 m towards 185°M to square it").
-- Wind shift: given a new wind direction, the mark moves that restore a true
-  beat, ready to copy to the RIB.
-- After the gun, a race view with alerts for anything that changes: a laid
-  mark re-pointed, a mark moved, two phones disagreeing about one mark, or the
-  refresh stopped.
-- Outputs: a WhatsApp message with the course, legs and positions; and the
-  leg table, which in Sail Scoring becomes the start's course directly.
-- **Check the day's fixes.** A read-only plot of every fix for a race, or
-  for the whole day, for the race officer or the scorer to spot one out of
-  place. Tapping a fix shows its name, race, time, accuracy, phone, who
-  recorded it, and how old the position was when saved. Typed positions are
-  drawn as estimates. Flags are advice only and never block anything:
-  - a position that was old when saved
-  - a pin within 60 m of a mark
-  - a start line more than 45° off square to the first leg
-  - a mark more than 500 m from a fix of the same name in another race
-  - line ends recorded out of time order
-  - a race with no committee boat of its own
-
-  Each flag comes with a ready-to-send message asking for the mark to be
-  recorded again.
-- **Used ashore too.** The scorer checks the marks and the legs side by
-  side, so the page needs a wide layout for a tablet or PC as well as the
-  phone layout.
-
-Pat's choices answer two of the open questions below, for his use at least.
-Connectivity: offline-first throughout, with WhatsApp as the fallback.
-Access: a single shared race key. It's served to both pages, so anyone who
-loads them can read it. It deters casual misuse, not deliberate misuse, so
-Sail Scoring needs per-race or revocable links instead.
-
-Open questions:
+What could still come here is checking a course against **competitors'
+tracks**. A track gives independent evidence of where the marks were and
+which course was sailed: on 27 September 2026 one competitor's Garmin track
+passed every laid mark of an RCYC course at 4–14 m. Using tracks that way,
+rather than to score, still leaves open:
 
 - **Tracks as data.** The sector time analysis entry below says Sail Scoring
-  shouldn't ingest trackers. Using a track to check the course is a narrower
-  use. Does that mean keeping the raw tracks, or only what was derived from
-  them (a rounding distance, a crossing time)?
+  shouldn't ingest trackers. Checking a course is a narrower use. Does it
+  mean keeping the raw tracks, or only what was derived from them (a
+  rounding distance, a crossing time)?
 - **Privacy.** A track is personal location data. It needs a Privacy Policy
   change, a retention rule, and a decision on who can see whose track.
-- **Access for people without accounts.** How are the links authorised:
-  per race, expiring, revocable? What stops a leaked link being used to
-  record a bogus position?
-- **Connectivity.** Signal outside a harbour is patchy, so the pages need to
-  record offline and sync later. Pat's pages show it can be done: a queue on
-  the phone, plus a service worker so the page opens with no signal.
-- **What gets published.** Is this course evidence part of the scoring
-  record, kept and revisable like finishes, or only a working aid for the
-  scorer?
 
 ---
 

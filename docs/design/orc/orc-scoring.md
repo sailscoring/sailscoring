@@ -297,14 +297,11 @@ unscored in that race only; series-level ratability follows the default.
   legs, each boat's implied wind, the scoring wind, and each boat's
   allowance at the scoring wind, so a competitor can reproduce their
   corrected time from their own certificate.
-- Course capture grows in layers: v1 is the leg array (ORC's own input
-  shape); later a workspace course library (fixed marks + course cards
-  generating legs from a course number plus start/windward/finish
-  positions — the `markmate` prototype's model) and a course visualization
-  on published pages. Record the richest form available; always derive the
-  leg array from it. Apps that build courses outside Sail Scoring hand
-  them over as an [ORC constructed course](constructed-course-format.md)
-  document.
+- Course capture is the leg array, ORC's own input shape: typed on the
+  race start, or handed over by an app that builds courses as an
+  [ORC constructed course](constructed-course-format.md) document, which
+  may also say where the first leg starts. Published pages draw the legs,
+  on the club's chart where that position places them.
 
 ### Gating
 
@@ -342,17 +339,13 @@ methods:
    tail.
 6. **Band methods** (#436, post-league) — per-race band selection over the
    `ScoringOptions` catalog (triple-number, IRL 5-band, predominant).
-7. **Course library** (#437, kickoff any time; designer product
-   post-league) — a standalone, format-first repo under the org: a
-   versioned marks / course-cards / race-infrastructure format maturing
-   the `markmate` model, a leg-computation + rendering library consumed by
-   the app (course-number lookup filling a start's legs, published course
-   rendering), and later a club-facing course-card designer. Raw leg entry
-   (milestone 4) remains the interchange floor either way. The repo's 0.3.0
-   release and the app's Courses tab landed in September 2026; the model is
-   [`course-builder.md`](course-builder.md), the UX
-   [`../ux/flows/course-builder.md`](../ux/flows/course-builder.md). The
-   club-facing designer stays post-league.
+7. **Course library** (#437) — a standalone, format-first repo under the
+   org: a versioned marks / course-cards format and a leg-computation and
+   rendering library. The app's Courses tab, built on it in September 2026,
+   was removed in October (#704): building courses is left to course tools,
+   which hand the course over as an ORC constructed course document, and
+   the app draws a start's course on the library's charts. Raw leg entry
+   (milestone 4) remains the interchange floor.
 
 Milestones 1–4 are the Autumn League critical path; shadow-scoring
 alongside ORC Scorer mid-series is the fallback if 3–4 land late, and
