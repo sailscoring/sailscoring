@@ -141,13 +141,18 @@ export function PublishedList() {
   ]);
 
   const items = useMemo(() => published ?? [], [published]);
-  const staleCount = items.filter((i) => i.editsSincePublish > 0).length;
+  // Only active series count towards "edits since publish": an edit to an
+  // archived series is rarely a page someone forgot to republish, and in a
+  // workspace with seasons of history the past ones drown out the live ones.
+  // The row itself still says so.
+  const isStale = (i: PublishedListItem) => i.editsSincePublish > 0 && !i.archived;
+  const staleCount = items.filter(isStale).length;
   const orphanCount = items.filter((i) => i.orphaned).length;
 
   // Search over what the eye scans for: the series name and the public URL.
   const q = query.trim().toLowerCase();
   const visible = items.filter((i) => {
-    if (filter === 'stale' && i.editsSincePublish === 0) return false;
+    if (filter === 'stale' && !isStale(i)) return false;
     if (filter === 'orphaned' && !i.orphaned) return false;
     if (q === '') return true;
     return i.title.toLowerCase().includes(q) || i.slug.toLowerCase().includes(q);

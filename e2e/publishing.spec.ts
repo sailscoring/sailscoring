@@ -1071,6 +1071,9 @@ test('the public workspace listing groups by season, expands the current one, an
   // "Past results" toggle that expands to its event year.
   await page.goto('/workspace/published');
   await expect(page.getByText('2 pages published')).toBeVisible();
+  // Both series were filed, and one archived, after publishing — neither of
+  // which changes a page, so neither reads as an unpublished edit.
+  await expect(page.getByText(/edits? since/)).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Club Racing' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Spring League 2026', exact: true })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Lambay Race 2024', exact: true })).not.toBeVisible();

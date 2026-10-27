@@ -169,7 +169,9 @@ export default function Publishing() {
           published, how many edits have landed since, and whether it shares its URL with
           another series. Pages are grouped for the scorer — active series
           by category, archived ones under Past results by year — and you can search by name
-          or URL and filter to pages with edits since publish.{' '}
+          or URL and filter to active series’ pages with edits since publish (archiving a
+          series or moving it between categories isn’t an edit — neither changes its
+          page).{' '}
           <strong className="text-foreground">Unpublish</strong> takes a page down: the public URL
           stops working and the slug frees up for reuse (or, if the URL is shared, only that
           series’ fleets are removed and the page stays live for the rest).
