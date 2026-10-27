@@ -225,7 +225,7 @@ describe('sample series files', () => {
   it('orc: every method scores through the per-race option, PCS numbers coherent', () => {
     const { file, fleets, competitors, races, raceStarts, finishes } = load('orc.sailscoring');
 
-    expect(file.formatVersion).toBe(70);
+    expect(file.formatVersion).toBe(71);
     // Placed for the magnetic variation of legs typed with nothing to place
     // them.
     expect(file.series.venuePosition).toEqual({ lat: 53.393, lng: -6.066 });

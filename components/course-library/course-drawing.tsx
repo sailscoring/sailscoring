@@ -5,54 +5,40 @@ import { renderCourseSvg, type DrawnCourseMark, type DrawnMark } from '@sailscor
 
 import type { Variation } from '@/lib/bearings';
 import { loadCourseBackground, type CourseBackground } from '@/lib/course-cards';
-import { routedDrawing } from '@/lib/course-geometry';
 
 /**
- * The course-library drawing: the library's own inert SVG — no script, no
- * stylesheet, no ids — rendered inline. A sanity check as much as a picture:
- * a coordinate that went in wrong should be obviously wrong at a glance, so
- * it redraws as positions and sequences are edited.
+ * A start's course drawn: the course-cards library's own inert SVG — no
+ * script, no stylesheet, no ids — rendered inline. A sanity check as much as
+ * a picture: a leg that went in wrong should be obviously wrong at a glance,
+ * so it redraws as the legs are edited.
  *
- * `set` is the course-cards data set the marks were adopted from, and its
- * captured chart is drawn under them — the same water the club's own card
- * page shows. It arrives after the drawing does: the image is a few hundred
- * kilobytes, and waiting for it would mean waiting to show the marks.
+ * `set` is the course-cards data set whose chart covers the course, and its
+ * captured chart is drawn under it — the same water the club's own card page
+ * shows. It arrives after the drawing does: the image is a few hundred
+ * kilobytes, and waiting for it would mean waiting to show the legs.
  *
  * `variation` labels the legs' bearings in magnetic, as the figures beside
  * the drawing are; without it they are labelled true. A course kept in
  * magnetic (`north="magnetic"`) has nothing to convert by: its legs are
  * drawn as their figures are, so magnetic north is up, and labelled °M.
- *
- * Where the set has a routing overlay, a leg it routes round an obstruction
- * is drawn through the passage, lettered as the legs it is scored as. A
- * caller showing legs already scored passes how many as `scoredLegs`, and a
- * drawing that would route them into a different number — a start scored
- * before the overlay — is drawn straight, as it was scored. Legs drawn from
- * a leg table are what they are, and pass `route={false}`.
  */
 export function CourseDrawing({
   marks,
   course,
-  highlight,
   width = 560,
   title,
   className,
   set,
   variation,
-  scoredLegs,
-  route = true,
   north,
 }: {
   marks: DrawnMark[];
   course?: DrawnCourseMark[];
-  highlight?: string;
   width?: number;
   title?: string;
   className?: string;
   set?: string;
   variation?: Variation;
-  scoredLegs?: number;
-  route?: boolean;
   north?: 'magnetic';
 }) {
   // Held with the set it belongs to, so switching sets draws on plain ground
@@ -70,20 +56,15 @@ export function CourseDrawing({
   }, [set]);
   const background = set && loaded?.set === set ? loaded.chart : undefined;
 
-  const svg = useMemo(() => {
-    const routed = routedDrawing(marks, course ?? [], route ? set : undefined, highlight);
-    const drawn = scoredLegs == null || routed.legCount === scoredLegs
-      ? routed
-      : { marks, course: course ?? [], highlight, routing: undefined };
-    return renderCourseSvg(drawn.marks, drawn.course, {
+  const svg = useMemo(
+    () => renderCourseSvg(marks, course ?? [], {
       width,
-      ...(drawn.highlight ? { highlight: drawn.highlight } : {}),
       ...(title ? { title } : {}),
       ...(background ? { background } : {}),
       ...(variation ? { magneticVariationDeg: variation.deg } : north === 'magnetic' ? { magneticVariationDeg: 0 } : {}),
-      ...(drawn.routing ? { routing: drawn.routing } : {}),
-    });
-  }, [marks, course, highlight, width, title, background, variation, north, set, scoredLegs, route]);
+    }),
+    [marks, course, width, title, background, variation, north],
+  );
   if (!svg) {
     return (
       <div

@@ -862,6 +862,13 @@
       "when": 1793023080140,
       "tag": "0122_oauth_tokens_outlive_sessions",
       "breakpoints": true
+    },
+    {
+      "idx": 123,
+      "version": "7",
+      "when": 1793095985063,
+      "tag": "0123_course_library_upgrade",
+      "breakpoints": true
     }
   ]
 }

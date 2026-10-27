@@ -8,8 +8,6 @@ import type {
   RaceRatingOverride,
   RaceStart,
   Series,
-  SeriesCourse,
-  SeriesMark,
   SubSeries,
 } from './types';
 
@@ -23,16 +21,12 @@ export interface SeriesSnapshot {
   finishes: Finish[];
   raceStarts: RaceStart[];
   ratingOverrides: RaceRatingOverride[];
-  /** The course library (ORC constructed courses). Empty on a series with
-   *  none; absent only from a bundle whose repos don't carry the library. */
-  marks?: SeriesMark[];
-  courses?: SeriesCourse[];
 }
 
 /**
  * The canonical whole-series fan-in, shared by the `.sailscoring` file
  * builder, the public JSON export, the per-fleet HTML renderer, and the TCF
- * history handler. Every read is series-scoped, so all seven run in
+ * history handler. Every read is series-scoped, so they all run in
  * parallel.
  *
  * Returns `null` when the series doesn't exist; empty-series semantics
@@ -51,8 +45,6 @@ export async function loadSeriesSnapshot(
     finishes,
     raceStarts,
     ratingOverrides,
-    marksUnsorted,
-    coursesUnsorted,
   ] = await Promise.all([
     repos.seriesRepo.get(seriesId),
     repos.competitorRepo.listBySeries(seriesId),
@@ -62,8 +54,6 @@ export async function loadSeriesSnapshot(
     repos.finishRepo.listBySeries(seriesId),
     repos.raceStartRepo.listBySeries(seriesId),
     repos.raceRatingOverrideRepo.listBySeries(seriesId),
-    repos.seriesMarkRepo?.listBySeries(seriesId) ?? Promise.resolve([] as SeriesMark[]),
-    repos.seriesCourseRepo?.listBySeries(seriesId) ?? Promise.resolve([] as SeriesCourse[]),
   ]);
   if (!series) return null;
 
@@ -73,8 +63,6 @@ export async function loadSeriesSnapshot(
   const fleets = [...fleetsUnsorted].sort((a, b) => a.displayOrder - b.displayOrder);
   const races = [...racesUnsorted].sort((a, b) => a.raceNumber - b.raceNumber);
   const subSeries = [...subSeriesUnsorted].sort((a, b) => a.displayOrder - b.displayOrder);
-  const marks = [...marksUnsorted].sort((a, b) => a.createdAt - b.createdAt || a.name.localeCompare(b.name));
-  const courses = [...coursesUnsorted].sort((a, b) => a.createdAt - b.createdAt || a.name.localeCompare(b.name));
 
-  return { series, competitors, fleets, races, subSeries, finishes, raceStarts, ratingOverrides, marks, courses };
+  return { series, competitors, fleets, races, subSeries, finishes, raceStarts, ratingOverrides };
 }

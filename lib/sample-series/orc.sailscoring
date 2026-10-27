@@ -1,5 +1,5 @@
 {
-  "formatVersion": 70,
+  "formatVersion": 71,
   "seriesId": "sample-orc",
   "exportedAt": "2026-01-01T00:00:00.000Z",
   "series": {
@@ -4559,7 +4559,6 @@
           ],
           "course": {
             "name": "Offshore J2",
-            "waypoints": [],
             "legs": [
               {
                 "distanceNm": 1,
@@ -4867,7 +4866,6 @@
           ],
           "course": {
             "name": "Offshore J2",
-            "waypoints": [],
             "legs": [
               {
                 "distanceNm": 1,

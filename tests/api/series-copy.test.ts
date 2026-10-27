@@ -43,8 +43,6 @@ function normalise(file: SeriesFile): unknown {
   for (const c of file.competitors) names.set(c.id, `competitor:${c.sailNumber}`);
   for (const r of file.races) names.set(r.id, `race:${r.raceNumber}`);
   for (const ss of file.subSeries ?? []) names.set(ss.id, `sub-series:${ss.name}`);
-  for (const m of file.marks ?? []) names.set(m.id, `mark:${m.name}`);
-  for (const c of file.courses ?? []) names.set(c.id, `course:${c.name}`);
 
   const rename = (v: unknown): unknown => {
     if (typeof v === 'string') return names.get(v) ?? (UUID.test(v) ? '<id>' : v);

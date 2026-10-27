@@ -3,7 +3,7 @@ import 'server-only';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import { courseBackgroundOf, courseChartOf, findCourseCardSet, type CourseBackground } from './index';
+import { courseBackgroundOf, findCourseChart, type CourseBackground } from './index';
 
 /**
  * A data set's captured chart, read off disk rather than fetched.
@@ -25,11 +25,11 @@ const cache = new Map<string, Promise<CourseBackground | undefined>>();
 export function readCourseBackground(setPath: string): Promise<CourseBackground | undefined> {
   let p = cache.get(setPath);
   if (!p) {
-    const chart = courseChartOf(findCourseCardSet(setPath));
+    const chart = findCourseChart(setPath);
     p = !chart
       ? Promise.resolve(undefined)
       : readFile(join(process.cwd(), 'public', 'course-cards', chart.file))
-          .then((png) => courseBackgroundOf(chart.placement, new Uint8Array(png)))
+          .then((png) => courseBackgroundOf(chart, new Uint8Array(png)))
           .catch((err: unknown) => {
             console.warn(`course-cards: no chart for ${setPath}:`, err);
             return undefined;

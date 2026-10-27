@@ -5,7 +5,7 @@ import { useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { CourseDrawing } from '@/components/course-library/course-drawing';
 import type { Variation } from '@/lib/bearings';
-import { drawnStartCourse } from '@/lib/course-geometry';
+import { drawnRaceStartCourse } from '@/lib/course-geometry';
 import {
   constructedCourseSummary,
   importedCourseLegs,
@@ -52,7 +52,7 @@ export function ConstructedCourseImport({
   const drawing = useMemo(() => {
     if (!course) return null;
     const legs = importedCourseLegs(course, variation);
-    return drawnStartCourse(snapshotOfImportedCourse(course, legs, variation ? undefined : 'magnetic'), chartSet);
+    return drawnRaceStartCourse(snapshotOfImportedCourse(course, legs, variation ? undefined : 'magnetic'), legs, chartSet);
   }, [course, variation, chartSet]);
 
   async function pickFile(file: File | undefined) {
@@ -112,7 +112,6 @@ export function ConstructedCourseImport({
           marks={drawing.marks}
           course={drawing.course}
           set={drawing.set}
-          route={false}
           variation={variation}
           north={variation ? undefined : 'magnetic'}
           width={440}

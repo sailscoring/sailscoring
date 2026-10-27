@@ -8,10 +8,7 @@ import { uuidSchema, versionSchema, wallClockSchema } from './common';
 const latSchema = z.number().min(-90).max(90);
 const lngSchema = z.number().min(-180).max(180);
 const bearingSchema = z.number().min(0).max(360);
-const sideSchema = z.enum(['port', 'starboard']);
-/** A course may not exceed the leg table it fills (60 legs = 61 marks). */
-const MAX_COURSE_MARKS = 61;
-const MAX_COURSE_LEGS = MAX_COURSE_MARKS - 1;
+const MAX_COURSE_LEGS = 60;
 
 /** One leg of the table a start's course gave: how far, and on what
  *  bearing. The distance bound matches a start's own legs. */
@@ -20,43 +17,12 @@ const courseLegSchema = z.object({
   bearingDeg: bearingSchema,
 });
 
-/** One end of a line a start's course was measured from. */
-const raceStartCourseLineEndSchema = z.object({
-  end: sideSchema,
-  markId: uuidSchema.optional(),
-  label: z.string().max(80),
-  lat: latSchema,
-  lng: lngSchema,
-  fixed: z.boolean().optional(),
-  set: z.string().min(1).max(200).optional(),
-});
-
-/** The course a start sailed: its name, wind and anchor, and the legs it
- *  gave (see RaceStartCourse). */
+/** The course a start sailed: its name, the legs it gave, where the first
+ *  of them starts, and its wind (see RaceStartCourse). A key it doesn't
+ *  name is dropped: a build from before the course library was removed
+ *  still sends a course's `courseId` and `waypoints`. */
 export const raceStartCourseSchema = z.object({
-  courseId: uuidSchema.optional(),
   name: z.string().trim().min(1).max(80),
-  waypoints: z
-    .array(
-      z.object({
-        markId: uuidSchema.optional(),
-        label: z.string().max(80),
-        lat: latSchema,
-        lng: lngSchema,
-        side: sideSchema.optional(),
-        passing: z.boolean().optional(),
-        fixed: z.boolean().optional(),
-        set: z.string().min(1).max(200).optional(),
-        cardMarkId: z.string().min(1).max(40).optional(),
-        ends: z
-          .tuple([raceStartCourseLineEndSchema, raceStartCourseLineEndSchema])
-          .refine(([a, b]) => a.end === 'starboard' && b.end === 'port', {
-            message: 'A line has its starboard end first and its port end second',
-          })
-          .optional(),
-      }),
-    )
-    .max(MAX_COURSE_MARKS),
   legs: z.array(courseLegSchema).max(MAX_COURSE_LEGS).optional(),
   anchor: z.object({ lat: latSchema, lng: lngSchema }).optional(),
   north: z.literal('magnetic').optional(),
@@ -110,7 +76,7 @@ export const raceStartSchema = z.object({
   orcOption: z.string().min(1).max(64).optional(),
   // Constructed-course legs (ORC rule 402.5), in sailing order.
   courseLegs: courseLegsSchema.optional(),
-  // The library course those legs came from, as a snapshot (RaceStartCourse).
+  // The course those legs came from (RaceStartCourse).
   course: raceStartCourseSchema.optional(),
   version: versionSchema,
 });

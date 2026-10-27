@@ -45,7 +45,6 @@ import {
   legDistance,
   legsForStart,
   legsMatch,
-  legsOfWaypoints,
   seriesChartSet,
   startCoursePositions,
 } from '@/lib/course-geometry';
@@ -241,16 +240,11 @@ function RaceStartDialogInner({
     seed?.course?.windSpeedKts != null ? String(seed.course.windSpeedKts) : '',
   );
   const [legsEdited, setLegsEdited] = useState(Boolean(seed?.course?.legsEdited));
-  // Where the course is: its marks, or the anchor of an imported one.
-  const snapshotWaypoints = snapshot?.waypoints;
+  // Where the course is: where its first leg starts, else the venue.
   const snapshotAnchor = snapshot?.anchor;
   const variation = useMemo(
-    () => courseVariation(
-      startCoursePositions(snapshotWaypoints && { name: '', waypoints: snapshotWaypoints, anchor: snapshotAnchor }),
-      venuePosition,
-      raceDate,
-    ),
-    [snapshotWaypoints, snapshotAnchor, venuePosition, raceDate],
+    () => courseVariation(snapshotAnchor ? [snapshotAnchor] : [], venuePosition, raceDate),
+    [snapshotAnchor, venuePosition, raceDate],
   );
   // A course kept in magnetic stays in magnetic, even once a venue position
   // would give a variation: its figures were never converted, and
@@ -373,31 +367,16 @@ function RaceStartDialogInner({
     setSnapshot(undefined);
   }
 
-  // The picture the published page will show: the course's marks while the
-  // legs are still theirs, and the legs as typed once the scorer has edited
-  // them or there is no course. Rows that don't parse yet are left out — the
-  // drawing follows the typing, and saving is where a bad row is refused.
+  // The picture the published page will show: the legs as typed, from
+  // where the first leg starts where the course says. Rows that don't parse
+  // yet are left out — the drawing follows the typing, and saving is where a
+  // bad row is refused.
   const drawing = useMemo(() => {
-    const legs: OrcCourseLeg[] = legRows
-      .map((r) => ({
-        distanceNm: Number(r.distance.trim()),
-        bearingDeg: rowBearingTrue(r, display) ?? NaN,
-        windDirectionDeg: rowWindTrue(r, display) ?? NaN,
-        ...(r.windSpeed.trim() ? { windSpeedKts: Number(r.windSpeed.trim()) } : {}),
-      }))
+    const legs = legRows
+      .map((r) => ({ distanceNm: Number(r.distance.trim()), bearingDeg: rowBearingTrue(r, display) ?? NaN }))
       .filter((l) => l.distanceNm > 0 && l.bearingDeg >= 0 && l.bearingDeg <= 360);
-    // The same test saving applies, so an edit that changed nothing still
-    // draws the marks.
-    const edited = snapshot != null && legsEdited && !legsMatch(
-      legs.map((l) => ({ ...l, distanceNm: legDistance(l.distanceNm) })),
-      legsForStart(snapshot.legs ?? legsOfWaypoints(snapshot.waypoints), windDeg ?? 0, windKt),
-    );
-    const drawn = drawnRaceStartCourse(snapshot && { ...snapshot, legsEdited: edited || undefined }, legs, chartSet);
-    return drawn && { ...drawn, scoredLegs: legs.length };
-  }, [snapshot, legRows, legsEdited, windDeg, windKt, display, chartSet]);
-  // The chart the course sits on. A drawing of legs is on the water only
-  // where an anchor puts it there.
-  const drawingSetPath = drawing?.fromLegs ? drawing.set : drawing?.set ?? chartSet;
+    return legs.length > 0 ? drawnRaceStartCourse(snapshot, legs, chartSet) : null;
+  }, [snapshot, legRows, display, chartSet]);
 
   // A gentle nudge when the chosen option needs course data the start lacks;
   // saving is still allowed — the race falls back to scratch until the
@@ -532,13 +511,9 @@ function RaceStartDialogInner({
     // sets, confirmed against the arithmetic so a no-op edit is not an edit.
     let course: RaceStartCourse | undefined;
     if (snapshot) {
-      // A course defined by legs has no waypoints; its snapshot carries the
-      // table it gave, which is what an edit is measured against.
-      const fromCourse = legsForStart(
-        snapshot.legs ?? legsOfWaypoints(snapshot.waypoints),
-        windDeg ?? 0,
-        windKt,
-      );
+      // The legs the course gave are what an edit is measured against. A
+      // course edited before it was kept has none, so it stays edited.
+      const fromCourse = legsForStart(snapshot.legs ?? [], windDeg ?? 0, windKt);
       const edited = legsEdited && (courseLegs ? !legsMatch(courseLegs, fromCourse) : true);
       course = {
         ...snapshot,
@@ -690,9 +665,7 @@ function RaceStartDialogInner({
                   <CourseDrawing
                     marks={drawing.marks}
                     course={drawing.course}
-                    set={drawingSetPath}
-                    route={!drawing.fromLegs}
-                    scoredLegs={drawing.scoredLegs}
+                    set={drawing.set}
                     variation={display.ref === 'M' ? display.variation : undefined}
                     north={magnetic ? 'magnetic' : undefined}
                     width={440}
@@ -704,7 +677,7 @@ function RaceStartDialogInner({
                       the only recorded position; the rest is where the
                       bearings and distances lead.
                     </p>
-                  ) : drawing.fromLegs && (
+                  ) : (
                     <p className="text-xs text-muted-foreground" data-testid="course-drawing-caption">
                       Drawn from the legs — the shape and the direction
                       are the committee&apos;s; there are no positions behind it.

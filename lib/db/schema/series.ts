@@ -39,8 +39,6 @@ import type {
   OrcProfile,
   FleetRatingVariant,
   RaceStartCourse,
-  SeriesCourseLeg,
-  SeriesCourseMark,
   PrimaryPersonLabel,
   PublishingGroup,
   ProtestTimeLimit,
@@ -156,8 +154,8 @@ export const series = pgTable(
     eventLogoUrl: text('event_logo_url').notNull().default(''),
     venueUrl: text('venue_url').notNull().default(''),
     eventUrl: text('event_url').notNull().default(''),
-    // Where the racing is ({lat, lng}), for the magnetic variation of a
-    // course with no marks to place it. Null until the scorer sets it.
+    // Where the racing is ({lat, lng}), for the magnetic variation of legs
+    // with nothing to place them. Null until the scorer sets it.
     venuePosition: jsonb('venue_position').$type<{ lat: number; lng: number }>(),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
@@ -1018,9 +1016,9 @@ export const raceStarts = pgTable(
     distanceNm: real('distance_nm'),
     orcScoringWind: real('orc_scoring_wind'),
     courseLegs: jsonb('course_legs').$type<OrcCourseLeg[]>(),
-    // The library course those legs came from, snapshotted when picked (see
-    // RaceStartCourse). Null on a start whose legs were typed by hand.
-    course: jsonb('course').$type<RaceStartCourse>(),
+    // The course those legs came from (see RaceStartCourse). Null on a start
+    // whose legs were typed by hand.
+    course: jsonb('course').$type<StoredRaceStartCourse>(),
     orcOption: text('orc_option'),
     version: versionCol,
     updatedAt: updatedAtCol,
@@ -1030,11 +1028,29 @@ export const raceStarts = pgTable(
 );
 
 /**
- * The course library (ORC constructed courses): the marks a series' courses
- * are built from, and the courses themselves. Series-scoped like sub-series;
- * both cascade with the series. A course names its marks by id inside its
- * JSONB sequence — never queried by content, and the handler refuses to
- * delete a mark a course still names.
+ * A start's course as a row holds it: the current shape, and an empty
+ * `waypoints` list. Builds from before the course library was removed read
+ * `waypoints` unguarded, so every row keeps one until no such build can be
+ * running; a row one of them wrote may also still name its library course.
+ */
+export type StoredRaceStartCourse = RaceStartCourse & { waypoints?: unknown[]; courseId?: string };
+
+/** A start's course as a row is written: with its empty `waypoints`. */
+export function storedRaceStartCourse(course: RaceStartCourse | undefined): StoredRaceStartCourse | null {
+  return course ? { ...course, waypoints: [] } : null;
+}
+
+/** A row's course in the current shape, whatever build wrote it. */
+export function raceStartCourseOfRow(stored: StoredRaceStartCourse): RaceStartCourse {
+  const { waypoints: _waypoints, courseId: _courseId, ...course } = stored;
+  return course;
+}
+
+/**
+ * The course library earlier versions kept behind ORC constructed courses:
+ * the marks a series' courses were built from, and the courses. Nothing
+ * reads or writes them now; they stay only until no build that reads them
+ * can be running. Series-scoped, cascading with the series.
  */
 export const seriesMarks = pgTable(
   'series_marks',
@@ -1083,10 +1099,10 @@ export const seriesCourses = pgTable(
     modified: boolean('modified').notNull().default(false),
     // The sequence, in sailing order: [{markId, side?, passing?}]. Empty on a
     // course defined by its leg table instead.
-    marks: jsonb('marks').$type<SeriesCourseMark[]>().notNull(),
+    marks: jsonb('marks').$type<{ markId: string; side?: 'port' | 'starboard'; passing?: boolean }[]>().notNull(),
     // The race committee's own leg table: [{distanceNm, bearingDeg}]. Null on
     // a course defined by marks; exactly one of the two is populated.
-    legs: jsonb('legs').$type<SeriesCourseLeg[]>(),
+    legs: jsonb('legs').$type<{ distanceNm: number; bearingDeg: number }[]>(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
     version: versionCol,
     updatedAt: updatedAtCol,

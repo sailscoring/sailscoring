@@ -2,14 +2,14 @@
  * The charts a published page's courses are drawn on. The build does not go
  * looking for them: it is handed a loader — the dialogs fetch from the app's
  * origin, the publish route reads off disk — and asks it for the data sets
- * this series' own starts name, once each. What the renderer then does with
- * a chart is tests/orc-render.test.ts.
+ * this series' anchored courses sit on, once each. What the renderer then
+ * does with a chart is tests/orc-render.test.ts.
  */
 import { describe, expect, it } from 'vitest';
 
 import { buildFleetHtmlFiles } from '@/lib/results-export';
 import type { ExportRepos } from '@/lib/public-export';
-import type { Competitor, Finish, Fleet, Race, RaceStart, Series, SeriesMark } from '@/lib/types';
+import type { Competitor, Finish, Fleet, Race, RaceStart, Series } from '@/lib/types';
 
 const SERIES: Series = {
   id: 's1',
@@ -45,25 +45,26 @@ const FINISHES: Finish[] = [
   { id: 'r1-c1', raceId: 'r1', competitorId: 'c1', sortOrder: 1, tiedWithPrevious: false, resultCode: null, startPresent: null, penaltyCode: null, penaltyOverride: null, redressMethod: null, redressExcludeRaceIds: null, redressIncludeRaceIds: null, redressIncludeAllLater: false, redressPoints: null },
 ];
 
-/** One start, over marks adopted from two clubs' sets — the rare case, and
- *  the one that proves the sets come off the waypoints rather than a guess. */
+/** One start, placed off Ireland's Eye by its anchor, with legs long enough
+ *  to run out past the Brass Monkey chart onto the Autumn League's. */
+const LEGS = [
+  { distanceNm: 3, bearingDeg: 30, windDirectionDeg: 30 },
+  { distanceNm: 3, bearingDeg: 210, windDirectionDeg: 30 },
+];
 const START: RaceStart = {
   id: 'st1',
   raceId: 'r1',
   fleetIds: ['f1'],
   startTime: '14:00:00',
+  courseLegs: LEGS,
   course: {
-    name: 'W/L — 12 Sep R1',
-    waypoints: [
-      { label: 'Start', lat: 53.4055, lng: -6.0675 },
-      { label: 'Z', lat: 53.3967, lng: -6.0702, fixed: true, set: 'hyc/al-2026' },
-      { label: 'I', lat: 53.4117, lng: -6.0727, fixed: true, set: 'hyc/al-2026' },
-      { label: 'H', lat: 53.399, lng: -6.0505, fixed: true, set: 'dbsc/summer-2026' },
-    ],
+    name: 'Imported course',
+    legs: LEGS.map((l) => ({ distanceNm: l.distanceNm, bearingDeg: l.bearingDeg })),
+    anchor: { lat: 53.41, lng: -6.08 },
   },
 };
 
-function makeRepos(starts: RaceStart[], marks: SeriesMark[] = []): ExportRepos {
+function makeRepos(starts: RaceStart[]): ExportRepos {
   return {
     seriesRepo: { get: async (id: string) => (id === 's1' ? SERIES : undefined) },
     competitorRepo: { listBySeries: async () => COMPETITORS },
@@ -73,63 +74,31 @@ function makeRepos(starts: RaceStart[], marks: SeriesMark[] = []): ExportRepos {
     finishRepo: { listBySeries: async () => FINISHES },
     raceStartRepo: { listBySeries: async () => starts },
     raceRatingOverrideRepo: { listBySeries: async () => [] },
-    seriesMarkRepo: { listBySeries: async () => marks },
-    seriesCourseRepo: { listBySeries: async () => [] },
   } as unknown as ExportRepos;
 }
 
 describe('buildFleetHtmlFiles — the charts its courses are drawn on', () => {
-  it('asks for each data set its starts name, once', async () => {
+  it('asks for the chart an anchored course is placed on, once', async () => {
     const asked: string[] = [];
-    await buildFleetHtmlFiles(makeRepos([START]), 's1', undefined, {
-      loadCourseBackground: async (set) => {
-        asked.push(set);
-        return undefined;
-      },
-    });
-    expect(asked.sort()).toEqual(['dbsc/summer-2026', 'hyc/al-2026']);
-  });
-
-  it('asks for nothing when no course came off a card', async () => {
-    const asked: string[] = [];
-    const laid: RaceStart = {
-      ...START,
-      course: { name: 'W/L', waypoints: START.course!.waypoints.map(({ set: _set, ...w }) => w) },
-    };
-    await buildFleetHtmlFiles(makeRepos([laid]), 's1', undefined, {
-      loadCourseBackground: async (set) => {
-        asked.push(set);
-        return undefined;
-      },
-    });
-    expect(asked).toEqual([]);
-  });
-
-  it('asks for the chart an imported course is placed on by its anchor', async () => {
-    // No charted marks at all: the legs lead from the anchor off Ireland's
-    // Eye out past the Brass Monkey chart, onto the Autumn League's.
-    const asked: string[] = [];
-    const legs = [
-      { distanceNm: 3, bearingDeg: 30, windDirectionDeg: 30 },
-      { distanceNm: 3, bearingDeg: 210, windDirectionDeg: 30 },
-    ];
-    const imported: RaceStart = {
-      ...START,
-      courseLegs: legs,
-      course: {
-        name: 'Imported course',
-        waypoints: [],
-        legs: legs.map((l) => ({ distanceNm: l.distanceNm, bearingDeg: l.bearingDeg })),
-        anchor: { lat: 53.41, lng: -6.08 },
-      },
-    };
-    await buildFleetHtmlFiles(makeRepos([imported]), 's1', undefined, {
+    await buildFleetHtmlFiles(makeRepos([START, { ...START, id: 'st2' }]), 's1', undefined, {
       loadCourseBackground: async (set) => {
         asked.push(set);
         return undefined;
       },
     });
     expect(asked).toEqual(['hyc/al-2026']);
+  });
+
+  it('asks for nothing when no course is placed on the water', async () => {
+    const asked: string[] = [];
+    const unplaced: RaceStart = { ...START, course: { ...START.course!, anchor: undefined } };
+    await buildFleetHtmlFiles(makeRepos([unplaced]), 's1', undefined, {
+      loadCourseBackground: async (set) => {
+        asked.push(set);
+        return undefined;
+      },
+    });
+    expect(asked).toEqual([]);
   });
 
   it('keeps a course that fits a closer-in chart on the one the series’ other courses sit on', async () => {
@@ -142,7 +111,7 @@ describe('buildFleetHtmlFiles — the charts its courses are drawn on', () => {
       id,
       raceId,
       courseLegs: legs.map((l) => ({ ...l, windDirectionDeg: 30 })),
-      course: { name: `Course ${id}`, waypoints: [], legs, anchor: { lat: 53.41, lng: -6.08 } },
+      course: { name: `Course ${id}`, legs, anchor: { lat: 53.41, lng: -6.08 } },
     });
     const starts = [
       course('st1', 'r1', [{ distanceNm: 0.5, bearingDeg: 30 }, { distanceNm: 0.5, bearingDeg: 210 }]),

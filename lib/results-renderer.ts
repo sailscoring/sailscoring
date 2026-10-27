@@ -4,7 +4,7 @@ import { orcOptionName } from './orc-certificate';
 import type { PcsAllowances } from './orc-pcs';
 import { renderCourseBackgroundSymbol, renderCourseSvg, type CourseBackground } from '@sailscoring/course-cards';
 import { courseVariation, describeVariation, formatBearing, formatDeg, type Variation } from './bearings';
-import { drawnRaceStartCourse, routedDrawing, startCoursePositions } from './course-geometry';
+import { drawnRaceStartCourse, startCoursePositions } from './course-geometry';
 import { escapeHtml as esc } from './html';
 import { instanceTimeZone } from './instance-time-zone';
 import type { NationalFlag } from './nationality/types';
@@ -243,29 +243,26 @@ export interface OrcHeaderData {
   /** Constructed-course legs, published as the course record. */
   legs?: OrcCourseLeg[];
   /** The variation the legs' bearings and winds are shown in magnetic at:
-   *  where the course is (its marks, else the venue) on the race's day.
+   *  where the course is (its anchor, else the venue) on the race's day.
    *  Absent where neither is known, and the legs print in true. */
   legsVariation?: Variation;
   /** The legs, and the drawing, are in magnetic as the course was imported:
    *  there was nowhere to read the variation at, so they print in °M with
    *  no true beside them, and the drawing has magnetic north up. */
   legsMagnetic?: boolean;
-  /** The course drawn: marks at their positions and the legs over them, as
-   *  the start recorded it — one inert SVG element, nothing fetched. A
+  /** The course drawn: the legs scored, walked from where the first starts
+   *  where the course says — one inert SVG element, nothing fetched. A
    *  competitor checking their track sees the picture the scorer checked. */
   courseSvg?: string;
   /** The club's chart `courseSvg` is drawn on, which the drawing refers to
    *  by symbol id rather than embedding: the page carries each chart once
    *  however many races are drawn on it (see `renderCourseChartDefs`). */
   courseChart?: { id: string; background: CourseBackground };
-  /** The drawing came from the course's leg table, so it carries no
-   *  position: shape and direction are the committee's, and where it sits on
-   *  the water is not recorded. Captioned, because a located drawing and an
-   *  unlocated one are otherwise indistinguishable on a page. */
-  courseSvgFromLegs?: boolean;
-  /** …walked from where the first leg starts, the one position the course
-   *  recorded: on the water, but every point after the first is only where
-   *  the legs lead. Captioned as such. */
+  /** The drawing is walked from where the first leg starts, the one
+   *  position the course recorded: on the water, but every point after the
+   *  first is only where the legs lead. Without it the drawing carries no
+   *  position at all: shape and direction are the committee's, and where it
+   *  sits on the water is not recorded. Captioned either way. */
   courseSvgAnchored?: boolean;
   /** Which cells of the certificate's allowance matrix this race's rating
    *  was mixed from, and whose certificate the mix was read off. Present
@@ -2793,9 +2790,7 @@ function renderRaceTable(
         // calculation toggles already behave.
         const drawnNote = h.courseSvgAnchored
           ? '<p class="orc-course-note" style="text-align:center; margin: 0 0 6px 0; font-size: 0.8em;">Drawn from the legs below, from where the first leg starts &mdash; the only recorded position on the course; every other point is where the race committee&rsquo;s bearings and distances lead.</p>'
-          : h.courseSvgFromLegs
-            ? `<p class="orc-course-note" style="text-align:center; margin: 0 0 6px 0; font-size: 0.8em;">Drawn from the legs below &mdash; the bearings and distances are the race committee&rsquo;s; the course&rsquo;s position on the water is not recorded.${h.legsMagnetic ? ' Magnetic north is up.' : ''}</p>`
-            : '';
+          : `<p class="orc-course-note" style="text-align:center; margin: 0 0 6px 0; font-size: 0.8em;">Drawn from the legs below &mdash; the bearings and distances are the race committee&rsquo;s; the course&rsquo;s position on the water is not recorded.${h.legsMagnetic ? ' Magnetic north is up.' : ''}</p>`;
         const drawingBlock = h.courseSvg
           ? `<div class="orc-course-drawing" style="max-width: 480px; margin: 0 auto 8px auto;">${h.courseSvg}</div>${drawnNote}`
           : '';
@@ -3491,16 +3486,14 @@ export function assembleSeriesResultsData(
      *  label a race's subheading prints, so the renderer never has to know
      *  about certificates. */
     orcScoringOptions?: OrcScoringOptionCatalog;
-    /** The captured charts of the course-cards data sets this series' marks
-     *  came from, by set path. A drawn course whose set is here is drawn on
-     *  the club's own water, the image embedded in the page; one whose set is
-     *  not is drawn on plain ground. The caller loads them — the browser and
-     *  the publish route read them from different places. */
+    /** The captured charts of the course-cards data sets this series'
+     *  courses sit on, by set path. A drawn course whose set is here is drawn
+     *  on the club's own water, the image embedded in the page; one whose set
+     *  is not is drawn on plain ground. The caller loads them — the browser
+     *  and the publish route read them from different places. */
     courseBackgrounds?: ReadonlyMap<string, CourseBackground>;
-    /** The set to draw a course on when its own waypoints name none — the
-     *  series' own, from its mark library. Snapshots taken before waypoints
-     *  carried their set are the reason: the course was picked off the club's
-     *  card either way, and the club has one chart. */
+    /** The chart a course goes on where more than one covers it: the one the
+     *  series' other courses sit on (`seriesChartSet`). */
     courseBackgroundSet?: string;
   },
 ): SeriesResultsData {
@@ -3568,18 +3561,16 @@ export function assembleSeriesResultsData(
             : {}),
           ...(firstOrc.courseModel === 'CC'
             ? (() => {
-                // What was scored, drawn: the course's marks while the legs
-                // are still theirs, and otherwise the legs themselves — a
-                // leg table has no marks, but its bearings and distances fix
-                // the shape and the direction exactly.
+                // What was scored, drawn: the legs have no marks, but their
+                // bearings and distances fix the shape and the direction
+                // exactly.
                 const drawn = drawnRaceStartCourse(coveringStart?.course, coveringStart?.courseLegs, options?.courseBackgroundSet);
                 if (!drawn) return {};
-                // The club's chart under the course, where the marks came
-                // off a data set that captured one, or where an anchored
-                // leg table leads. Embedded by the renderer, never linked: a
-                // published page fetches nothing. A drawing with no position
-                // on the water has no chart to sit on.
-                const set = drawn.fromLegs ? drawn.set : drawn.set ?? options?.courseBackgroundSet;
+                // The club's chart under the course, where an anchored
+                // course leads onto one. Embedded by the renderer, never
+                // linked: a published page fetches nothing. A drawing with no
+                // position on the water has no chart to sit on.
+                const set = drawn.set;
                 const chart = set ? options?.courseBackgrounds?.get(set) : undefined;
                 // Referred to by id rather than embedded in the drawing:
                 // every race on the page is drawn on the same chart.
@@ -3589,14 +3580,8 @@ export function assembleSeriesResultsData(
                 // drawn as their figures are, with magnetic north up.
                 const magnetic = coveringStart?.course?.north === 'magnetic';
                 const v = magnetic ? undefined : courseVariation(startCoursePositions(coveringStart?.course), series.venuePosition, race.date);
-                // Through the set's routing overlay, as the course was scored
-                // — unless the start was scored before the overlay, when its
-                // legs are the straight ones and the drawing keeps to them.
-                const routed = set && !drawn.fromLegs ? routedDrawing(drawn.marks, drawn.course, set) : undefined;
-                const shown = routed?.routing && routed.legCount === coveringStart?.courseLegs?.length ? routed : drawn;
-                const svg = renderCourseSvg(shown.marks, shown.course, {
+                const svg = renderCourseSvg(drawn.marks, drawn.course, {
                   width: 480,
-                  ...('routing' in shown && shown.routing ? { routing: shown.routing } : {}),
                   ...(v ? { magneticVariationDeg: v.deg } : magnetic ? { magneticVariationDeg: 0 } : {}),
                   title: coveringStart?.course ? `Course ${coveringStart.course.name}` : 'Course',
                   ...(chart && chartId ? { background: chart, backgroundSymbol: chartId } : {}),
@@ -3608,7 +3593,6 @@ export function assembleSeriesResultsData(
                   ? {
                       courseSvg: svg,
                       ...(usesChart ? { courseChart: { id: chartId, background: chart } } : {}),
-                      ...(drawn.fromLegs ? { courseSvgFromLegs: true } : {}),
                       ...(drawn.anchored ? { courseSvgAnchored: true } : {}),
                     }
                   : {};

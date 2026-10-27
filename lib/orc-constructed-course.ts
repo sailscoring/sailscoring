@@ -215,12 +215,11 @@ function shared(values: (number | undefined)[]): number | undefined {
 }
 
 /**
- * The snapshot a start keeps of an imported course: its name, the legs it
- * gave (which an edit to the start's table is measured against), and the
- * anchor. No waypoints and no library course: the document is the course.
- * Where every leg shares one wind, that is the course's wind, as a library
- * course's would be; where they differ there is no one figure to show.
- * `north` marks legs `importedCourseLegs` kept in magnetic.
+ * The course a start keeps of an imported one: its name, the legs it gave
+ * (which an edit to the start's table is measured against), and the anchor.
+ * Where every leg shares one wind, that is the course's wind; where they
+ * differ there is no one figure to show. `north` marks legs
+ * `importedCourseLegs` kept in magnetic.
  */
 export function snapshotOfImportedCourse(
   course: ConstructedCourse,
@@ -231,7 +230,6 @@ export function snapshotOfImportedCourse(
   const speed = shared(legs.map((l) => l.windSpeedKts));
   return {
     name: course.name ?? 'Imported course',
-    waypoints: [],
     legs: legs.map((l) => ({ distanceNm: l.distanceNm, bearingDeg: l.bearingDeg })),
     ...(course.anchor ? { anchor: course.anchor } : {}),
     ...(north ? { north } : {}),

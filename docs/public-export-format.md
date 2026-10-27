@@ -105,25 +105,17 @@ results, and beyond that nothing that is not in the published HTML**:
   something published reads it: a prize clause keeps the field it
   selects on (club, gender, nationality, subdivision axis), and a
   split-fleet series keeps its seeding record (`seed`, `initialFleet`).
-- The course library behind ORC constructed courses travels: `marks`
-  and `courses` (keyed by name, as fleets are), and each start's own
-  `course` snapshot — the waypoints, the wind, and whether the legs were
-  edited — which the published drawing is rendered from. A waypoint taken
-  from a club's charted mark names the course-cards data set it came from
-  (`set`), which is the chart the drawing sits on; a laid mark on a card
-  course names the card mark it stands for (`cardMarkId`, on the course's
-  marks and on the waypoints), which is what the set's routing overlay
-  knows it by. A start or finish line recorded as its two ends names its
-  port end (`portEnd`) beside the starboard end's `mark` on a course, and a
-  waypoint at its midpoint carries both `ends`, starboard first. A course
-  imported as an ORC constructed course carries the race committee's label
-  for each leg (`courseLegs[*].name`) and, where it came with one, the
-  position the first leg starts from (`course.anchor`). Where nothing said
-  where such a course was — no anchor, and no venue position — its figures
-  are kept as the document gave them, and `course.north` is `"magnetic"`:
-  that start's leg bearings, winds and currents, and its course wind, are
-  magnetic rather than true. Course facts are what competitors check their
-  tracks against.
+- A race start's constructed course travels: its `courseLegs`, which are
+  scored, and where they came as a course, its `course` — the name, the legs
+  it gave, whether the legs were then edited, and the wind — which the
+  published drawing is rendered from. A course imported as an ORC
+  constructed course carries the race committee's label for each leg
+  (`courseLegs[*].name`) and, where it came with one, the position the first
+  leg starts from (`course.anchor`). Where nothing said where such a course
+  was — no anchor, and no venue position — its figures are kept as the
+  document gave them, and `course.north` is `"magnetic"`: that start's leg
+  bearings, winds and currents, and its course wind, are magnetic rather
+  than true. Course facts are what competitors check their tracks against.
 - Unresolved finish entries (a crossing recorded but matched to no
   competitor) are the scorer's work in progress and are not exported.
 - `standings` is what the published pages show, scored by the engine that
@@ -186,6 +178,7 @@ the current one.
 | 8 | `splitFleets.config` gains `fleetRanking` (`combined` or `per-fleet`): whether an undivided championship with more than one fleet ranks its fleets as one list or each on its own — each boat ranked within her fleet, a race counting for a fleet once that fleet has sailed it, a non-finisher scored from her own fleet — and `medal.fromEachFleet`, how many of each fleet's leaders go through directly. Absent is `combined`. |
 | 9 | A race start's `course` gains `north`: `"magnetic"` where that start's directions — its `courseLegs` bearings, winds and currents, and the course's wind — are magnetic rather than true. It marks a constructed course imported in magnetic with nowhere to read the variation at. Absent, every direction is true, as before. ORC scores a leg on its wind and current relative to its course, so either north scores the same; an older reader would label the figures wrongly, so the version changes. |
 | 10 | A prize clause can be `not-awarded`: a boat already placed in another prize is passed over and the places move down ("a boat winning a prize under IRC shall not be eligible for the ECHO prize"). `prize` is the other prize's 0-based position in `series.prizes`, since prizes carry no id; absent, it means any prize listed above this one. `places` limits it to that prize's top N (1 = its winner only); absent, any place. An older reader doesn't know the clause and would award the prize to boats it rules out, so the version changes. |
+| 11 | The course library is removed ([ADR-013](design/decisions/013-removing-meaning-from-stored-formats.md)). Exports from v2 on could carry it, though no version said so: top-level `marks` and `courses`, and on a start whose course was picked from it, the library course by name (`course.course`) and its marks' positions (`course.waypoints`). A v11 export carries none of them. A reader drops the library from an older export and brings such a start forward: anchored where its first waypoint was, with its own `courseLegs` as the legs the course gave where they were never edited, each named after the marks it runs between where they are the waypoints' own one for one. It scores identically. |
 
 A change that an older reader would misread bumps the version: a field
 removed, renamed or reshaped, or a new field or value that changes what

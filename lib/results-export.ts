@@ -77,11 +77,11 @@ import type { Competitor, FinishTrackData, Fleet, OrcRaceCalc, PublicationSummar
 import type { CourseBackground } from '@sailscoring/course-cards';
 
 /**
- * The captured charts a series' published courses are drawn on: one per data
- * set its starts' snapshotted marks were adopted from — almost always one,
- * since a series takes its marks off one club's card — and the one under
- * each leg table placed on the water by its anchor. Undefined when nothing
- * can be loaded, which leaves every course on plain ground.
+ * The captured charts a series' published courses are drawn on: the one
+ * under each course placed on the water by its anchor — almost always one
+ * chart for the series, since `seriesSet` is preferred wherever it covers a
+ * course. Undefined when nothing can be loaded, which leaves every course on
+ * plain ground.
  */
 async function loadCourseCharts(
   raceStarts: RaceStart[],
@@ -91,15 +91,9 @@ async function loadCourseCharts(
   if (!load) return undefined;
   const sets = new Set<string>();
   for (const start of raceStarts) {
-    for (const w of start.course?.waypoints ?? []) if (w.set) sets.add(w.set);
-    if (start.course?.anchor) {
-      const drawn = drawnRaceStartCourse(start.course, start.courseLegs, seriesSet);
-      if (drawn?.anchored && drawn.set) sets.add(drawn.set);
-    }
+    const drawn = drawnRaceStartCourse(start.course, start.courseLegs, seriesSet);
+    if (drawn?.set) sets.add(drawn.set);
   }
-  // Only where there is a course to draw: a series with a mark library but no
-  // start that sailed a course has nothing for a chart to go under.
-  if (seriesSet && raceStarts.some((s) => s.course)) sets.add(seriesSet);
   if (sets.size === 0) return undefined;
   const loaded = await Promise.all([...sets].map(async (set) => [set, await load(set)] as const));
   const charts = new Map<string, CourseBackground>();

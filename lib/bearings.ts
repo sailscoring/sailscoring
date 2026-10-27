@@ -34,7 +34,7 @@ export function variationAt(position: Position, isoDate: string): Variation {
 }
 
 /** Today as an ISO date in the scorer's own clock: what a figure with no
- *  race behind it — a library course, a mark — is converted at. */
+ *  race behind it — the venue position's variation — is converted at. */
 export function todayIso(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;

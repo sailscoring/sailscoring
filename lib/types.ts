@@ -667,7 +667,7 @@ export interface Fleet {
  * the direction is: a leg is split where the wind changed along it.
  *
  * Every bearing and direction the app stores is in degrees true — this one,
- * the course library's, a laid mark's, a start's wind. Magnetic is how they
+ * the legs a start's course gave, a start's wind. Magnetic is how they
  * are shown and entered, converted at the race's place and date
  * (`lib/bearings.ts`); stored, a magnetic figure would carry a date in it.
  * The one exception is a start whose course says `north: 'magnetic'` (see
@@ -689,162 +689,36 @@ export interface OrcCourseLeg {
 }
 
 /**
- * A position on the water a course is built from (the course library, one
- * per series): a mark the club charts, adopted from a course-cards data set,
- * or one the race committee laid on the day — the line, the finish, a
- * windward mark. Its name is the reuse key: the scorer picks it from a list
- * a fortnight later, so the date and race are in the name.
+ * One leg of the course a start sailed, as the course gave it: how far, and
+ * on what bearing (true, unless the course says `north` is magnetic). There
+ * is no position behind it and no wind on it — the wind belongs to the race,
+ * not the course (see RaceStart.courseLegs).
  */
-export interface SeriesMark {
-  id: string;
-  seriesId: string;
-  name: string;        // "Z outer — 6 Sep R2"
-  lat: number;         // decimal degrees, WGS84; south negative
-  lng: number;         // decimal degrees; west negative
-  // Adopted from a course-cards data set: which set, which mark on it, and
-  // the release it was read at. Read-only in the UI — the club's mark, not
-  // the scorer's; re-adopting the set refreshes it. Absent on a laid mark.
-  card?: { set: string; markId: string; release: string };
-  shape?: string;      // the club's description, as the card prints it
-  color?: string;
-  // How a laid mark was logged: a bearing (true) and distance off another
-  // mark ("1,000 m upwind of the line on 190°"). Provenance for the position,
-  // which is what was resolved when it was entered — moving the origin
-  // afterwards does not move this mark.
-  from?: { markId: string; bearingDeg: number; distanceM: number };
-  createdAt: number;   // Date.now()
-  version?: number;    // server-side concurrency token (see Series.version)
-}
-
-/** One entry of a course's sequence: a library mark, the side it is left
- *  on, and whether it is a passing (not rounding) mark. */
-export interface SeriesCourseMark {
-  markId: string;
-  side?: 'port' | 'starboard';
-  passing?: boolean;
-  // On a course made from a card, the card mark a mark the card can't place
-  // stands for here ("SL", "Z"): the scorer's "Grassy Start" is the card's
-  // start line whatever it is called. An adopted mark carries its own.
-  cardMarkId?: string;
-  // A start or finish line with two ends: `markId` is its starboard end (the
-  // committee boat, as a rule) and this its port end (the pin). Legs to and
-  // from it are measured from the geodesic midpoint of the two, which is how
-  // a club's card and a race officer measure them. Absent, the entry is one
-  // point, as every entry was before lines had ends.
-  portEndMarkId?: string;
-}
-
-/**
- * One leg of a course as the race committee states it: how far, and on what
- * bearing (true, whatever the committee wrote it in). There is no position behind it and no wind on it — the wind
- * belongs to the race, not the course (see RaceStart.courseLegs).
- */
-export interface SeriesCourseLeg {
+export interface RaceStartCourseLeg {
   distanceNm: number;
   bearingDeg: number;
 }
 
 /**
- * A named course in the series' library, defined one of two ways.
- *
- * **By marks** — the sequence in sailing order, the first of them the start
- * line. Distances and bearings are derived from the marks when needed, never
- * stored, so a corrected mark corrects every course built on it.
- *
- * **By legs** — the race committee's own leg table, which is all a committee
- * boat often hands over and the only thing a course is in ORC Scorer. Here
- * the leg list *is* the course: there are no positions to correct, and so no
- * sides, no passing marks, and no located drawing.
- *
- * Exactly one of `marks` and `legs` is non-empty; `courseLegsOf` in
- * `course-geometry.ts` is the one seam between them, and every consumer of a
- * course's geometry goes through it. There is deliberately no conversion:
- * legs to marks would have to invent positions, and marks to legs would
- * freeze away the correction rule above.
- *
- * A start that sails the course takes a snapshot (RaceStartCourse), so what
- * was scored never moves under it.
- */
-export interface SeriesCourse {
-  id: string;
-  seriesId: string;
-  name: string;        // "004 outer — 6 Sep R2"
-  // The card course this was made from, when it was: the data set, the card
-  // on it, the course number the committee boat showed, and the release.
-  // Provenance and the proposed name; absent on a course built by hand.
-  card?: { set: string; cardId: string; courseId: string; release: string };
-  // The sequence has been edited away from the card's own (shortened,
-  // extended, a mark swapped). The number is kept for provenance and shown
-  // as "004 (modified)".
-  modified?: boolean;
-  marks: SeriesCourseMark[];
-  // The committee's leg table, on a course defined by legs. Present iff
-  // `marks` is empty.
-  legs?: SeriesCourseLeg[];
-  createdAt: number;   // Date.now()
-  version?: number;    // server-side concurrency token (see Series.version)
-}
-
-/** One waypoint of the course a start sailed, as it was when the start
- *  picked the course: the mark's position then, and how it was rounded. */
-export interface RaceStartCourseWaypoint {
-  markId?: string;     // the library mark, for recompute; absent once deleted
-  label: string;
-  lat: number;
-  lng: number;
-  side?: 'port' | 'starboard';
-  passing?: boolean;
-  fixed?: boolean;     // a club's charted mark (drawn filled), not one laid on the day
-  // The course-cards data set the mark was adopted from ("hyc/al-2026"),
-  // which is the set whose captured chart the course is drawn on. Held per
-  // waypoint rather than looked up from the library, because the published
-  // page and the start dialog see this snapshot and not the marks it was
-  // taken from — and the mark may since have been deleted.
-  set?: string;
-  // The card mark a laid mark stood for on the course (SeriesCourseMark's
-  // `cardMarkId`), which is what a routing overlay knows it by.
-  cardMarkId?: string;
-  // A line with two ends (SeriesCourseMark's `portEndMarkId`): its
-  // starboard end and its port end as they were, so the published drawing
-  // shows the line and the legs stay reproducible. `lat`/`lng` above are
-  // then the midpoint the legs were measured from.
-  ends?: [RaceStartCourseLineEnd, RaceStartCourseLineEnd];
-}
-
-/** One end of a line a start's course was measured from. */
-export interface RaceStartCourseLineEnd {
-  end: 'starboard' | 'port';
-  markId?: string;     // the library mark, for recompute; absent once deleted
-  label: string;
-  lat: number;
-  lng: number;
-  fixed?: boolean;     // a club's charted mark
-  set?: string;        // the course-cards data set a charted mark came from
-}
-
-/**
- * The course a start sailed, snapshotted from the library when it was
- * picked (ORC constructed courses). `courseLegs` is what is scored and stays
- * the interchange floor; this is where those legs came from — the resolved
- * waypoints, the wind the scorer entered for the whole course, and whether
- * the legs were then edited by hand — so the published page can draw the
- * course and the dialog can offer to recompute.
+ * The course a start sailed (ORC constructed courses), where it came as one:
+ * an imported ORC constructed course, or one picked from the course library
+ * that earlier versions kept. `courseLegs` is what is scored and stays the
+ * interchange floor; this is where those legs came from — the course's name,
+ * the legs it gave, where the first of them starts, the wind the scorer
+ * entered for the whole course, and whether the legs were then edited by
+ * hand — so the published page can draw the course and name it.
  */
 export interface RaceStartCourse {
-  courseId?: string;   // the library course; provenance and the key for recompute
   name: string;
-  waypoints: RaceStartCourseWaypoint[];
-  /** The leg table the course gave, on a course defined by legs — which has
-   *  no waypoints to snapshot. What the course gave, where `courseLegs` is
+  /** The legs the course gave. What the course gave, where `courseLegs` is
    *  what was scored: the two differ once the scorer edits a leg, which is
-   *  how `legsEdited` is worked out and how a course that has moved in the
-   *  library since is told apart from one the scorer changed by hand. */
-  legs?: SeriesCourseLeg[];
-  /** Where the first leg starts, on a course defined by legs that arrived
-   *  with one (an imported ORC constructed course). The only recorded
-   *  position on such a course: every other point follows from the legs,
-   *  so it places the drawing on a chart and the variation, and nothing
-   *  else is stored. */
+   *  how `legsEdited` is worked out. Absent on a course edited before it
+   *  was kept, which reads as edited for good. */
+  legs?: RaceStartCourseLeg[];
+  /** Where the first leg starts, where the course said. The only recorded
+   *  position on a course: every other point follows from the legs, so it
+   *  places the drawing on a chart and the variation, and nothing else is
+   *  stored. */
   anchor?: { lat: number; lng: number };
   /** The start's directions are magnetic rather than true: every leg's
    *  bearing, wind and current, and the course wind here. Set on a course
@@ -857,10 +731,10 @@ export interface RaceStartCourse {
   north?: 'magnetic';
   windDirectionDeg?: number;  // true, like every stored direction, unless `north` says otherwise
   /** The wind speed (kt) the scorer gave for the whole course, where the
-   *  option scores at the recorded wind. Held so a recompute puts it back
-   *  on every leg rather than dropping it and leaving the race unscored. */
+   *  option scores at the recorded wind: spread over every leg while the
+   *  legs are the course's own. */
   windSpeedKts?: number;
-  legsEdited?: boolean;  // courseLegs no longer match the waypoints
+  legsEdited?: boolean;  // courseLegs are no longer the legs the course gave
 }
 
 export interface RaceStart {
@@ -899,9 +773,9 @@ export interface RaceStart {
   // the legs' sum and `distanceNm` is ignored for PCS. Course facts are
   // published — this is the record competitors check their tracks against.
   courseLegs?: OrcCourseLeg[];
-  // Where those legs came from: the library course this start picked, as a
-  // snapshot (see RaceStartCourse). Sparse — absent on a start whose legs
-  // were typed in by hand, and everywhere outside ORC.
+  // Where those legs came from, where they came as a course (see
+  // RaceStartCourse). Sparse — absent on a start whose legs were typed in by
+  // hand, and everywhere outside ORC.
   course?: RaceStartCourse;
   // ORC wind-band selection: a certificate rating field overriding the
   // fleet's configured option for this start's races — the race committee's

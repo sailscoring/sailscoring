@@ -19,7 +19,7 @@ describe('the authenticated resources', () => {
     const start: RaceStart = {
       id: 's', raceId: 'r', fleetIds: [],
       courseLegs: [leg(0.66), leg(0.84)],
-      course: { name: 'C', waypoints: [], north: 'magnetic' },
+      course: { name: 'C', north: 'magnetic' },
     };
     expect(courseResourceOf(start)).toMatchObject({ name: 'C', north: 'magnetic', distanceNm: 1.5 });
     expect(courseResourceOf({ ...start, distanceNm: 1.6 })?.distanceNm).toBe(1.6);

@@ -186,10 +186,10 @@ describe('published ORC transparency', () => {
     expect(html).toContain('the course&rsquo;s position on the water is not recorded');
   });
 
-  it('legs pasted over a picked course draw as scored, not as the course’s marks', () => {
-    // Two marks picked, then the committee's legs pasted over them: the
-    // header scores the pasted legs, so the drawing has to show those.
-    const pasted: OrcCourseLeg[] = [
+  it('legs edited after the course was kept draw as scored, not as the course gave them', () => {
+    // A course of two legs, then the committee's three typed over them: the
+    // header scores the typed legs, so the drawing has to show those.
+    const typed: OrcCourseLeg[] = [
       { distanceNm: 1.2, bearingDeg: 300, windDirectionDeg: 270 },
       { distanceNm: 0.8, bearingDeg: 20, windDirectionDeg: 270 },
       { distanceNm: 1.5, bearingDeg: 250, windDirectionDeg: 270 },
@@ -197,21 +197,16 @@ describe('published ORC transparency', () => {
     const html = renderSeriesHtml(
       assemble({
         orc: (id) => ({ todApplied: id === 'c1' ? 600 : 620, scratchTod: 600, distanceNm: 3.5, courseModel: 'CC' }),
-        courseBackgrounds: new Map([['hyc/al-2026', hycChart]]),
         raceStarts: [{
           raceId: 'r1',
           fleetIds: ['f1'],
           startTime: '14:00:00',
-          courseLegs: pasted,
+          courseLegs: typed,
           course: {
-            courseId: 'c1',
             name: 'Cove Start to Blackrock',
+            legs: [{ distanceNm: 1, bearingDeg: 180 }, { distanceNm: 1, bearingDeg: 0 }],
             windDirectionDeg: 270,
             legsEdited: true,
-            waypoints: [
-              { markId: 'start', label: 'Cove Start', lat: 53.4055, lng: -6.0675, fixed: true, set: 'hyc/al-2026' },
-              { markId: 'finish', label: 'Blackrock Castle', lat: 53.3967, lng: -6.0702, fixed: true, set: 'hyc/al-2026' },
-            ],
           },
         }],
       }),
@@ -219,9 +214,9 @@ describe('published ORC transparency', () => {
     const from = html.indexOf('<div class="orc-course-drawing"');
     const block = html.slice(from, html.indexOf('</div>', from));
     expect(block).toContain('aria-label="Course Cove Start to Blackrock"');
-    expect(block).toMatch(/<tspan font-weight="700">1<\/tspan> 301°M 1\.20 NM/);
-    expect(block).toMatch(/<tspan font-weight="700">3<\/tspan> 251°M 1\.50 NM/);
-    expect(block).not.toContain('Blackrock Castle');
+    // Nothing places it, so there is no variation to label it in magnetic at.
+    expect(block).toMatch(/<tspan font-weight="700">1<\/tspan> 300°T 1\.20 NM/);
+    expect(block).toMatch(/<tspan font-weight="700">3<\/tspan> 250°T 1\.50 NM/);
     // Walked from an arbitrary origin, so it claims no chart either.
     expect(block).not.toContain('<image');
     expect(html).not.toContain('<image href="data:image/png');
@@ -246,7 +241,6 @@ describe('published ORC transparency', () => {
           courseLegs: legs,
           course: {
             name: 'Autumn League, Race 3',
-            waypoints: [],
             legs: legs.map((l) => ({ distanceNm: l.distanceNm, bearingDeg: l.bearingDeg })),
             anchor: { lat: 53.41, lng: -6.08 },
             windDirectionDeg: 30,
@@ -259,7 +253,7 @@ describe('published ORC transparency', () => {
     expect(html).not.toContain('position on the water is not recorded');
   });
 
-  it('a constructed course picked from the library is drawn on the page, inertly', () => {
+  it('a constructed course is drawn on the page, inertly', () => {
     const calc = (id: string): OrcRaceCalc => ({
       todApplied: id === 'c1' ? 600 : 620,
       scratchTod: 600,
@@ -268,16 +262,10 @@ describe('published ORC transparency', () => {
       scoringWind: 18.06,
       courseModel: 'CC',
     });
-    const start = { lat: 53.4055, lng: -6.0675 };
     const course: RaceStartCourse = {
-      courseId: 'c1',
       name: 'W/L — 12 Sep R1',
       windDirectionDeg: 190,
-      waypoints: [
-        { markId: 'line', label: 'Start', lat: start.lat, lng: start.lng },
-        { markId: 'z', label: 'Z', lat: 53.3967, lng: -6.0702, side: 'port' },
-        { markId: 'line', label: 'Start', lat: start.lat, lng: start.lng, side: 'port' },
-      ],
+      legs: [{ distanceNm: 0.54, bearingDeg: 190 }, { distanceNm: 0.54, bearingDeg: 10 }],
     };
     const html = renderSeriesHtml(
       assemble({
@@ -306,14 +294,15 @@ describe('published ORC transparency', () => {
     const block = html.slice(from, html.indexOf('</div>', from));
     expect(block).toContain('<svg xmlns="http://www.w3.org/2000/svg"');
     expect(block).toContain('aria-label="Course W/L — 12 Sep R1"');
-    expect(block).toMatch(/<tspan font-weight="700">1<\/tspan> 191°M 0\.54 NM/);
-    expect(block).toContain('>Z</text>');
-    // Nothing to fetch and nothing to run: a course off marks with no data
-    // set behind them is drawn on plain ground.
+    expect(block).toMatch(/<tspan font-weight="700">1<\/tspan> 190°T 0\.54 NM/);
+    expect(block).toContain('>Finish</text>');
+    // Nothing to fetch and nothing to run: a course with nothing to place it
+    // is drawn on plain ground.
     expect(block).not.toMatch(/<script|<style|<image|href=/);
   });
 
-  /** A constructed course off Howth's marks, which its chart covers. */
+  /** A constructed course anchored off Howth, beyond the Brass Monkey
+   *  chart's edge, so the Autumn League's alone covers it. */
   const chartedCourse = () =>
     assemble({
       orc: (id) => ({
@@ -331,11 +320,8 @@ describe('published ORC transparency', () => {
         course: {
           name: 'W/L — 12 Sep R1',
           windDirectionDeg: 190,
-          waypoints: [
-            { markId: 'line', label: 'Start', lat: 53.4055, lng: -6.0675 },
-            { markId: 'z', label: 'Z', lat: 53.3967, lng: -6.0702, side: 'port', fixed: true, set: 'hyc/al-2026' },
-            { markId: 'line', label: 'Start', lat: 53.4055, lng: -6.0675, side: 'port' },
-          ],
+          legs: [{ distanceNm: 0.54, bearingDeg: 190 }],
+          anchor: { lat: 53.45, lng: -6.03 },
         },
       }],
     });
@@ -356,9 +342,9 @@ describe('published ORC transparency', () => {
     // symbol on this page.
     expect(block).not.toMatch(/<script|<style/);
     expect((block.match(/href=/g) ?? []).length).toBe(1);
-    // And the course is drawn over it as it always was.
+    // And the course is drawn over it, from its anchor.
     expect(block).toMatch(/<tspan font-weight="700">1<\/tspan> 191°M 0\.54 NM/);
-    expect(block).toContain('>Z</text>');
+    expect(html).toContain('from where the first leg starts');
   });
 
   it('carries a chart once however many drawings on the page use it', () => {
@@ -375,7 +361,6 @@ describe('published ORC transparency', () => {
   });
 
   it('draws on plain ground when the course’s data set has no chart loaded', () => {
-    const start = { lat: 53.4055, lng: -6.0675 };
     const html = renderSeriesHtml(
       assemble({
         orc: (id) => ({ todApplied: id === 'c1' ? 600 : 620, scratchTod: 600, distanceNm: 1.08, courseModel: 'CC' }),
@@ -389,17 +374,15 @@ describe('published ORC transparency', () => {
           course: {
             name: 'W/L — 12 Sep R1',
             windDirectionDeg: 190,
-            waypoints: [
-              { markId: 'line', label: 'Start', lat: start.lat, lng: start.lng },
-              { markId: 'z', label: 'Z', lat: 53.3967, lng: -6.0702, side: 'port', fixed: true, set: 'hyc/al-2026' },
-            ],
+            legs: [{ distanceNm: 0.54, bearingDeg: 190 }],
+            anchor: { lat: 53.45, lng: -6.03 },
           },
         }],
       }),
     );
     const from = html.indexOf('<div class="orc-course-drawing"');
     const block = html.slice(from, html.indexOf('</div>', from));
-    expect(block).toContain('>Z</text>');
+    expect(block).toContain('>Finish</text>');
     expect(block).not.toMatch(/<image|href=/);
   });
 
@@ -703,7 +686,6 @@ describe('published transparency for a recorded-wind race', () => {
         courseLegs: legs,
         course: {
           name: 'Thursday, Race 2',
-          waypoints: [],
           legs: legs.map((l) => ({ distanceNm: l.distanceNm, bearingDeg: l.bearingDeg })),
           north: 'magnetic',
           windDirectionDeg: 225,
@@ -746,8 +728,7 @@ describe('published transparency for a recorded-wind race', () => {
   });
 
   it('publishes the course drawn from the legs alone, captioned as unlocated', () => {
-    // The snapshot a start keeps of a course defined by the committee's leg
-    // table: no waypoints, and the table it gave.
+    // A course with nothing to place it: the table it gave, and no anchor.
     const html = renderSeriesHtml(assemble({
       orc: totCalc,
       raceStarts: [{
@@ -756,9 +737,7 @@ describe('published transparency for a recorded-wind race', () => {
         startTime: '14:00:00',
         courseLegs: legs,
         course: {
-          courseId: 'c-legs',
           name: 'RC table — 12 Sep R1',
-          waypoints: [],
           legs: legs.map((l) => ({ distanceNm: l.distanceNm, bearingDeg: l.bearingDeg })),
           windDirectionDeg: 225,
           windSpeedKts: 9,
@@ -776,49 +755,6 @@ describe('published transparency for a recorded-wind race', () => {
     // Inert, as every published drawing must be.
     const svg = html.slice(html.indexOf('<svg xmlns'), html.indexOf('</svg>'));
     expect(svg).not.toMatch(/<script|href=|xlink:href/i);
-  });
-
-  it('a course with nothing to draw still folds its leg record under Show course', () => {
-    // A snapshot naming the course but holding neither marks nor legs: the
-    // scored legs have no drawing, and the record is all there is to show.
-    const html = renderSeriesHtml(assemble({
-      orc: totCalc,
-      raceStarts: [{
-        raceId: 'r1',
-        fleetIds: ['f1'],
-        startTime: '14:00:00',
-        courseLegs: legs,
-        course: { name: 'Thursday, Race 2', waypoints: [], windDirectionDeg: 225 },
-      }],
-    }));
-    expect(html).not.toContain('class="orc-course-drawing"');
-    expect(html).not.toContain('class="orc-course-note"');
-    const details = html.slice(html.indexOf('<details class="orc-course"><summary>Show course</summary>'), html.indexOf('</details>'));
-    expect(details).toContain('<table class="orc-course-legs">');
-    expect(legRows(html)).toHaveLength(3);
-  });
-
-  it('a course drawn from marks carries no such caption', () => {
-    const html = renderSeriesHtml(assemble({
-      orc: totCalc,
-      raceStarts: [{
-        raceId: 'r1',
-        fleetIds: ['f1'],
-        startTime: '14:00:00',
-        courseLegs: legs,
-        course: {
-          name: 'W/L — 12 Sep',
-          waypoints: [
-            { label: 'Start', lat: 53.4055, lng: -6.0675 },
-            { label: 'Z', lat: 53.3967, lng: -6.0702 },
-            { label: 'Start', lat: 53.4055, lng: -6.0675 },
-          ],
-          windDirectionDeg: 225,
-        },
-      }],
-    }));
-    expect(html).toContain('class="orc-course-drawing"');
-    expect(html).not.toContain('position on the water is not recorded');
   });
 
   it('legs recorded at different wind speeds get no mix', () => {

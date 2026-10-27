@@ -900,6 +900,8 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
       starts: [
         {
           id: startId, raceId, fleetIds: [fleetA], startTime: '11:00:00',
+          // A course as a build from before the course library was removed
+          // still sends it, waypoints and all.
           distanceNm: 1.5, courseLegs, course: { name: 'Course 1', waypoints: [] },
         },
         { id: otherId, raceId, fleetIds: [fleetB], startTime: '11:05:00' },
@@ -911,7 +913,7 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
     expect(moved.startTime).toBe('11:10:00');
     expect(moved.fleetIds).toEqual([fleetA]);
     expect(moved.courseLegs).toEqual(courseLegs);
-    expect(moved.course?.name).toBe('Course 1');
+    expect(moved.course).toEqual({ name: 'Course 1' });
     expect(moved.distanceNm).toBe(1.5);
 
     // null clears.

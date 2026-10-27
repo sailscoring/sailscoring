@@ -4,7 +4,6 @@ import { describe, expect, it } from 'vitest';
 import {
   drawnLegTable,
   drawnRaceStartCourse,
-  drawnStartCourse,
   legsForStart,
   legsMatch,
   recordedWindSummary,
@@ -87,29 +86,27 @@ describe('what a start’s course draws', () => {
     { distanceNm: 0.06, bearingDeg: 60 },
     { distanceNm: 1.91, bearingDeg: 340 },
   ];
-  const course = { name: 'From the RC', waypoints: [], legs, windDirectionDeg: 225 };
+  const course = { name: 'From the RC', legs, windDirectionDeg: 225 };
 
-  it('draws the legs the course gave, and says it drew legs', () => {
+  it('draws the legs the course gave where none are scored yet', () => {
     // A course of legs has no positions, so the placeholder "nothing to
     // draw" would be a lie: the course is complete, it simply has no marks.
-    const drawn = drawnStartCourse(course);
-    expect(drawn.fromLegs).toBe(true);
+    const drawn = drawnRaceStartCourse(course, undefined)!;
     expect(drawn.marks).toHaveLength(legs.length + 1);
     expect(drawn.course.map((c) => c.mark)).toEqual(drawn.marks.map((m) => m.id));
+    expect(drawn.anchored).toBeUndefined();
   });
 
-  it('draws what a start scored: the course’s legs until they are edited, then the legs', () => {
+  it('draws what a start scored, edited or not', () => {
     const scored = [
       { distanceNm: 1.2, bearingDeg: 300 },
       { distanceNm: 0.8, bearingDeg: 20 },
     ];
-    expect(drawnRaceStartCourse(course, scored)!.marks).toHaveLength(legs.length + 1);
-    const edited = drawnRaceStartCourse({ ...course, legsEdited: true }, scored)!;
-    expect(edited.fromLegs).toBe(true);
-    expect(edited.marks.map((m) => m.label)).toEqual(['Start', '1', 'Finish']);
+    expect(drawnRaceStartCourse(course, scored)!.marks.map((m) => m.label)).toEqual(['Start', '1', 'Finish']);
     // No course at all: the typed legs are all there is.
-    expect(drawnRaceStartCourse(undefined, scored)!.fromLegs).toBe(true);
+    expect(drawnRaceStartCourse(undefined, scored)!.marks).toHaveLength(3);
     expect(drawnRaceStartCourse(undefined, undefined)).toBeNull();
+    expect(drawnRaceStartCourse({ name: 'Edited before it was kept', legsEdited: true }, [])).toBeNull();
   });
 });
 
@@ -152,7 +149,7 @@ describe('a leg table placed on the water by its anchor', () => {
     { distanceNm: 0.78, bearingDeg: 143 },
     { distanceNm: 0.73, bearingDeg: 46 },
   ];
-  const imported = { name: 'Autumn League, Race 3', waypoints: [], legs, anchor };
+  const imported = { name: 'Autumn League, Race 3', legs, anchor };
 
   it('walks the legs from the anchor, and from an arbitrary origin without one', () => {
     const placed = drawnLegTable(legs, anchor);
@@ -166,31 +163,28 @@ describe('a leg table placed on the water by its anchor', () => {
   });
 
   it('draws on the chart that covers it, and says it is anchored', () => {
-    const drawn = drawnStartCourse(imported);
-    expect(drawn).toMatchObject({ fromLegs: true, anchored: true });
+    const drawn = drawnRaceStartCourse(imported, undefined)!;
+    expect(drawn.anchored).toBe(true);
     expect(drawn.set).toMatch(/^hyc\//);
     // The preferred set wins a tie: the chart the series' other courses sit on.
-    expect(drawnStartCourse(imported, 'hyc/al-2025').set).toBe('hyc/al-2025');
+    expect(drawnRaceStartCourse(imported, undefined, 'hyc/al-2025')!.set).toBe('hyc/al-2025');
     // Without an anchor there is nowhere on the water to put it.
-    const unplaced = drawnStartCourse({ ...imported, anchor: undefined });
+    const unplaced = drawnRaceStartCourse({ ...imported, anchor: undefined }, undefined)!;
     expect(unplaced.anchored).toBeUndefined();
     expect(unplaced.set).toBeUndefined();
   });
 
   it('walks edited legs from the anchor too', () => {
     const edited = drawnRaceStartCourse({ ...imported, legsEdited: true }, [...legs, { distanceNm: 0.2, bearingDeg: 300 }])!;
-    expect(edited).toMatchObject({ fromLegs: true, anchored: true });
+    expect(edited.anchored).toBe(true);
     expect(edited.marks).toHaveLength(5);
     expect(edited.marks[0].position).toEqual(anchor);
   });
 
-  it('is where the variation is read: the anchor, or the waypoints of a mark course', () => {
+  it('is where the variation is read', () => {
     expect(startCoursePositions(imported)).toEqual([anchor]);
     expect(startCoursePositions({ ...imported, anchor: undefined })).toEqual([]);
     expect(startCoursePositions(undefined)).toEqual([]);
-    expect(startCoursePositions({ name: 'W/L', waypoints: [{ label: 'Start', lat: 53.4, lng: -6.07 }] })).toEqual([
-      { lat: 53.4, lng: -6.07 },
-    ]);
   });
 });
 
@@ -216,7 +210,7 @@ describe('the chart under a course with no charted marks', () => {
   it('keeps a series’ courses on the chart that holds the most of them', () => {
     const at = (legs: { distanceNm: number; bearingDeg: number }[]) => ({
       courseLegs: legs.map((l) => ({ ...l, windDirectionDeg: 0 })),
-      course: { name: 'Course', waypoints: [], legs, anchor: { lat: 53.41, lng: -6.08 } },
+      course: { name: 'Course', legs, anchor: { lat: 53.41, lng: -6.08 } },
     });
     // A short triangle off Ireland's Eye fits the Brass Monkey chart; the
     // longer course runs out past it. The Autumn League's holds both.

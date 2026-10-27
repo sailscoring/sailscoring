@@ -134,37 +134,31 @@ They are always derived from the stored data on load.
 
 ---
 
-## `marks` and `courses` Arrays (v45+)
+## A race start's course
 
-The course library behind ORC constructed courses. `marks` are positions on
-the water — the club's charted marks adopted from a course card (with their
-`card` provenance) and the ones the race committee laid on the day (with
-`from`, the bearing and distance they were logged off another mark).
-`courses` are named sequences of mark ids in sailing order, the side each
-is left on, and the card course they were made from. Both are omitted when
-empty. A race start that sailed a course carries its own snapshot of it in
-`starts[*].course` — waypoints with positions, the wind, whether the legs
-were then edited — beside the `courseLegs` it is scored on, so the record
-stands even if the library is later edited. A waypoint off a charted mark
-also names the data set it was adopted from (`set`, v57+), which is the
-chart the course is drawn on wherever it is drawn. On a course made from a
-card, an entry whose mark the scorer laid names the card mark it stands for
-(`cardMarkId`, v66+ — "SL" for a line called "Grassy Start"), on the
-course and on the waypoints a start snapshots from it: that is what a data
-set's routing overlay knows the mark by. A start or finish line recorded as its
-two ends (v67+) is an entry whose `markId` is the starboard end, usually
-the committee boat, and whose `portEndMarkId` is the port end, the pin. Legs
-to and from it are measured from the midpoint of the two, and the waypoint a
-start snapshots from it sits at that midpoint with both `ends` kept beside
-it, so the published drawing shows the line. A start whose course was
-imported as an [ORC constructed course](orc/constructed-course-format.md)
-(v68+) keeps the race committee's label for each leg as
-`courseLegs[*].name`, and where the document gave one, the position the
-first leg starts from as `course.anchor`. Where nothing said where such a
-course was — no anchor, and no venue position — its figures are kept as the
-document gave them, in magnetic, and `course.north` is `"magnetic"` (v69+):
-that start's leg bearings, winds and currents, and its course wind, are then
-magnetic rather than true.
+A race start scored over a constructed course carries its legs as
+`starts[*].courseLegs`, which is what it is scored on, and, where they came
+as a course, `starts[*].course`: the course's name, the legs it gave
+(`legs`, which an edit to `courseLegs` is measured against), whether the legs
+were then edited (`legsEdited`), and the wind. A course imported as an
+[ORC constructed course](orc/constructed-course-format.md) (v68+) keeps the
+race committee's label for each leg as `courseLegs[*].name`, and where the
+document gave one, the position the first leg starts from as
+`course.anchor`. Where nothing said where such a course was — no anchor,
+and no venue position — its figures are kept as the document gave them, in
+magnetic, and `course.north` is `"magnetic"` (v69+): that start's leg
+bearings, winds and currents, and its course wind, are then magnetic rather
+than true.
+
+From v45 to v70 a file could also carry a course library: top-level `marks`
+and `courses`, and on a start whose course was picked from it, the library
+course (`course.courseId`) and its marks' positions (`course.waypoints`).
+v71 removed them (ADR-013). Reading an older file drops the library and
+brings such a start forward: anchored where its first waypoint was, with
+its own `courseLegs` as the legs the course gave where they were never
+edited, each named after the marks it runs between where they are the
+waypoints' own one for one. Its `courseLegs` keep every figure, so it
+scores identically.
 
 ---
 

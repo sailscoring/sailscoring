@@ -199,11 +199,9 @@ describe('what a start stores', () => {
     const snapshot = snapshotOfImportedCourse(course, importedCourseLegs(course, variation));
     expect(snapshot).toMatchObject({
       name: 'Autumn League, Race 3, Class 1',
-      waypoints: [],
       anchor: { lat: 53.40125, lng: -6.08413 },
       windSpeedKts: 11.5,
     });
-    expect(snapshot.courseId).toBeUndefined();
     expect(snapshot.windDirectionDeg).toBeCloseTo(277.7, 9);
     expect(snapshot.legs).toHaveLength(2);
     expect(snapshot.legs![1].bearingDeg).toBeCloseTo(141.7, 9);

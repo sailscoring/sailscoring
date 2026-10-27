@@ -1,83 +1,60 @@
 /**
- * The clubs' course-cards data sets published at courses.sailscoring.ie,
- * vendored into the app at build time by scripts/sync-course-cards.ts, for
- * the charts a course is drawn on. The catalogue is a committed module, so
- * which chart covers a course is known with no network call; a chart's
- * image is fetched on demand from the app's own origin.
+ * The charts a course is drawn on: each course-cards data set's capture of
+ * its club's water, published at courses.sailscoring.ie and vendored into
+ * the app at build time by scripts/sync-course-cards.ts. Where each chart
+ * sits is a committed module, so which chart covers a course is known with
+ * no network call; a chart's image is fetched on demand from the app's own
+ * origin.
  */
 
-import {
-  type Catalogue,
-  type CatalogueCard,
-  type CatalogueSet,
-  type CourseBackground,
-  type Position,
-} from '@sailscoring/course-cards';
+import type { CourseBackground, Position } from '@sailscoring/course-cards';
 
-import { COURSE_CARDS_RELEASE, COURSE_CARD_CATALOGUE } from './generated/catalogue';
+import { COURSE_CARDS_RELEASE, COURSE_CHARTS } from './generated/charts';
+import type { CourseChart } from './types';
 
-export { COURSE_CARDS_RELEASE, COURSE_CARD_CATALOGUE };
-export type { Catalogue, CatalogueCard, CatalogueSet, CourseBackground };
-
-/** The data sets on offer, as the catalogue lists them. */
-export function courseCardSets(): CatalogueSet[] {
-  return COURSE_CARD_CATALOGUE.sets;
-}
-
-export function findCourseCardSet(path: string): CatalogueSet | undefined {
-  return COURSE_CARD_CATALOGUE.sets.find((s) => s.path === path);
-}
-
-/** "Howth Yacht Club — Autumn League 2026". */
-export function courseCardSetLabel(set: CatalogueSet): string {
-  return `${set.club} — ${set.event}`;
-}
+export { COURSE_CARDS_RELEASE, COURSE_CHARTS };
+export type { CourseBackground, CourseChart };
 
 /** The app-hosted URL of a vendored file, relative to the app origin. */
 export function courseCardFileUrl(file: string): string {
   return `/course-cards/${file}`;
 }
 
-/** The chart a set captured, as the renderer takes it: the image with the
- *  ground it covers. Everything but the image itself is in the catalogue. */
-export function courseBackgroundOf(
-  placement: NonNullable<NonNullable<CatalogueSet['map']>['placement']>,
-  png: Uint8Array,
-): CourseBackground {
+/** A data set's chart, where its release captured one. */
+export function findCourseChart(set: string): CourseChart | undefined {
+  return COURSE_CHARTS.find((c) => c.set === set);
+}
+
+/** A chart as the renderer takes it: the image with the ground it covers. */
+export function courseBackgroundOf(chart: CourseChart, png: Uint8Array): CourseBackground {
   return {
     png,
-    bounds: placement.bounds,
-    width: placement.width,
-    height: placement.height,
-    attribution: placement.attribution,
+    bounds: chart.placement.bounds,
+    width: chart.placement.width,
+    height: chart.placement.height,
+    attribution: chart.placement.attribution,
   };
 }
 
-/** A set's chart and how to place it, where the pinned release published
- *  both. A release before 0.8.0 lists the image without the ground it
- *  covers, and a course over that set's marks draws on plain ground. */
-export function courseChartOf(set: CatalogueSet | undefined): { file: string; placement: NonNullable<NonNullable<CatalogueSet['map']>['placement']> } | undefined {
-  return set?.map?.placement ? { file: set.map.background, placement: set.map.placement } : undefined;
-}
+type Bounds = CourseChart['placement']['bounds'];
+
+const inside = (b: Bounds, p: Position) => p.lat >= b.south && p.lat <= b.north && p.lng >= b.west && p.lng <= b.east;
 
 /**
- * The data set whose chart a course with no charted marks belongs on: one
- * whose captured ground contains the first point (where the course is
- * placed from), and of those the one that holds the most of the rest. A
- * tie goes to `preferred` — the set the series' own marks came from —
- * then to the closer-in chart, then to the later set (a newer season of
- * the same water). Undefined where no set captured the water at all.
+ * The data set whose chart a course belongs on: one whose captured ground
+ * contains the first point (where the course is placed from), and of those
+ * the one that holds the most of the rest. A tie goes to `preferred` — the
+ * chart the series' other courses sit on — then to the closer-in chart,
+ * then to the later set (a newer season of the same water). Undefined where
+ * no set captured the water at all.
  */
 export function chartSetCovering(points: readonly Position[], preferred?: string): string | undefined {
   if (points.length === 0) return undefined;
-  type Bounds = NonNullable<ReturnType<typeof courseChartOf>>['placement']['bounds'];
-  const inside = (b: Bounds, p: Position) => p.lat >= b.south && p.lat <= b.north && p.lng >= b.west && p.lng <= b.east;
-  const candidates = COURSE_CARD_CATALOGUE.sets.flatMap((set, index) => {
-    const chart = courseChartOf(set);
-    if (!chart || !inside(chart.placement.bounds, points[0])) return [];
+  const candidates = COURSE_CHARTS.flatMap((chart, index) => {
+    if (!inside(chart.placement.bounds, points[0])) return [];
     const b = chart.placement.bounds;
     return [{
-      path: set.path,
+      path: chart.set,
       covered: points.filter((p) => inside(b, p)).length,
       area: (b.north - b.south) * (b.east - b.west),
       index,
@@ -101,14 +78,10 @@ export function chartSetCovering(points: readonly Position[], preferred?: string
  * whole.
  */
 export function chartSetHoldingMost(courses: readonly (readonly Position[])[]): string | undefined {
-  const candidates = COURSE_CARD_CATALOGUE.sets.flatMap((set, index) => {
-    const chart = courseChartOf(set);
-    if (!chart) return [];
+  const candidates = COURSE_CHARTS.flatMap((chart, index) => {
     const b = chart.placement.bounds;
-    const held = courses.filter((points) => points.length > 0 && points.every(
-      (p) => p.lat >= b.south && p.lat <= b.north && p.lng >= b.west && p.lng <= b.east,
-    )).length;
-    return held > 0 ? [{ path: set.path, held, area: (b.north - b.south) * (b.east - b.west), index }] : [];
+    const held = courses.filter((points) => points.length > 0 && points.every((p) => inside(b, p))).length;
+    return held > 0 ? [{ path: chart.set, held, area: (b.north - b.south) * (b.east - b.west), index }] : [];
   });
   candidates.sort((a, b) => b.held - a.held || a.area - b.area || b.index - a.index);
   return candidates[0]?.path;
@@ -126,11 +99,11 @@ const backgroundCache = new Map<string, Promise<CourseBackground | undefined>>()
 export function loadCourseBackground(setPath: string): Promise<CourseBackground | undefined> {
   let p = backgroundCache.get(setPath);
   if (!p) {
-    const chart = courseChartOf(findCourseCardSet(setPath));
+    const chart = findCourseChart(setPath);
     p = !chart
       ? Promise.resolve(undefined)
       : fetch(courseCardFileUrl(chart.file))
-          .then(async (res) => (res.ok ? courseBackgroundOf(chart.placement, new Uint8Array(await res.arrayBuffer())) : undefined))
+          .then(async (res) => (res.ok ? courseBackgroundOf(chart, new Uint8Array(await res.arrayBuffer())) : undefined))
           .catch(() => undefined);
     backgroundCache.set(setPath, p);
   }
