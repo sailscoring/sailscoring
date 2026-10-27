@@ -90,6 +90,40 @@ export async function createAppClient(args: {
   };
 }
 
+/**
+ * Ask the deployment at `appUrl` whether it accepts a confidential client's
+ * credentials, by exchanging a made-up authorization code. The token endpoint
+ * authenticates the client before it looks the code up, so `invalid_grant`
+ * means the ID and secret are good, and `invalid_client` says why not. It has
+ * to be the deployment: the secret is stored encrypted, and only a check made
+ * with the deployment's key shows the stored copy is one it can read.
+ */
+export async function checkClientSecret(
+  appUrl: string,
+  clientId: string,
+  clientSecret: string,
+  send: (request: Request) => Promise<Response> = fetch,
+): Promise<{ ok: true } | { ok: false; reason: string }> {
+  const res = await send(
+    new Request(new URL('/api/auth/oauth2/token', appUrl), {
+      method: 'POST',
+      headers: {
+        authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`,
+        'content-type': 'application/x-www-form-urlencoded',
+        accept: 'application/json',
+      },
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        code: 'not-a-real-code',
+        redirect_uri: 'https://example.invalid/callback',
+      }).toString(),
+    }),
+  );
+  const body = (await res.json().catch(() => ({}))) as { error?: string; error_description?: string };
+  if (body.error === 'invalid_grant') return { ok: true };
+  return { ok: false, reason: body.error_description ?? body.error ?? `HTTP ${res.status}` };
+}
+
 /** Register the CLI: our own app, signing people in with the device grant. */
 export async function createCliClient(owner: string): Promise<CreatedClient> {
   const created = await register(owner, {
@@ -173,7 +207,7 @@ function usage(): string {
   return `oauth-client — register the apps that may ask users for access (ADR-016)
 
   create --owner <email> --name <name> --redirect-uris <uri>[,<uri>…] [--uri <homepage>] [--confidential]
-         [--scopes <scope>[,<scope>…]]
+         [--scopes <scope>[,<scope>…]] [--app-url <deployment>]
   create-cli --owner <email>
   list
   disable <client-id>
@@ -188,6 +222,10 @@ address (127.0.0.1, [::1], localhost), for an app being developed locally.
 --scopes registers the app with only the scopes it asked for (offline_access
 included, if it wants refresh tokens); without it, the app may ask for every
 scope there is.
+
+A --confidential app's secret is then checked against the deployment
+(NEXT_PUBLIC_APP_URL, or --app-url): if its token endpoint refuses it, the
+new client is disabled and the secret is not shown.
 
 create-cli registers the CLI: our own app, signing people in with the device
 grant, skipping consent, acting in every workspace its user belongs to. Put
@@ -232,6 +270,25 @@ export async function runCli(argv: string[]): Promise<number> {
           confidential: flags.confidential === 'true',
           scopes,
         });
+        if (created.clientSecret) {
+          const appUrl = flag('app-url') ?? process.env.NEXT_PUBLIC_APP_URL;
+          let check: Awaited<ReturnType<typeof checkClientSecret>> | undefined;
+          if (appUrl) {
+            try {
+              check = await checkClientSecret(appUrl, created.clientId, created.clientSecret);
+            } catch (err) {
+              console.warn(`could not reach ${appUrl} to check the secret: ${err instanceof Error ? err.message : err}`);
+            }
+          } else {
+            console.warn('NEXT_PUBLIC_APP_URL is unset (and no --app-url): the secret was not checked');
+          }
+          if (check && !check.ok) {
+            await setClientDisabled(db, created.clientId, true);
+            console.error(`${appUrl} refused the new client's secret (${check.reason}); disabled ${created.clientId}`);
+            return 1;
+          }
+          if (check) console.log(`${appUrl} accepts the new client's secret`);
+        }
         console.log(`registered ${name}`);
         console.log(`  client id: ${created.clientId}`);
         if (created.clientSecret) {

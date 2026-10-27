@@ -129,7 +129,8 @@ One-time setup:
 2. Create a vault item (a Secure Note does) with custom fields named
    after the variables: `DATABASE_URL` (required; the Neon production
    URL), `BLOB_READ_WRITE_TOKEN` and `NEXT_PUBLIC_APP_URL` (needed by
-   `republish` and `published-views`), `COMPETITOR_ID_KEY` (needed by
+   `republish` and `published-views`; `oauth-client create` checks a new
+   client secret against it), `COMPETITOR_ID_KEY` (needed by
    `published-views`; the same value as the Production environment's, see
    [DEPLOY.md](../DEPLOY.md)), `BETTER_AUTH_SECRET` (needed by
    `oauth-client create --confidential`, which encrypts the client

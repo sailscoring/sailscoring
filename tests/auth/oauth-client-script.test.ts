@@ -8,10 +8,12 @@
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { eq } from 'drizzle-orm';
 
+import { auth } from '@/lib/auth';
 import { parseClientMetadata } from '@/lib/auth/oauth';
 import { getDb } from '@/lib/db/client';
 import * as schema from '@/lib/db/schema';
 import {
+  checkClientSecret,
   createAppClient,
   createCliClient,
   listClients,
@@ -83,6 +85,22 @@ describe.skipIf(!DATABASE_URL)('oauth-client script', () => {
       .from(schema.oauthClient)
       .where(eq(schema.oauthClient.clientId, app.clientId));
     expect(row.clientSecret).not.toBe(app.clientSecret);
+  });
+
+  test('the token endpoint accepts a new secret, and refuses a wrong one', async () => {
+    const app = await createAppClient({
+      owner: operator.email,
+      name: 'Checked secret',
+      redirectUris: ['https://example.com/cb'],
+      confidential: true,
+    });
+    created.push(app.clientId);
+    const appUrl = process.env.BETTER_AUTH_URL!;
+    expect(await checkClientSecret(appUrl, app.clientId, app.clientSecret!, auth.handler)).toEqual({ ok: true });
+    expect(await checkClientSecret(appUrl, app.clientId, 'wrong', auth.handler)).toEqual({
+      ok: false,
+      reason: 'invalid client_secret',
+    });
   });
 
   test('a confidential app is refused without BETTER_AUTH_SECRET', async () => {
