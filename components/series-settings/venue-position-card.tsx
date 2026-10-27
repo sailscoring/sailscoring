@@ -4,18 +4,15 @@ import { useState } from 'react';
 import { formatPosition, parsePosition, type Position } from '@sailscoring/course-cards';
 
 import { Button } from '@/components/ui/button';
-import { useFeatures } from '@/components/features-provider';
-import { useSeriesMarks } from '@/hooks/use-course-library';
 import { useUpdateSeries } from '@/hooks/use-series';
-import { centroid, formatVariation, todayIso, variationAt } from '@/lib/bearings';
+import { formatVariation, todayIso, variationAt } from '@/lib/bearings';
 import type { Series } from '@/lib/types';
 
 /**
  * Where the racing is: the position course legs with no position of their
  * own take their magnetic variation from — legs typed into a start, or a
- * course imported without saying where it starts. A course built from marks
- * is placed by them and never needs it. Shown with the variation it gives
- * today, so the scorer can see what the conversion will apply.
+ * course imported without saying where it starts. Shown with the variation
+ * it gives today, so the scorer can see what the conversion will apply.
  */
 export function VenuePositionCard({
   seriesId,
@@ -25,15 +22,10 @@ export function VenuePositionCard({
   series: Series;
 }) {
   const updateSeries = useUpdateSeries();
-  const { has } = useFeatures();
   const [editing, setEditing] = useState(false);
-  // The series' marks, whose centre is offered as the position while it is
-  // being edited, where the library that holds them is in sight.
-  const { data: marks } = useSeriesMarks(seriesId, { enabled: editing && has('orc') && has('course-library') });
   const [text, setText] = useState('');
   const [error, setError] = useState('');
   const value = series.venuePosition;
-  const marksCentre = centroid(marks ?? []);
 
   function start() {
     setText(value ? formatPosition(value, { minuteDecimals: 3 }) : '');
@@ -86,11 +78,6 @@ export function VenuePositionCard({
               onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
               autoFocus
             />
-            {marksCentre && (
-              <Button type="button" variant="outline" size="sm" onClick={() => setText(formatPosition(marksCentre, { minuteDecimals: 3 }))}>
-                Use the marks&apos; centre
-              </Button>
-            )}
             <Button type="button" size="sm" onClick={submit} data-testid="venue-position-save">Save</Button>
             <Button type="button" variant="ghost" size="sm" onClick={() => setEditing(false)}>Cancel</Button>
           </div>

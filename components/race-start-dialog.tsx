@@ -19,7 +19,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { ConstructedCourseImport } from '@/components/course-library/constructed-course-import';
-import { CourseDialog, type CourseDialogMode } from '@/components/course-library/course-dialog';
 import { CourseDrawing } from '@/components/course-library/course-drawing';
 import {
   BearingRefControl,
@@ -36,29 +35,19 @@ import {
 } from '@/components/course-library/leg-table';
 import { useConfirm } from '@/components/confirm-dialog';
 import { useFeatures } from '@/components/features-provider';
-import { useSaveSeriesCourse, useSaveSeriesMark, useSaveSeriesMarks, useSeriesCourses, useSeriesMarks } from '@/hooks/use-course-library';
 import { useRaceStartsBySeries } from '@/hooks/use-race-starts';
 import { useSeries } from '@/hooks/use-series';
 import { OrcOptionItems, OrcOptionValue } from '@/components/orc-option-items';
-import { useRacesBySeries } from '@/hooks/use-races';
-import { seriesMarkRepo } from '@/lib/api-repository';
 import { courseVariation, todayIso, type BearingRef, type Variation } from '@/lib/bearings';
 import { ratingSystemLabel } from '@/lib/competitor-ratings';
-import { loadCourseCard } from '@/lib/course-cards';
 import {
-  courseLegsOf,
-  courseOutOfDate,
   drawnRaceStartCourse,
   legDistance,
   legsForStart,
   legsMatch,
   legsOfWaypoints,
-  markLibrarySet,
-  resolveCourse,
-  snapshotOfCourse,
+  seriesChartSet,
   startCoursePositions,
-  windForCardCourse,
-  type NamingContext,
 } from '@/lib/course-geometry';
 import {
   ORC_STANDARD_OPTIONS,
@@ -73,7 +62,7 @@ import {
   type ConstructedCourse,
 } from '@/lib/orc-constructed-course';
 import { normalizeTimeInput } from '@/lib/time-parse';
-import type { Competitor, Fleet, OrcCourseLeg, RaceStart, RaceStartCourse, SeriesCourse, SeriesMark } from '@/lib/types';
+import type { Competitor, Fleet, OrcCourseLeg, RaceStart, RaceStartCourse } from '@/lib/types';
 
 export type RaceStartDialogMode =
   | { kind: 'add' }
@@ -89,7 +78,7 @@ export interface RaceStartDraft {
   orcScoringWind?: number;
   /** Constructed-course legs (ORC rule 402.5), in sailing order. */
   courseLegs?: OrcCourseLeg[];
-  /** The library course those legs came from, as a snapshot. */
+  /** The course those legs came from: its name, wind and anchor. */
   course?: RaceStartCourse;
   /** The ORC scoring option for this start's races — overrides the fleet
    *  default, and decides the method (single number, band, or PCS). */
@@ -99,11 +88,10 @@ export interface RaceStartDraft {
 export interface RaceStartDialogProps {
   /** When non-null, the dialog is open. */
   mode: RaceStartDialogMode | null;
-  /** The series, for the course library the start picks from. */
+  /** The series, for its venue position and the chart its courses sit on. */
   seriesId: string;
-  /** The race's date and number, for the names a course made from here
-   *  is proposed under. */
-  race?: { date: string; raceNumber: number };
+  /** The race's date, for the variation the course's figures are shown at. */
+  race?: { date: string };
   raceStarts: RaceStart[];
   fleets: Fleet[];
   /** The series' competitors, when the caller has them — the ORC
@@ -237,42 +225,11 @@ function RaceStartDialogInner({
   const [importOpen, setImportOpen] = useState(false);
 
   // The start's course (ORC constructed courses): its summary, its wind and
-  // its drawing, wherever the legs are. With the course library the start
-  // picks a course, and its legs fill in from there — the wind is the
-  // start's own. Without it, the start keeps the course it holds, and the
-  // series' marks still place an old one on its chart.
+  // its drawing, wherever the legs are. The series' other starts say which
+  // chart its courses sit on, where more than one covers a course.
   const offerCourse = offerLegs && has('orc');
-  const offerLibrary = offerCourse && has('course-library');
-  const { data: libraryCourses } = useSeriesCourses(seriesId, { enabled: offerLibrary });
-  const { data: libraryMarks } = useSeriesMarks(seriesId, { enabled: offerCourse });
-  const { data: seriesStarts } = useRaceStartsBySeries(seriesId, { enabled: offerLibrary });
-  const { data: seriesRaces } = useRacesBySeries(seriesId);
-  const marksById = useMemo(() => new Map((libraryMarks ?? []).map((m) => [m.id, m])), [libraryMarks]);
-  // The data set the series' own marks came from: the chart a course drawn
-  // over them sits on, and the one preferred under an anchored leg table.
-  const librarySet = useMemo(() => markLibrarySet(libraryMarks ?? []), [libraryMarks]);
-  // Most recently used first: with five starts to get through, the second
-  // is two clicks and the third is one.
-  const orderedCourses = useMemo(() => {
-    const dateByRace = new Map((seriesRaces ?? []).map((r) => [r.id, r.date]));
-    const lastUsed = new Map<string, string>();
-    for (const s of seriesStarts ?? []) {
-      const id = s.course?.courseId;
-      if (!id) continue;
-      const d = dateByRace.get(s.raceId) ?? '';
-      if (d > (lastUsed.get(id) ?? '')) lastUsed.set(id, d);
-    }
-    return [...(libraryCourses ?? [])].sort(
-      (a, b) => (lastUsed.get(b.id) ?? '').localeCompare(lastUsed.get(a.id) ?? '') || b.createdAt - a.createdAt,
-    );
-  }, [libraryCourses, seriesStarts, seriesRaces]);
-  const naming: NamingContext = useMemo(
-    () => (race ? { date: race.date, raceNumber: race.raceNumber } : {}),
-    [race],
-  );
-  const saveMark = useSaveSeriesMark();
-  const saveMarks = useSaveSeriesMarks();
-  const saveCourse = useSaveSeriesCourse();
+  const { data: seriesStarts } = useRaceStartsBySeries(seriesId, { enabled: offerCourse });
+  const chartSet = useMemo(() => seriesChartSet(seriesStarts ?? []), [seriesStarts]);
 
   const [snapshot, setSnapshot] = useState<RaceStartCourse | undefined>(seed?.course);
   const [seedWind] = useState(() =>
@@ -284,16 +241,6 @@ function RaceStartDialogInner({
     seed?.course?.windSpeedKts != null ? String(seed.course.windSpeedKts) : '',
   );
   const [legsEdited, setLegsEdited] = useState(Boolean(seed?.course?.legsEdited));
-  const [legsOpen, setLegsOpen] = useState(!seed?.course);
-  const [courseDialog, setCourseDialog] = useState<CourseDialogMode | null>(null);
-  const libraryCourse = snapshot?.courseId ? (libraryCourses ?? []).find((c) => c.id === snapshot.courseId) : undefined;
-  // A start scored before its set's passages reached the app holds the
-  // straight legs: its marks haven't moved, but the course no longer gives
-  // those legs, so it is offered the recompute like any other change.
-  const rerouted =
-    snapshot != null && snapshot === seed?.course && !legsEdited && !snapshot.legs &&
-    (seed.courseLegs?.length ?? 0) > 0 && legsOfWaypoints(snapshot.waypoints).length !== seed.courseLegs!.length;
-  const outOfDate = snapshot ? rerouted || courseOutOfDate(snapshot, libraryCourse, marksById) : false;
   // Where the course is: its marks, or the anchor of an imported one.
   const snapshotWaypoints = snapshot?.waypoints;
   const snapshotAnchor = snapshot?.anchor;
@@ -320,42 +267,6 @@ function RaceStartDialogInner({
   const windKt = windSpeedInput.trim() ? Number(windSpeedInput.trim()) : undefined;
   const windSpeedValid = windKt == null || (Number.isFinite(windKt) && windKt > 0 && windKt < 100);
 
-  /** Fill the leg table from a course at the wind, as a fresh snapshot. */
-  function applyCourse(
-    course: SeriesCourse,
-    wind: number | undefined,
-    marks: ReadonlyMap<string, SeriesMark> = marksById,
-    speed: number | undefined = windKt,
-  ) {
-    // Whichever way the course is defined — a mark sequence or the
-    // committee's own leg table — it reaches the start's table as legs.
-    const legs = legsForStart(courseLegsOf(course, marks), wind ?? 0, offerWindSpeed ? speed : undefined);
-    const next = snapshotOfCourse(course, marks, wind, offerWindSpeed ? speed : undefined);
-    setSnapshot(next);
-    // The new course may sit somewhere else, so the figures are shown at its
-    // variation, not the last one's.
-    const at = displayAt(courseVariation(startCoursePositions(next), venuePosition, raceDate));
-    const w = wind != null ? figureField(wind, at) : undefined;
-    setWindInput(w?.text ?? '');
-    setWindKept(w?.kept);
-    setLegRows(legs.map((leg) => {
-      const b = figureField(leg.bearingDeg, at);
-      return emptyLegRow({
-        distance: String(leg.distanceNm),
-        bearing: b.text,
-        bearingKept: b.kept,
-        wind: w?.text ?? '',
-        ...(w ? { windKept: w.kept } : {}),
-        windSpeed: leg.windSpeedKts != null ? String(leg.windSpeedKts) : '',
-      });
-    }));
-    setLegsEdited(false);
-    setLegsOpen(false);
-    setShowLegNames(false);
-    setImportOpen(false);
-    setError('');
-  }
-
   /** The variation an imported course's magnetic figures are converted at:
    *  where its first leg starts, else the venue, on the race's day. */
   const importVariationAt = useCallback(
@@ -364,8 +275,7 @@ function RaceStartDialogInner({
   );
 
   /** Fill the leg table from an imported ORC constructed course, as the
-   *  start's course: the document is the course, so there is no library
-   *  entry behind it and nothing to recompute from. Legs already in the
+   *  start's course: the document is the course. Legs already in the
    *  table are replaced, which the scorer is asked about first. With no
    *  variation, the course is kept in magnetic as the document gives it. */
   async function applyImportedCourse(course: ConstructedCourse, v: Variation | undefined) {
@@ -408,48 +318,6 @@ function RaceStartDialogInner({
     setError('');
   }
 
-  async function pickCourse(courseId: string, fresh?: { course: SeriesCourse; marks: ReadonlyMap<string, SeriesMark> }) {
-    if (courseId === '__none__') {
-      if (magnetic) {
-        // Its legs are magnetic with nothing to convert them by, so they
-        // can't stay on as legs the start would store in true.
-        const ok = await confirm({
-          title: 'Remove the imported course?',
-          description: `The legs of ${snapshot?.name ?? 'the imported course'} are in magnetic, with no variation to convert them to true, so they are removed with it.`,
-          confirmLabel: 'Remove',
-        });
-        if (!ok) return;
-        setLegRows([]);
-        setWindInput('');
-        setWindKept(undefined);
-        setShowLegNames(false);
-        setSnapshot(undefined);
-        setLegsOpen(true);
-        return;
-      }
-      // Off the course's marks, the figures are the venue's to convert.
-      redisplay(displayAt(courseVariation([], venuePosition, raceDate)));
-      setSnapshot(undefined);
-      setLegsOpen(true);
-      return;
-    }
-    const course = fresh?.course ?? (libraryCourses ?? []).find((c) => c.id === courseId);
-    if (!course) return;
-    // Where a card lays the course out for a wind, offer it — unless the
-    // scorer has already said what the wind was. A wind given in magnetic,
-    // for a course kept in magnetic, has nothing to bring it into true.
-    let wind = magnetic ? undefined : windDeg;
-    if (wind == null && course.card) {
-      try {
-        const { cardFile } = await loadCourseCard(course.card.set, course.card.cardId);
-        wind = windForCardCourse(cardFile, course.card.courseId);
-      } catch {
-        // The card is a convenience; the course stands without it.
-      }
-    }
-    applyCourse(course, wind, fresh?.marks);
-  }
-
   /** A changed wind rewrites every leg's wind, unless the scorer edited the
    *  legs — a per-leg wind is exactly the kind of edit that must stay. */
   function changeWind(value: string) {
@@ -489,8 +357,7 @@ function RaceStartDialogInner({
     setSnapshot({ ...snapshot, ...(valid ? { windSpeedKts: kt } : { windSpeedKts: undefined }) });
   }
 
-  /** Take the course off the start, legs and all: the picker's "Not
-   *  recorded", for a dialog without the library to pick from. */
+  /** Take the course off the start, legs and all. */
   async function removeCourse() {
     const ok = await confirm({
       title: 'Remove the course?',
@@ -504,18 +371,6 @@ function RaceStartDialogInner({
     setShowLegNames(false);
     setLegsEdited(false);
     setSnapshot(undefined);
-  }
-
-  async function recompute() {
-    if (!libraryCourse) return;
-    const ok = await confirm({
-      title: 'Recompute the legs from the course?',
-      description: legsEdited
-        ? 'The legs you edited by hand — split legs, nudged distances, per-leg winds — will be replaced by the course as it is now in the library.'
-        : 'The legs will be replaced by the course as it is now in the library.',
-      confirmLabel: 'Recompute',
-    });
-    if (ok) applyCourse(libraryCourse, windDeg, marksById, windKt);
   }
 
   // The picture the published page will show: the course's marks while the
@@ -537,14 +392,12 @@ function RaceStartDialogInner({
       legs.map((l) => ({ ...l, distanceNm: legDistance(l.distanceNm) })),
       legsForStart(snapshot.legs ?? legsOfWaypoints(snapshot.waypoints), windDeg ?? 0, windKt),
     );
-    const drawn = drawnRaceStartCourse(snapshot && { ...snapshot, legsEdited: edited || undefined }, legs, librarySet);
+    const drawn = drawnRaceStartCourse(snapshot && { ...snapshot, legsEdited: edited || undefined }, legs, chartSet);
     return drawn && { ...drawn, scoredLegs: legs.length };
-  }, [snapshot, legRows, legsEdited, windDeg, windKt, display, librarySet]);
-  // The chart the course sits on. A snapshot taken before waypoints carried
-  // their data set names none, so the series' own library answers for it —
-  // the same fallback the published page makes. A drawing of legs is on the
-  // water only where an anchor puts it there.
-  const drawingSetPath = drawing?.fromLegs ? drawing.set : drawing?.set ?? librarySet;
+  }, [snapshot, legRows, legsEdited, windDeg, windKt, display, chartSet]);
+  // The chart the course sits on. A drawing of legs is on the water only
+  // where an anchor puts it there.
+  const drawingSetPath = drawing?.fromLegs ? drawing.set : drawing?.set ?? chartSet;
 
   // A gentle nudge when the chosen option needs course data the start lacks;
   // saving is still allowed — the race falls back to scratch until the
@@ -570,14 +423,12 @@ function RaceStartDialogInner({
       }}
       missing={magnetic
         ? 'The course was imported in magnetic with nowhere to read the variation at, so this start keeps it in magnetic.'
-        : offerLibrary
-          ? 'Set the venue position in the series settings, or pick a course built from marks, to enter them in magnetic.'
-          : 'Set the venue position in the series settings to enter them in magnetic.'}
+        : 'Set the venue position in the series settings to enter them in magnetic.'}
     />
   );
 
-  /** Any change to the table is the scorer's own — a course picked from the
-   *  library is flagged as edited so a recompute has to be asked for. */
+  /** Any change to the table is the scorer's own: a start's course is
+   *  flagged as edited once its legs are no longer the ones it gave. */
   function changeLegRows(rows: LegTableRow[]) {
     setLegRows(rows);
     if (snapshot) setLegsEdited(true);
@@ -724,8 +575,7 @@ function RaceStartDialogInner({
   }
 
   return (
-    <>
-    <Dialog open onOpenChange={(open) => { if (!open && !courseDialog) onCancel(); }}>
+    <Dialog open onOpenChange={(open) => { if (!open) onCancel(); }}>
       <DialogContent className={`${offerCourse ? 'max-w-lg' : 'max-w-sm'} max-h-[90vh] grid-rows-[auto_minmax(0,1fr)_auto]`}>
         <DialogHeader>
           <DialogTitle>{mode.kind === 'edit' ? 'Edit start' : 'Add start'}</DialogTitle>
@@ -805,79 +655,35 @@ function RaceStartDialogInner({
               </p>
             </div>
           )}
-          {offerCourse && (offerLibrary || snapshot || drawing) && (
+          {offerCourse && (snapshot || drawing) && (
             <div className="space-y-1.5" data-testid="start-course">
-              {offerLibrary ? (
-                <>
-                  <label className="text-sm font-medium">Course</label>
-                  <div className="flex items-center gap-2">
-                    <Select
-                      value={!snapshot ? '__none__' : snapshot.courseId ?? '__imported__'}
-                      onValueChange={(v) => void pickCourse(v)}
-                    >
-                      <SelectTrigger className="w-full" data-testid="start-course-picker">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none__">Not recorded</SelectItem>
-                        {/* An imported course is the start's own: no library
-                            entry stands behind it. */}
-                        {snapshot && !snapshot.courseId && (
-                          <SelectItem value="__imported__">{snapshot.name} (imported)</SelectItem>
-                        )}
-                        {snapshot?.courseId && !libraryCourse && (
-                          <SelectItem value={snapshot.courseId}>{snapshot.name} (no longer in the library)</SelectItem>
-                        )}
-                        {orderedCourses.map((c) => (
-                          <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Button type="button" variant="outline" size="sm" className="shrink-0" onClick={() => setCourseDialog({ kind: 'new' })} data-testid="start-new-course">
-                      New course…
-                    </Button>
-                  </div>
-                  {refControl}
-                </>
-              ) : snapshot && (
-                // Nothing to pick from: the course the start holds is named,
-                // and can be taken off.
-                <p className="text-sm font-medium">
-                  Course <span className="font-normal text-muted-foreground" data-testid="start-course-name">{snapshot.name}</span>
-                </p>
-              )}
               {snapshot && (
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                  <span className="font-mono">{legRows.length} legs · {legsTotal.toFixed(2)} NM</span>
-                  <label className="flex items-center gap-1">
-                    wind
-                    <input
-                      aria-label="Wind direction"
-                      className="flex h-7 w-16 rounded-md border border-input bg-transparent px-2 text-sm font-mono"
-                      value={windInput}
-                      inputMode="decimal"
-                      onChange={(e) => changeWind(e.target.value)}
-                      placeholder="190"
-                    />
-                    °{display.ref}
-                  </label>
-                  {legsEdited && (
-                    <span className="rounded bg-amber-100 px-1.5 py-0.5 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300" data-testid="legs-edited">legs edited</span>
-                  )}
-                  {offerLibrary && outOfDate && (
-                    <span className="rounded bg-amber-100 px-1.5 py-0.5 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300" data-testid="course-out-of-date">course changed since</span>
-                  )}
-                  {offerLibrary && libraryCourse && (legsEdited || outOfDate) && (
-                    <Button type="button" variant="link" size="sm" className="h-auto p-0 text-xs" onClick={() => void recompute()} data-testid="recompute-legs">
-                      Recompute from course
-                    </Button>
-                  )}
-                  {!offerLibrary && (
+                <>
+                  <p className="text-sm font-medium">
+                    Course <span className="font-normal text-muted-foreground" data-testid="start-course-name">{snapshot.name}</span>
+                  </p>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                    <span className="font-mono">{legRows.length} legs · {legsTotal.toFixed(2)} NM</span>
+                    <label className="flex items-center gap-1">
+                      wind
+                      <input
+                        aria-label="Wind direction"
+                        className="flex h-7 w-16 rounded-md border border-input bg-transparent px-2 text-sm font-mono"
+                        value={windInput}
+                        inputMode="decimal"
+                        onChange={(e) => changeWind(e.target.value)}
+                        placeholder="190"
+                      />
+                      °{display.ref}
+                    </label>
+                    {legsEdited && (
+                      <span className="rounded bg-amber-100 px-1.5 py-0.5 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300" data-testid="legs-edited">legs edited</span>
+                    )}
                     <Button type="button" variant="link" size="sm" className="h-auto p-0 text-xs" onClick={() => void removeCourse()} data-testid="remove-course">
                       Remove course
                     </Button>
-                  )}
-                </div>
+                  </div>
+                </>
               )}
               {drawing && (
                 <>
@@ -911,9 +717,9 @@ function RaceStartDialogInner({
           )}
           {offerLegs && (
             <div className="space-y-1.5">
-              {!offerLibrary && refControl}
-              {/* Above the fold, because picking a course folds the legs away
-                  and this is a scoring input, not a detail of the table. */}
+              {refControl}
+              {/* Above the table, because this is a scoring input rather than
+                  a detail of one leg. */}
               {offerWindSpeed && (
                 <label className="flex items-center gap-1 text-xs text-muted-foreground">
                   Wind speed
@@ -928,65 +734,48 @@ function RaceStartDialogInner({
                   kt — put on every leg
                 </label>
               )}
-              {offerLibrary ? (
-                <button
-                  type="button"
-                  className="flex items-center gap-1 text-sm font-medium"
-                  onClick={() => setLegsOpen((v) => !v)}
-                  aria-expanded={legsOpen}
-                  data-testid="legs-disclosure"
-                >
-                  <ChevronRight className={`h-3.5 w-3.5 transition-transform ${legsOpen ? 'rotate-90' : ''}`} />
-                  Legs ({legRows.length})
-                </button>
-              ) : (
-                <label className="text-sm font-medium">Course legs</label>
-              )}
-              {(legsOpen || !offerLibrary) && (
-                <div className="space-y-1">
-                  <LegTable
-                    rows={legRows}
-                    display={display}
-                    onChange={changeLegRows}
-                    showWind
-                    showWindSpeed={offerWindSpeed}
-                    showName={showLegNames}
-                    paste={false}
-                    actions={(
-                      <button
-                        type="button"
-                        className="flex items-center gap-1 text-xs text-muted-foreground"
-                        onClick={() => setImportOpen((v) => !v)}
-                        aria-expanded={importOpen}
-                        data-testid="import-course-disclosure"
-                      >
-                        <ChevronRight className={`h-3 w-3 transition-transform ${importOpen ? 'rotate-90' : ''}`} />
-                        Import a course
-                      </button>
-                    )}
-                    newRow={{
-                      ...(snapshot && windDeg != null
-                        ? { wind: figureField(windDeg, display).text, windKept: figureField(windDeg, display).kept }
-                        : { wind: '' }),
-                      windSpeed: offerWindSpeed && windKt != null ? String(windKt) : '',
-                    }}
-                  >
-                    <p className="text-xs text-muted-foreground">
-                      One row per leg, in sailing order; split a leg into two rows when
-                      the wind shifts along it. The course distance is the total.
-                      {optionScoresRecordedWind && ' This option scores at the wind recorded here, so every leg needs a speed.'}
-                    </p>
-                  </LegTable>
-                  {importOpen && (
-                    <ConstructedCourseImport
-                      variationAt={importVariationAt}
-                      librarySet={librarySet}
-                      onUse={(course, v) => void applyImportedCourse(course, v)}
-                      onCancel={() => setImportOpen(false)}
-                    />
+              <label className="text-sm font-medium">Course legs</label>
+              <div className="space-y-1">
+                <LegTable
+                  rows={legRows}
+                  display={display}
+                  onChange={changeLegRows}
+                  showWindSpeed={offerWindSpeed}
+                  showName={showLegNames}
+                  actions={(
+                    <button
+                      type="button"
+                      className="flex items-center gap-1 text-xs text-muted-foreground"
+                      onClick={() => setImportOpen((v) => !v)}
+                      aria-expanded={importOpen}
+                      data-testid="import-course-disclosure"
+                    >
+                      <ChevronRight className={`h-3 w-3 transition-transform ${importOpen ? 'rotate-90' : ''}`} />
+                      Import a course
+                    </button>
                   )}
-                </div>
-              )}
+                  newRow={{
+                    ...(snapshot && windDeg != null
+                      ? { wind: figureField(windDeg, display).text, windKept: figureField(windDeg, display).kept }
+                      : { wind: '' }),
+                    windSpeed: offerWindSpeed && windKt != null ? String(windKt) : '',
+                  }}
+                >
+                  <p className="text-xs text-muted-foreground">
+                    One row per leg, in sailing order; split a leg into two rows when
+                    the wind shifts along it. The course distance is the total.
+                    {optionScoresRecordedWind && ' This option scores at the wind recorded here, so every leg needs a speed.'}
+                  </p>
+                </LegTable>
+                {importOpen && (
+                  <ConstructedCourseImport
+                    variationAt={importVariationAt}
+                    chartSet={chartSet}
+                    onUse={(course, v) => void applyImportedCourse(course, v)}
+                    onCancel={() => setImportOpen(false)}
+                  />
+                )}
+              </div>
             </div>
           )}
           {offerScoringWind && (
@@ -1048,28 +837,5 @@ function RaceStartDialogInner({
         </div>
       </DialogContent>
     </Dialog>
-    {offerLibrary && (
-      <CourseDialog
-        mode={courseDialog}
-        seriesId={seriesId}
-        marks={libraryMarks ?? []}
-        courses={libraryCourses ?? []}
-        naming={naming}
-        venuePosition={venuePosition}
-        onSaveMark={(m) => saveMark.mutateAsync(m).then(() => undefined)}
-        onSaveMarks={(list) => saveMarks.mutateAsync(list)}
-        onSave={async (course) => {
-          const saved = await saveCourse.mutateAsync(course);
-          setCourseDialog(null);
-          // The new course is picked and its legs filled against the marks
-          // as the server has them now — the render's cache may predate the
-          // marks the dialog just adopted.
-          const marks = await seriesMarkRepo.listBySeries(seriesId);
-          void pickCourse(saved.id, { course: saved, marks: new Map(marks.map((m) => [m.id, m])) });
-        }}
-        onCancel={() => setCourseDialog(null)}
-      />
-    )}
-    </>
   );
 }

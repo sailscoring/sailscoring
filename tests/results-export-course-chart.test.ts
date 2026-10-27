@@ -105,27 +105,6 @@ describe('buildFleetHtmlFiles — the charts its courses are drawn on', () => {
     expect(asked).toEqual([]);
   });
 
-  it('falls back to the series’ own set for a snapshot taken before they carried one', async () => {
-    // Every course picked before this shipped is such a snapshot, and its
-    // marks came off the club's card all the same.
-    const asked: string[] = [];
-    const older: RaceStart = {
-      ...START,
-      course: { name: 'W/L', waypoints: START.course!.waypoints.map(({ set: _set, ...w }) => w) },
-    };
-    const library: SeriesMark[] = [
-      { id: 'm1', seriesId: 's1', name: 'Z', lat: 53.3967, lng: -6.0702, card: { set: 'hyc/al-2026', markId: 'Z', release: '0.8.0' }, createdAt: 0 },
-      { id: 'm2', seriesId: 's1', name: 'Start', lat: 53.4055, lng: -6.0675, createdAt: 1 },
-    ];
-    await buildFleetHtmlFiles(makeRepos([older], library), 's1', undefined, {
-      loadCourseBackground: async (set) => {
-        asked.push(set);
-        return undefined;
-      },
-    });
-    expect(asked).toEqual(['hyc/al-2026']);
-  });
-
   it('asks for the chart an imported course is placed on by its anchor', async () => {
     // No charted marks at all: the legs lead from the anchor off Ireland's
     // Eye out past the Brass Monkey chart, onto the Autumn League's.
@@ -145,6 +124,31 @@ describe('buildFleetHtmlFiles — the charts its courses are drawn on', () => {
       },
     };
     await buildFleetHtmlFiles(makeRepos([imported]), 's1', undefined, {
+      loadCourseBackground: async (set) => {
+        asked.push(set);
+        return undefined;
+      },
+    });
+    expect(asked).toEqual(['hyc/al-2026']);
+  });
+
+  it('keeps a course that fits a closer-in chart on the one the series’ other courses sit on', async () => {
+    // A short triangle off Ireland's Eye fits the Brass Monkey chart as well
+    // as the Autumn League's; the other race leads out past Brass Monkey's.
+    // Both go on the Autumn League's, so the page carries one chart.
+    const asked: string[] = [];
+    const course = (id: string, raceId: string, legs: { distanceNm: number; bearingDeg: number }[]): RaceStart => ({
+      ...START,
+      id,
+      raceId,
+      courseLegs: legs.map((l) => ({ ...l, windDirectionDeg: 30 })),
+      course: { name: `Course ${id}`, waypoints: [], legs, anchor: { lat: 53.41, lng: -6.08 } },
+    });
+    const starts = [
+      course('st1', 'r1', [{ distanceNm: 0.5, bearingDeg: 30 }, { distanceNm: 0.5, bearingDeg: 210 }]),
+      course('st2', 'r1', [{ distanceNm: 3, bearingDeg: 30 }, { distanceNm: 3, bearingDeg: 210 }]),
+    ];
+    await buildFleetHtmlFiles(makeRepos(starts), 's1', undefined, {
       loadCourseBackground: async (set) => {
         asked.push(set);
         return undefined;

@@ -25,7 +25,7 @@ import {
 } from './results-renderer';
 import { allocatePrizes } from './prizes';
 import { competitorRatingFor, ratingSystemLabel, ratingUnitLabel } from './competitor-ratings';
-import { drawnRaceStartCourse, markLibrarySet } from './course-geometry';
+import { drawnRaceStartCourse, seriesChartSet } from './course-geometry';
 import { groupFleets } from './fleet-groups';
 import { orcCurveOption, orcPcsRatable, orcProfileRating, orcRaceProfile } from './orc-certificate';
 import {
@@ -719,11 +719,10 @@ export async function buildFleetHtmlFiles(
       ? { files: scheduleFiles, summary: summariseSnapshot(snapshot, false) }
       : null;
   }
-  // The charts this series' courses sit on: one per data set its snapshotted
-  // marks came from, which for all but a rare series is one. The series' own
-  // set stands in for a start whose waypoints name none — every snapshot
-  // taken before they did.
-  const courseBackgroundSet = markLibrarySet(snapshot.marks ?? []);
+  // The charts this series' courses sit on, which for all but a rare series
+  // is one: where more than one chart covers a course, the one that holds the
+  // most of the series' courses.
+  const courseBackgroundSet = seriesChartSet(snapshot.raceStarts);
   const courseBackgrounds = await loadCourseCharts(
     snapshot.raceStarts,
     courseBackgroundSet,

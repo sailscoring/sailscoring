@@ -1,7 +1,6 @@
 'use client';
 
-import { Fragment, useState, type ReactNode } from 'react';
-import { ChevronRight } from 'lucide-react';
+import { Fragment, type ReactNode } from 'react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -9,18 +8,14 @@ import {
   describeVariation,
   enteredTrue,
   parseBearing,
-  toTrue,
   type BearingRef,
   type Variation,
 } from '@/lib/bearings';
-import { legDistance, parseLegTable } from '@/lib/course-geometry';
 
 /**
- * A constructed course's legs as a table (ORC rule 402.5) — the one control
- * behind both the library course defined by legs and the race start's own
- * table. A course carries distance and bearing; a start adds the wind, which
- * belongs to the race and not to the course, so the wind columns are the
- * caller's choice.
+ * A race start's constructed-course legs as a table (ORC rule 402.5): each
+ * leg's distance, bearing and wind, and the recorded wind speed where the
+ * option scores at one.
  *
  * Rows are the caller's state, held as strings: a half-typed number is a
  * legitimate state and the caller validates on save, where it can say what
@@ -45,7 +40,7 @@ export interface LegTableRow {
   name: string;
   distance: string;
   bearing: string;
-  /** Wind direction on the leg. Unused where the wind columns are off. */
+  /** Wind direction on the leg. */
   wind: string;
   /** Recorded wind speed on the leg. */
   windSpeed: string;
@@ -165,14 +160,10 @@ export interface LegTableProps {
   onChange: (rows: LegTableRow[]) => void;
   /** The reference bearings and winds are shown and typed in. */
   display: BearingDisplay;
-  /** The wind-direction column — a race start's table, not a course's. */
-  showWind?: boolean;
   /** The recorded wind-speed column, where the option scores at one. */
   showWindSpeed?: boolean;
   /** The leg-name column, where the course came with names. */
   showName?: boolean;
-  /** The "Paste a table" box. A caller with its own way in turns it off. */
-  paste?: boolean;
   /** Beside "Add leg": the caller's own way of filling the table. */
   actions?: ReactNode;
   /** What a row the scorer adds starts out holding. */
@@ -185,17 +176,12 @@ export function LegTable({
   rows,
   onChange,
   display,
-  showWind,
   showWindSpeed,
   showName,
-  paste = true,
   actions,
   newRow,
   children,
 }: LegTableProps) {
-  const [pasteOpen, setPasteOpen] = useState(false);
-  const [pasted, setPasted] = useState('');
-
   const total = rows.reduce((sum, r) => sum + (Number(r.distance) || 0), 0);
   // A style rather than a class: Tailwind finds class names by scanning
   // this file's text, and the columns vary by which ones are on.
@@ -203,7 +189,7 @@ export function LegTable({
     ...(showName ? ['minmax(0,1.6fr)'] : []),
     'minmax(0,1fr)',
     'minmax(0,1fr)',
-    ...(showWind ? ['minmax(0,1fr)'] : []),
+    'minmax(0,1fr)',
     ...(showWindSpeed ? ['minmax(0,1fr)'] : []),
     'auto',
   ].join(' ');
@@ -211,44 +197,6 @@ export function LegTable({
 
   function setRow(i: number, field: keyof LegTableRow, value: string) {
     onChange(rows.map((r, j) => (j === i ? { ...r, [field]: value } : r)));
-  }
-
-  // What the paste says, before it is committed: a table read the wrong way
-  // round, or one that lost half its rows to a stray column, is visible here
-  // rather than after saving.
-  // A bearing the table marks M or T is read that way; the rest are in the
-  // reference the dialog is in, which is the scorer's answer to "which north
-  // is this table from?".
-  const parsed = pasted.trim() ? parseLegTable(pasted) : null;
-  const pastedRefs = new Set(parsed?.legs.map((leg) => leg.bearingRef ?? display.ref) ?? []);
-  const unmarked = parsed?.legs.some((leg) => !leg.bearingRef) ?? false;
-  const cannotConvert = pastedRefs.has('M') && !display.variation;
-
-  function addPasted() {
-    if (!parsed || parsed.legs.length === 0 || cannotConvert) return;
-    onChange([
-      ...rows,
-      ...parsed.legs.map((leg) => {
-        const f = figureField(toTrue(leg.bearingDeg, leg.bearingRef ?? display.ref, display.variation), display);
-        return emptyLegRow({
-          ...newRow,
-          distance: String(legDistance(leg.distanceNm)),
-          bearing: f.text,
-          bearingKept: f.kept,
-        });
-      }),
-    ]);
-    setPasted('');
-    setPasteOpen(false);
-  }
-
-  function pastedSummary(): string {
-    if (!parsed) return '';
-    const refs = [...pastedRefs].map((r) => `°${r}`).join(' and ');
-    return `${parsed.legs.length} leg${parsed.legs.length === 1 ? '' : 's'} · ${parsed.legs
-      .reduce((sum, l) => sum + l.distanceNm, 0)
-      .toFixed(2)} NM · bearings in ${refs}${unmarked && display.variation ? ` (unmarked ones read as °${display.ref})` : ''}${
-      parsed.skipped > 0 ? ` · ${parsed.skipped} line${parsed.skipped === 1 ? '' : 's'} skipped` : ''}`;
   }
 
   return (
@@ -262,7 +210,7 @@ export function LegTable({
         {showName && <span className="text-xs text-muted-foreground">Leg</span>}
         <span className="text-xs text-muted-foreground">Distance (NM)</span>
         <span className="text-xs text-muted-foreground">Bearing (°{display.ref})</span>
-        {showWind && <span className="text-xs text-muted-foreground">Wind dir (°{display.ref})</span>}
+        <span className="text-xs text-muted-foreground">Wind dir (°{display.ref})</span>
         {showWindSpeed && <span className="text-xs text-muted-foreground">Wind (kt)</span>}
         <span />
         {rows.map((row, i) => (
@@ -289,15 +237,13 @@ export function LegTable({
               inputMode="decimal"
               onChange={(e) => setRow(i, 'bearing', e.target.value)}
             />
-            {showWind && (
-              <input
-                aria-label={`Leg ${i + 1} wind direction`}
-                className="flex h-8 rounded-md border border-input bg-transparent px-2 text-sm font-mono"
-                value={row.wind}
-                inputMode="decimal"
-                onChange={(e) => setRow(i, 'wind', e.target.value)}
-              />
-            )}
+            <input
+              aria-label={`Leg ${i + 1} wind direction`}
+              className="flex h-8 rounded-md border border-input bg-transparent px-2 text-sm font-mono"
+              value={row.wind}
+              inputMode="decimal"
+              onChange={(e) => setRow(i, 'wind', e.target.value)}
+            />
             {showWindSpeed && (
               <input
                 aria-label={`Leg ${i + 1} wind speed`}
@@ -330,18 +276,6 @@ export function LegTable({
           >
             Add leg
           </Button>
-          {paste && (
-            <button
-              type="button"
-              className="flex items-center gap-1 text-xs text-muted-foreground"
-              onClick={() => setPasteOpen((v) => !v)}
-              aria-expanded={pasteOpen}
-              data-testid="paste-legs-disclosure"
-            >
-              <ChevronRight className={`h-3 w-3 transition-transform ${pasteOpen ? 'rotate-90' : ''}`} />
-              Paste a table
-            </button>
-          )}
           {actions}
         </div>
         {total > 0 && (
@@ -355,38 +289,6 @@ export function LegTable({
             .map((c) => `leg ${c.leg} ${c.speedKts} kt to ${bearingFigure(c.directionDeg, display.ref, display.variation)}°${display.ref}`)
             .join(' · ')}
         </p>
-      )}
-      {paste && pasteOpen && (
-        <div className="space-y-1.5 rounded-md border p-2">
-          <textarea
-            aria-label="Leg table to paste"
-            className="w-full h-28 rounded-md border border-input bg-transparent px-2 py-1 text-sm font-mono"
-            value={pasted}
-            placeholder={'2.09\t162\n0.06\t060\n1.91\t340M'}
-            onChange={(e) => setPasted(e.target.value)}
-          />
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-xs text-muted-foreground" data-testid="paste-legs-preview">
-              {parsed == null
-                ? 'One leg per line: its distance in miles, then its bearing, with M or T after it where the table says (105M). Anything after those two is ignored, so a table with the wind on it pastes as it stands.'
-                : parsed.legs.length === 0
-                  ? 'No legs found — each line needs a distance and a bearing.'
-                  : cannotConvert
-                    ? 'These bearings are magnetic, and there is no position to work out the variation at — set the venue position in the series settings, or mark them T if they are true.'
-                    : pastedSummary()}
-            </p>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={!parsed || parsed.legs.length === 0 || cannotConvert}
-              onClick={addPasted}
-              data-testid="paste-legs-add"
-            >
-              Add these legs
-            </Button>
-          </div>
-        </div>
       )}
       {children}
     </div>

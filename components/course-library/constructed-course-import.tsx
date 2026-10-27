@@ -29,15 +29,15 @@ import {
  */
 export function ConstructedCourseImport({
   variationAt,
-  librarySet,
+  chartSet,
   onUse,
   onCancel,
 }: {
   /** The variation where a course is (its anchor, else the venue) on the
    *  race's day; undefined where there is nowhere to read one. */
   variationAt: (anchor: { lat: number; lng: number } | undefined) => Variation | undefined;
-  /** The series' own chart, preferred under an anchored course. */
-  librarySet?: string;
+  /** The chart the series' courses sit on, preferred under this one. */
+  chartSet?: string;
   /** `variation` is undefined where the course is kept in magnetic. */
   onUse: (course: ConstructedCourse, variation: Variation | undefined) => void;
   onCancel: () => void;
@@ -52,8 +52,8 @@ export function ConstructedCourseImport({
   const drawing = useMemo(() => {
     if (!course) return null;
     const legs = importedCourseLegs(course, variation);
-    return drawnStartCourse(snapshotOfImportedCourse(course, legs, variation ? undefined : 'magnetic'), librarySet);
-  }, [course, variation, librarySet]);
+    return drawnStartCourse(snapshotOfImportedCourse(course, legs, variation ? undefined : 'magnetic'), chartSet);
+  }, [course, variation, chartSet]);
 
   async function pickFile(file: File | undefined) {
     setFileError('');

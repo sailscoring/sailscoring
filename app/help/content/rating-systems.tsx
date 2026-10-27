@@ -405,167 +405,46 @@ export default function RatingSystems() {
         </p>
       </Section>
       )}
-      {has('course-library') && (
-      <Section id="course-builder" title="Building a constructed course">
-        <HelpShot
-          src="/help/shots/course-builder.webp"
-          alt="The Courses tab: the marks adopted from the club's course card and the ones the race committee laid, the courses built from them, and the drawing of them all."
-          caption="The Courses tab: the mark library, the course library, and the drawing that catches a mistyped coordinate."
-        />
+      {has('orc') && (
+      <Section id="course-builder" title="Entering a constructed course">
         <p>
-          Typing a constructed course leg by leg means a calculator and the course
-          card. The <strong className="text-foreground">Courses</strong> tab, which
-          appears when a fleet scores ORC, does the arithmetic instead. It holds two
-          libraries. <strong className="text-foreground">Marks</strong> are positions
-          on the water: the club’s charted marks, adopted from its course card with{' '}
-          <em>Add marks from a card…</em>, and the ones the race committee laid — the
-          line, the finish, the windward mark — which you make with{' '}
-          <em>New mark</em>, either as coordinates typed the way the log is written
-          (degrees and decimal minutes or decimal degrees; the canonical form is
-          echoed underneath as you type) or as a bearing and distance from a mark
-          already there, which is how a laid mark is actually recorded.{' '}
-          <strong className="text-foreground">Courses</strong> are named sequences
-          of those marks: pick a number on the club’s card and the dialog lists
-          exactly the marks the card cannot place itself, or build one by hand. A
-          course runs from the start line to the finish, so it includes the run
-          home the sailing instructions add after the last mark the card prints —
-          which is why it is longer than the printed sequence beside its number.
-          Every dialog draws the marks and legs as you edit, so a dropped digit
-          shows before you save. Where the card has since moved a charted mark
-          you adopted — a corrected survey, a buoy relaid — the course dialog
-          says which and by how far, and saving brings it to the card’s current
-          position, which moves every course that uses it; a start already
-          scored on the old position offers <em>Recompute from course</em>.
+          A fleet scored over a constructed course needs the course on each race
+          start: under <em>Course legs</em>, one row per leg in sailing order, each
+          with its distance in nautical miles, its bearing and the wind direction
+          on it, and the wind speed too where the option scores at the wind the
+          race committee recorded. Split a leg into two rows when the wind shifts
+          along it; the course length is the total. Every distance is recorded to
+          0.01 NM, the precision ORC scores a course at and what ORC Scorer holds,
+          so the figure a results page prints is the figure the rating was read
+          at. An app that builds courses can hand the whole course over instead,
+          legs, wind and all: see{' '}
+          <a href="#import-constructed-course" className="underline">Importing a
+          constructed course</a>.
         </p>
         <p>
-          <strong className="text-foreground">The drawing is on the club’s
-          own chart.</strong> Each data set ships a chart of its water,
-          captured once from OpenStreetMap and OpenSeaMap — the shore, the
-          soundings and the navigation marks the crew sees — and a course over
-          that club’s marks is drawn on it: in the Courses tab, in every
-          dialog, and on the published page. A mark laid beyond what the
-          capture covers is drawn on plain ground beside it, and a series whose
-          marks were all entered by hand has no club chart to draw on, so it
-          keeps the plain grid. The chart travels inside the published page
-          rather than being fetched from a tile server, which is both what the
-          tile policy requires and what keeps a results page working with
-          nothing to load.
-        </p>
-        <p>
-          <strong className="text-foreground">A leg the straight line
-          won’t do.</strong> Between two marks the direct line can cross a
-          headland or a bank. Where a club’s data set carries passages — the
-          local knowledge of which legs are sailable as drawn and how the
-          fleet goes round the rest, as Royal Cork’s does for Cork Harbour —
-          a leg across an obstruction is sailed through the passage’s turning
-          points: drawn as lettered legs (2a, 2b, 2c), counted in the course’s
-          distance, and filled into a start as legs of their own, because that
-          is the water the boats actually sail. A mark you laid for a card
-          course counts as the card mark it fills — your “Grassy Start” is the
-          card’s start line — whatever you named it. The course dialog says which
-          legs it routed. A leg the passages don’t cover — a mark laid well
-          away from where they assume it, or a pair nobody checked — is drawn
-          dashed and scored as the straight line, so check it before trusting
-          the distance.
-        </p>
-        <HelpShot
-          src="/help/shots/course-start-line.webp"
-          alt="A course from HYC's card with its start line recorded as the committee boat and the pin, and the line's length and bearing beneath them."
-          caption="A start line recorded as its two ends: the committee boat, then its pin."
-        />
-        <p>
-          <strong className="text-foreground">Start and finish lines.</strong>{' '}
-          A line has two ends, and a club’s card and a race officer measure the
-          legs to and from it from the middle of the line, not from the
-          committee boat — on a short first beat the difference is several
-          degrees. Record both ends and the course does the same: on a card
-          course, pick the committee boat for the start line and then its{' '}
-          <em>Pin</em>; on a course built by hand, the first and last rows each
-          take a pin beside their mark. Until the pin is recorded the committee
-          boat stands in for the line, and the dialog says so. Beside a line
-          you’re told its length and which way it lies, warned when the pin is
-          within 60 m of another mark, and, on a card course, warned when the
-          middle of the line is more than 500 m from where the card puts the
-          start — a line recorded under the wrong race, or an end mistyped. A
-          course built by hand finishes on the start line again (<em>Finish on
-          the start line</em> in the Add menu), on a line of its own (the
-          committee boat with a finish pin), at a mark, or at the last rounding
-          mark. Where the club’s passages route the first leg, a line recorded
-          away from where they assume it keeps the route, but the dialog says
-          that leg is measured from the recorded line and was not checked
-          against depth from there. The line is drawn between its ends, here and
-          on the published page, with the legs leaving from its middle.
-        </p>
-        <p>
-          A race start then <strong className="text-foreground">picks a course</strong>{' '}
-          from the list — most recently used first — and its legs fill in at the one
-          wind direction you give the start, pre-filled where the card lays the
-          course out for a wind. Every leg’s distance is recorded to 0.01 NM —
-          the precision ORC scores a course at, and what ORC Scorer holds — so
-          the figure a results page prints is the figure the rating was read at.
-          The leg table stays editable: split a leg on a wind
-          shift or nudge a distance and the start is marked <em>legs edited</em>{' '}
-          rather than silently recomputed; <em>Recompute from course</em> says what
-          it will discard first. Each start keeps its own record of the course as it
-          was when picked, drawn on the published page, so correcting a mark later
-          never moves a scored race. Once the legs are edited — or typed with no
-          course at all — the drawing shows the legs that were scored rather than
-          the course’s marks, captioned as having no position on the water. Names are how you find things again a
-          fortnight later: the date and race are proposed, and the qualifier that
-          matters — <em>inner</em>, <em>outer</em> — is yours to add. The second
-          course of a day is <em>Swap a mark…</em> on the first.
-        </p>
-        <HelpShot
-          src="/help/shots/course-from-leg-table.webp"
-          alt="A course made from the race committee's leg table: the distance and bearing of each leg, and the course drawn from them alone."
-          caption="A course that is the committee's leg table, drawn from its bearings and distances alone."
-        />
-        <p>
-          <strong className="text-foreground">When all you have is the leg
-          table.</strong> Often the committee boat hands over the course as legs —
-          so far, on this bearing, twelve times over — and no positions at all.
-          That is a course in its own right here, not something to reverse-engineer
-          into marks: pick{' '}
-          <em>The committee’s leg table</em> in <strong className="text-foreground">New
-          course</strong> and type the rows, or open <em>Paste a table</em> and paste
-          them. The paste takes the first two numbers on each line as the distance
-          and the bearing and ignores whatever follows, so a table with the wind in
-          the next columns goes in as it stands, headers and totals and all; it
-          tells you how many legs it found and how far they run before you commit
-          them. A leading 1, 2, 3 … column is recognised as row numbers and dropped.
-        </p>
-        <p>
-          A course entered this way is reused exactly like any other — every start,
-          every night, one click — which is the reason to save it rather than type
-          the table onto each start. What it hasn’t got is positions, so there are no
-          sides to leave marks on and nowhere on the water to put it; and the wind
-          is still the race’s, so each start gives its own. It is drawn all the
-          same, from the bearings and distances alone — on the race start and on the
-          published page, where it says in as many words that the course’s position
-          on the water is not recorded. In the course dialog you are also told how
-          far the last leg ends from where the first began. A table rounded to a tenth of a mile
-          never closes exactly, so that figure is there to read rather than to
-          worry about — but a course missing a leg, or carrying one it shouldn’t,
-          misses by much more than rounding, and this is where you see it.
+          The legs are drawn as you type them, from their bearings and distances
+          alone, on the race start and on the published page. With no position
+          behind them the drawing says so: the shape and the direction are the
+          committee’s, and where it sits on the water is not recorded. A course
+          that says where its first leg starts is drawn on the club’s chart from
+          there. A start whose course was built in the course library of earlier
+          versions keeps it the same way, as legs drawn from where its first mark
+          was, and named after its marks where the legs were never edited.
         </p>
         <p>
           <strong className="text-foreground">True and magnetic.</strong> Every
-          bearing and wind direction is stored in degrees true. Bearings worked out
-          from mark positions are true, true doesn’t change from year to year, and
-          weather sources give the wind in true. On screen they are shown and typed
-          in magnetic by default, because that is what is read off a compass, and
-          every figure is labelled <em>°M</em> or <em>°T</em>. The race officer’s
-          wind and the committee’s leg table can be entered just as they were
-          written down. The conversion uses the variation the World Magnetic Model
-          gives where the course is (the centre of its marks) on the race’s day, so
-          a magnetic figure never goes stale. A leg table has no marks, so it takes
-          the <em>venue position</em>, which you set in the series settings;
-          until one is set, a leg table’s bearings stay in true. Each dialog has a{' '}
+          bearing and wind direction is stored in degrees true: true doesn’t change
+          from year to year, and weather sources give the wind in true. On screen
+          they are shown and typed in magnetic where the variation is known,
+          because that is what is read off a compass, and every figure is labelled{' '}
+          <em>°M</em> or <em>°T</em>. The variation is the one the World Magnetic
+          Model gives where the course is on the race’s day: where its first leg
+          starts, when the course says, and otherwise at the <em>venue
+          position</em>, which you set in the series settings. Until one is set,
+          typed legs are entered and shown in true. The start has a{' '}
           <em>°M / °T</em> choice beside the variation it applies, and a figure
-          followed by M or T (<em>105M</em>, <em>103T</em>) is read that way whatever
-          the choice is. That works when pasting too, so a table that marks its
-          bearings goes in as it stands, and one that doesn’t is read in the
-          dialog’s choice. The published leg table prints each bearing as{' '}
+          followed by M or T (<em>105M</em>, <em>103T</em>) is read that way
+          whatever the choice is. The published leg table prints each bearing as{' '}
           <em>164°M (162°T)</em> and states the variation it used and the date it
           is for.
         </p>
@@ -605,10 +484,7 @@ export default function RatingSystems() {
           settings before importing. A course that carries the wind fills each
           leg’s; one that doesn’t takes the start’s course wind. The course is the
           start’s own, named above its legs, and its legs stay editable like any
-          others.
-          {!has('course-library') && (
-            <> <em>Remove course</em> takes it off the start, legs and all.</>
-          )}{' '}
+          others; <em>Remove course</em> takes it off the start, legs and all.
           Leg names appear in a{' '}
           <em>Leg</em> column and in the published leg table, and a current the
           course carries is listed under the legs, because it is scored. A course

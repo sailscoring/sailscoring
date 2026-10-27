@@ -104,6 +104,28 @@ export function chartSetCovering(points: readonly Position[], preferred?: string
   return candidates[0]?.path;
 }
 
+/**
+ * The data set whose chart holds the most of a series' courses, each given
+ * by the points it is drawn through: what a course that more than one chart
+ * covers is drawn on, so that a page of races sits on one club's water. A
+ * tie goes to the closer-in chart, then to the later set, as in
+ * {@link chartSetCovering}. Undefined where no chart holds any of them
+ * whole.
+ */
+export function chartSetHoldingMost(courses: readonly (readonly Position[])[]): string | undefined {
+  const candidates = COURSE_CARD_CATALOGUE.sets.flatMap((set, index) => {
+    const chart = courseChartOf(set);
+    if (!chart) return [];
+    const b = chart.placement.bounds;
+    const held = courses.filter((points) => points.length > 0 && points.every(
+      (p) => p.lat >= b.south && p.lat <= b.north && p.lng >= b.west && p.lng <= b.east,
+    )).length;
+    return held > 0 ? [{ path: set.path, held, area: (b.north - b.south) * (b.east - b.west), index }] : [];
+  });
+  candidates.sort((a, b) => b.held - a.held || a.area - b.area || b.index - a.index);
+  return candidates[0]?.path;
+}
+
 const marksCache = new Map<string, Promise<MarksFile>>();
 const cardCache = new Map<string, Promise<CourseCardFile>>();
 

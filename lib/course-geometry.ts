@@ -30,10 +30,11 @@ import {
 } from '@sailscoring/course-cards';
 
 import type { BearingRef } from './bearings';
-import { chartSetCovering } from './course-cards';
+import { chartSetCovering, chartSetHoldingMost } from './course-cards';
 import { courseRoutingFor } from './course-cards/routing';
 import type {
   OrcCourseLeg,
+  RaceStart,
   RaceStartCourse,
   RaceStartCourseLineEnd,
   RaceStartCourseWaypoint,
@@ -685,6 +686,22 @@ export function drawnRaceStartCourse(
     return drawnLegs(courseLegs, snapshot?.anchor, preferredSet);
   }
   return snapshot ? drawnStartCourse(snapshot, preferredSet) : null;
+}
+
+/**
+ * The chart a series' anchored courses are drawn on where more than one
+ * covers a course: the one that holds the most of them whole, passed as the
+ * preferred set wherever one of them is drawn. Without it a course that
+ * happens to fit a closer-in chart would leave the page's other races for
+ * it, and the page would carry both. Undefined where no chart holds any.
+ */
+export function seriesChartSet(starts: readonly Pick<RaceStart, 'course' | 'courseLegs'>[]): string | undefined {
+  const courses = starts.flatMap((s) => {
+    const anchor = s.course?.anchor;
+    const legs = s.courseLegs?.length ? s.courseLegs : s.course?.legs;
+    return anchor && legs?.length ? [drawnLegTable(legs, anchor).marks.map((m) => m.position)] : [];
+  });
+  return chartSetHoldingMost(courses);
 }
 
 /**

@@ -34,8 +34,6 @@ import type {
   RaceStartRepository,
   RaceRatingOverrideRepository,
   SaveOpts,
-  SeriesCourseRepository,
-  SeriesMarkRepository,
   SeriesNotes,
   SeriesPublishPrefs,
   SeriesRepository,
@@ -61,8 +59,6 @@ import type {
   RevisionEntry,
   RaceRatingOverride,
   Series,
-  SeriesCourse,
-  SeriesMark,
   SubSeries,
   TcfRecord,
   PublishResult,
@@ -403,80 +399,6 @@ class ApiSubSeriesRepository implements SubSeriesRepository {
   }
 }
 
-class ApiSeriesMarkRepository implements SeriesMarkRepository {
-  listBySeries(seriesId: string): Promise<SeriesMark[]> {
-    return apiFetch<SeriesMark[]>(`/api/v1/series/${seriesId}/marks`);
-  }
-
-  get(_id: string): Promise<SeriesMark | undefined> {
-    return Promise.reject(new Error('ApiSeriesMarkRepository.get(id) requires seriesId; use listBySeries'));
-  }
-
-  save(m: SeriesMark, opts?: SaveOpts): Promise<SeriesMark> {
-    return apiFetch<SeriesMark>(`/api/v1/series/${m.seriesId}/marks/${m.id}`, {
-      method: 'PUT',
-      body: m,
-      expectedVersion: opts?.expectedVersion,
-    });
-  }
-
-  async saveMany(marks: SeriesMark[]): Promise<void> {
-    if (marks.length === 0) return;
-    const seriesId = marks[0].seriesId;
-    await apiFetch(`/api/v1/series/${seriesId}/marks`, { method: 'POST', body: { marks } });
-  }
-
-  delete(_id: string): Promise<void> {
-    return Promise.reject(new Error('ApiSeriesMarkRepository.delete(id) requires seriesId; use deleteSeriesMark'));
-  }
-
-  async deleteBySeries(seriesId: string): Promise<void> {
-    await apiFetch(`/api/v1/series/${seriesId}/marks`, { method: 'DELETE' });
-  }
-}
-
-class ApiSeriesCourseRepository implements SeriesCourseRepository {
-  listBySeries(seriesId: string): Promise<SeriesCourse[]> {
-    return apiFetch<SeriesCourse[]>(`/api/v1/series/${seriesId}/courses`);
-  }
-
-  get(_id: string): Promise<SeriesCourse | undefined> {
-    return Promise.reject(new Error('ApiSeriesCourseRepository.get(id) requires seriesId; use listBySeries'));
-  }
-
-  save(c: SeriesCourse, opts?: SaveOpts): Promise<SeriesCourse> {
-    return apiFetch<SeriesCourse>(`/api/v1/series/${c.seriesId}/courses/${c.id}`, {
-      method: 'PUT',
-      body: c,
-      expectedVersion: opts?.expectedVersion,
-    });
-  }
-
-  async saveMany(courses: SeriesCourse[]): Promise<void> {
-    if (courses.length === 0) return;
-    const seriesId = courses[0].seriesId;
-    await apiFetch(`/api/v1/series/${seriesId}/courses`, { method: 'POST', body: { courses } });
-  }
-
-  delete(_id: string): Promise<void> {
-    return Promise.reject(new Error('ApiSeriesCourseRepository.delete(id) requires seriesId; use deleteSeriesCourse'));
-  }
-
-  async deleteBySeries(seriesId: string): Promise<void> {
-    await apiFetch(`/api/v1/series/${seriesId}/courses`, { method: 'DELETE' });
-  }
-}
-
-/** Remove one mark. The server refuses (400, naming the courses) while a course still names it. */
-export async function deleteSeriesMark(seriesId: string, markId: string): Promise<void> {
-  await apiFetch(`/api/v1/series/${seriesId}/marks/${markId}`, { method: 'DELETE' });
-}
-
-/** Remove one course. Starts that sailed it keep their snapshots. */
-export async function deleteSeriesCourse(seriesId: string, courseId: string): Promise<void> {
-  await apiFetch(`/api/v1/series/${seriesId}/courses/${courseId}`, { method: 'DELETE' });
-}
-
 class ApiFinishRepository implements FinishRepository {
   listByRace(raceId: string): Promise<Finish[]> {
     return apiFetch<Finish[]>(`/api/v1/races/${raceId}/finishes`);
@@ -622,8 +544,6 @@ export const fleetRepo: FleetRepository = new ApiFleetRepository();
 export const competitorRepo: CompetitorRepository = new ApiCompetitorRepository();
 export const raceRepo: RaceRepository = new ApiRaceRepository();
 export const subSeriesRepo: SubSeriesRepository = new ApiSubSeriesRepository();
-export const seriesMarkRepo: SeriesMarkRepository = new ApiSeriesMarkRepository();
-export const seriesCourseRepo: SeriesCourseRepository = new ApiSeriesCourseRepository();
 export const raceStartRepo: RaceStartRepository = new ApiRaceStartRepository();
 export const raceRatingOverrideRepo: RaceRatingOverrideRepository = new ApiRaceRatingOverrideRepository();
 export const finishRepo: FinishRepository = new ApiFinishRepository();
@@ -1074,9 +994,6 @@ export async function listSeriesNames(
 export async function deleteSeriesChildren(seriesId: string): Promise<void> {
   await raceRepo.deleteBySeries(seriesId);
   await subSeriesRepo.deleteBySeries(seriesId);
-  // Courses then marks: the server refuses a mark a course still names.
-  await seriesCourseRepo.deleteBySeries(seriesId);
-  await seriesMarkRepo.deleteBySeries(seriesId);
   await competitorRepo.deleteBySeries(seriesId);
   await fleetRepo.deleteBySeries(seriesId);
 }

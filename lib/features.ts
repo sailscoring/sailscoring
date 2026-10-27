@@ -146,22 +146,10 @@ export const FEATURES = {
     // proven against the HYC Autumn League before any wider audience, per the
     // containment model.
     label: 'ORC scoring',
-    helpSectionIds: ['scoring-orc', 'import-constructed-course', 'update-handicaps-orc'],
+    helpSectionIds: ['scoring-orc', 'course-builder', 'import-constructed-course', 'update-handicaps-orc'],
     // Enabling it drops a worked ORC series (real certificates, every
     // scoring method across its races) into the series list.
     demoSample: 'orc.sailscoring',
-  },
-  'course-library': {
-    // The series course library behind ORC constructed courses: the Courses
-    // tab's marks and the courses built from them, and choosing, building or
-    // recomputing a start's course from it. Operator-managed and off by
-    // default. Only the affordances are gated: without it a start keeps the
-    // course it holds, with its legs, wind and drawing, and takes legs typed
-    // or imported; the library a series already holds stays in its file and
-    // export. Meaningful only alongside `orc`.
-    label: 'Course library',
-    helpSectionIds: ['course-builder'],
-    selfService: false,
   },
   'results-status': {
     // The results lifecycle (Provisional vs Final): per-race last-finisher

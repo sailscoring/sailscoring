@@ -89,7 +89,7 @@ export const HELP_GROUPS: HelpGroupDef[] = [
       { id: 'tuning-progressive-handicaps', title: 'Tuning a progressive handicap', keywords: ['nhc', 'echo', 'progressive', 'adjust', 'rolling handicap', 'recalculate'] },
       { id: 'fixed-tcf', title: 'A club handicap fixed for the series', keywords: ['club handicap', 'hph', 'fixed rating', 'house handicap'] },
       { id: 'scoring-orc', title: 'ORC scoring and performance curves', feature: 'orc', keywords: ['orc', 'performance curve', 'pcs', 'implied wind', 'triple number', 'wind band', 'aphd', 'apht', 'constructed course', 'scoring option'] },
-      { id: 'course-builder', title: 'Building a constructed course', feature: 'course-library', keywords: ['course', 'marks', 'legs', 'bearing', 'distance', 'course card', 'windward', 'leeward', 'magnetic', 'true', 'variation', 'venue position', 'start line', 'finish line', 'pin', 'committee boat', 'midpoint'] },
+      { id: 'course-builder', title: 'Entering a constructed course', feature: 'orc', keywords: ['course', 'legs', 'leg table', 'bearing', 'distance', 'wind', 'magnetic', 'true', 'variation', 'venue position'] },
       { id: 'import-constructed-course', title: 'Importing a constructed course', feature: 'orc', keywords: ['import course', 'constructed course', 'orc constructed course', 'json', 'legs', 'race officer', 'course document', 'anchor', 'magnetic'] },
       { id: 'updating-handicaps', title: 'Updating handicaps from another series', keywords: ['carry ratings', 'previous series', 'last season', 'copy handicaps'] },
       { id: 'update-handicaps-irc-rating', title: 'Updating IRC TCCs from the rating list', feature: 'irc-rating', keywords: ['irc', 'tcc', 'certificate', 'rorc', 'club listing', 'rating list', 'endorsed'] },
