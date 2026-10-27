@@ -247,6 +247,7 @@ Development is *only* used to populate `.env.local` via `vercel env pull`.
 | `RESEND_FROM`                  | `Sail Scoring <noreply@sailscoring.ie>` | same | same         | no |
 | `FEEDBACK_TO`                  | `mark@hyc.ie` (or destination of choice) | unset (recommended) | unset (recommended) | no |
 | `CREDENTIAL_KEY`               | random (set, **permanent**) | random (set, **permanent**) | random (set) | yes for prod/preview |
+| `OAUTH_CLIENT_SECRET_KEY`      | random (set, **long-lived**) | same as Production | unset, or random | yes for prod/preview |
 | `CRON_SECRET`                  | random (set)         | unset (recommended)  | unset                | yes        |
 | `NEXT_PUBLIC_APP_URL`          | `https://app.sailscoring.ie` | unset / preview URL  | `http://localhost:3000` | no  |
 | `NEXT_PUBLIC_DEFAULT_SAIL_COUNTRY` | `IRL` (or unset → IRL) | (same)             | (same)               | no  |
@@ -313,6 +314,17 @@ their "provisional as of" stamp in it. An unset or unrecognised value falls
 back to `Europe/Dublin`. Set it before an instance starts taking results:
 changing it later converts nothing, so times already entered are then
 declared to be in the new zone.
+
+**`OAUTH_CLIENT_SECRET_KEY`** — 32-byte key (64 hex chars) that the OAuth
+provider AES-256-GCM-encrypts registered apps' client secrets under. Generate
+with `openssl rand -hex 32`, and put the same value in the operator's
+Bitwarden item: `pnpm oauth-client:prod create --confidential` encrypts the
+secret on the operator's machine, and the deployment can only check a secret
+encrypted under its own key. Mark it sensitive; Vercel won't show it again,
+so the Bitwarden copy is the one to read back.
+Use the same value in Production and Preview (one database). Replacing it
+breaks every confidential app's secret, and nothing else. Unset, registering
+a confidential app fails, and so does any token request from one.
 
 **`COMPETITOR_ID_KEY`** — the key the published results API (ADR-015) hashes
 competitor ids under, so an app can follow a competitor through a series

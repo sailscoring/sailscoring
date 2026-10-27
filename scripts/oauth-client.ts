@@ -61,14 +61,10 @@ export async function createAppClient(args: {
   const unknown = (args.scopes ?? []).filter((s) => !known.includes(s));
   if (unknown.length > 0) throw new Error(`unknown scope ${unknown.join(', ')}; apps may ask for: ${APP_SCOPE_STRING}`);
   if (args.scopes?.length === 0) throw new Error('at least one scope is required');
-  // A client secret is stored encrypted with BETTER_AUTH_SECRET. Unset, Better
-  // Auth falls back to its built-in default key, and the deployment, which
-  // decrypts with its own, refuses every token request as "invalid
-  // client_secret".
-  if (args.confidential && !process.env.BETTER_AUTH_SECRET) {
-    throw new Error(
-      'BETTER_AUTH_SECRET is unset: the client secret would be encrypted with a key the deployment does not use',
-    );
+  // A client secret is stored encrypted with OAUTH_CLIENT_SECRET_KEY, which
+  // must be the deployment's: it can't use a secret encrypted with any other.
+  if (args.confidential && !process.env.OAUTH_CLIENT_SECRET_KEY) {
+    throw new Error('OAUTH_CLIENT_SECRET_KEY is unset: it encrypts the client secret, and must be the deployment\'s');
   }
   // The provider allows http only on a loopback address, and only for a
   // native client; an app on the web uses https. It validates each URI.
@@ -239,7 +235,7 @@ scopes gives an app registered earlier every scope apps may ask for now
 with. Its users approve a new scope the next time the app asks for it.
 
 --owner is the operator registering the app: an existing account, recorded
-as the client's owner. Reads DATABASE_URL, and BETTER_AUTH_SECRET (the
+as the client's owner. Reads DATABASE_URL, and OAUTH_CLIENT_SECRET_KEY (the
 deployment's own) to encrypt a --confidential client's secret.`;
 }
 

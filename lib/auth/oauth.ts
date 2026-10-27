@@ -10,6 +10,7 @@ import {
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 
+import { decryptOAuthClientSecret, encryptOAuthClientSecret } from '@/lib/crypto';
 import { getDb } from '@/lib/db/client';
 import { member, oauthClient, organization } from '@/lib/db/schema/auth';
 import { computeEffectiveFeatures } from '@/lib/features';
@@ -143,6 +144,10 @@ export const oauthOptions = {
   // Opaque access tokens, looked up on each request: revocable, and the API
   // they're for is served by the same app as the database.
   disableJwtPlugin: true,
+  // Client secrets are stored encrypted (without the JWT plugin the provider
+  // won't hash them), under a key of their own rather than
+  // BETTER_AUTH_SECRET, so the operator registering a client can hold it.
+  storeClientSecret: { encrypt: encryptOAuthClientSecret, decrypt: decryptOAuthClientSecret },
   allowDynamicClientRegistration: false,
   accessTokenExpiresIn: 60 * 60,
   // Each refresh starts the period again, so this is the longest an app may

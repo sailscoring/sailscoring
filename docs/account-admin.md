@@ -132,9 +132,10 @@ One-time setup:
    `republish` and `published-views`; `oauth-client create` checks a new
    client secret against it), `COMPETITOR_ID_KEY` (needed by
    `published-views`; the same value as the Production environment's, see
-   [DEPLOY.md](../DEPLOY.md)), `BETTER_AUTH_SECRET` (needed by
+   [DEPLOY.md](../DEPLOY.md)), `OAUTH_CLIENT_SECRET_KEY` (needed by
    `oauth-client create --confidential`, which encrypts the client
-   secret with it; the Production environment's value), and `VERCEL_TOKEN` (see
+   secret with it; the Production environment's value, see
+   [DEPLOY.md](../DEPLOY.md)), and `VERCEL_TOKEN` (see
    [The Vercel CLI](#the-vercel-cli) below). Hidden fields are fine. No
    other field is read.
 3. Put its id in an untracked `.env.operator` at the repo root:

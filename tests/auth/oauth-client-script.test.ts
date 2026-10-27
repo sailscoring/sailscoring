@@ -103,9 +103,9 @@ describe.skipIf(!DATABASE_URL)('oauth-client script', () => {
     });
   });
 
-  test('a confidential app is refused without BETTER_AUTH_SECRET', async () => {
-    const saved = process.env.BETTER_AUTH_SECRET;
-    delete process.env.BETTER_AUTH_SECRET;
+  test('a confidential app is refused without OAUTH_CLIENT_SECRET_KEY', async () => {
+    const saved = process.env.OAUTH_CLIENT_SECRET_KEY;
+    delete process.env.OAUTH_CLIENT_SECRET_KEY;
     try {
       await expect(
         createAppClient({
@@ -114,9 +114,9 @@ describe.skipIf(!DATABASE_URL)('oauth-client script', () => {
           redirectUris: ['https://example.com/cb'],
           confidential: true,
         }),
-      ).rejects.toThrow(/BETTER_AUTH_SECRET is unset/);
+      ).rejects.toThrow(/OAUTH_CLIENT_SECRET_KEY is unset/);
     } finally {
-      process.env.BETTER_AUTH_SECRET = saved;
+      process.env.OAUTH_CLIENT_SECRET_KEY = saved;
     }
   });
 

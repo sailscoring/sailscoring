@@ -4,7 +4,9 @@ import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import {
   _resetKeyCache,
   decryptCredential,
+  decryptOAuthClientSecret,
   encryptCredential,
+  encryptOAuthClientSecret,
 } from '@/lib/crypto';
 
 const KEY_HEX = 'a'.repeat(64);
@@ -51,5 +53,22 @@ describe('lib/crypto', () => {
     process.env.CREDENTIAL_KEY = 'not-hex';
     _resetKeyCache();
     expect(() => encryptCredential('x')).toThrow(/64 hex/);
+  });
+
+  test('OAuth client secrets use a key of their own', () => {
+    const saved = process.env.OAUTH_CLIENT_SECRET_KEY;
+    process.env.OAUTH_CLIENT_SECRET_KEY = 'b'.repeat(64);
+    try {
+      const blob = encryptOAuthClientSecret('client-secret');
+      expect(decryptOAuthClientSecret(blob)).toBe('client-secret');
+      expect(() => decryptCredential(blob)).toThrow();
+      delete process.env.OAUTH_CLIENT_SECRET_KEY;
+      _resetKeyCache();
+      expect(() => encryptOAuthClientSecret('x')).toThrow(/OAUTH_CLIENT_SECRET_KEY/);
+    } finally {
+      if (saved === undefined) delete process.env.OAUTH_CLIENT_SECRET_KEY;
+      else process.env.OAUTH_CLIENT_SECRET_KEY = saved;
+      _resetKeyCache();
+    }
   });
 });
