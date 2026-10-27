@@ -1,20 +1,16 @@
 /**
- * The built-in tier of the course library: the clubs' course cards
- * published at courses.sailscoring.ie, vendored into the app at build time
- * by scripts/sync-course-cards.ts. The catalogue is a committed module, so
- * the picker renders with no network call; the marks and card files are
- * fetched on demand from the app's own origin and parsed by the library.
+ * The clubs' course-cards data sets published at courses.sailscoring.ie,
+ * vendored into the app at build time by scripts/sync-course-cards.ts, for
+ * the charts a course is drawn on. The catalogue is a committed module, so
+ * which chart covers a course is known with no network call; a chart's
+ * image is fetched on demand from the app's own origin.
  */
 
 import {
-  parseCourseCardFile,
-  parseMarksFile,
   type Catalogue,
   type CatalogueCard,
   type CatalogueSet,
   type CourseBackground,
-  type CourseCardFile,
-  type MarksFile,
   type Position,
 } from '@sailscoring/course-cards';
 
@@ -40,14 +36,6 @@ export function courseCardSetLabel(set: CatalogueSet): string {
 /** The app-hosted URL of a vendored file, relative to the app origin. */
 export function courseCardFileUrl(file: string): string {
   return `/course-cards/${file}`;
-}
-
-/** A set's marks file and one of its cards, parsed. */
-export interface LoadedCourseCard {
-  set: CatalogueSet;
-  card: CatalogueCard;
-  marks: MarksFile;
-  cardFile: CourseCardFile;
 }
 
 /** The chart a set captured, as the renderer takes it: the image with the
@@ -126,33 +114,6 @@ export function chartSetHoldingMost(courses: readonly (readonly Position[])[]): 
   return candidates[0]?.path;
 }
 
-const marksCache = new Map<string, Promise<MarksFile>>();
-const cardCache = new Map<string, Promise<CourseCardFile>>();
-
-async function fetchJson(file: string): Promise<unknown> {
-  const res = await fetch(courseCardFileUrl(file));
-  if (!res.ok) throw new Error(`course card file ${file}: ${res.status}`);
-  return res.json();
-}
-
-export function loadMarksFile(set: CatalogueSet): Promise<MarksFile> {
-  let p = marksCache.get(set.marks.file);
-  if (!p) {
-    p = fetchJson(set.marks.file).then(parseMarksFile);
-    marksCache.set(set.marks.file, p);
-  }
-  return p;
-}
-
-export function loadCardFile(card: CatalogueCard): Promise<CourseCardFile> {
-  let p = cardCache.get(card.json);
-  if (!p) {
-    p = fetchJson(card.json).then(parseCourseCardFile);
-    cardCache.set(card.json, p);
-  }
-  return p;
-}
-
 const backgroundCache = new Map<string, Promise<CourseBackground | undefined>>();
 
 /**
@@ -174,14 +135,4 @@ export function loadCourseBackground(setPath: string): Promise<CourseBackground 
     backgroundCache.set(setPath, p);
   }
   return p;
-}
-
-/** Load a card and its set's marks by their catalogue ids. */
-export async function loadCourseCard(setPath: string, cardId: string): Promise<LoadedCourseCard> {
-  const set = findCourseCardSet(setPath);
-  if (!set) throw new Error(`unknown course card set ${setPath}`);
-  const card = set.cards.find((c) => c.id === cardId);
-  if (!card) throw new Error(`unknown course card ${cardId} in ${setPath}`);
-  const [marks, cardFile] = await Promise.all([loadMarksFile(set), loadCardFile(card)]);
-  return { set, card, marks, cardFile };
 }
