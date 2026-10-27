@@ -18,8 +18,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ConstructedCourseImport } from '@/components/course-library/constructed-course-import';
-import { CourseDrawing } from '@/components/course-library/course-drawing';
+import { ConstructedCourseImport } from '@/components/constructed-course/constructed-course-import';
+import { CourseDrawing } from '@/components/constructed-course/course-drawing';
 import {
   BearingRefControl,
   LegTable,
@@ -32,7 +32,7 @@ import {
   type BearingDisplay,
   type KeptFigure,
   type LegTableRow,
-} from '@/components/course-library/leg-table';
+} from '@/components/constructed-course/leg-table';
 import { useConfirm } from '@/components/confirm-dialog';
 import { useFeatures } from '@/components/features-provider';
 import { useRaceStartsBySeries } from '@/hooks/use-race-starts';

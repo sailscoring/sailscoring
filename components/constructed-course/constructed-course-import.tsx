@@ -3,7 +3,7 @@
 import { useMemo, useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
-import { CourseDrawing } from '@/components/course-library/course-drawing';
+import { CourseDrawing } from '@/components/constructed-course/course-drawing';
 import type { Variation } from '@/lib/bearings';
 import { drawnRaceStartCourse } from '@/lib/course-geometry';
 import {
