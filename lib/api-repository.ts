@@ -35,6 +35,7 @@ import type {
   RaceRatingOverrideRepository,
   SaveOpts,
   SeriesNotes,
+  SeriesPlacement,
   SeriesPublishPrefs,
   SeriesRepository,
   SubSeriesRepository,
@@ -103,6 +104,17 @@ class ApiSeriesRepository implements SeriesRepository {
       body: prefs,
       allow404: true,
     });
+  }
+
+  async setPlacement(id: string, placement: SeriesPlacement): Promise<Series | undefined> {
+    let saved: Series | undefined;
+    if (placement.categoryId !== undefined) {
+      saved = await setSeriesCategory(id, placement.categoryId ?? null);
+    }
+    if (placement.archived !== undefined) {
+      saved = await archiveSeries(id, placement.archived);
+    }
+    return saved ?? this.get(id);
   }
 
   setNotes(id: string, notes: SeriesNotes): Promise<Series | undefined> {

@@ -3,7 +3,7 @@
 import { use, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { fleetRepo, listSeriesNames } from '@/lib/api-repository';
-import { useSeries, useUpdateSeries } from '@/hooks/use-series';
+import { useSeries, useSetSeriesCategory, useUpdateSeries } from '@/hooks/use-series';
 import { useFleetsBySeries, useSaveFleet } from '@/hooks/use-fleets';
 import { useCompetitorsBySeries } from '@/hooks/use-competitors';
 import { useCategories } from '@/hooks/use-categories';
@@ -55,6 +55,7 @@ function Step1({
   onNext: () => void;
 }) {
   const updateSeries = useUpdateSeries();
+  const setCategory = useSetSeriesCategory();
   const { data: categories } = useCategories();
   const [nextError, setNextError] = useState<string | null>(null);
   const basicsRef = useRef<BasicsCardHandle>(null);
@@ -115,7 +116,9 @@ function Step1({
           <Label htmlFor="series-category">Category</Label>
           <Select
             value={series.categoryId ?? 'none'}
-            onValueChange={(v) => persist({ categoryId: v === 'none' ? null : v })}
+            onValueChange={(v) =>
+              setCategory.mutate({ id: seriesId, categoryId: v === 'none' ? null : v })
+            }
           >
             <SelectTrigger id="series-category" className="w-full" data-testid="setup-category">
               <SelectValue />

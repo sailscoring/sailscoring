@@ -20,6 +20,7 @@ import {
   type RaceRatingOverrideRepository,
   type SaveOpts,
   type SeriesNotes,
+  type SeriesPlacement,
   type SeriesPublishPrefs,
   type SeriesRepository,
   type SubSeriesRepository,
@@ -781,6 +782,32 @@ export class PostgresSeriesRepository implements SeriesRepository {
     if (prefs.ftpUploadedVersion !== undefined) {
       patch.ftpUploadedVersion = prefs.ftpUploadedVersion ?? null;
     }
+    return this.writeQuietly(id, patch);
+  }
+
+  /**
+   * Placement only — archived and category. Leaves `version` and
+   * `lastModifiedAt` alone like `setPublishPrefs`; see `setPlacement` on
+   * `SeriesRepository` for why.
+   */
+  async setPlacement(
+    id: string,
+    placement: SeriesPlacement,
+  ): Promise<Series | undefined> {
+    const patch: Partial<typeof schema.series.$inferInsert> = {};
+    if (placement.archived !== undefined) patch.archived = placement.archived;
+    if (placement.categoryId !== undefined) {
+      patch.categoryId = placement.categoryId ?? null;
+    }
+    return this.writeQuietly(id, patch);
+  }
+
+  /** The shared tail of the writes that aren't edits: `updatedAt` moves, the
+   *  version, `lastModifiedAt` and `updatedBy` don't. */
+  private async writeQuietly(
+    id: string,
+    patch: Partial<typeof schema.series.$inferInsert>,
+  ): Promise<Series | undefined> {
     // Nothing to write: return the row as it stands rather than issuing an
     // update whose SET clause would be empty.
     if (Object.keys(patch).length === 0) return this.get(id);

@@ -139,11 +139,12 @@ export async function putSeries(
   const merged: Series = {
     ...input,
     id,
-    // Round-trip the series-list organisation fields (#154) so a full save
-    // doesn't wipe them. The archive *toggle* has its own endpoint; category
-    // moves have their own too — but both must survive an ordinary PUT.
-    categoryId: input.categoryId ?? null,
-    archived: input.archived ?? false,
+    // Placement belongs to its own endpoints, whose writes don't bump the
+    // version — so a settings save made from a stale copy would pass the
+    // compare-and-swap and quietly undo a move. An existing series keeps the
+    // stored values; only a create takes them from the payload.
+    categoryId: existing ? (existing.categoryId ?? null) : (input.categoryId ?? null),
+    archived: existing ? existing.archived : (input.archived ?? false),
     // Round-trip import provenance so an ordinary settings PUT doesn't wipe it.
     source: input.source ?? existing?.source,
   };
@@ -305,10 +306,10 @@ export async function deleteSeries(workspace: WorkspaceContext, id: string): Pro
  * while this — the one write that must work *on* an archived series — bypasses
  * it. Archiving makes the series read-only; unarchiving restores edits.
  *
- * Load + save (no CAS): a deliberate, rare, single-actor action on a finished
- * series, so last-write-wins is acceptable; the worst case is reverting a
- * concurrent settings edit made in the sub-second window, which the archive
- * toggle's own version bump makes detectable downstream.
+ * A placement write, not an edit: archiving changes no published page, so it
+ * leaves `version` alone rather than reporting an unpublished edit on every
+ * series a season's end tidies away. It touches only `archived`, so it can't
+ * clobber a concurrent settings edit either.
  */
 export async function setSeriesArchived(
   workspace: WorkspaceContext,
@@ -317,12 +318,8 @@ export async function setSeriesArchived(
 ): Promise<Series> {
   const { archived } = seriesArchiveInputSchema.parse(body);
   const repos = createRepos({ workspaceId: workspace.workspaceId });
-  const current = await repos.series.get(id);
-  if (!current) throw new NotFoundError('series');
-  const saved = await repos.series.save(
-    { ...current, archived },
-    { updatedBy: workspace.userId },
-  );
+  const saved = await repos.series.setPlacement(id, { archived });
+  if (!saved) throw new NotFoundError('series');
   await recordActivity(workspace, {
     action: archived ? 'series.archived' : 'series.unarchived',
     seriesId: id,
@@ -382,9 +379,10 @@ export async function setSeriesResultsStatus(
 
 /**
  * Move a series between categories (#154) — its own lightweight endpoint so
- * the home-list `⋯` menu doesn't round-trip the whole series. Moving is an
- * edit, so it's blocked on an archived series; `null` clears the assignment
- * back to the synthetic "Uncategorized".
+ * the home-list `⋯` menu doesn't round-trip the whole series. `null` clears
+ * the assignment back to the synthetic "Uncategorized". Like the archive
+ * toggle, a placement write that leaves `version` alone: filing a series
+ * changes no published page.
  */
 export async function setSeriesCategory(
   workspace: WorkspaceContext,
@@ -407,10 +405,8 @@ export async function setSeriesCategory(
     }
     categoryName = category.name;
   }
-  const saved = await repos.series.save(
-    { ...current, categoryId },
-    { updatedBy: workspace.userId },
-  );
+  const saved = await repos.series.setPlacement(id, { categoryId });
+  if (!saved) throw new NotFoundError('series');
   await recordActivity(workspace, {
     action: 'series.recategorized',
     seriesId: id,

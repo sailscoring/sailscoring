@@ -195,6 +195,37 @@ describe.skipIf(skip)('archive + categories (#154)', () => {
     await series.deleteSeries(ctx, id);
   });
 
+  test('archiving and filing are not edits: the version stays put', async () => {
+    const id = uuid();
+    const created = await series.putSeries(ctx, id, sampleSeries(id));
+    const cat = await categories.createCategory(ctx, { name: 'Placement' });
+
+    // The version is what "N edits since publish" subtracts; neither write
+    // changes a published page, so neither may move it.
+    const filed = await series.setSeriesCategory(ctx, id, { categoryId: cat.id });
+    expect(filed.version).toBe(created.version);
+
+    // A settings save made from the copy held before the move passes the
+    // compare-and-swap (the version didn't move) — and must not undo it.
+    const edited = await series.putSeries(
+      ctx,
+      id,
+      { ...sampleSeries(id), venue: 'Howth', categoryId: null },
+      { expectedVersion: created.version },
+    );
+    expect(edited.venue).toBe('Howth');
+    expect(edited.categoryId).toBe(cat.id);
+
+    const archived = await series.setSeriesArchived(ctx, id, { archived: true });
+    expect(archived.version).toBe(edited.version);
+    const unarchived = await series.setSeriesArchived(ctx, id, { archived: false });
+    expect(unarchived.version).toBe(edited.version);
+
+    await series.setSeriesArchived(ctx, id, { archived: true });
+    await series.deleteSeries(ctx, id);
+    await categories.deleteCategory(ctx, cat.id);
+  });
+
   test('series reorder rewrites manual order; new series append last', async () => {
     const s1 = uuid();
     const s2 = uuid();

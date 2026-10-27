@@ -100,6 +100,13 @@ export type SeriesPublishPrefs = Partial<
 >;
 
 /**
+ * Where the series sits in the workspace's series list: archived or active,
+ * and which category it is filed under. Organisation, not content — no
+ * published page renders either; the public listings read them live.
+ */
+export type SeriesPlacement = Partial<Pick<Series, 'archived' | 'categoryId'>>;
+
+/**
  * The explanatory notes carried by published pages — the series-wide one and
  * the per-page ones. Published output, not configuration: a note is written in
  * the publish dialog, about results that are going out.
@@ -129,6 +136,15 @@ export interface SeriesRepository {
    * race against a real edit either.
    */
   setPublishPrefs(id: string, prefs: SeriesPublishPrefs): Promise<Series | undefined>;
+  /**
+   * Write the series' placement — archived, category — and nothing else: no
+   * compare-and-swap, and no `version` / `lastModifiedAt` bump.
+   *
+   * For the same reason as {@link setPublishPrefs}: neither field changes a
+   * published page, so counting the write as an edit had end-of-season
+   * archiving and filing report unpublished edits on every past series.
+   */
+  setPlacement(id: string, placement: SeriesPlacement): Promise<Series | undefined>;
   /**
    * Write the published-page notes and nothing else.
    *
