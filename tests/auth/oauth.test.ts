@@ -13,6 +13,7 @@
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { eq } from 'drizzle-orm';
 
+import * as AUTH_ROUTE from '@/app/api/auth/[...all]/route';
 import { auth } from '@/lib/auth';
 import { ACCESS_TOKEN_PREFIX, REFRESH_TOKEN_PREFIX } from '@/lib/auth/oauth';
 import { workspaceFromHeaders } from '@/lib/auth/require-workspace';
@@ -162,6 +163,61 @@ describe.skipIf(!DATABASE_URL)('OAuth for outside apps and the CLI', () => {
   test('an outside app cannot use the device grant', async () => {
     const res = await request(null, '/api/auth/device/code', { form: { client_id: appId, scope: 'read' } });
     expect(res.status).toBe(400);
+  });
+
+  test('a page on another site can use the token and revocation endpoints, and read the replies', async () => {
+    const tokens = await grantApp(user, appId, user.personalWorkspaceId, 'read offline_access');
+    const fromPage = (path: string, form: Record<string, string>) =>
+      AUTH_ROUTE.POST(
+        new Request(`http://localhost:3000${path}`, {
+          method: 'POST',
+          headers: {
+            origin: 'https://club.example',
+            'sec-fetch-site': 'cross-site',
+            'sec-fetch-mode': 'cors',
+            'content-type': 'application/x-www-form-urlencoded',
+          },
+          body: new URLSearchParams(form).toString(),
+        }),
+      );
+
+    const preflight = AUTH_ROUTE.OPTIONS(new Request('http://localhost:3000/api/auth/oauth2/token', { method: 'OPTIONS' }));
+    expect(preflight.headers.get('access-control-allow-origin')).toBe('*');
+    expect(preflight.headers.get('access-control-allow-methods')).toContain('POST');
+
+    const badCode = await fromPage('/api/auth/oauth2/token', {
+      grant_type: 'authorization_code',
+      code: 'not-a-code',
+      redirect_uri: 'http://127.0.0.1:9999/callback',
+      client_id: appId,
+      code_verifier: 'x'.repeat(43),
+    });
+    expect(badCode.status).toBe(400);
+    expect(badCode.headers.get('access-control-allow-origin')).toBe('*');
+
+    const refreshed = await fromPage('/api/auth/oauth2/token', {
+      grant_type: 'refresh_token',
+      refresh_token: tokens.refreshToken,
+      client_id: appId,
+    });
+    expect(refreshed.status).toBe(200);
+    expect(refreshed.headers.get('access-control-allow-origin')).toBe('*');
+    const { access_token: accessToken } = (await refreshed.json()) as { access_token: string };
+
+    const revoked = await fromPage('/api/auth/oauth2/revoke', {
+      token: accessToken,
+      token_type_hint: 'access_token',
+      client_id: appId,
+    });
+    expect(revoked.status).toBe(200);
+    expect(revoked.headers.get('access-control-allow-origin')).toBe('*');
+    expect(await resolve(accessToken)).toBeNull();
+
+    // Only those two: the rest of /api/auth stays same-origin.
+    const signOut = await AUTH_ROUTE.POST(
+      new Request('http://localhost:3000/api/auth/sign-out', { method: 'POST', headers: { origin: 'https://club.example' } }),
+    );
+    expect(signOut.headers.get('access-control-allow-origin')).toBeNull();
   });
 
   test('users cannot register apps themselves', async () => {

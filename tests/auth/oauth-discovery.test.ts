@@ -24,6 +24,9 @@ describe.skipIf(!process.env.DATABASE_URL)('OAuth discovery', () => {
       code_challenge_methods_supported: ['S256'],
     });
     expect(doc.scopes_supported).toEqual(expect.arrayContaining(['read', 'races', 'publish', 'offline_access']));
+    // A public client (PKCE, no secret) authenticates with `none`.
+    expect(doc.token_endpoint_auth_methods_supported).toContain('none');
+    expect(doc.revocation_endpoint_auth_methods_supported).toContain('none');
   });
 
   test('is served where RFC 8414 puts it for the issuer’s path too', async () => {

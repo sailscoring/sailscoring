@@ -46,13 +46,19 @@ in one workspace they chose, and never beyond what their role there allows.
    workspaces the app may act in, and approves the scopes. The browser comes
    back to the redirect URI with a `code`.
 3. **Exchange the code** at `POST /api/auth/oauth2/token`
-   (`grant_type=authorization_code`, with the `code_verifier`; an app with a
+   (`grant_type=authorization_code`, with the `code_verifier`; a public
+   client sends its `client_id` in the body and nothing else to identify
+   itself; an app with a
    secret sends its client id and secret in an `Authorization: Basic` header,
    and is refused if it sends them in the body), and get an
    access token (`ssat_…`, an hour) and, if you asked for `offline_access`,
    a refresh token (`ssrt_…`, 180 days). Renew with
    `grant_type=refresh_token`: each refresh returns a new refresh token, for
-   another 180 days, and the old one stops working.
+   another 180 days, and the old one stops working. To sign out, revoke the
+   refresh token at `POST /api/auth/oauth2/revoke` (`token=…`, with the
+   client id as at the token endpoint), which ends its access tokens too.
+   Both endpoints answer any origin,
+   so a web page can call them itself.
 4. **Call the API** with `Authorization: Bearer ssat_…`.
 
 The workspace must have connected apps switched on; Sail Scoring switches
