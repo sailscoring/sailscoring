@@ -131,7 +131,9 @@ One-time setup:
    URL), `BLOB_READ_WRITE_TOKEN` and `NEXT_PUBLIC_APP_URL` (needed by
    `republish` and `published-views`), `COMPETITOR_ID_KEY` (needed by
    `published-views`; the same value as the Production environment's, see
-   [DEPLOY.md](../DEPLOY.md)), and `VERCEL_TOKEN` (see
+   [DEPLOY.md](../DEPLOY.md)), `BETTER_AUTH_SECRET` (needed by
+   `oauth-client create --confidential`, which encrypts the client
+   secret with it; the Production environment's value), and `VERCEL_TOKEN` (see
    [The Vercel CLI](#the-vercel-cli) below). Hidden fields are fine. No
    other field is read.
 3. Put its id in an untracked `.env.operator` at the repo root:

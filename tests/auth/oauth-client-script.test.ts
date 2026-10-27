@@ -85,6 +85,23 @@ describe.skipIf(!DATABASE_URL)('oauth-client script', () => {
     expect(row.clientSecret).not.toBe(app.clientSecret);
   });
 
+  test('a confidential app is refused without BETTER_AUTH_SECRET', async () => {
+    const saved = process.env.BETTER_AUTH_SECRET;
+    delete process.env.BETTER_AUTH_SECRET;
+    try {
+      await expect(
+        createAppClient({
+          owner: operator.email,
+          name: 'Unreadable secret',
+          redirectUris: ['https://example.com/cb'],
+          confidential: true,
+        }),
+      ).rejects.toThrow(/BETTER_AUTH_SECRET is unset/);
+    } finally {
+      process.env.BETTER_AUTH_SECRET = saved;
+    }
+  });
+
   test('an app is registered with only the scopes it asked for', async () => {
     const app = await createAppClient({
       owner: operator.email,
