@@ -21,7 +21,7 @@ import { raceFleetIds, withRaceSailNumbers } from './race-membership';
 import { formatElapsedInput } from './time-parse';
 import type { Competitor, Finish, RaceStart, SubmittedFinish } from './types';
 
-const COLUMNS: FinishSheetColumnMap = { 0: 'sailNumber', 1: 'finishTime', 2: 'elapsed', 3: 'resultCode' };
+const COLUMNS: FinishSheetColumnMap = { 0: 'sailNumber', 1: 'finishTime', 2: 'elapsed', 3: 'resultCode', 4: 'laps' };
 
 /**
  * What a race's sheet matches sail numbers against: the boats in the race's
@@ -65,6 +65,7 @@ export function readSubmission(
       f.finishTime ?? '',
       f.elapsedSecs != null ? String(f.elapsedSecs) : '',
       f.resultCode ?? '',
+      f.laps != null ? String(f.laps) : '',
     ]),
     columnMap: COLUMNS,
     candidates,
@@ -99,6 +100,8 @@ export interface SheetLine {
   place: number | null;
   /** The time recorded, of day or elapsed; null where none was. */
   time: string | null;
+  /** Laps sailed, where the sheet records them. */
+  laps: number | null;
   code: string | null;
 }
 
@@ -111,7 +114,7 @@ export interface SheetDiffRow {
   changed: boolean;
 }
 
-type SheetRow = Pick<Finish, 'competitorId' | 'unknownSailNumber' | 'sortOrder' | 'finishTime' | 'elapsedSecs' | 'resultCode'>;
+type SheetRow = Pick<Finish, 'competitorId' | 'unknownSailNumber' | 'sortOrder' | 'finishTime' | 'elapsedSecs' | 'laps' | 'resultCode'>;
 
 function keyOf(f: SheetRow): string {
   return f.competitorId ?? `?${(f.unknownSailNumber ?? '').toUpperCase()}`;
@@ -130,10 +133,11 @@ function places(rows: readonly SheetRow[]): Map<SheetRow, number> {
 
 function lineOf(f: SheetRow, place: number | undefined): SheetLine {
   const time = f.finishTime ?? (f.elapsedSecs != null ? formatElapsedInput(f.elapsedSecs) : null);
-  return { place: f.sortOrder !== null ? (place ?? null) : null, time, code: f.resultCode ?? null };
+  return { place: f.sortOrder !== null ? (place ?? null) : null, time, laps: f.laps ?? null, code: f.resultCode ?? null };
 }
 
-const sameLine = (a: SheetLine, b: SheetLine) => a.place === b.place && a.time === b.time && a.code === b.code;
+const sameLine = (a: SheetLine, b: SheetLine) =>
+  a.place === b.place && a.time === b.time && a.laps === b.laps && a.code === b.code;
 
 /**
  * The race's current finish sheet against what a submission would make it:

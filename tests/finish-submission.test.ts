@@ -63,6 +63,23 @@ describe('readSubmission', () => {
   });
 });
 
+describe('readSubmission — lap counts', () => {
+  it('keeps the laps a recorder wrote down, and marks a changed count in the review', () => {
+    const finishes = submitted([
+      { competitorId: 'c1', finishTime: '10:23:41', laps: 1 },
+      { competitorId: 'c2', finishTime: '10:26:15', laps: 2 },
+    ]);
+    const read = readSubmission(finishes, candidates, sailOf);
+    expect(read.finishes.map((f) => f.laps)).toEqual([1, 2]);
+
+    const current = stored([
+      { competitorId: 'c1', sortOrder: 1, finishTime: '10:23:41', laps: 2 },
+      { competitorId: 'c2', sortOrder: 2, finishTime: '10:26:15', laps: 2 },
+    ]);
+    expect(diffSheets(current, read.finishes).map((r) => r.changed)).toEqual([true, false]);
+  });
+});
+
 describe('diffSheets', () => {
   it('lines up each boat before and after, in the submission’s order', () => {
     const current = stored([
@@ -78,10 +95,10 @@ describe('diffSheets', () => {
       { sailNumber: 'IRL 892', finishTime: '12:01:00' },
     ]), candidates, sailOf).finishes;
     expect(diffSheets(current, incoming)).toEqual([
-      { competitorId: 'c2', unknownSailNumber: null, before: { place: 2, time: '12:00:09', code: null }, after: { place: 1, time: '12:00:09', code: null }, changed: true },
-      { competitorId: 'c1', unknownSailNumber: null, before: { place: 1, time: '12:00:00', code: null }, after: { place: 2, time: '12:00:00', code: null }, changed: true },
-      { competitorId: null, unknownSailNumber: 'IRL 892', before: null, after: { place: 3, time: '12:01:00', code: null }, changed: true },
-      { competitorId: 'c3', unknownSailNumber: null, before: { place: null, time: null, code: 'DNF' }, after: null, changed: true },
+      { competitorId: 'c2', unknownSailNumber: null, before: { place: 2, time: '12:00:09', laps: null, code: null }, after: { place: 1, time: '12:00:09', laps: null, code: null }, changed: true },
+      { competitorId: 'c1', unknownSailNumber: null, before: { place: 1, time: '12:00:00', laps: null, code: null }, after: { place: 2, time: '12:00:00', laps: null, code: null }, changed: true },
+      { competitorId: null, unknownSailNumber: 'IRL 892', before: null, after: { place: 3, time: '12:01:00', laps: null, code: null }, changed: true },
+      { competitorId: 'c3', unknownSailNumber: null, before: { place: null, time: null, laps: null, code: 'DNF' }, after: null, changed: true },
     ]);
   });
 
@@ -89,7 +106,7 @@ describe('diffSheets', () => {
     const current = stored([{ competitorId: 'c1', sortOrder: 1, elapsedSecs: 61 }]);
     const incoming = readSubmission(submitted([{ competitorId: 'c1', elapsedSecs: 61 }]), candidates, sailOf).finishes;
     expect(diffSheets(current, incoming)).toEqual([
-      { competitorId: 'c1', unknownSailNumber: null, before: { place: 1, time: '1:01', code: null }, after: { place: 1, time: '1:01', code: null }, changed: false },
+      { competitorId: 'c1', unknownSailNumber: null, before: { place: 1, time: '1:01', laps: null, code: null }, after: { place: 1, time: '1:01', laps: null, code: null }, changed: false },
     ]);
   });
 });

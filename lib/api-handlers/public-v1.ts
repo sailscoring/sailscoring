@@ -365,6 +365,7 @@ function submissionResourceOf(s: FinishSubmission, match: SubmissionMatch): Subm
       sailNumber: f.sailNumber,
       finishTime: f.finishTime,
       elapsedSecs: f.elapsedSecs,
+      laps: f.laps ?? null,
       resultCode: f.resultCode,
     })),
     submittedBy: s.submittedBy?.name || null,

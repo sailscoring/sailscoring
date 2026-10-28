@@ -29,6 +29,7 @@ export const submittedFinishSchema = z
     sailNumber: z.string().trim().min(1).max(40).nullable().optional().describe('The sail number written down, for a boat not named by `competitorId`.'),
     finishTime: wallClock.nullable().optional().describe('The time of day the boat finished.'),
     elapsedSecs: z.number().nonnegative().finite().nullable().optional().describe('The boat\'s elapsed time, for a sheet kept on a stopwatch; instead of `finishTime`.'),
+    laps: z.number().int().positive().nullable().optional().describe('Laps of the course the boat sailed, where slower boats were sent round fewer times than the rest. Omit for the full course. A boat on fewer laps than the most any boat in its fleet sailed is corrected on the full course.'),
     resultCode: z.enum(SUBMITTABLE_CODES).nullable().optional().describe('For a boat that didn\'t finish normally.'),
   })
   .strict()

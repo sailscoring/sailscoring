@@ -106,6 +106,7 @@ export function finishResourceOf(f: Finish): FinishResource {
     tiedWithPrevious: f.tiedWithPrevious,
     finishTime: orNull(f.finishTime),
     elapsedSecs: f.elapsedSecs ?? null,
+    laps: f.laps ?? null,
     resultCode: f.resultCode,
     penaltyCode: f.penaltyCode,
   };

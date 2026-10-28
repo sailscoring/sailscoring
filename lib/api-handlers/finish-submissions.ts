@@ -144,6 +144,7 @@ export async function submitFinishes(
     sailNumber: f.competitorId ? null : (f.sailNumber ?? null),
     finishTime: f.finishTime ? (f.finishTime.length === 5 ? `${f.finishTime}:00` : f.finishTime) : null,
     elapsedSecs: f.elapsedSecs ?? null,
+    ...(f.laps != null ? { laps: f.laps } : {}),
     resultCode: f.resultCode ?? null,
   }));
   const starts = input.starts.map((s) => ({

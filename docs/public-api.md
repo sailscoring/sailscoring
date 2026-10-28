@@ -204,7 +204,10 @@ What the description can't say:
   by `competitorId` where the app knows the entry, else by the `sailNumber`
   written down, with a `finishTime` (or a stopwatch's `elapsedSecs`), or a
   `resultCode` for a boat that didn't finish. Row order is crossing order.
-  A sail number that matches no entry isn't an error: the answer lists it in
+  Where slower boats were sent round fewer times than the rest, a row says
+  how many `laps` the boat sailed; leave it out for the full course, which
+  is the most laps any boat in the fleet sailed. A boat on fewer is scored
+  on the full course. A sail number that matches no entry isn't an error: the answer lists it in
   `unknownSailNumbers`, and the scorer resolves it, as on a typed sheet.
   `skipped` lists the rows the scorer's review will leave out, and why. A
   submission's `starts` are start times taken on the water, by start id.

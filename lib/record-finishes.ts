@@ -64,6 +64,7 @@ export function submittedFinishes(finishes: readonly Finish[]): SubmittedFinish[
     sailNumber: f.competitorId ? null : (f.unknownSailNumber ?? null),
     finishTime: f.finishTime ?? null,
     elapsedSecs: f.elapsedSecs ?? null,
+    ...(f.laps != null ? { laps: f.laps } : {}),
     resultCode: f.resultCode ?? null,
   }));
 }

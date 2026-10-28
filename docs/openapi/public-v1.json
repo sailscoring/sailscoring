@@ -5020,6 +5020,19 @@
               "null"
             ]
           },
+          "laps": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Laps of the course sailed, where the fleet sailed different numbers; null for the full course."
+          },
           "resultCode": {
             "description": "An RRS code (`DNF`, `OCS`, …) for a boat that didn't finish normally.",
             "type": [
@@ -5043,6 +5056,7 @@
           "tiedWithPrevious",
           "finishTime",
           "elapsedSecs",
+          "laps",
           "resultCode",
           "penaltyCode"
         ]
@@ -5128,6 +5142,19 @@
               "null"
             ]
           },
+          "laps": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Laps of the course sailed, as submitted; null for the full course."
+          },
           "resultCode": {
             "type": [
               "string",
@@ -5141,6 +5168,7 @@
           "sailNumber",
           "finishTime",
           "elapsedSecs",
+          "laps",
           "resultCode"
         ]
       },
@@ -5678,6 +5706,19 @@
                     {
                       "type": "number",
                       "minimum": 0
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "laps": {
+                  "description": "Laps of the course the boat sailed, where slower boats were sent round fewer times than the rest. Omit for the full course. A boat on fewer laps than the most any boat in its fleet sailed is corrected on the full course.",
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "maximum": 9007199254740991
                     },
                     {
                       "type": "null"

@@ -1250,6 +1250,9 @@ export interface SubmittedFinish {
   sailNumber: string | null;
   finishTime: string | null;       // "HH:MM:SS"
   elapsedSecs: number | null;
+  // Laps of the course sailed, for a fleet in which slow boats go round fewer
+  // times. Absent on a submission stored before laps could be submitted.
+  laps?: number | null;
   resultCode: string | null;
 }
 

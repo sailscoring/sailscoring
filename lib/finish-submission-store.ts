@@ -128,7 +128,7 @@ function canonical(r: Pick<SubmissionUpload, 'recordedBy' | 'complete' | 'starts
     r.recordedBy,
     r.complete,
     r.starts.map((s) => [s.startId, s.startTime]),
-    r.finishes.map((f) => [f.id, f.competitorId, f.sailNumber, f.finishTime, f.elapsedSecs, f.resultCode]),
+    r.finishes.map((f) => [f.id, f.competitorId, f.sailNumber, f.finishTime, f.elapsedSecs, f.laps ?? null, f.resultCode]),
   ]);
 }
 

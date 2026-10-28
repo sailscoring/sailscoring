@@ -367,6 +367,7 @@ export function parseFinishSheetCsv(input: ParseFinishSheetInput): ParseFinishSh
           sortOrder: finisherCount,
           resultCode: null,
           ...recorded,
+          ...laps,
         });
       }
       continue;

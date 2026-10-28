@@ -36,7 +36,8 @@ function lineText(line: SheetLine | null): string {
   if (!line) return '—';
   if (line.code) return line.code;
   const place = line.place !== null ? `${line.place}` : '';
-  return [place, line.time].filter(Boolean).join(' · ') || '—';
+  const laps = line.laps != null ? `${line.laps} lap${line.laps === 1 ? '' : 's'}` : '';
+  return [place, line.time, laps].filter(Boolean).join(' · ') || '—';
 }
 
 /**

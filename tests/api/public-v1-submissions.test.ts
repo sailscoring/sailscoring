@@ -114,7 +114,8 @@ describe.skipIf(!DATABASE_URL)('the public API: finish sheet submissions', () =>
     starts: [{ startId, startTime: '11:01' }],
     finishes: [
       { id: 'c1', competitorId: boat, finishTime: '12:00:01' },
-      { id: 'c2', sailNumber: 'IRL 892', finishTime: '12:00:09' },
+      // Sent round once while the rest sailed the full course.
+      { id: 'c2', sailNumber: 'IRL 892', finishTime: '12:00:09', laps: 1 },
     ],
     complete: false,
   };
@@ -127,8 +128,8 @@ describe.skipIf(!DATABASE_URL)('the public API: finish sheet submissions', () =>
       id, raceId, seriesId, revision: 1, status: 'pending', recordedBy: 'Committee boat', complete: false,
       starts: [{ startId, startTime: '11:01:00' }],
       finishes: [
-        { id: 'c1', competitorId: boat, sailNumber: null, finishTime: '12:00:01', elapsedSecs: null, resultCode: null },
-        { id: 'c2', competitorId: null, sailNumber: 'IRL 892', finishTime: '12:00:09', elapsedSecs: null, resultCode: null },
+        { id: 'c1', competitorId: boat, sailNumber: null, finishTime: '12:00:01', elapsedSecs: null, laps: null, resultCode: null },
+        { id: 'c2', competitorId: null, sailNumber: 'IRL 892', finishTime: '12:00:09', elapsedSecs: null, laps: 1, resultCode: null },
       ],
       // The person's name; this account hasn't given one.
       submittedBy: null,
