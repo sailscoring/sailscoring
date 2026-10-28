@@ -8,13 +8,23 @@ import type { OrcProfile, OrcScoringOptionCatalog } from '@/lib/types';
 
 /** The heading one group of certificate options sits under. The printed
  *  certificate heads its own national block "Custom scoring options for
- *  Ireland"; this is the same idea with the country code we have. */
-function groupHeading(countryId: string | undefined): string {
-  if (!countryId) return 'Other certificate options';
-  return countryId === 'ORC'
-    ? 'International scoring options'
-    : `Custom scoring options for ${countryId}`;
+ *  Ireland"; this is the same idea with the country code we have, and with
+ *  how the group's options are applied, since each office's list is split
+ *  that way. */
+function groupHeading(countryId: string | undefined, kind: OrcProfile['kind']): string {
+  const office = !countryId
+    ? 'Other certificate options'
+    : countryId === 'ORC'
+      ? 'International scoring options'
+      : `Custom scoring options for ${countryId}`;
+  return `${office} · ${ORC_KIND_HEADING[kind]}`;
 }
+
+const ORC_KIND_HEADING: Record<OrcProfile['kind'], string> = {
+  tot: 'time-on-time',
+  tod: 'time-on-distance',
+  pcs: 'performance curve',
+};
 
 /**
  * The certificate scoring options a series offers, named as the certificate
@@ -34,23 +44,23 @@ export function OrcOptionItems({
   if (options.length === 0) return null;
 
   // Grouped in the order the options arrive, which `orcSelectableOptions`
-  // has already sorted by office and then by name.
-  const groups: Array<{ countryId?: string; items: OrcProfile[] }> = [];
+  // has already sorted by office, then by kind, then by name.
+  const groups: Array<{ countryId?: string; kind: OrcProfile['kind']; items: OrcProfile[] }> = [];
   for (const option of options) {
     const countryId = catalog?.[option.option]?.countryId;
     const last = groups[groups.length - 1];
-    if (last && last.countryId === countryId) last.items.push(option);
-    else groups.push({ countryId, items: [option] });
+    if (last && last.countryId === countryId && last.kind === option.kind) last.items.push(option);
+    else groups.push({ countryId, kind: option.kind, items: [option] });
   }
 
   return (
     <>
       {groups.map((group, i) => (
-        <SelectGroup key={group.countryId ?? `ungrouped-${i}`}>
+        <SelectGroup key={`${group.countryId ?? 'ungrouped'}-${group.kind}-${i}`}>
           {/* Nothing to head a list of bare field names with — a series whose
               certificates predate the stored catalog gets the flat list it
               always had. */}
-          {catalog && <SelectLabel>{groupHeading(group.countryId)}</SelectLabel>}
+          {catalog && <SelectLabel>{groupHeading(group.countryId, group.kind)}</SelectLabel>}
           {group.items.map((o) => (
             <SelectItem key={o.option} value={o.option}>
               {catalog?.[o.option] ? (

@@ -564,6 +564,17 @@ describe('ORC wind-band selection (per-start option)', () => {
     for (const o of offered) expect(catalog[o.option]).toBeDefined();
   });
 
+  it('lists every time-on-time option before any time-on-distance one, so twins are not neighbours', () => {
+    const { scoringOptions } = parseOrcRmsJson(
+      readFileSync(join(process.cwd(), 'tests/fixtures/orc/downrms-irl-sample.json'), 'utf-8'),
+    );
+    const catalog = mergeOrcScoringOptions(undefined, scoringOptions);
+    const irish = orcSelectableOptions([impFull, mojoFull], catalog)
+      .filter((o) => catalog[o.option]?.countryId === 'IRL');
+    const kinds = irish.map((o) => o.kind);
+    expect(kinds.indexOf('tod')).toBeGreaterThan(kinds.lastIndexOf('tot'));
+  });
+
   it('names an option the way the certificate does', () => {
     const { scoringOptions } = parseOrcRmsJson(
       readFileSync(join(process.cwd(), 'tests/fixtures/orc/downrms-irl-sample.json'), 'utf-8'),

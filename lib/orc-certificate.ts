@@ -125,18 +125,21 @@ export const DEFAULT_ORC_PROFILE: OrcProfile = { option: 'APHT', kind: 'tot' };
  * data, offered by the certificate-driven picker instead.
  */
 export const ORC_STANDARD_OPTIONS: ReadonlyArray<OrcProfile & { label: string }> = [
+  // In picker order: every time-on-time option, then every time-on-distance
+  // one, then the curves. Listed in pairs, the two kinds of one course read
+  // alike and sat side by side, an easy misclick on race day.
   { option: 'APHT', kind: 'tot', label: 'All-purpose · time-on-time (APHT)' },
-  { option: 'APHD', kind: 'tod', label: 'All-purpose · time-on-distance (APHD)' },
   { option: 'TMF_Inshore', kind: 'tot', label: 'Windward/leeward · time-on-time' },
-  { option: 'ILCWA', kind: 'tod', label: 'Windward/leeward · time-on-distance' },
   { option: 'TMF_Offshore', kind: 'tot', label: 'Coastal/long-distance · time-on-time' },
+  { option: 'CC_TOT', kind: 'tot', label: 'Constructed course at the recorded wind · time-on-time' },
+  { option: 'APHD', kind: 'tod', label: 'All-purpose · time-on-distance (APHD)' },
+  { option: 'ILCWA', kind: 'tod', label: 'Windward/leeward · time-on-distance' },
   { option: 'OSN', kind: 'tod', label: 'Coastal/long-distance · time-on-distance' },
+  { option: 'CC_TOD', kind: 'tod', label: 'Constructed course at the recorded wind · time-on-distance' },
   { option: 'WL', kind: 'pcs', label: 'Windward/leeward · performance curve (PCS)' },
   { option: 'CR', kind: 'pcs', label: 'All-purpose · performance curve (PCS)' },
   { option: 'OC', kind: 'pcs', label: 'Coastal · performance curve (PCS)' },
   { option: 'CC', kind: 'pcs', label: 'Constructed course · performance curve (PCS)' },
-  { option: 'CC_TOT', kind: 'tot', label: 'Constructed course at the recorded wind · time-on-time' },
-  { option: 'CC_TOD', kind: 'tod', label: 'Constructed course at the recorded wind · time-on-distance' },
 ];
 
 /**
@@ -233,14 +236,18 @@ export function orcSelectableOptions(
     .map(([option, kind]) => ({ option, kind }));
 }
 
-/** Grouped by issuing office then by name, so the list reads the way the
- *  printed certificate's "Custom scoring options for Ireland" section does.
- *  Falls back to the field name, which is the old ordering. */
+/** Grouped by issuing office, as the printed certificate's "Custom scoring
+ *  options for Ireland" section is, then by kind and then by name: every
+ *  time-on-time option ahead of every time-on-distance one, so the two
+ *  fields one name covers are not neighbours. Falls back to the field name,
+ *  which is the old ordering. */
 function optionSortKey(field: string, catalog?: OrcScoringOptionCatalog): string {
   const entry = catalog?.[field];
   if (!entry) return `\uffff${field}`;
-  return `${entry.countryId ?? ''}\u0000${entry.name}`;
+  return `${entry.countryId ?? ''}\u0000${ORC_KIND_ORDER[entry.kind]}\u0000${entry.name}`;
 }
+
+const ORC_KIND_ORDER: Record<'tot' | 'tod' | 'pcs', number> = { tot: 0, tod: 1, pcs: 2 };
 
 /**
  * What to call a scoring option on screen and on a published page.
