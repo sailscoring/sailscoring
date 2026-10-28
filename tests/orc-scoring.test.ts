@@ -135,6 +135,16 @@ describe('ORC time-on-distance scoring (403.2)', () => {
     expect(scores.get('fast')?.orc?.scratchTod).toBe(594.7);
   });
 
+  it('standings: a recorded course length is scored to 0.01 NM', () => {
+    // 3.244 NM is scored as 3.24, so the race is the one above.
+    const todStart: RaceStart = { ...start, startTime: '15:15:00', distanceNm: 3.244 };
+    const finishes = [finish('mojo', 1, '15:50:51'), finish('imp', 2, '15:51:49')];
+    const result = calculateFleetStandings([todFleet], [impetuous, mojo], races, finishes, [], 'seriesEntries', [todStart]);
+    const scores = result.fleetStandings[0].orcRaceScoresByRaceId!.get('r1')!;
+    expect(scores.get('imp')?.orc?.distanceNm).toBe(3.24);
+    expect(scores.get('imp')?.correctedTime).toBe(2117);
+  });
+
   it('standings: a ToD race with no recorded distance scores nobody and reports the gap', () => {
     const finishes = [finish('mojo', 1, '15:50:51'), finish('imp', 2, '15:51:49')];
     const result = calculateFleetStandings([todFleet], [impetuous, mojo], races, finishes, [], 'seriesEntries', [{ ...start, startTime: '15:15:00' }]);
@@ -313,6 +323,62 @@ describe('ORC Performance Curve Scoring in the standings engine', () => {
       expect(got.orc?.courseModel).toBe('CC');
       expect(got.orc?.distanceNm).toBeCloseTo(8.11, 9);
     }
+  });
+
+  it('a constructed course is weighted by its legs as measured and scored over their sum to 0.01 NM', () => {
+    const ccFleet: Fleet = { ...fleet, orcProfile: { option: 'CC', kind: 'pcs' } };
+    // Three 0.506 NM legs: 1.518 NM, recorded as 1.52 (rule 401.3). Rounding
+    // each leg first would make it 1.53.
+    const legs = [
+      { distanceNm: 0.506, bearingDeg: 162, windDirectionDeg: 160 },
+      { distanceNm: 0.506, bearingDeg: 340, windDirectionDeg: 160 },
+      { distanceNm: 0.506, bearingDeg: 60, windDirectionDeg: 160 },
+    ];
+    const ccFinishes = [finish('mojo', 1, '14:15:30'), finish('imp', 2, '14:16:11')];
+    const result = calculateFleetStandings(
+      [ccFleet], [impFull, mojoFull], races, ccFinishes, [], 'seriesEntries',
+      [{ ...start, startTime: '14:00:00', courseLegs: legs }],
+    );
+    const scores = result.fleetStandings[0].orcRaceScoresByRaceId!.get('r1')!;
+    const reference = scorePcsRace({
+      course: {
+        legs: legs.map((l) => ({ distanceNm: l.distanceNm, courseDeg: l.bearingDeg, windDirectionDeg: l.windDirectionDeg })),
+        distanceNm: 1.52,
+      },
+      boats: [
+        { id: 'imp', allowances: impFull.orcCert!.record.Allowances as PcsAllowances, elapsedSeconds: 971 },
+        { id: 'mojo', allowances: mojoFull.orcCert!.record.Allowances as PcsAllowances, elapsedSeconds: 930 },
+      ],
+    });
+    for (const id of ['imp', 'mojo'] as const) {
+      const want = reference.boats.find((b) => b.id === id)!;
+      const got = scores.get(id)!;
+      expect(got.orc?.distanceNm).toBe(1.52);
+      expect(got.correctedTime).toBe(want.correctedSeconds);
+      expect(got.orc?.impliedWind).toBeCloseTo(want.impliedWind!, 9);
+    }
+  });
+
+  it('adding legs leaves no floating-point noise in the course length', () => {
+    // 0.67 + 0.5 + 0.52 + 0.85 is 2.5400000000000005 in floating point.
+    const legs = [0.67, 0.5, 0.52, 0.85].map((distanceNm, i) => ({
+      distanceNm, bearingDeg: [317, 187, 89, 239][i], windDirectionDeg: 315, windSpeedKts: 14,
+    }));
+    const result = calculateFleetStandings(
+      [{ ...fleet, orcProfile: { option: 'CC_TOD', kind: 'tod' } }], [impFull, mojoFull], races,
+      [finish('mojo', 1, '14:25:30'), finish('imp', 2, '14:26:11')], [], 'seriesEntries',
+      [{ ...start, startTime: '14:00:00', courseLegs: legs }],
+    );
+    const scores = result.fleetStandings[0].orcRaceScoresByRaceId!.get('r1')!;
+    expect(scores.get('imp')?.orc?.distanceNm).toBe(2.54);
+  });
+
+  it('a recorded course length is scored to 0.01 NM', () => {
+    const result = calculateFleetStandings(
+      [pcsFleet], [impFull, mojoFull], races, finishes, [], 'seriesEntries', [{ ...pcsStart, distanceNm: 3.896 }],
+    );
+    const scores = result.fleetStandings[0].orcRaceScoresByRaceId!.get('r1')!;
+    expect(scores.get('imp')?.orc?.distanceNm).toBe(3.9);
   });
 
   it('a constructed-course race with no recorded legs scores nobody and reports the gap', () => {

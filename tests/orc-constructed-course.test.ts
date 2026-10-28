@@ -49,6 +49,12 @@ describe('reading a document', () => {
     expect(constructedCourseSummary(r.course)).toBe('7 legs · 8.11 NM · wind direction on every leg · no position');
   });
 
+  it('adds the legs as they are kept, then rounds the course length to 0.01 NM', () => {
+    // 3 × 0.506 is 1.518, so 1.52; rounding each leg first would give 1.53.
+    const course = read({ ...base, legs: [0, 1, 2].map(() => ({ distance: 0.506, course: 162 })) });
+    expect(constructedCourseLength(course)).toBe(1.52);
+  });
+
   it("reads a course page's document for a Royal Cork race, converted at its anchor", () => {
     const r = parseConstructedCourse(fixture('constructed-course-rcyc-2026-10-04.json'));
     expect(r.ok).toBe(true);
@@ -160,7 +166,7 @@ describe('what a start stores', () => {
   // degrees west of true.
   const variation = { deg: -2.3, date: '2026-10-03' };
 
-  it('converts every direction to true and records each distance to 0.01 NM', () => {
+  it('converts every direction to true and keeps each distance to 0.001 NM', () => {
     const course = read({
       ...base,
       legs: [
@@ -169,7 +175,7 @@ describe('what a start stores', () => {
       ],
     });
     const legs = importedCourseLegs(course, variation);
-    expect(legs[0].distanceNm).toBe(0.67);
+    expect(legs[0].distanceNm).toBe(0.674);
     expect(legs[0].bearingDeg).toBeCloseTo(279.7, 9);
     expect(legs[0].windDirectionDeg).toBeCloseTo(277.7, 9);
     expect(legs[0].windSpeedKts).toBe(11.5);
@@ -233,7 +239,7 @@ describe('what a start stores', () => {
     const legs = importedCourseLegs(course, undefined);
     expect(legs[0]).toEqual({
       name: 'Start – Windward',
-      distanceNm: 0.67,
+      distanceNm: 0.674,
       bearingDeg: 282,
       windDirectionDeg: 280,
       currentDirectionDeg: 5,
@@ -245,7 +251,7 @@ describe('what a start stores', () => {
     expect(snapshot.north).toBe('magnetic');
     expect(snapshot.windDirectionDeg).toBe(280);
     expect(snapshot.legs).toEqual([
-      { distanceNm: 0.67, bearingDeg: 282 },
+      { distanceNm: 0.674, bearingDeg: 282 },
       { distanceNm: 0.67, bearingDeg: 0 },
     ]);
   });

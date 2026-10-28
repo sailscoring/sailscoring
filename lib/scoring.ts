@@ -3,7 +3,8 @@ import { elapsedSecondsOf, roundToPrecision, timingPrecisionOf, type TimingPreci
 import { courseLapsOf, fullCourseElapsed, lapsDiffer } from './laps';
 import { getCodeDefinition } from './scoring-codes';
 import { orcConstructedOption, orcCurveOption, orcFleetProfile, orcPcsRatable, orcProfileRating, orcRaceProfile, orcRecordedWindOption, orcTodRating, orcTotRating } from './orc-certificate';
-import { scorePcsRace, type PcsAllowances, type PcsCourseModel } from './orc-pcs';
+import { scorePcsRace, type PcsAllowances, type PcsCourse, type PcsCourseModel } from './orc-pcs';
+import { courseLength } from './course-precision';
 import { weightedRacePoints } from './race-scoring-options';
 import { parseHmsToSeconds } from './time-parse';
 import { racesFleetIsNotIn } from './race-membership';
@@ -462,7 +463,7 @@ export function orcCertificateTodContext(
       : [];
   });
   return {
-    distanceNm: raceStart.distanceNm,
+    distanceNm: courseLength(raceStart.distanceNm),
     scratchTod: Math.min(...(finisherAllowances.length > 0 ? finisherAllowances : allowanceByCompetitorId.values())),
   };
 }
@@ -725,19 +726,20 @@ export function computeOrcCourseRace(
 
   const option = profile.option;
   const recordedWind = orcRecordedWindOption(option);
-  // A constructed course (ORC 402.5) is scored over the start's own legs and
-  // its distance is their sum. The pre-defined models need the recorded
-  // course distance instead.
-  let course: { model: PcsCourseModel; distanceNm: number } | { legs: NonNullable<ReturnType<typeof orcPcsLegs>> };
+  // A constructed course (ORC 402.5) is scored over the start's own legs,
+  // each weighting the course curve as it was measured, and its length is
+  // their sum recorded to 0.01 NM (401.3). The pre-defined models need the
+  // recorded course length instead, to the same precision.
+  let course: PcsCourse;
   let distanceNm: number;
   if (orcConstructedOption(option)) {
     const legs = orcPcsLegs(raceStart, recordedWind);
     if (!legs) return null;
-    course = { legs };
-    distanceNm = legs.reduce((sum, leg) => sum + leg.distanceNm, 0);
+    distanceNm = courseLength(legs.reduce((sum, leg) => sum + leg.distanceNm, 0));
+    course = { legs, distanceNm };
   } else {
     if (raceStart.distanceNm == null) return null;
-    distanceNm = raceStart.distanceNm;
+    distanceNm = courseLength(raceStart.distanceNm);
     course = { model: orcPcsCourseModel(option), distanceNm };
   }
 

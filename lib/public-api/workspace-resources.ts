@@ -3,7 +3,7 @@
  * (ADR-016 §2). The only place the two meet: a change to the model that
  * touches none of the fields here doesn't change the API. Pure.
  */
-import { legDistance } from '@/lib/course-geometry';
+import { courseLength } from '@/lib/course-precision';
 import type { Competitor, Finish, Fleet, Race, RaceStart, Series } from '@/lib/types';
 import type {
   CompetitorResource,
@@ -55,7 +55,7 @@ export function competitorResourceOf(c: Competitor): CompetitorResource {
 export function courseResourceOf(start: RaceStart): CourseResource | null {
   const legs = start.courseLegs ?? [];
   if (legs.length === 0) return null;
-  const sum = legDistance(legs.reduce((total, l) => total + l.distanceNm, 0));
+  const sum = courseLength(legs.reduce((total, l) => total + l.distanceNm, 0));
   return {
     name: start.course?.name ?? null,
     north: start.course?.north === 'magnetic' ? 'magnetic' : 'true',

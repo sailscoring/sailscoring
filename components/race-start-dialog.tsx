@@ -44,12 +44,12 @@ import { courseVariation, todayIso, type BearingRef, type Variation } from '@/li
 import { ratingSystemLabel } from '@/lib/competitor-ratings';
 import {
   drawnRaceStartCourse,
-  legDistance,
   legsForStart,
   legsMatch,
   seriesChartSet,
   startCoursePositions,
 } from '@/lib/course-geometry';
+import { legDistance } from '@/lib/course-precision';
 import {
   DEFAULT_ORC_PROFILE,
   ORC_STANDARD_OPTIONS,
@@ -530,8 +530,8 @@ function RaceStartDialogInner({
         }
         const name = row.name.trim().slice(0, 80);
         courseLegs.push({
-          // Recorded at ORC's own precision whoever typed it, so the figure
-          // the results page prints is the one the curve was read at.
+          // Kept to the precision a leg is measured to, however finely it
+          // was typed.
           distanceNm: legDistance(distance),
           bearingDeg: bearing,
           windDirectionDeg: wind,

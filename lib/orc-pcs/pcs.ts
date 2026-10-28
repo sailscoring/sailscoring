@@ -68,7 +68,10 @@ export interface PcsLeg {
 
 export type PcsCourse =
   | { model: PcsCourseModel; distanceNm: number }
-  | { legs: PcsLeg[] };
+  /** The module scores a constructed course over the exact sum of its legs;
+   *  `distanceNm`, when given, is the length to score over instead — the sum
+   *  as rule 401.3 records it, to 0.01 NM. The legs still weight the curve. */
+  | { legs: PcsLeg[]; distanceNm?: number };
 
 export interface PcsBoatInput {
   id: string;
@@ -443,7 +446,7 @@ class PcsBoat {
 export function scorePcsRace(input: PcsRaceInput): PcsRaceResult {
   const distanceNm =
     'legs' in input.course
-      ? input.course.legs.reduce((sum, leg) => sum + leg.distanceNm, 0)
+      ? input.course.distanceNm ?? input.course.legs.reduce((sum, leg) => sum + leg.distanceNm, 0)
       : input.course.distanceNm;
 
   interface Working {

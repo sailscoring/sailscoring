@@ -18,7 +18,7 @@
  */
 
 import { toTrue, type Variation } from './bearings';
-import { legDistance } from './course-geometry';
+import { courseLength, legDistance } from './course-precision';
 import type { OrcCourseLeg, RaceStartCourse } from './types';
 
 export const CONSTRUCTED_COURSE_FORMAT = 'orc-constructed-course';
@@ -166,9 +166,10 @@ export function readConstructedCourse(value: unknown): ReadConstructedCourse {
   return { ok: true, course: { ...(name ? { name } : {}), ...(anchor ? { anchor } : {}), legs } };
 }
 
-/** The course's length: its legs at the 0.01 NM ORC records them to. */
+/** The course's length: its legs added as they are kept, then rounded to
+ *  the 0.01 NM ORC records a course length to. */
 export function constructedCourseLength(course: ConstructedCourse): number {
-  return Math.round(course.legs.reduce((sum, l) => sum + legDistance(l.distance), 0) * 100) / 100;
+  return courseLength(course.legs.reduce((sum, l) => sum + legDistance(l.distance), 0));
 }
 
 /** "7 legs · 8.11 NM · wind on every leg · current on 2 legs · anchored":
@@ -185,7 +186,7 @@ export function constructedCourseSummary(course: ConstructedCourse): string {
   return parts.join(' · ');
 }
 
-/** A leg as a start's table takes it: true, the distance to 0.01 NM. The
+/** A leg as a start's table takes it: true, the distance to 0.001 NM. The
  *  wind direction is absent where the document carries none, for the
  *  start's own wind to fill. */
 export type ImportedLeg = Omit<OrcCourseLeg, 'windDirectionDeg'> & { windDirectionDeg?: number };

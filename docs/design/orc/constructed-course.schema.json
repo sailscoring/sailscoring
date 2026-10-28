@@ -69,7 +69,7 @@
         "distance": {
           "type": "number",
           "exclusiveMinimum": 0,
-          "description": "Leg length in nautical miles, to 0.01 NM."
+          "description": "Leg length in nautical miles, as finely as it was measured (to 0.01 NM at least). The course length is the sum of the legs, rounded to 0.01 NM."
         },
         "course": {
           "$ref": "#/$defs/direction",

@@ -71,7 +71,7 @@ recorded:
 
 | Field | | |
 |---|---|---|
-| `distance` | required | Nautical miles, to 0.01 NM |
+| `distance` | required | Nautical miles, as finely as it was measured: to 0.01 NM at least |
 | `course` | required | The leg's direction, start to end, degrees magnetic. `course` is ORC's name for it. |
 | `windDirection` | on every leg or none | Where the true wind blows **from**, degrees magnetic |
 | `windSpeed` | on every leg or none | The true wind speed the race committee recorded, knots |
@@ -91,11 +91,15 @@ recorded:
   convert at a guess; Sail Scoring does.
 - **A leg split on a wind shift is two legs** (rule 402.5's sub-legs).
   Nothing groups them; they may share a name.
-- **The course length is the sum of the legs.** A producer writes each
-  distance to 0.01 NM, as ORC records them (rule 401.3). A reader given a
-  finer figure rounds it to 0.01 NM, so every reader scores the same
-  length. There is no declared total: a second figure would be one more
-  thing to disagree with the legs.
+- **The course length is the sum of the legs, rounded to 0.01 NM**, the
+  precision ORC records a course length to (rule 401.3). A producer writes
+  each distance as finely as it was measured, to 0.01 NM at least; a reader
+  keeps it to 0.001 NM (about 2 m). Rule 401.3 says nothing about a leg, and
+  ORC Scorer weights its curve by the legs as entered, so rounding each to
+  0.01 before adding moves both the length and the ratings. A table of legs
+  printed to 0.01 then won't always add up to the length, just as on ORC
+  Scorer's own pages. There is no declared total: a second figure would be
+  one more thing to disagree with the legs.
 - **Wind direction on every leg, or on none.** With none, the document is
   the course without the day's wind, and the reader supplies it (Sail
   Scoring's race start has a course wind that fills the legs). With it on

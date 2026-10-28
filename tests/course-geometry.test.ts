@@ -27,9 +27,10 @@ describe('a start’s legs', () => {
     ]);
   });
 
-  it('records a leg to 0.01 NM, the precision ORC scores a course at', () => {
-    // 958 m is 0.5173 NM: the case that separates the two roundings.
-    expect(legsForStart([{ distanceNm: 958 / 1852, bearingDeg: 190 }], 190).map((l) => l.distanceNm)).toEqual([0.52]);
+  it('keeps a leg to 0.001 NM, as finely as it was measured', () => {
+    // 958 m is 0.5173 NM. ORC Scorer prints it as 0.52 but scores it as
+    // entered; rounding it to 0.01 moved its ratings.
+    expect(legsForStart([{ distanceNm: 958 / 1852, bearingDeg: 190 }], 190).map((l) => l.distanceNm)).toEqual([0.517]);
   });
 
   it('spreads a recorded wind speed over every leg', () => {

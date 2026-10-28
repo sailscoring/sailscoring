@@ -430,10 +430,10 @@ export default function RatingSystems() {
           on it, and the wind speed too where the option scores at the wind the
           race committee recorded. Split a leg into two rows when the wind shifts
           along it; the course length is the total, so the start doesn&apos;t ask for
-          one. Every distance is recorded to
-          0.01 NM, the precision ORC scores a course at and what ORC Scorer holds,
-          so the figure a results page prints is the figure the rating was read
-          at. An app that builds courses can hand the whole course over instead,
+          one. Each distance is kept as finely as it was measured, to 0.001 NM, and
+          the course length is their total recorded to 0.01 NM, as ORC Scorer
+          does; the results page prints legs to 0.01 NM, so a printed table
+          won&apos;t always add up to the length exactly. An app that builds courses can hand the whole course over instead,
           legs, wind and all: see{' '}
           <a href="#import-constructed-course" className="underline">Importing a
           constructed course</a>.
