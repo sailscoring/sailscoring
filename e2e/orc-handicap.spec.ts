@@ -733,13 +733,28 @@ test('ORC fleet: the wind band picked on the start re-scores the race', async ({
   await expect(page.getByText('Race 1 — results')).toBeVisible();
   await page.getByRole('button', { name: 'Edit ▸' }).click();
   await page.getByRole('button', { name: 'Edit start' }).click();
-  await page.getByTestId('start-orc-option').click();
-  // Named as the certificate names it, under its issuing office's heading.
+  const dialog = page.getByRole('dialog');
+  // Chosen in rows, starting from the fleet's default: time-on-time stays,
+  // and the course, the set and the band are what change.
+  await dialog.getByRole('radio', { name: 'This start' }).check();
+  await expect(dialog.getByRole('radio', { name: 'Time-on-time', exact: true })).toHaveAttribute('aria-checked', 'true');
+  await dialog.getByTestId('start-orc-course').click();
+  // The courses are named as the certificate names them, under the issuing
+  // office's heading.
   await expect(
     page.getByRole('group', { name: 'Custom scoring options for IRL' }),
   ).toBeVisible();
-  await page.getByRole('option', { name: '5-Band 50-50 Windward/Leeward Med · time-on-time' }).click();
+  await page.getByRole('option', { name: '50-50 Windward/Leeward' }).click();
+  // Saving with a row still to choose is refused by name, not saved as the
+  // fleet default.
   await page.getByRole('button', { name: 'Save' }).click();
+  await expect(dialog.getByText(/Choose how many numbers for this start’s scoring option/)).toBeVisible();
+  await dialog.getByRole('radio', { name: '5-band' }).click();
+  await dialog.getByRole('radio', { name: 'Med', exact: true }).click();
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(
+    page.getByTitle('ORC scoring option for this start (overrides the fleet default)'),
+  ).toHaveText('5-Band 50-50 Windward/Leeward Med · time-on-time');
   await expect(page.getByText('14:00:00')).toBeVisible();
 
   await page.getByRole('link', { name: 'Standings' }).click();
@@ -794,8 +809,14 @@ test('ORC fleet: the start option switches one race to performance curves', asyn
   await expect(page.getByText('Race 1 — results')).toBeVisible();
   await page.getByRole('button', { name: 'Edit ▸' }).click();
   await page.getByRole('button', { name: 'Edit start' }).click();
-  await page.getByTestId('start-orc-option').click();
-  await page.getByRole('option', { name: 'Windward/leeward · performance curve (PCS)' }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByRole('radio', { name: 'This start' }).check();
+  // Curves keep the default's all-purpose course; the race was on a
+  // windward/leeward one.
+  await dialog.getByRole('radio', { name: 'Performance curves' }).click();
+  await expect(dialog.getByTestId('start-orc-course')).toHaveText('All-purpose');
+  await dialog.getByTestId('start-orc-course').click();
+  await page.getByRole('option', { name: 'Windward/leeward', exact: true }).click();
   // Choosing a PCS option surfaces the scoring-wind override field.
   await expect(page.getByLabel(/Scoring wind/)).toBeVisible();
   await page.getByRole('button', { name: 'Save' }).click();
@@ -886,15 +907,15 @@ test('ORC start: the course length is set aside when the start is scored on a co
   await dialog.getByLabel(/Course length/).fill('3.24');
 
   // Scored on a constructed course, a length typed in is kept in view, marked unused…
-  await dialog.getByTestId('start-orc-option').click();
-  await page.getByRole('option', { name: 'Constructed course at the recorded wind · time-on-time' }).click();
+  await dialog.getByRole('radio', { name: 'This start' }).check();
+  await dialog.getByTestId('start-orc-course').click();
+  await page.getByRole('option', { name: 'Constructed course at the recorded wind' }).click();
   await expect(dialog.getByTestId('distance-unused')).toContainText('Not used');
   // …and once cleared, the dialog shows no course length but the legs'.
   await dialog.getByLabel(/Course length/).fill('');
   await expect(dialog.getByLabel(/Course length/)).toHaveCount(0);
 
-  await dialog.getByTestId('start-orc-option').click();
-  await page.getByRole('option', { name: 'Fleet default' }).click();
+  await dialog.getByRole('radio', { name: /Fleet default/ }).check();
   await expect(dialog.getByLabel(/Course length/)).toBeVisible();
 });
 
@@ -958,7 +979,12 @@ test('a race waiting on its course holds the publish until the scorer publishes 
   // Publishing says which race is holding it, before the button is pressed.
   await page.getByRole('button', { name: 'Publish' }).click();
   const dialog = page.getByRole('dialog', { name: 'Publish results' });
-  await expect(dialog.getByText(/Race 2 \(Class 2\) is not scored yet/)).toBeVisible();
+  // It names the option, says it corrects over the course, and names the
+  // start by its gun time.
+  await expect(dialog.getByText(
+    'Race 2 (Class 2) is not scored yet: it is scored on All-purpose · time-on-distance (APHD), which corrects over the course distance, but its 15:15 start records none.',
+    { exact: false },
+  )).toBeVisible();
   const publish = dialog.getByRole('button', { name: 'Publish', exact: true });
   await expect(publish).toBeDisabled();
 

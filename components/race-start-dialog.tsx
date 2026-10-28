@@ -38,6 +38,8 @@ import { useFeatures } from '@/components/features-provider';
 import { useRaceStartsBySeries } from '@/hooks/use-race-starts';
 import { useSeries } from '@/hooks/use-series';
 import { OrcOptionItems, OrcOptionValue } from '@/components/orc-option-items';
+import { OrcOptionPicker } from '@/components/orc-option-picker';
+import { orcOptionChoices } from '@/lib/orc-option-choices';
 import { courseVariation, todayIso, type BearingRef, type Variation } from '@/lib/bearings';
 import { ratingSystemLabel } from '@/lib/competitor-ratings';
 import {
@@ -49,9 +51,12 @@ import {
   startCoursePositions,
 } from '@/lib/course-geometry';
 import {
+  DEFAULT_ORC_PROFILE,
   ORC_STANDARD_OPTIONS,
   orcConstructedOption,
+  orcFleetProfile,
   orcOptionKind,
+  orcOptionLabel,
   orcRaceProfile,
   orcRecordedWindOption,
   orcSelectableOptions,
@@ -157,6 +162,15 @@ function RaceStartDialogInner({
     ? orcSelectableOptions(competitors ?? [], orcCatalog)
     : [];
   const [orcOptionValue, setOrcOptionValue] = useState(seed?.orcOption ?? '');
+  // The row "This start" still needs, while it is incomplete.
+  const [orcPending, setOrcPending] = useState<string | null>(null);
+  // Chosen in rows wherever every option can be taken apart — the catalog
+  // names them all, and a stored option is one of them. Otherwise the flat
+  // list, which shows whatever the start holds.
+  const orcChoices = orcOptionChoices(certificateOptions, orcCatalog);
+  const stagedPicker =
+    certificateOptions.every((o) => orcCatalog?.[o.option])
+    && (!orcOptionValue || orcChoices.some((c) => c.option === orcOptionValue));
   const offerOption = hasOrcFleet || Boolean(seed?.orcOption);
   const selectedKind = orcOptionValue ? orcOptionKind(orcOptionValue) : null;
   // Course distance is a scoring input for ORC time-on-distance (and shown
@@ -220,6 +234,14 @@ function RaceStartDialogInner({
   // scored over its legs, and nothing reads the course length: resolved per
   // fleet as scoring resolves it, the start's own option else the fleet's.
   const startOrcFleets = fleets.filter((f) => f.scoringSystem === 'orc' && fleetIds.includes(f.id));
+  // The fleet default "This start" begins from, and names: the start's own
+  // ORC fleets', or every ORC fleet's before any is ticked.
+  const defaultFleets = startOrcFleets.length > 0 ? startOrcFleets : fleets.filter((f) => f.scoringSystem === 'orc');
+  const defaultOptions = [...new Set(defaultFleets.map((f) => orcFleetProfile(f).option))];
+  const fleetDefaultOption = defaultOptions[0] ?? DEFAULT_ORC_PROFILE.option;
+  const fleetDefaultLabel = defaultOptions.length > 1
+    ? 'each fleet’s own option'
+    : orcOptionLabel(fleetDefaultOption, orcCatalog);
   const distanceUnused =
     startOrcFleets.length > 0 &&
     startOrcFleets.every((f) =>
@@ -464,6 +486,10 @@ function RaceStartDialogInner({
       setError('Select at least one fleet.');
       return;
     }
+    if (orcPending) {
+      setError(`Choose ${orcPending} for this start’s scoring option, or use the fleet default.`);
+      return;
+    }
     let distanceNm: number | undefined;
     if (distanceInput.trim()) {
       const parsed = Number(distanceInput.trim());
@@ -589,34 +615,43 @@ function RaceStartDialogInner({
               <label className="text-sm font-medium">
                 Scoring option <span className="font-normal text-muted-foreground">(this start)</span>
               </label>
-              <Select
-                value={orcOptionValue || '__default__'}
-                onValueChange={(v) => { setOrcOptionValue(v === '__default__' ? '' : v); setError(''); }}
-              >
-                <SelectTrigger className="w-full" data-testid="start-orc-option">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__default__">Fleet default</SelectItem>
-                  {ORC_STANDARD_OPTIONS.map((o) => (
-                    <SelectItem key={o.option} value={o.option}>
-                      {o.label}
-                    </SelectItem>
-                  ))}
-                  <OrcOptionItems options={certificateOptions} catalog={orcCatalog} />
-                  {orcOptionValue
-                    && !ORC_STANDARD_OPTIONS.some((o) => o.option === orcOptionValue)
-                    && !certificateOptions.some((o) => o.option === orcOptionValue) && (
-                    <SelectItem value={orcOptionValue}>
-                      <OrcOptionValue option={orcOptionValue} catalog={orcCatalog} />
-                    </SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
+              {stagedPicker ? (
+                <OrcOptionPicker
+                  choices={orcChoices}
+                  value={orcOptionValue}
+                  fleetDefaultOption={fleetDefaultOption}
+                  fleetDefaultLabel={fleetDefaultLabel}
+                  onChange={(option, pending) => { setOrcOptionValue(option); setOrcPending(pending); setError(''); }}
+                />
+              ) : (
+                <Select
+                  value={orcOptionValue || '__default__'}
+                  onValueChange={(v) => { setOrcOptionValue(v === '__default__' ? '' : v); setError(''); }}
+                >
+                  <SelectTrigger className="w-full" data-testid="start-orc-option">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__default__">Fleet default</SelectItem>
+                    {ORC_STANDARD_OPTIONS.map((o) => (
+                      <SelectItem key={o.option} value={o.option}>
+                        {o.label}
+                      </SelectItem>
+                    ))}
+                    <OrcOptionItems options={certificateOptions} catalog={orcCatalog} />
+                    {orcOptionValue
+                      && !ORC_STANDARD_OPTIONS.some((o) => o.option === orcOptionValue)
+                      && !certificateOptions.some((o) => o.option === orcOptionValue) && (
+                      <SelectItem value={orcOptionValue}>
+                        <OrcOptionValue option={orcOptionValue} catalog={orcCatalog} />
+                      </SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              )}
               <p className="text-xs text-muted-foreground">
                 How this start&apos;s races are scored — the option the race
-                committee announced: a certificate single number, a wind band,
-                or performance curves. Overrides the fleet&apos;s default;
+                committee announced. Overrides the fleet&apos;s default;
                 changing it later re-scores without re-entering finishes.
               </p>
               {optionHint && <p className="text-xs text-amber-600 dark:text-amber-500">{optionHint}</p>}
