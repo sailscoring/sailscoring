@@ -138,7 +138,8 @@ figures took no part in. `CC_TOD` exists because the correction and the wind
 are separate choices, not because the wind was unreachable.
 
 The corrected-time arithmetic is one of two forms (401.2: compute in seconds,
-round to nearest whole second; 401.3: course length to 0.01 NM):
+round to nearest whole second; 401.3: course length to 0.01 NM; see
+[Where each quantity is rounded](#where-each-quantity-is-rounded)):
 
 - **Time-on-time**: `CT = ToT × ET`, with `ToT = 600 / ToD`. Same direction
   as an IRC TCC (faster boat → higher number), so the app's existing
@@ -302,6 +303,27 @@ unscored in that race only; series-level ratability follows the default.
   [ORC constructed course](constructed-course-format.md) document, which
   may also say where the first leg starts. Published pages draw the legs,
   on the club's chart where that position places them.
+
+### Where each quantity is rounded
+
+The rules give a precision only for the course length (401.3) and the
+corrected time (401.2). Where they say nothing, the engine does what ORC
+Scorer does, worked out by recomputing its published results (#674):
+
+| Quantity | Precision | Why |
+|---|---|---|
+| Leg distance | kept to 0.001 NM, printed to 0.01 | ORC Scorer weights the course by legs as entered |
+| Course length | sum of the legs, then 0.01 NM; a typed length to 0.01 | 401.3 |
+| Bearing, wind direction | as entered | only their difference is used |
+| Implied wind | 1e-5 kt | the PCS module |
+| ToD at the scoring wind | unrounded | the PCS module; ORC Scorer prints it to 0.1 |
+| ToT on a constructed course | 4 dp, before applying | ORC Scorer, as on a certificate |
+| Elapsed time | nearest second, half up | 401.2; RMG §4.5. Other fleets keep a recorded fraction |
+| Time-on-distance (PCS and certificate) | `ET − round(ToD × D) + round(scratch ToD × D)`; scratch = lowest ToD among finishers | 402.9 and the module; ORC Scorer for the certificate scratch |
+| Time-on-time | `round(ET × ToT)` | 401.2 |
+
+The legs are measured on course-cards' sphere today; measuring on WGS84 is
+sailscoring/course-cards#22.
 
 ### Gating
 
