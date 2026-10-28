@@ -32,6 +32,7 @@ import * as racesRoute from '@/app/api/public/v1/series/[id]/races/route';
 import * as datedRacesRoute from '@/app/api/public/v1/races/route';
 import * as raceRoute from '@/app/api/public/v1/series/[id]/races/[raceId]/route';
 import * as finishesRoute from '@/app/api/public/v1/races/[raceId]/finishes/route';
+import * as startsRoute from '@/app/api/public/v1/races/[raceId]/starts/route';
 import * as startRoute from '@/app/api/public/v1/races/[raceId]/starts/[startId]/route';
 import * as courseRoute from '@/app/api/public/v1/races/[raceId]/starts/[startId]/course/route';
 import * as publishRoute from '@/app/api/public/v1/series/[id]/publish/route';
@@ -289,6 +290,66 @@ describe.skipIf(!DATABASE_URL)('the public API, authenticated part', () => {
       token, method: 'DELETE', params: { raceId, startId: s2 },
     });
     expect(gone.status).toBe(404);
+  });
+
+  test('a class split off onto its own start, in a race already set up', async () => {
+    const raceId = uuid();
+    const together = uuid();
+    const created = await call(racesRoute.POST, `/series/${seriesId}/races`, {
+      token, params: { id: seriesId },
+      json: { races: [{ id: raceId, date: '2026-10-11', starts: [{ id: together, fleetIds: [fleetA, fleetB], startTime: '11:00' }] }] },
+    });
+    expect(created.status).toBe(200);
+
+    // Class 2 can't have a start of its own while it's still in the first.
+    const own = uuid();
+    const first = await call(startsRoute.POST, `/races/${raceId}/starts`, {
+      token, params: { raceId }, json: { id: own, fleetIds: [fleetB], startTime: '11:05' },
+    });
+    expect(first.status).toBe(400);
+    expect(first.body.message).toMatch(/Class 2/);
+
+    const narrowed = await call(startRoute.PATCH, `/races/${raceId}/starts/${together}`, {
+      token, method: 'PATCH', params: { raceId, startId: together }, json: { fleetIds: [fleetA] },
+    });
+    expect(narrowed.status).toBe(200);
+    const added = await call(startsRoute.POST, `/races/${raceId}/starts`, {
+      token, params: { raceId }, json: { id: own, fleetIds: [fleetB], startTime: '11:05' },
+    });
+    expect(added.status).toBe(200);
+    expect(added.body).toEqual({ id: own, fleetIds: [fleetB], startTime: '11:05:00', course: null });
+
+    const read = await call(raceRoute.GET, `/series/${seriesId}/races/${raceId}`, { token, params: { id: seriesId, raceId } });
+    expect(read.body.starts.map((s: { id: string; fleetIds: string[] }) => [s.id, s.fleetIds])).toEqual([
+      [together, [fleetA]],
+      [own, [fleetB]],
+    ]);
+
+    // A start id that's taken is refused, never replaced.
+    const again = await call(startsRoute.POST, `/races/${raceId}/starts`, {
+      token, params: { raceId }, json: { id: own, fleetIds: [], startTime: '11:20' },
+    });
+    expect(again.status).toBe(409);
+    expect(again.body).toMatchObject({ error: 'conflict', message: expect.stringMatching(/already a start/) });
+
+    // The server chooses the id when the app doesn't; a start may have no gun.
+    const membership = await call(startsRoute.POST, `/races/${raceId}/starts`, {
+      token, params: { raceId }, json: { fleetIds: [] },
+    });
+    expect(membership.status).toBe(200);
+    expect(membership.body).toMatchObject({ id: expect.any(String), fleetIds: [], startTime: null });
+
+    const strange = await call(startsRoute.POST, `/races/${raceId}/starts`, {
+      token, params: { raceId }, json: { fleetIds: [uuid()] },
+    });
+    expect(strange.status).toBe(400);
+    expect(strange.body.message).toMatch(/No fleet/);
+
+    const noRace = uuid();
+    const missing = await call(startsRoute.POST, `/races/${noRace}/starts`, {
+      token, params: { raceId: noRace }, json: { fleetIds: [] },
+    });
+    expect(missing.status).toBe(404);
   });
 
   test('a day\'s races across the workspace', async () => {

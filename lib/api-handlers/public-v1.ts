@@ -1,7 +1,7 @@
 import 'server-only';
 import { and, asc, eq } from 'drizzle-orm';
 
-import { BadRequestError, NotFoundError } from '@/app/api/v1/_lib/handler';
+import { BadRequestError, NotFoundError, WouldReplaceError } from '@/app/api/v1/_lib/handler';
 import { listCompetitors } from '@/lib/api-handlers/competitors';
 import { listFinishes } from '@/lib/api-handlers/finishes';
 import {
@@ -20,6 +20,7 @@ import {
   listRaceStarts,
   listSeriesRaceStarts,
   patchRaceStart,
+  putRaceStart,
 } from '@/lib/api-handlers/race-starts';
 import { deleteRace, generateRaces, getRace, getRaceFlat, listRaces, listRacesBetween } from '@/lib/api-handlers/races';
 import { listSeasons } from '@/lib/api-handlers/seasons';
@@ -27,7 +28,7 @@ import { getSeries, listSeries } from '@/lib/api-handlers/series';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
 import { getDb } from '@/lib/db/client';
 import { member, organization } from '@/lib/db/schema/auth';
-import { publishedSeries } from '@/lib/db/schema';
+import { publishedSeries, raceStarts } from '@/lib/db/schema';
 import { publicationApiBase } from '@/lib/public-api/store';
 import {
   competitorResourceOf,
@@ -43,6 +44,7 @@ import type { FinishSubmission, Race, RaceStart } from '@/lib/types';
 import type { SubmissionMatch } from '@/lib/finish-submission';
 import type { SubmitFinishesInput } from '@/lib/validation/finish-submission';
 import type {
+  addStartInput,
   createRacesInput,
   publishInput,
   PublicationResource,
@@ -228,6 +230,38 @@ export async function createRacesPublic(
 
 export async function deleteRacePublic(workspace: WorkspaceContext, seriesId: string, raceId: string) {
   await deleteRace(workspace, seriesId, raceId);
+}
+
+/**
+ * Add a start to a race that exists. A start id that's taken is refused
+ * rather than replaced: the internal write upserts, and a start is changed
+ * through its own calls.
+ */
+export async function addStartPublic(
+  workspace: WorkspaceContext,
+  raceId: string,
+  input: z.infer<typeof addStartInput>,
+): Promise<StartResource> {
+  const race = await getRaceFlat(workspace, raceId);
+  if (!race) throw new NotFoundError('race');
+  await assertFleetsOfSeries(workspace, race.seriesId, input.fleetIds);
+  const startId = input.id ?? crypto.randomUUID();
+  if (input.id) {
+    const [taken] = await getDb()
+      .select({ id: raceStarts.id })
+      .from(raceStarts)
+      .where(eq(raceStarts.id, input.id))
+      .limit(1);
+    if (taken) throw new WouldReplaceError('There is already a start with this id. Change a start with PATCH.');
+  }
+  return startResourceOf(
+    await putRaceStart(workspace, raceId, startId, {
+      id: startId,
+      raceId,
+      fleetIds: input.fleetIds,
+      ...(input.startTime ? { startTime: storedWallClock(input.startTime) } : {}),
+    }),
+  );
 }
 
 async function assertStartInRace(workspace: WorkspaceContext, raceId: string, startId: string) {

@@ -315,6 +315,18 @@ export const createRacesInput = named(
   'Races to add after the series\' last race, each with its starts. The server numbers them.',
 );
 
+export const addStartInput = named(
+  z
+    .object({
+      id: id.optional().describe('Choose the id, so the app knows the start without reading the race back.'),
+      fleetIds: z.array(id),
+      startTime: wallClock.nullable().optional(),
+    })
+    .strict(),
+  'AddStart',
+  'A start to add to a race that has been created. A fleet starts once per race.',
+);
+
 export const startPatchInput = named(
   z
     .object({

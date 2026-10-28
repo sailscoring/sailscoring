@@ -255,6 +255,7 @@ overrides; the standings carry their effect.
 |---|---|---|---|
 | POST | `/series/{id}/races` | Races to append, each `id?`, `date`, `name?`, `starts` (each `id?`, `fleetIds`, `startTime?`); numbered by the server | `races` |
 | DELETE | `/series/{id}/races/{raceId}` | — (later races are renumbered) | `races` |
+| POST | `/races/{raceId}/starts` | A start to add to a race already set up: `id?`, `fleetIds`, `startTime?`; a taken id is refused (#708) | `races` |
 | PATCH | `/races/{raceId}/starts/{startId}` | Any of `startTime`, `fleetIds`; `null` clears (#696) | `races` |
 | DELETE | `/races/{raceId}/starts/{startId}` | — | `races` |
 | PUT | `/races/{raceId}/starts/{startId}/course` | An ORC constructed course document, as written; refuses to replace legs unless asked (#695) | `races` |

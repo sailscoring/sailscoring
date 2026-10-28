@@ -2394,6 +2394,144 @@
         }
       }
     },
+    "/races/{raceId}/starts": {
+      "post": {
+        "tags": [
+          "Workspace"
+        ],
+        "summary": "Add a start to a race",
+        "description": "For fleets no other start of the race has: a fleet starts once per race, so to split a fleet off a start, first take it out of that start's `fleetIds`.",
+        "security": [
+          {
+            "oauth": [
+              "races"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "name": "raceId",
+            "in": "path",
+            "required": true,
+            "description": "The race.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "x-sailscoring-workspace",
+            "in": "header",
+            "required": false,
+            "description": "The workspace to act in, by id or slug. An app's token reaches only the workspace its grant names, and may leave this out; the CLI's names one of its user's.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Any string: a retried write with the same key is answered as the first was, and not done again.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddStart"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Add a start to a race",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Start"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request isn't what the call takes: `invalid`, with the fields at fault in `problems`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No access token, or one that has expired or been revoked: `unauthenticated`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Outside the grant's scopes or workspace, or the user's role there: `forbidden`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such series, race, start or submission in the workspace: `not-found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The id is already a start's: `conflict`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "423": {
+            "description": "The series is archived or final, and read-only: `archived`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many calls for this grant; `Retry-After` says how long to wait.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/races/{raceId}/starts/{startId}": {
       "patch": {
         "tags": [
@@ -5324,6 +5462,42 @@
         },
         "required": [
           "races"
+        ],
+        "additionalProperties": false
+      },
+      "AddStart": {
+        "description": "A start to add to a race that has been created. A fleet starts once per race.",
+        "type": "object",
+        "properties": {
+          "id": {
+            "description": "Choose the id, so the app knows the start without reading the race back.",
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "fleetIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          "startTime": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^([01]\\d|2[0-3]):[0-5]\\d(:[0-5]\\d)?$",
+                "description": "A local time of day, `HH:MM:SS` (or `HH:MM`)."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "fleetIds"
         ],
         "additionalProperties": false
       },

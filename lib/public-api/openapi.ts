@@ -24,7 +24,7 @@ import { SCOPE_DESCRIPTIONS } from '../oauth-scopes';
 type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
 
 /** The request bodies, which stay closed. */
-const INPUTS = new Set(['CreateRaces', 'StartChange', 'Publish', 'SubmitFinishes']);
+const INPUTS = new Set(['CreateRaces', 'AddStart', 'StartChange', 'Publish', 'SubmitFinishes']);
 
 function open(value: Json): Json {
   if (Array.isArray(value)) return value.map(open);
@@ -266,6 +266,14 @@ export function publicApiOpenApi(origin: string): Json {
           conflict: 'It has been applied to the finish sheet: `conflict`.',
         }),
       },
+      '/races/{raceId}/starts': authenticated('post', 'races', 'Add a start to a race', {
+        params: [raceId],
+        body: { schema: ref('AddStart') },
+        result: 'Start',
+        description:
+          'For fleets no other start of the race has: a fleet starts once per race, so to split a fleet off a start, first take it out of that start\'s `fleetIds`.',
+        conflict: 'The id is already a start\'s: `conflict`.',
+      }),
       '/races/{raceId}/starts/{startId}': {
         ...authenticated('patch', 'races', 'Change a start\'s gun time or fleets', {
           params: [raceId, startId, ifMatch],

@@ -68,7 +68,7 @@ document is at `/.well-known/oauth-authorization-server`.
 | Scope | Lets the app | Needs the user's role to allow |
 |---|---|---|
 | `read` | Read the workspace's series, entries, races, starts, finishes and publications | reading |
-| `races` | Add and delete races, change and delete starts, set each start's course | scoring |
+| `races` | Add and delete races and their starts, change starts, set each start's course | scoring |
 | `submissions` | Submit a race's finishes for a scorer to review, and revise or withdraw its own submissions | submitting finishes: a recorder's role, or a scorer's |
 | `publish` | Publish and unpublish results | scoring |
 | `offline_access` | Keep its access with a refresh token | |
@@ -157,6 +157,7 @@ GET    /races/{raceId}/submissions                   the race's finish sheet sub
 PUT    /races/{raceId}/submissions/{submissionId}    submit the race's finishes, or revise them
 GET    /races/{raceId}/submissions/{submissionId}    a submission, and where the scorer is with it
 DELETE /races/{raceId}/submissions/{submissionId}    withdraw it
+POST   /races/{raceId}/starts                        add a start to a race
 PATCH  /races/{raceId}/starts/{startId}              change a start's gun or fleets
 DELETE /races/{raceId}/starts/{startId}              delete a start
 PUT    /races/{raceId}/starts/{startId}/course       set a start's course
@@ -205,7 +206,11 @@ What the description can't say:
   and withdrawn only by whoever made it, and an applied one can't be
   withdrawn.
 - **A fleet starts once per race.** A start that would take another start's
-  fleet is refused, so a start can be found by its fleets.
+  fleet is refused, so a start can be found by its fleets. To give a fleet a
+  start of its own in a race already set up, take it out of its start
+  (`PATCH` its `fleetIds`) and then add the new start. An added start's id
+  may be chosen too; one that is already a start's is refused (`409`),
+  never replaced.
 - **Times are local**: a gun is `HH:MM:SS` (`HH:MM` is accepted), on the
   race's `date`.
 - **A course** is set from an [ORC constructed course
@@ -228,7 +233,8 @@ What the description can't say:
 ## A race day, worked through
 
 A course-plotting page setting up one day of the Autumn League: two starts,
-a course on the first. `$T` is the access token.
+a course on the first, and a third start when the race officer splits a
+class off the second. `$T` is the access token.
 
 ```sh
 API=https://app.sailscoring.ie/api/public/v1
@@ -245,11 +251,11 @@ curl -s "${auth[@]}" -H 'Content-Type: application/json' -X POST $API/series/$S/
     "date": "2026-10-04",
     "starts": [
       { "fleetIds": ["<Class 1 id>"], "startTime": "11:00" },
-      { "fleetIds": ["<Class 2 id>"], "startTime": "11:05" }
+      { "fleetIds": ["<Class 2 id>", "<Class 3 id>"], "startTime": "11:05" }
     ]
   }]
 }' | jq '.races[0] | {id, number, starts: [.starts[] | {id, startTime}]}'
-R=<race id>; START=<the 11:00 start's id>
+R=<race id>; START=<the 11:00 start's id>; START2=<the 11:05 start's id>
 
 # Set the first start's course, from the page's own document.
 curl -s "${auth[@]}" -H 'Content-Type: application/json' -X PUT \
@@ -258,6 +264,12 @@ curl -s "${auth[@]}" -H 'Content-Type: application/json' -X PUT \
 # A general recall: the gun moves, and the course stays.
 curl -s "${auth[@]}" -H 'Content-Type: application/json' -X PATCH \
   $API/races/$R/starts/$START -d '{ "startTime": "11:10" }' | jq '{startTime, legs: (.course.legs | length)}'
+
+# Class 2 goes onto a course of its own: out of its start, into a new one.
+curl -s "${auth[@]}" -H 'Content-Type: application/json' -X PATCH \
+  $API/races/$R/starts/$START2 -d '{ "fleetIds": ["<Class 3 id>"] }' | jq '.fleetIds'
+curl -s "${auth[@]}" -H 'Content-Type: application/json' -X POST \
+  $API/races/$R/starts -d '{ "fleetIds": ["<Class 2 id>"], "startTime": "11:15" }' | jq '{id, startTime}'
 ```
 
 And the committee boat handing the finishes to the scorer, from an app the
