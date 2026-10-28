@@ -464,6 +464,11 @@ export function buildSailwaveBlw(file: SeriesFile): SailwaveExportResult {
     if (race.pointsMultiplier != null && race.pointsMultiplier !== 1) {
       warn('points-multiplier', `Race ${race.raceNumber}'s points multiplier is not carried.`);
     }
+    // Sailwave has a laps field per result, but without a file that uses it
+    // to check against, writing one would be a guess at the format.
+    if (race.finishes.some((f) => f.laps != null)) {
+      warn('laps', `Race ${race.raceNumber}'s lap counts are not carried; Sailwave corrects every boat over the laps it sailed.`);
+    }
 
     const overrides = new Map<string, number>();
     for (const o of race.ratingOverrides ?? []) overrides.set(o.competitorId, o.value);

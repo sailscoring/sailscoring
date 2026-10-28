@@ -162,6 +162,15 @@ describe('buildSailwaveBlw', () => {
     expect(warnings.map((w) => w.code).sort()).toEqual(['discard-policy', 'points-multiplier', 'sub-series']);
   });
 
+  it('warns that a race’s lap counts are not carried', () => {
+    const original = importFixture(`${HYC}/2026 Sat Cruisers Series 1.blw`);
+    const [race, ...rest] = original.races;
+    const [first, ...others] = race.finishes;
+    const modified: SeriesFile = { ...original, races: [{ ...race, finishes: [{ ...first, laps: 1 }, ...others] }, ...rest] };
+    const { warnings } = buildSailwaveBlw(modified);
+    expect(warnings).toContainEqual({ code: 'laps', message: `Race ${race.raceNumber}'s lap counts are not carried; Sailwave corrects every boat over the laps it sailed.` });
+  });
+
   it('warns that boats drawn per fleet stay behind, exporting her own number', () => {
     const original = importFixture(`${HYC}/2026 Sat Cruisers Series 1.blw`);
     const [first, ...rest] = original.competitors;
