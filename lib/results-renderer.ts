@@ -385,6 +385,10 @@ export interface RaceResultData {
    *  recorded one. */
   elapsedTimeSecs?: number;
   correctedTimeSecs?: number; // elapsedTimeSecs × tcc, rounded half-up to the same unit
+  /** Mixed laps: the laps this boat sailed, set on every finisher of a fleet
+   *  whose boats sailed different numbers. A boat on fewer than the most was
+   *  corrected on the full course, so its CT is not its ET × TCF. */
+  laps?: number;
   /** RaceSense track data (published only on the series' opt-in). */
   trackData?: FinishTrackData;
   // NHC fields — only set for NHC fleets when explainability is enabled
@@ -2570,6 +2574,9 @@ function renderRaceTable(
   const hasExplain = race.nhcHeader != null;
   const hasEchoExplain = race.echoHeader != null;
   const hasHandicapCols = race.results.some((r) => r.tcc != null);
+  // A Laps column only where the boats in this table sailed different
+  // numbers — which is when the engine sets a count at all.
+  const hasLapsCol = hasHandicapCols && race.results.some((r) => r.laps != null);
   // Track-data columns are purely data-driven: the assembler only attaches
   // the fields when the series publishes them, and a column with no value in
   // this table (no line recorded → no DTL) simply isn't rendered. Handicap
@@ -2615,6 +2622,7 @@ function renderRaceTable(
       const pointsText = esc(raceResultPointsText(r));
       const handicapCells = hasHandicapCols
         ? [
+            ...(hasLapsCol ? [`<td class="mono">${r.laps ?? ''}</td>`] : []),
             `<td class="mono">${esc(r.finishTime ?? '')}</td>`,
             `<td class="mono">${r.elapsedTimeSecs != null ? formatElapsedInput(r.elapsedTimeSecs) : ''}</td>`,
             `<td class="mono"${r.ircCertNumber ? ` title="IRC certificate ${esc(r.ircCertNumber)}"` : ''}>${r.tcc != null ? r.tcc.toFixed(isOrcTod ? 1 : isOrcTot ? 4 : 3) : ''}${r.tccOverride ? '<span class="override-marker" title="Per-race rating override">*</span>' : ''}</td>`,
@@ -2664,6 +2672,7 @@ function renderRaceTable(
   const baseColCount = 4 + (showBowNumber ? 1 : 0) + (showEntryNumber ? 1 : 0) + (showTallyNumber ? 1 : 0) + (showBoatName ? 1 : 0) + (showBoatClass ? 1 : 0) + (showHelm ? 1 : 0) + (showOwner ? 1 : 0) + (showCrewColumn ? 1 : 0) + (showClub ? 1 : 0) + (showNationality ? 1 : 0) + (showWorldSailingId ? 1 : 0) + subdivisionAxes.length + (showAge ? 1 : 0) + (showGender ? 1 : 0);
   const colCount = baseColCount
     + (hasHandicapCols ? 5 : 0)
+    + (hasLapsCol ? 1 : 0)
     + (isOrcPcs ? 1 : 0)
     + (isNhc ? 1 : 0) + (hasExplain ? 5 : 0)
     + (isEcho ? 1 : 0) + (hasEchoExplain ? 3 : 0)
@@ -2673,10 +2682,10 @@ function renderRaceTable(
     .join('');
   const trackCols = trackColumns.map(() => '\n<col class="trackdata" />').join('');
   const handicapHeaders = hasHandicapCols
-    ? `\n<th>Finish</th>\n<th>ET</th>\n<th>${ratingLabel}</th>\n<th>CT</th>\n<th title="Corrected time behind the winner">Delta</th>`
+    ? `${hasLapsCol ? '\n<th title="Laps sailed. A boat on fewer than the most is corrected on the full course.">Laps</th>' : ''}\n<th>Finish</th>\n<th>ET</th>\n<th>${ratingLabel}</th>\n<th>CT</th>\n<th title="Corrected time behind the winner">Delta</th>`
     : '';
   const handicapCols = hasHandicapCols
-    ? `\n<col class="finish" />\n<col class="et" />\n<col class="${ratingColClass}" />\n<col class="ct" />\n<col class="delta" />`
+    ? `${hasLapsCol ? '\n<col class="laps" />' : ''}\n<col class="finish" />\n<col class="et" />\n<col class="${ratingColClass}" />\n<col class="ct" />\n<col class="delta" />`
     : '';
   // "New TCF" is always visible for NHC fleets (alongside Finish/ET/TCF/CT) —
   // it's the next-race rating, the headline output of progressive scoring, so
@@ -3423,7 +3432,7 @@ export function assembleSeriesResultsData(
     raceExcluded?: boolean[];
     raceNotScored?: boolean[];
   }>,
-  raceScoresByRaceId: Map<string, Map<string, { points: number; place: number | null; rank: number | null; resultCode: ResultCode | null; penaltyCode?: PenaltyCode | null; penaltyOverride?: number | null; penaltyLabel?: string; finishTime?: string | null; elapsedSecs?: number | null; trackData?: FinishTrackData | null; tcfApplied?: number | null; tccOverride?: boolean; newTcf?: number | null; elapsedTime?: number | null; correctedTime?: number | null; orc?: OrcRaceCalc; nhc?: { fairTcf: number; compScore: number; isExtreme: boolean; extremeDirection?: 'fast' | 'slow'; alphaApplied: number; provisionalTcf: number; adjustment: number }; echo?: { ctRatio: number; fairTcf: number; adjustment: number; alphaApplied: number } }>>,
+  raceScoresByRaceId: Map<string, Map<string, { points: number; place: number | null; rank: number | null; resultCode: ResultCode | null; penaltyCode?: PenaltyCode | null; penaltyOverride?: number | null; penaltyLabel?: string; finishTime?: string | null; elapsedSecs?: number | null; trackData?: FinishTrackData | null; tcfApplied?: number | null; tccOverride?: boolean; newTcf?: number | null; elapsedTime?: number | null; courseElapsedTime?: number; laps?: number; correctedTime?: number | null; orc?: OrcRaceCalc; nhc?: { fairTcf: number; compScore: number; isExtreme: boolean; extremeDirection?: 'fast' | 'slow'; alphaApplied: number; provisionalTcf: number; adjustment: number }; echo?: { ctRatio: number; fairTcf: number; adjustment: number; alphaApplied: number } }>>,
   competitorsById: Map<string, { sailNumber: string; bowNumber?: string; entryNumber?: string; tallyNumber?: string; boatName?: string; boatClass?: string; names: string[]; owners?: string[]; helms?: string[]; crewNames?: string[]; clubs?: string[]; nationality?: string; worldSailingId?: string; subdivisions?: Record<string, string>; gender?: 'M' | 'F' | ''; age?: number | null; ircTcc?: number; vprsTcc?: number; fixedTcf?: number; pyNumber?: number; orcCert?: OrcCertData; ircCert?: { certNumber?: string } }>,
   enabledCompetitorFields: CompetitorFieldKey[],
   generatedAt: Date,
@@ -3680,7 +3689,11 @@ export function assembleSeriesResultsData(
               ? {
                   pi: score.echo.fairTcf,
                   adjustment: score.echo.adjustment,
-                  ...(elapsedTimeSecs != null && elapsedTimeSecs > 0 ? { reciprocalEt: 1 / elapsedTimeSecs } : {}),
+                  // The handicap update worked from the full-course time.
+                  ...(() => {
+                    const et = score.courseElapsedTime ?? elapsedTimeSecs;
+                    return et != null && et > 0 ? { reciprocalEt: 1 / et } : {};
+                  })(),
                 }
               : {}),
           }
@@ -3731,6 +3744,7 @@ export function assembleSeriesResultsData(
         ...publishedCell(score, startSecs, { publishTrackData: showTrackData === true }),
         ...(elapsedTimeSecs != null ? { elapsedTimeSecs } : {}),
         ...(correctedTimeSecs != null ? { correctedTimeSecs } : {}),
+        ...(isHandicap && score.laps != null ? { laps: score.laps } : {}),
         ...(nhcCell ? { nhc: nhcCell } : {}),
         ...(echoCell ? { echo: echoCell } : {}),
       });

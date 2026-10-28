@@ -199,6 +199,7 @@ export const raceResultSchema = named(
     finishTime: z.string().optional().describe('Local `HH:MM:SS`.'),
     elapsed: z.string().optional().describe('Elapsed time as printed, `H:MM:SS`.'),
     corrected: z.string().optional().describe('Corrected time as printed, `H:MM:SS`.'),
+    laps: z.number().int().optional().describe('Laps of the course sailed, present on every finisher when the fleet sailed different numbers. A boat on fewer than the most was corrected on the full course: its `elapsed` is as sailed, scaled up by the most laps ÷ its laps before the rating was applied.'),
     rating: z.number().optional().describe('The rating applied in this race, headed as the fleet\'s `ratingLabel` says.'),
   }),
   'RaceResult',

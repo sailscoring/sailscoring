@@ -1045,6 +1045,8 @@ export async function buildFleetHtmlFiles(
       tcfApplied?: number | null;
       newTcf?: number | null;
       elapsedTime?: number | null;
+      courseElapsedTime?: number;
+      laps?: number;
       correctedTime?: number | null;
       orc?: OrcRaceCalc;
       nhc?: { fairTcf: number; compScore: number; isExtreme: boolean; extremeDirection?: 'fast' | 'slow'; alphaApplied: number; provisionalTcf: number; adjustment: number };
@@ -1095,6 +1097,8 @@ export async function buildFleetHtmlFiles(
                   trackData: finishByCompetitorId.get(id)?.trackData ?? null,
                   tcfApplied: s.tcfApplied,
                   newTcf: s.newTcf,
+                  ...(s.laps != null ? { laps: s.laps } : {}),
+                  ...(s.courseElapsedTime != null ? { courseElapsedTime: s.courseElapsedTime } : {}),
                   ...(s.nhc ? { nhc: s.nhc } : {}),
                 },
               ]),
@@ -1124,6 +1128,8 @@ export async function buildFleetHtmlFiles(
                   trackData: finishByCompetitorId.get(id)?.trackData ?? null,
                   tcfApplied: s.tcfApplied,
                   newTcf: s.newTcf,
+                  ...(s.laps != null ? { laps: s.laps } : {}),
+                  ...(s.courseElapsedTime != null ? { courseElapsedTime: s.courseElapsedTime } : {}),
                   ...(s.echo ? { echo: s.echo } : {}),
                 },
               ]),
@@ -1249,6 +1255,7 @@ export async function buildFleetHtmlFiles(
                 // recompute — required for time-on-distance corrected times.
                 ...('elapsedTime' in s ? { elapsedTime: (s as { elapsedTime: number | null }).elapsedTime } : {}),
                 ...('correctedTime' in s ? { correctedTime: (s as { correctedTime: number | null }).correctedTime } : {}),
+                ...('laps' in s && s.laps != null ? { laps: s.laps as number } : {}),
                 ...(orcCalcByComp?.has(id) ? { orc: orcCalcByComp.get(id) } : {}),
                 ...(overrideByComp.has(id) ? { tccOverride: true } : {}),
               },

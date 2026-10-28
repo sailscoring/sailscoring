@@ -486,6 +486,7 @@ function resultsSectionParts(
             ? { elapsed: formatElapsedInput(r.elapsedSecs) }
             : {}),
         ...(r.correctedTimeSecs != null ? { corrected: formatElapsedInput(r.correctedTimeSecs) } : {}),
+        ...(r.laps != null ? { laps: r.laps } : {}),
         ...(r.tcc != null ? { rating: r.tcc } : {}),
       })),
     };
