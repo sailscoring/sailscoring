@@ -298,6 +298,7 @@ function finishRowToType(row: FinishRow): Finish {
     tiedWithPrevious: row.tiedWithPrevious,
     ...(row.finishTime != null ? { finishTime: row.finishTime } : {}),
     ...(row.elapsedSecs != null ? { elapsedSecs: row.elapsedSecs } : {}),
+    ...(row.laps != null ? { laps: row.laps } : {}),
     ...(row.trackData != null ? { trackData: row.trackData } : {}),
     resultCode: row.resultCode as ResultCode | null,
     startPresent: row.startPresent,
@@ -2088,6 +2089,7 @@ function finishToRow(f: Finish) {
     tiedWithPrevious: f.tiedWithPrevious,
     finishTime: f.finishTime ?? null,
     elapsedSecs: f.elapsedSecs ?? null,
+    laps: f.laps ?? null,
     trackData: f.trackData ?? null,
     resultCode: f.resultCode,
     startPresent: f.startPresent,
@@ -2106,7 +2108,7 @@ function finishToRow(f: Finish) {
 
 const finishUpdateColumns = [
   'competitorId', 'unknownSailNumber', 'matchedOn', 'enteredSailNumber', 'sortOrder', 'tiedWithPrevious',
-  'finishTime', 'elapsedSecs', 'trackData', 'resultCode', 'startPresent', 'penaltyCode', 'penaltyOverride',
+  'finishTime', 'elapsedSecs', 'laps', 'trackData', 'resultCode', 'startPresent', 'penaltyCode', 'penaltyOverride',
   'penaltyLabel', 'penaltyOverrideByFleet', 'redressMethod', 'redressExcludeRaceIds', 'redressIncludeRaceIds',
   'redressIncludeAllLater', 'redressPoints', 'redressPointsByFleet',
 ] as const satisfies readonly (keyof ReturnType<typeof finishToRow>)[];

@@ -22,6 +22,7 @@ export function makeFinish(
     tiedWithPrevious: overrides.tiedWithPrevious ?? false,
     ...(overrides.finishTime != null ? { finishTime: overrides.finishTime } : {}),
     ...(overrides.elapsedSecs != null ? { elapsedSecs: overrides.elapsedSecs } : {}),
+    ...(overrides.laps != null ? { laps: overrides.laps } : {}),
     ...(overrides.trackData != null ? { trackData: overrides.trackData } : {}),
     resultCode: overrides.resultCode ?? null,
     startPresent: overrides.startPresent ?? null,

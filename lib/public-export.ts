@@ -192,7 +192,7 @@ export interface PublicSeriesExport {
    *  `course` and `waypoints` (ADR-013, `lib/course-library-upgrade.ts`),
    *  which an export from v2 on could carry. Readers accept them all,
    *  bringing an older export's courses forward as they read it. */
-  version: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11;
+  version: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;
   /** Where the format, and what a reader may rely on, is documented. Written
    *  into every export so a reader handed only the file can find the
    *  contract. Optional: exports written before it was added lack it. */
@@ -519,6 +519,12 @@ export interface PublicSeriesExport {
        *  display opt-in would make a re-import score the race differently.
        *  Whether the *column* is shown stays the opt-in's decision. */
       elapsedSecs?: number;
+      /** Laps of the course the boat sailed, when its fleet did not all sail
+       *  the same number (v12+). Absent is the full course: the most laps any
+       *  boat ranked alongside it sailed. A scoring input — a boat on fewer
+       *  laps has its elapsed time scaled up to the full course before
+       *  correction. */
+      laps?: number;
       /** RaceSense track data. Present only when the series publishes it
        *  (`series.publishTrackData`) — this export is published output. */
       trackData?: FinishTrackData;
@@ -1209,6 +1215,7 @@ export function buildPublicExportFromSnapshot(
           ...(finish?.tiedWithPrevious ? { tiedWithPrevious: true } : {}),
           ...(finish?.finishTime ? { finishTime: finish.finishTime } : {}),
           ...(finish?.elapsedSecs != null ? { elapsedSecs: finish.elapsedSecs } : {}),
+          ...(finish?.laps != null ? { laps: finish.laps } : {}),
           ...(publishTrackData && finish?.trackData ? { trackData: finish.trackData } : {}),
           resultCode: score.resultCode,
           startPresent: finish?.startPresent ?? null,
@@ -1326,7 +1333,7 @@ export function buildPublicExportFromSnapshot(
     : undefined;
 
   return {
-    version: 11 as const,
+    version: 12 as const,
     formatDoc: PUBLIC_EXPORT_FORMAT_DOC,
     exportedAt: (opts?.exportedAt ?? new Date()).toISOString(),
     timeZone: instanceTimeZone(),
@@ -1601,7 +1608,7 @@ function importExportPrizes(
 /** Export format versions this build can read. A file written by a newer
  *  build is refused rather than half-read: the version is what says which
  *  fields mean what. Mirrors `SUPPORTED_FORMAT_VERSIONS` on the file side. */
-const SUPPORTED_EXPORT_VERSIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+const SUPPORTED_EXPORT_VERSIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
 /**
  * Parse the text of a published `.sailscoring.json` data file.
@@ -2048,6 +2055,7 @@ export async function importPublicExport(
         tiedWithPrevious: finish.tiedWithPrevious ?? false,
         ...(finish.finishTime ? { finishTime: finish.finishTime } : {}),
         ...(finish.elapsedSecs != null ? { elapsedSecs: finish.elapsedSecs } : {}),
+        ...(finish.laps != null ? { laps: finish.laps } : {}),
         ...(finish.trackData ? { trackData: finish.trackData } : {}),
         resultCode: finish.resultCode,
         startPresent: finish.startPresent,

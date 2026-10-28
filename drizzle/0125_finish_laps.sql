@@ -1,0 +1,1 @@
+ALTER TABLE "finishes" ADD COLUMN "laps" integer;

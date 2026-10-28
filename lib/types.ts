@@ -1183,6 +1183,13 @@ export interface Finish {
   // When a row carries both this and `finishTime`, this wins — it is the
   // measurement, and the time of day is derived from it.
   elapsedSecs?: number;
+  // How many laps of the course the boat sailed, when its fleet did not all
+  // sail the same number — a slow boat sent round once while the rest go
+  // round twice. Absent means the full course. The full course is the most
+  // laps any boat ranked alongside this one sailed, and a boat on fewer has
+  // its elapsed time scaled up to it before correction.
+  // A boat that finishes a lap down has an ordinary finish, not a code.
+  laps?: number;
   trackData?: FinishTrackData;    // how the boat sailed the race (RaceSense import); display-only, never scored
   resultCode: ResultCode | null;  // null if sortOrder is set (RDG may coexist with sortOrder)
   startPresent: boolean | null;   // true if observed in starting area; null if not recorded

@@ -612,9 +612,16 @@ export interface SeriesFileRepos {
  *  and names each of them after the marks it runs between where they are
  *  the waypoints' own one for one. Presentational only: `courseLegs` is
  *  what is scored, and is kept, so every older file scores identically; its
- *  drawing walks the legs from the anchor rather than showing the marks. */
-export const FORMAT_VERSION = 71;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71];
+ *  drawing walks the legs from the anchor rather than showing the marks.
+ *
+ *  v72 adds `finishes[*].laps`, the laps of the course a boat sailed when its
+ *  fleet did not all sail the same number. Sparse — absent is the full
+ *  course — but a scoring input: a boat on fewer laps has its elapsed time
+ *  scaled up to the full course before correction, so an older build reading
+ *  a v72 file would correct it over the laps it sailed and rank it far ahead
+ *  of where it finished. Hence a bump rather than a ride-along. */
+export const FORMAT_VERSION = 72;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -800,6 +807,7 @@ interface SeriesFileFinish {
   tiedWithPrevious?: boolean;
   finishTime?: string;
   elapsedSecs?: number;  // v41+; seconds, fractional part kept
+  laps?: number;  // v72+; laps sailed, absent for the full course
   /** v39+; RaceSense track data, carried verbatim. v39 and v40 files carry
    *  the elapsed time here instead; `fileFinishElapsedSecs` reads either. */
   trackData?: FinishTrackData & { elapsedSecs?: number };
@@ -997,6 +1005,7 @@ export async function buildSeriesFile(
       ...(f.tiedWithPrevious ? { tiedWithPrevious: true } : {}),
       ...(f.finishTime ? { finishTime: f.finishTime } : {}),
       ...(f.elapsedSecs != null ? { elapsedSecs: f.elapsedSecs } : {}),
+      ...(f.laps != null ? { laps: f.laps } : {}),
       ...(f.trackData ? { trackData: f.trackData } : {}),
       resultCode: f.resultCode,
       startPresent: f.startPresent,
@@ -2312,6 +2321,7 @@ async function writeFleetsCompetitorsRaces(
             const elapsed = fileFinishElapsedSecs(f);
             return elapsed != null ? { elapsedSecs: elapsed } : {};
           })(),
+          ...(f.laps != null ? { laps: f.laps } : {}),
           ...(() => {
             const track = fileFinishTrackData(f);
             return track ? { trackData: track } : {};

@@ -45,6 +45,8 @@ export const finishSchema = z.object({
   // duration, and a negative one is a transcription error, not a boat that
   // finished before the gun.
   elapsedSecs: z.number().finite().nonnegative().optional(),
+  // Whole laps, at least one: a boat that didn't complete a lap didn't finish.
+  laps: z.number().int().positive().optional(),
   trackData: finishTrackDataSchema.optional(),
   resultCode: resultCodeSchema.nullable(),
   startPresent: z.boolean().nullable(),

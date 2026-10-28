@@ -1169,6 +1169,9 @@ export const finishes = pgTable(
     // Elapsed time in seconds, fractional part kept, when that is what was
     // recorded. Real rather than integer: RaceSense measures to milliseconds.
     elapsedSecs: real('elapsed_secs'),
+    // Laps of the course sailed, when the fleet sailed different numbers.
+    // Null means the full course.
+    laps: integer('laps'),
     // How the boat sailed the race (RaceSense import): distance sailed,
     // speeds, distance to line. Display-only, never queried by content.
     // Nullable — absent for hand-entered rows.

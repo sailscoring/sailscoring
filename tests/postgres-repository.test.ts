@@ -727,6 +727,13 @@ describe.skipIf(skip)('postgres repositories', () => {
     const afterLabel = await repos.finishes.listByRace(race.id);
     expect(afterLabel[0]).toMatchObject({ penaltyCode: 'DPI', penaltyOverride: 2, penaltyLabel: 'TPO' });
 
+    // A lap count is a scoring input: a boat on one lap of two has its
+    // elapsed time doubled before correction, so it must survive the trip.
+    await repos.finishes.save({ ...named, laps: 1, version: afterLabel[0].version });
+    const afterLaps = await repos.finishes.listByRace(race.id);
+    expect(afterLaps[0].laps).toBe(1);
+    expect('laps' in byRace[0]).toBe(false);
+
     // An unknown-sail crossing (null competitorId) must come back from the
     // whole-series read alongside the resolved finish.
     const unknown: Finish = {
