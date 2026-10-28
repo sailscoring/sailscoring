@@ -216,10 +216,9 @@ export default function RatingSystems() {
           <strong className="text-foreground">Settings</strong> tab. The option is a
           per-race choice in the end: each race start can name the option the race
           committee announced for that race — a coastal race scored on a single
-          number in a series otherwise on curves, say — with the{' '}
-          <strong className="text-foreground">Scoring option</strong> select on the
-          race start; the fleet setting simply fills in when a start doesn’t
-          say. The simple options read one published number off the certificate:{' '}
+          number in a series otherwise on curves, say — under{' '}
+          <strong className="text-foreground">Scoring option</strong> on the race
+          start; the fleet setting simply fills in when a start doesn’t say. The simple options read one published number off the certificate:{' '}
           <strong className="text-foreground">all-purpose time-on-time</strong> (APHT)
           works exactly like an IRC TCC, and the{' '}
           <strong className="text-foreground">time-on-distance</strong> options instead
@@ -233,11 +232,25 @@ export default function RatingSystems() {
           <strong className="text-foreground">wind bands</strong>: certificates
           also publish their ratings per wind strength — the triple numbers, and
           national sets like the Irish five-band windward/leeward options. Every
-          band field the imported certificates carry is offered in the same
-          scoring-option selects, so picking the band the race committee announced
-          is just picking that race’s option. Changing a start’s option
-          later re-scores the race without re-entering finishes, and the published
-          race table names the option applied.
+          band field the imported certificates carry can be chosen, so picking the
+          band the race committee announced is just picking that race’s option.
+          Changing a start’s option later re-scores the race without re-entering
+          finishes, and the published race table names the option applied.
+        </p>
+        <p>
+          On a race start, choosing <strong className="text-foreground">This start</strong>{' '}
+          sets the option in rows rather than from one long list:{' '}
+          <strong className="text-foreground">Applied</strong> (time-on-time,
+          time-on-distance or performance curves), the{' '}
+          <strong className="text-foreground">Course</strong>,{' '}
+          <strong className="text-foreground">Numbers</strong> where the course comes as
+          a single number and as banded sets, and the{' '}
+          <strong className="text-foreground">Band</strong>. Changing one row keeps the
+          others wherever the certificates allow, so a new band, a round-the-cans day
+          after a windward/leeward one, or a switch to curves is one change, and
+          time-on-time is never swapped for time-on-distance by a misclick. A
+          new start begins with the previous start’s option, so the usual race day
+          means changing the band, or nothing at all.
         </p>
         <p>
           The options are named the way the certificate names them —{' '}
