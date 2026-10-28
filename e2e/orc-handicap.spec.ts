@@ -802,7 +802,7 @@ test('ORC fleet: the start option switches one race to performance curves', asyn
   // The start listing names the option it overrides the fleet default with.
   await expect(
     page.getByTitle('ORC scoring option for this start (overrides the fleet default)'),
-  ).toHaveText('WL');
+  ).toHaveText('Windward/leeward · performance curve (PCS)');
 
   await page.getByRole('link', { name: 'Standings' }).click();
   await expect(page.getByRole('row').nth(1)).toContainText('IRL 1551');

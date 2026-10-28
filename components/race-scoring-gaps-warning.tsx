@@ -2,7 +2,7 @@ import { AlertTriangle } from 'lucide-react';
 
 import type { Fleet, OrcScoringOptionCatalog, RaceScoringGap } from '@/lib/types';
 import { ratingSystemLabel } from '@/lib/competitor-ratings';
-import { orcConstructedOption, orcOptionLabel, orcRecordedWindOption } from '@/lib/orc-certificate';
+import { orcCourseGapClause } from '@/lib/orc-certificate';
 
 export interface RaceScoringGapsWarningProps {
   gaps: RaceScoringGap[];
@@ -33,18 +33,7 @@ export function RaceScoringGapsWarning({ gaps, races, fleet, orcScoringOptions }
   }
 
   function describe(gap: RaceScoringGap): string {
-    const option = gap.option ?? '';
-    // A recorded-wind option needs the wind speed on every leg, so the
-    // course can be there and still be short of what it takes to score.
-    if (orcRecordedWindOption(option)) {
-      return `${name(gap)} is scored on a constructed course at the recorded wind, but its start has no course, or a leg of it with no wind speed`;
-    }
-    if (orcConstructedOption(option)) {
-      return `${name(gap)} is scored on a constructed course, but its start has no course`;
-    }
-    // Named as the certificate names it, not by its JSON field (#602).
-    const label = gap.option ? orcOptionLabel(gap.option, orcScoringOptions) : 'an option';
-    return `${name(gap)} is scored on ${label}, which corrects over the course distance, but its start records none`;
+    return `${name(gap)} ${orcCourseGapClause(gap.option, orcScoringOptions)}`;
   }
 
   const missing = gaps.filter((g) => g.reason === 'orc_course_missing');

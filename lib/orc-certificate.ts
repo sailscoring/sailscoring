@@ -274,6 +274,35 @@ export function orcOptionName(option: string, catalog?: OrcScoringOptionCatalog)
   return catalog?.[option]?.name ?? option;
 }
 
+/**
+ * Why a race scored on `option` can't be scored yet, as the rest of a
+ * sentence whose subject is the race: "is scored on 5-Band All Purpose L/M ·
+ * time-on-distance, which corrects over the course distance, but its start
+ * records none". It names the option, and says what kind it is, because the
+ * likeliest cause is a time-on-distance option picked for its time-on-time
+ * twin, and a scorer who believes the start is time-on-time can't see that
+ * from "the start has no course". With the start's gun time, the start is
+ * named by it, so the scorer knows which one to open.
+ */
+export function orcCourseGapClause(
+  option: string | undefined,
+  catalog?: OrcScoringOptionCatalog,
+  startTime?: string,
+): string {
+  const start = startTime ? `its ${startTime.endsWith(':00') ? startTime.slice(0, 5) : startTime} start` : 'its start';
+  const opt = option ?? '';
+  // A recorded-wind option needs the wind speed on every leg, so the
+  // course can be there and still be short of what it takes to score.
+  if (orcRecordedWindOption(opt)) {
+    return `is scored on a constructed course at the recorded wind, but ${start} has no course, or a leg of it with no wind speed`;
+  }
+  if (orcConstructedOption(opt)) {
+    return `is scored on a constructed course, but ${start} has no course`;
+  }
+  const label = option ? orcOptionLabel(option, catalog) : 'an option';
+  return `is scored on ${label}, which corrects over the course distance, but ${start} records none`;
+}
+
 const ORC_KIND_LABEL: Record<'tot' | 'tod' | 'pcs', string> = {
   tot: 'time-on-time',
   tod: 'time-on-distance',

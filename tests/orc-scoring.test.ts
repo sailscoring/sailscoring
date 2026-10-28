@@ -3,7 +3,7 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { mergeOrcScoringOptions, orcFieldKind, orcScoringOptionsWouldChange, orcFleetProfile, orcOptionLabel, orcSelectableOptions, orcTotRating, parseOrcRmsJson } from '@/lib/orc-certificate';
+import { mergeOrcScoringOptions, orcCourseGapClause, orcFieldKind, orcScoringOptionsWouldChange, orcFleetProfile, orcOptionLabel, orcSelectableOptions, orcTotRating, parseOrcRmsJson } from '@/lib/orc-certificate';
 import { scorePcsRace, type PcsAllowances } from '@/lib/orc-pcs';
 import { calculateFleetStandings, calculateHandicapRaceScores } from '@/lib/scoring';
 import type { Competitor, Finish, Fleet, OrcCertData, Race, RaceStart } from '@/lib/types';
@@ -578,6 +578,21 @@ describe('ORC wind-band selection (per-start option)', () => {
     expect(orcOptionLabel('XX_MADE_UP_TOT', catalog)).toBe('XX_MADE_UP_TOT');
     // And with no catalog at all, everything reads as it did before.
     expect(orcOptionLabel('IRL_5B_WL_M_TOT')).toBe('IRL_5B_WL_M_TOT');
+  });
+
+  it('says why a race waits for its course, naming the option and its kind', () => {
+    const { scoringOptions } = parseOrcRmsJson(
+      readFileSync(join(process.cwd(), 'tests/fixtures/orc/downrms-irl-sample.json'), 'utf-8'),
+    );
+    const catalog = mergeOrcScoringOptions(undefined, scoringOptions);
+    // A time-on-distance option picked for its time-on-time twin is the
+    // likeliest cause, so the kind is in the sentence, and the start is
+    // named by its gun time.
+    expect(orcCourseGapClause('IRL_5B_WL_LM_TOD', catalog, '12:38:00')).toBe(
+      'is scored on 5-Band 50-50 Windward/Leeward L/M · time-on-distance, which corrects over the course distance, but its 12:38 start records none',
+    );
+    expect(orcCourseGapClause('CC', catalog)).toBe('is scored on a constructed course, but its start has no course');
+    expect(orcCourseGapClause('CC_TOT', catalog, '14:05:30')).toContain('its 14:05:30 start has no course');
   });
 
   it('merges a second office\'s catalog rather than replacing the first', () => {

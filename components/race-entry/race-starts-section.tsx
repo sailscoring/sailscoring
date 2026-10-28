@@ -9,7 +9,9 @@ import {
   type RaceStartDialogMode,
   type RaceStartDraft,
 } from '@/components/race-start-dialog';
+import { OrcOptionValue } from '@/components/orc-option-items';
 import { useDeleteRaceStart, useSaveRaceStart } from '@/hooks/use-race-starts';
+import { useSeries } from '@/hooks/use-series';
 import { recordedWindSummary } from '@/lib/course-geometry';
 import type { Competitor, Fleet, RaceStart } from '@/lib/types';
 
@@ -46,6 +48,8 @@ export const RaceStartsSection = forwardRef<RaceStartsSectionHandle, {
   const deleteRaceStartMutation = useDeleteRaceStart();
   const [startsExpanded, setStartsExpanded] = useState(false);
   const [startDialogMode, setStartDialogMode] = useState<RaceStartDialogMode | null>(null);
+  // The catalog names a start's ORC option as the certificate does.
+  const { data: series } = useSeries(seriesId, { enabled: raceStarts.some((s) => s.orcOption) });
 
   function openAddStart() {
     setStartsExpanded(true);
@@ -160,8 +164,8 @@ export const RaceStartsSection = forwardRef<RaceStartsSectionHandle, {
                   </span>
                 )}
                 {s.orcOption && (
-                  <span className="font-mono text-xs text-muted-foreground" title="ORC scoring option for this start (overrides the fleet default)">
-                    {s.orcOption}
+                  <span className="text-xs text-muted-foreground" title="ORC scoring option for this start (overrides the fleet default)">
+                    <OrcOptionValue option={s.orcOption} catalog={series?.orcScoringOptions} />
                   </span>
                 )}
                 <span className="text-muted-foreground">—</span>

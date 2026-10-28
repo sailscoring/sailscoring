@@ -32,6 +32,7 @@ import {
   type PublishPage,
 } from '@/lib/publish-pages';
 import { Pencil, StickyNote } from 'lucide-react';
+import { orcCourseGapClause } from '@/lib/orc-certificate';
 import {
   describePageNoteKey,
   orphanedPageNotes,
@@ -50,7 +51,7 @@ import { useFeatures } from '@/components/features-provider';
 import { FtpSettingsPane } from '@/components/ftp-settings-pane';
 import { configuredFtpPaths, resolveFtpServerId } from '@/lib/ftp-publish';
 import { useFtpServers } from '@/hooks/use-ftp-servers';
-import type { Fleet, FtpPublishOutcome, PublicationStatus, Series } from '@/lib/types';
+import type { Fleet, FtpPublishOutcome, OrcScoringOptionCatalog, PublicationStatus, Series } from '@/lib/types';
 
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '');
 
@@ -62,6 +63,10 @@ export interface UnscoredRaceNote {
   fleetId: string;
   fleetName: string;
   raceLabel: string;
+  /** The ORC scoring option the race resolved to, so the refusal can name it. */
+  option?: string;
+  /** The gun time of the start the fleet sailed in, naming the start to open. */
+  startTime?: string;
 }
 
 export interface PublishDialogProps {
@@ -102,6 +107,23 @@ function formatNameList(names: string[]): string {
   if (names.length === 0) return 'another series';
   if (names.length === 1) return names[0];
   return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+}
+
+/** What the refusal says about the races holding a publish: one sentence per
+ *  start, naming the option it is scored on and the start to open. Fleets
+ *  sharing a start share its sentence. */
+function describeHeldRaces(notes: UnscoredRaceNote[], catalog?: OrcScoringOptionCatalog): string[] {
+  const byStart = new Map<string, { note: UnscoredRaceNote; fleets: string[] }>();
+  for (const note of notes) {
+    const key = [note.raceLabel, note.startTime ?? '', note.option ?? ''].join('\u0000');
+    const entry = byStart.get(key);
+    if (entry) entry.fleets.push(note.fleetName);
+    else byStart.set(key, { note, fleets: [note.fleetName] });
+  }
+  return [...byStart.values()].map(
+    ({ note, fleets }) =>
+      `${note.raceLabel} (${formatNameList(fleets)}) is not scored yet: it ${orcCourseGapClause(note.option, catalog, note.startTime)}.`,
+  );
 }
 
 /** One page row's state in the dialog — a fleet, or a combined page (its
@@ -1523,10 +1545,8 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, unscored 
             {heldSelected && (
               <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 space-y-2">
                 <p className="text-sm text-destructive">
-                  {formatNameList(heldNow.map((u) => `${u.raceLabel} (${u.fleetName})`))}{' '}
-                  {heldNow.length === 1 ? 'is' : 'are'} not scored yet — the start has no course for
-                  the fleet&apos;s scoring option to correct over. Enter the course, or publish the
-                  races that are scored.
+                  {describeHeldRaces(heldNow, series.orcScoringOptions).join(' ')} Enter the course,
+                  or change the race&apos;s scoring option, or publish the races that are scored.
                 </p>
                 <label className="flex items-start gap-2 text-sm text-destructive">
                   <input

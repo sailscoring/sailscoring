@@ -306,12 +306,15 @@ export default function StandingsPage({
       .filter((g) => g.reason === 'orc_course_missing')
       .map((g) => {
         const race = raceLabels.find((r) => r.id === g.raceId);
+        const start = allRaceStarts.find((s) => s.raceId === g.raceId && s.fleetIds.includes(fleet.id));
         return {
           fleetId: fleet.id,
           fleetName: fleet.name,
           raceLabel: race
             ? `Race ${race.raceNumber}${race.name ? ` (${race.name})` : ''}`
             : 'A race',
+          ...(g.option ? { option: g.option } : {}),
+          ...(start?.startTime ? { startTime: start.startTime } : {}),
         };
       }),
   );
