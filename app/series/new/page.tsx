@@ -17,6 +17,7 @@ import {
 import { generateUniquePlaceholderName } from '@/lib/placeholder-names';
 import { isDuplicateSeriesName } from '@/lib/series-name';
 import { log } from '@/lib/debug';
+import { describeWriteFailure } from '@/lib/write-failure';
 
 async function doCreateSeries(
   repo: SeriesRepository,
@@ -81,7 +82,7 @@ function NewSeriesContent() {
       router.push(`/series/${id}/setup`);
     }).catch((err) => {
       console.error(err);
-      setError('Failed to create series.');
+      setError(describeWriteFailure(err));
     });
   }, [isQuick, router, queryClient]);
 
@@ -114,7 +115,7 @@ function NewSeriesContent() {
       router.push(`/series/${id}/competitors`);
     } catch (err) {
       console.error(err);
-      setError('Failed to save series. Please try again.');
+      setError(describeWriteFailure(err));
       setSaving(false);
     }
   }

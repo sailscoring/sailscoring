@@ -26,6 +26,7 @@ import { ratingSystemLabel, requiredForFleetsHint } from '@/lib/competitor-ratin
 import { orcCertificatePageUrl } from '@/lib/orc-certificate';
 import { formatRelativeTime } from '@/lib/relative-time';
 import { isValidWorldSailingId, normalizeWorldSailingId } from '@/lib/world-sailing';
+import { describeWriteFailure } from '@/lib/write-failure';
 import type { CompetitorFieldKey, Fleet, MultiPersonFieldKey, OrcCertData, PrimaryPersonLabel, SubdivisionAxis } from '@/lib/types';
 
 export interface CompetitorFormData {
@@ -331,8 +332,8 @@ export function CompetitorForm({
     setError('');
     try {
       await onSave({ ...data, sailNumber: sailUpper });
-    } catch {
-      setError('Failed to save. Please try again.');
+    } catch (err) {
+      setError(describeWriteFailure(err));
       setSaving(false);
     }
   }

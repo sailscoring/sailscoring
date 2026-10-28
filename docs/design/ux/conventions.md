@@ -83,9 +83,12 @@ what to do**:
 > Someone else changed this since you opened it. Reload, then try again.
 
 Start with "Couldn’t …" (most of the app says "Could not" or "Couldn’t"),
-not "Failed to … Please try again.", which a handful of older forms still
-use. When the server says why, pass its message on rather than replacing it
-with a generic one: its errors are written for the scorer.
+never "Failed to … Please try again.". A change that didn't save goes
+through `describeWriteFailure` (`lib/write-failure.ts`), which words it by
+cause: no permission, a read-only series, no connection, a fault on our end.
+"Try again" alone tells the scorer to repeat something that may be
+pointless. When the server says why, pass its message on rather than
+replacing it with a generic one: its errors are written for the scorer.
 
 **Apostrophes are curly** (`’`) in UI text, as in most of the app.
 

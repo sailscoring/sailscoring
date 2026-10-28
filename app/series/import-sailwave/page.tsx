@@ -32,6 +32,7 @@ import {
   type SailwaveRaw,
   type ScoringSystem,
 } from '@/lib/sailwave-import';
+import { describeWriteFailure } from '@/lib/write-failure';
 import {
   PRIMARY_PERSON_LABELS,
   PRIMARY_PERSON_LABEL_TEXT,
@@ -265,7 +266,7 @@ function Wizard({
         setSubmitError(err.message);
       } else {
         console.error(err);
-        setSubmitError('Failed to import. Please try again.');
+        setSubmitError(describeWriteFailure(err));
       }
       setSubmitting(false);
     }

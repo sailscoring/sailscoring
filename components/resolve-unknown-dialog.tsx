@@ -19,6 +19,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { displayCompetitorLabel } from '@/lib/competitor-fields';
 import { competitorMatchesFilter } from '@/lib/competitor-filter';
+import { describeWriteFailure } from '@/lib/write-failure';
 import type { Competitor, CompetitorFieldKey, Fleet } from '@/lib/types';
 
 export interface ResolveUnknownDialogProps {
@@ -104,7 +105,7 @@ function ResolveUnknownDialogInner({
       await onResolveNew({ sailNumber: trimmedSail, name: trimmedName, fleetId });
     } catch (err) {
       console.error(err);
-      setError('Failed to add competitor. Please try again.');
+      setError(describeWriteFailure(err));
       setSubmitting(false);
     }
   }
