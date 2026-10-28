@@ -19,7 +19,7 @@
  */
 
 import { ORC_STANDARD_OPTIONS } from '@/lib/orc-certificate';
-import type { OrcProfile, OrcScoringOptionCatalog } from '@/lib/types';
+import type { OrcProfile, OrcScoringOptionCatalog, RaceStart } from '@/lib/types';
 
 export type OrcKind = OrcProfile['kind'];
 
@@ -260,6 +260,33 @@ export function orcChoiceRows(
   }
   bands.sort((a, b) => (BAND_RANK.get(a.key) ?? 99) - (BAND_RANK.get(b.key) ?? 99));
   return { kinds, courses, numbers, bands };
+}
+
+/**
+ * The option a new start begins with: the previous start's. That is the
+ * latest ORC start already in this race, else the latest in the most recent
+ * earlier race that has one — and whatever it holds, the fleet default
+ * included, since a series on its fleets' defaults should stay there. A race
+ * day usually keeps the option, and when it doesn't, the rows make the
+ * change one click from where the last start left off.
+ */
+export function orcOptionToCopy(
+  race: { id: string; raceNumber: number },
+  races: ReadonlyArray<{ id: string; raceNumber: number }>,
+  starts: ReadonlyArray<Pick<RaceStart, 'raceId' | 'fleetIds' | 'startTime' | 'orcOption'>>,
+  orcFleetIds: ReadonlySet<string>,
+): string | undefined {
+  const order = [
+    race,
+    ...races.filter((r) => r.raceNumber < race.raceNumber).sort((a, b) => b.raceNumber - a.raceNumber),
+  ];
+  for (const r of order) {
+    const orcStarts = starts
+      .filter((s) => s.raceId === r.id && s.fleetIds.some((id) => orcFleetIds.has(id)))
+      .sort((a, b) => (a.startTime ?? '').localeCompare(b.startTime ?? ''));
+    if (orcStarts.length > 0) return orcStarts[orcStarts.length - 1].orcOption;
+  }
+  return undefined;
 }
 
 /** What the Numbers row calls a set of a given size. */

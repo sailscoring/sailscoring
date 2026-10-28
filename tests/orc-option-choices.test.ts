@@ -8,6 +8,7 @@ import {
   orcChoiceOf,
   orcChoiceRows,
   orcOptionChoices,
+  orcOptionToCopy,
   orcSettleChoice,
   type OrcChoiceSelection,
 } from '@/lib/orc-option-choices';
@@ -118,5 +119,41 @@ describe('orcChoiceRows', () => {
     ]);
     expect(rows.numbers).toEqual([3, 5]);
     expect(rows.bands.map((b) => b.label)).toEqual(['Low', 'L/M', 'Med', 'M/H', 'High']);
+  });
+});
+
+describe('orcOptionToCopy', () => {
+  const races = [
+    { id: 'r1', raceNumber: 1 },
+    { id: 'r2', raceNumber: 2 },
+    { id: 'r3', raceNumber: 3 },
+  ];
+  const orc = new Set(['orc1', 'orc2']);
+
+  it('copies the latest ORC start in this race first', () => {
+    const starts = [
+      { raceId: 'r2', fleetIds: ['orc1'], startTime: '12:30:00', orcOption: 'IRL_AP_M_TOT' },
+      { raceId: 'r3', fleetIds: ['orc1'], startTime: '12:30:00', orcOption: 'IRL_5B_WL_LM_TOT' },
+      { raceId: 'r3', fleetIds: ['orc2'], startTime: '12:38:00', orcOption: 'IRL_5B_WL_L_TOT' },
+      // A later start with no ORC fleet says nothing about the option.
+      { raceId: 'r3', fleetIds: ['irc'], startTime: '12:50:00' },
+    ];
+    expect(orcOptionToCopy(races[2], races, starts, orc)).toBe('IRL_5B_WL_L_TOT');
+  });
+
+  it('else the most recent earlier race with an ORC start', () => {
+    const starts = [
+      { raceId: 'r1', fleetIds: ['orc1'], startTime: '12:30:00', orcOption: 'APHT' },
+      { raceId: 'r2', fleetIds: ['orc1'], startTime: '12:30:00', orcOption: 'IRL_AP_M_TOT' },
+    ];
+    expect(orcOptionToCopy(races[2], races, starts, orc)).toBe('IRL_AP_M_TOT');
+  });
+
+  it('copies the fleet default too, rather than reaching past it', () => {
+    const starts = [
+      { raceId: 'r1', fleetIds: ['orc1'], startTime: '12:30:00', orcOption: 'IRL_AP_M_TOT' },
+      { raceId: 'r2', fleetIds: ['orc1'], startTime: '12:30:00' },
+    ];
+    expect(orcOptionToCopy(races[2], races, starts, orc)).toBeUndefined();
   });
 });

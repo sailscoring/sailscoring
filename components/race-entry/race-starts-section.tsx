@@ -10,9 +10,11 @@ import {
   type RaceStartDraft,
 } from '@/components/race-start-dialog';
 import { OrcOptionValue } from '@/components/orc-option-items';
-import { useDeleteRaceStart, useSaveRaceStart } from '@/hooks/use-race-starts';
+import { useDeleteRaceStart, useRaceStartsBySeries, useSaveRaceStart } from '@/hooks/use-race-starts';
+import { useRacesBySeries } from '@/hooks/use-races';
 import { useSeries } from '@/hooks/use-series';
 import { recordedWindSummary } from '@/lib/course-geometry';
+import { orcOptionToCopy } from '@/lib/orc-option-choices';
 import type { Competitor, Fleet, RaceStart } from '@/lib/types';
 
 export interface RaceStartsSectionHandle {
@@ -50,6 +52,19 @@ export const RaceStartsSection = forwardRef<RaceStartsSectionHandle, {
   const [startDialogMode, setStartDialogMode] = useState<RaceStartDialogMode | null>(null);
   // The catalog names a start's ORC option as the certificate does.
   const { data: series } = useSeries(seriesId, { enabled: raceStarts.some((s) => s.orcOption) });
+  // A new start begins from the previous start's ORC option: this race's
+  // own starts, else the series' earlier races'.
+  const orcFleetIds = new Set(fleets.filter((f) => f.scoringSystem === 'orc').map((f) => f.id));
+  const { data: seriesStarts } = useRaceStartsBySeries(seriesId, { enabled: orcFleetIds.size > 0 });
+  const { data: seriesRaces } = useRacesBySeries(seriesId);
+  const copiedOrcOption = race && orcFleetIds.size > 0
+    ? orcOptionToCopy(
+        { id: raceId, raceNumber: race.raceNumber },
+        seriesRaces ?? [],
+        [...raceStarts, ...(seriesStarts ?? []).filter((s) => s.raceId !== raceId)],
+        orcFleetIds,
+      )
+    : undefined;
 
   function openAddStart() {
     setStartsExpanded(true);
@@ -190,6 +205,7 @@ export const RaceStartsSection = forwardRef<RaceStartsSectionHandle, {
         raceStarts={raceStarts}
         fleets={fleets}
         competitors={competitors}
+        copiedOrcOption={copiedOrcOption}
         onSave={handleSaveStart}
         onCancel={() => setStartDialogMode(null)}
       />

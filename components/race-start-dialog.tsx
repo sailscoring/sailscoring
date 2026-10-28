@@ -103,6 +103,9 @@ export interface RaceStartDialogProps {
    *  scoring-option picker offers the certificate-derived rating fields
    *  alongside the standard set. */
   competitors?: Competitor[];
+  /** The ORC option a new start begins with — the previous start's — or
+   *  none for the fleet default. Ignored when editing a start. */
+  copiedOrcOption?: string;
   onSave: (draft: RaceStartDraft) => void | Promise<void>;
   onCancel: () => void;
 }
@@ -131,6 +134,7 @@ function RaceStartDialogInner({
   raceStarts,
   fleets,
   competitors,
+  copiedOrcOption,
   onSave,
   onCancel,
   venuePosition,
@@ -161,7 +165,9 @@ function RaceStartDialogInner({
   const certificateOptions = hasOrcFleet
     ? orcSelectableOptions(competitors ?? [], orcCatalog)
     : [];
-  const [orcOptionValue, setOrcOptionValue] = useState(seed?.orcOption ?? '');
+  const [orcOptionValue, setOrcOptionValue] = useState(
+    (mode.kind === 'edit' ? seed?.orcOption : copiedOrcOption) ?? '',
+  );
   // The row "This start" still needs, while it is incomplete.
   const [orcPending, setOrcPending] = useState<string | null>(null);
   // Chosen in rows wherever every option can be taken apart — the catalog

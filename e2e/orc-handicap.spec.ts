@@ -762,6 +762,55 @@ test('ORC fleet: the wind band picked on the start re-scores the race', async ({
   await expect(page.getByRole('row').nth(2)).toContainText('IRL 2507');
 });
 
+test('ORC start: a new start begins from the previous start\'s option', async ({ page }) => {
+  await createSeriesQuick(page, { name: 'ORC Copy Option 2026' });
+  await setUpOrcFleet(page, [
+    { sailNumber: 'IRL 2507', name: 'Impetuous' },
+    { sailNumber: 'IRL 1551', name: 'Mojo' },
+  ]);
+  await importCertificates(page, 2);
+
+  const optionShown = page.getByTitle('ORC scoring option for this start (overrides the fleet default)');
+  const dialog = page.getByRole('dialog');
+  await page.getByRole('link', { name: 'Races' }).click();
+  for (const [n, setOption] of [
+    // Race 1 is set up from the fleet default…
+    ['Race 1', async () => {
+      await dialog.getByRole('radio', { name: 'This start' }).check();
+      await dialog.getByTestId('start-orc-course').click();
+      await page.getByRole('option', { name: '50-50 Windward/Leeward' }).click();
+      await dialog.getByRole('radio', { name: '5-band' }).click();
+      await dialog.getByRole('radio', { name: 'L/M' }).click();
+    }],
+    // …and race 2 begins where it left off, so the committee's new band is
+    // the one change.
+    ['Race 2', async () => {
+      await expect(dialog.getByRole('radio', { name: 'This start' })).toBeChecked();
+      await expect(dialog.getByRole('radio', { name: 'Time-on-time', exact: true })).toHaveAttribute('aria-checked', 'true');
+      await expect(dialog.getByRole('radio', { name: 'L/M' })).toHaveAttribute('aria-checked', 'true');
+      await dialog.getByRole('radio', { name: 'Med', exact: true }).click();
+    }],
+  ] as const) {
+    await page.getByRole('button', { name: 'Add race' }).click();
+    await expect(page.getByText(n)).toBeVisible();
+    await page.getByText(n).click();
+    await expect(page.getByRole('button', { name: `Edit name for ${n}` })).toBeVisible();
+    await page.getByRole('button', { name: 'Edit ▸' }).click();
+    await page.getByRole('button', { name: 'Add start' }).click();
+    await page.getByLabel('Gun time').fill('12:30:00');
+    await page.getByRole('checkbox', { name: 'Class 2' }).check();
+    await setOption();
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.getByText('12:30:00')).toBeVisible();
+    await page.getByRole('link', { name: 'Races' }).click();
+    await expect(page.getByRole('button', { name: 'Add race' })).toBeVisible();
+  }
+
+  await page.getByText('Race 2').click();
+  await page.getByRole('button', { name: 'Edit ▸' }).click();
+  await expect(optionShown).toHaveText('5-Band 50-50 Windward/Leeward Med · time-on-time');
+});
+
 test('ORC fleet: the start option switches one race to performance curves', async ({ page }) => {
   await createSeriesQuick(page, { name: 'ORC Option Test 2026' });
   await setUpOrcFleet(page, [
