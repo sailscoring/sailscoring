@@ -1063,7 +1063,7 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, unscored 
                     id="publish-folder"
                     value={folder}
                     onChange={(e) => { setFolder(sanitizeSlug(e.target.value)); setError(null); }}
-                    placeholder="spring-regatta"
+                    placeholder="e.g. spring-regatta"
                     autoFocus
                   />
                 </div>

@@ -381,7 +381,7 @@ function LogoDialog({
               id="logo-name"
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
-              placeholder="Howth Yacht Club"
+              placeholder="e.g. Howth Yacht Club"
               required
             />
           </div>
@@ -406,7 +406,7 @@ function LogoDialog({
               id="logo-source"
               value={sourceUrl}
               onChange={(e) => setSourceUrl(e.target.value)}
-              placeholder="https://www.hyc.ie"
+              placeholder="https://…"
             />
             <p className="text-xs text-muted-foreground">Where this logo came from — recorded for your reference.</p>
           </div>

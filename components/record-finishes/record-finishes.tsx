@@ -334,7 +334,7 @@ function RaceRecording({ dated, userId, onBack }: { dated: DatedRace; userId: st
               <Label htmlFor="recorded-by">Recorded by</Label>
               <Input
                 id="recorded-by"
-                placeholder="Committee boat"
+                placeholder="e.g. Committee boat"
                 value={shown.recordedBy}
                 onChange={(e) => edit((d) => ({ ...d, recordedBy: e.target.value }))}
               />

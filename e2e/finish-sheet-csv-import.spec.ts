@@ -254,7 +254,7 @@ test('a sail number two classes share is resolved by the sheet class column', as
   // One start covering both classes: the collision is genuine.
   await page.getByRole('button', { name: 'Edit ▸' }).click();
   await page.getByRole('button', { name: 'Add start' }).click();
-  await page.getByPlaceholder('14:05', { exact: true }).fill('14:00');
+  await page.getByLabel('Gun time').fill('14:00');
   await page.getByRole('checkbox', { name: 'Howth 17', exact: true }).check();
   await page.getByRole('checkbox', { name: 'Puppeteer 22', exact: true }).check();
   await page.getByRole('button', { name: 'Save' }).click();

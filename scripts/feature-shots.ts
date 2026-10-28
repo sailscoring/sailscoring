@@ -2175,7 +2175,7 @@ const SHOTS: Shot[] = [
       await page.getByRole('button', { name: 'Add start' }).click();
       const startDialog = page.getByRole('dialog');
       await startDialog.waitFor();
-      await startDialog.getByPlaceholder('14:05:00').fill('19:00:00');
+      await startDialog.getByLabel('Gun time').fill('19:00:00');
       await startDialog.getByRole('checkbox', { name: /^Class 1 IRC/ }).check();
       await startDialog.getByRole('button', { name: 'Save' }).click();
       await startDialog.waitFor({ state: 'hidden' });
@@ -2283,7 +2283,7 @@ const SHOTS: Shot[] = [
       await page.getByRole('button', { name: 'Add start' }).click();
       const startDialog = page.getByRole('dialog');
       await startDialog.waitFor();
-      await startDialog.getByPlaceholder('14:05', { exact: true }).fill('19:00:00');
+      await startDialog.getByLabel('Gun time').fill('19:00:00');
       await startDialog.getByRole('checkbox', { name: /^Class 3 IRC/ }).check();
       await startDialog.getByRole('button', { name: 'Save' }).click();
       await startDialog.waitFor({ state: 'hidden' });

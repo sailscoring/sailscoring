@@ -272,7 +272,7 @@ test('a boat that has already raced is never offered for removal', async ({ page
   await page.getByText('Race 1').click();
   await page.getByRole('button', { name: 'Edit ▸' }).click();
   await page.getByRole('button', { name: 'Add start' }).click();
-  await page.getByPlaceholder('14:05', { exact: true }).fill('14:00:00');
+  await page.getByLabel('Gun time').fill('14:00:00');
   await page.getByRole('checkbox', { name: 'IRC' }).check();
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByText('14:00:00')).toBeVisible();
@@ -323,7 +323,7 @@ test('an applied rating records the certificate it came from, and publishes wher
   await page.getByText('Race 1').click();
   await page.getByRole('button', { name: 'Edit ▸' }).click();
   await page.getByRole('button', { name: 'Add start' }).click();
-  await page.getByPlaceholder('14:05', { exact: true }).fill('14:00:00');
+  await page.getByLabel('Gun time').fill('14:00:00');
   await page.getByRole('checkbox', { name: 'IRC' }).check();
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByText('14:00:00')).toBeVisible();

@@ -73,7 +73,7 @@ export function VenuePositionCard({
               aria-label="Venue position"
               className="flex h-8 min-w-[16rem] flex-1 rounded-md border border-input bg-transparent px-2 text-sm font-mono"
               value={text}
-              placeholder="51° 48.000′ N 008° 18.000′ W"
+              placeholder="Latitude and longitude"
               onChange={(e) => { setText(e.target.value); setError(''); }}
               onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
               autoFocus

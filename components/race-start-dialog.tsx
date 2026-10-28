@@ -563,12 +563,13 @@ function RaceStartDialogInner({
             viewport, and Save must stay reachable. */}
         <div className="space-y-4 min-h-0 overflow-y-auto pr-1">
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">Gun time <span className="font-normal text-muted-foreground">(optional)</span></label>
+            <label className="text-sm font-medium" htmlFor="start-gun-time">Gun time <span className="font-normal text-muted-foreground">(optional)</span></label>
             <input
+              id="start-gun-time"
               className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm font-mono shadow-sm"
               value={startTimeInput}
               onChange={(e) => { setStartTimeInput(e.target.value); setError(''); }}
-              placeholder="14:05"
+              placeholder="HH:MM:SS"
               autoFocus
               onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); }}
             />
@@ -621,7 +622,6 @@ function RaceStartDialogInner({
                 className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm font-mono shadow-sm"
                 value={distanceInput}
                 onChange={(e) => { setDistanceInput(e.target.value); setError(''); }}
-                placeholder="3.24"
                 inputMode="decimal"
                 onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); }}
               />
@@ -647,7 +647,6 @@ function RaceStartDialogInner({
                         value={windInput}
                         inputMode="decimal"
                         onChange={(e) => changeWind(e.target.value)}
-                        placeholder="190"
                       />
                       °{display.ref}
                     </label>
@@ -702,7 +701,6 @@ function RaceStartDialogInner({
                     value={windSpeedInput}
                     inputMode="decimal"
                     onChange={(e) => changeWindSpeed(e.target.value)}
-                    placeholder="9"
                   />
                   kt — put on every leg
                 </label>
@@ -761,7 +759,7 @@ function RaceStartDialogInner({
                 className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm font-mono shadow-sm"
                 value={scoringWindInput}
                 onChange={(e) => { setScoringWindInput(e.target.value); setError(''); }}
-                placeholder="14"
+                placeholder="implied wind"
                 inputMode="decimal"
                 onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); }}
               />

@@ -492,7 +492,7 @@ function PrizeEditorDialog({
               id="prize-name"
               value={name}
               maxLength={PRIZE_NAME_MAX_LENGTH}
-              placeholder="Gold Fleet 1st, 2nd, 3rd"
+              placeholder="e.g. Gold Fleet 1st, 2nd, 3rd"
               onChange={(e) => setName(e.target.value)}
             />
           </div>

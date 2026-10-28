@@ -100,7 +100,7 @@ async function openStartOnConstructedCourse(page: Page, seriesName: string, opts
   await expect(page.getByText('Race 1 — results')).toBeVisible();
   await page.getByRole('button', { name: 'Edit ▸' }).click();
   await page.getByRole('button', { name: 'Add start' }).click();
-  await page.getByPlaceholder('14:05', { exact: true }).fill('11:12:00');
+  await page.getByLabel('Gun time').fill('11:12:00');
   await page.getByRole('checkbox', { name: 'Class 1' }).check();
 }
 

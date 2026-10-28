@@ -55,7 +55,7 @@ test('two boats recorded at the same time share the place (RRS A7)', async ({ pa
   await page.getByRole('button', { name: 'Edit ▸' }).click();
   await page.getByRole('button', { name: 'Add start' }).click();
   const startDialog = page.getByRole('dialog');
-  await startDialog.getByPlaceholder('14:05', { exact: true }).fill('14:00:00');
+  await startDialog.getByLabel('Gun time').fill('14:00:00');
   await startDialog.getByRole('checkbox', { name: 'Squib HPH' }).check();
   await startDialog.getByRole('checkbox', { name: 'Squib Scratch' }).check();
   await startDialog.getByRole('button', { name: 'Save' }).click();

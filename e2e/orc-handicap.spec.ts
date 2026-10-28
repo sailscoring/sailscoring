@@ -358,7 +358,7 @@ test('ORC fleet: standings ordered by APHT corrected time', async ({ page }) => 
   await expect(page.getByText('Race 1 — results')).toBeVisible();
   await page.getByRole('button', { name: 'Edit ▸' }).click();
   await page.getByRole('button', { name: 'Add start' }).click();
-  await page.getByPlaceholder('14:05', { exact: true }).fill('14:00:00');
+  await page.getByLabel('Gun time').fill('14:00:00');
   await page.getByRole('checkbox', { name: 'Class 2' }).check();
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByText('14:00:00')).toBeVisible();
@@ -406,7 +406,7 @@ test('ORC fleet: performance curve scoring over the W/L model', async ({ page })
   await expect(page.getByText('Race 1 — results')).toBeVisible();
   await page.getByRole('button', { name: 'Edit ▸' }).click();
   await page.getByRole('button', { name: 'Add start' }).click();
-  await page.getByPlaceholder('14:05', { exact: true }).fill('14:00:00');
+  await page.getByLabel('Gun time').fill('14:00:00');
   await page.getByLabel(/Course length/).fill('3.9');
   // The PCS-only scoring-wind override field is offered (and left blank).
   await expect(page.getByLabel(/Scoring wind/)).toBeVisible();
@@ -467,7 +467,7 @@ test('ORC fleet: PCS over a constructed course entered leg by leg', async ({ pag
   await expect(page.getByText('Race 1 — results')).toBeVisible();
   await page.getByRole('button', { name: 'Edit ▸' }).click();
   await page.getByRole('button', { name: 'Add start' }).click();
-  await page.getByPlaceholder('14:05', { exact: true }).fill('14:00:00');
+  await page.getByLabel('Gun time').fill('14:00:00');
 
   const legs: Array<[string, string, string]> = [
     ['2.09', '162', '160'],
@@ -557,7 +557,7 @@ test('ORC fleet: a constructed course at the wind the committee recorded', async
   await expect(page.getByText('Race 1 — results')).toBeVisible();
   await page.getByRole('button', { name: 'Edit ▸' }).click();
   await page.getByRole('button', { name: 'Add start' }).click();
-  await page.getByPlaceholder('14:05', { exact: true }).fill('14:00:00');
+  await page.getByLabel('Gun time').fill('14:00:00');
 
   // One figure for the course, which every leg added after it inherits.
   await page.getByLabel('Wind speed', { exact: true }).fill('14');
@@ -641,7 +641,7 @@ test('ORC fleet: a recorded-wind race is unscored until every leg has a wind spe
   await expect(page.getByText('Race 1 — results')).toBeVisible();
   await page.getByRole('button', { name: 'Edit ▸' }).click();
   await page.getByRole('button', { name: 'Add start' }).click();
-  await page.getByPlaceholder('14:05', { exact: true }).fill('14:00:00');
+  await page.getByLabel('Gun time').fill('14:00:00');
   // A course with no wind speed on it: complete-looking, and not enough.
   for (const [i, leg] of ([['2.09', '162', '160'], ['1.91', '340', '160']] as const).entries()) {
     await page.getByRole('button', { name: 'Add leg' }).click();
@@ -705,7 +705,7 @@ test('ORC fleet: the wind band picked on the start re-scores the race', async ({
   await expect(page.getByText('Race 1 — results')).toBeVisible();
   await page.getByRole('button', { name: 'Edit ▸' }).click();
   await page.getByRole('button', { name: 'Add start' }).click();
-  await page.getByPlaceholder('14:05', { exact: true }).fill('14:00:00');
+  await page.getByLabel('Gun time').fill('14:00:00');
   await page.getByRole('checkbox', { name: 'Class 2' }).check();
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByText('14:00:00')).toBeVisible();
@@ -765,7 +765,7 @@ test('ORC fleet: the start option switches one race to performance curves', asyn
   await expect(page.getByText('Race 1 — results')).toBeVisible();
   await page.getByRole('button', { name: 'Edit ▸' }).click();
   await page.getByRole('button', { name: 'Add start' }).click();
-  await page.getByPlaceholder('14:05', { exact: true }).fill('14:00:00');
+  await page.getByLabel('Gun time').fill('14:00:00');
   await page.getByLabel(/Course length/).fill('3.9');
   await page.getByRole('checkbox', { name: 'Class 2' }).check();
   await page.getByRole('button', { name: 'Save' }).click();
@@ -845,7 +845,7 @@ test('ORC fleet: time-on-distance over the start course length', async ({ page }
   await expect(page.getByText('Race 1 — results')).toBeVisible();
   await page.getByRole('button', { name: 'Edit ▸' }).click();
   await page.getByRole('button', { name: 'Add start' }).click();
-  await page.getByPlaceholder('14:05', { exact: true }).fill('15:15:00');
+  await page.getByLabel('Gun time').fill('15:15:00');
   await page.getByLabel(/Course length/).fill('3.24');
   await page.getByRole('checkbox', { name: 'Class 2' }).check();
   await page.getByRole('button', { name: 'Save' }).click();
@@ -898,7 +898,7 @@ test('a race waiting on its course holds the publish until the scorer publishes 
     await expect(page.getByRole('button', { name: `Edit name for ${n}` })).toBeVisible();
     await page.getByRole('button', { name: 'Edit ▸' }).click();
     await page.getByRole('button', { name: 'Add start' }).click();
-    await page.getByPlaceholder('14:05', { exact: true }).fill('15:15:00');
+    await page.getByLabel('Gun time').fill('15:15:00');
     if (distance) await page.getByLabel(/Course length/).fill(distance);
     await page.getByRole('checkbox', { name: 'Class 2' }).check();
     await page.getByRole('button', { name: 'Save' }).click();

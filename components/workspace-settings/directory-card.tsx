@@ -103,7 +103,7 @@ export function DirectoryCard() {
                 id="directory-description"
                 value={description}
                 maxLength={DIRECTORY_DESCRIPTION_MAX}
-                placeholder="Club racing on Dublin Bay since 1884"
+                placeholder="e.g. Club racing on Dublin Bay since 1884"
                 onChange={(e) => setDescription(e.target.value)}
                 disabled={busy}
               />
