@@ -13,6 +13,7 @@ import { useShortcuts } from '@/hooks/use-keyboard-shortcut';
 import { useSeriesReadOnly } from '@/components/series-read-only';
 import { useWorkspacePermissions } from '@/hooks/use-workspace-permissions';
 import { formatRelativeTime } from '@/lib/relative-time';
+import { revisionApp } from '@/lib/revision-app';
 import { ActivityEntryRow } from '@/components/activity/activity-entry-row';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -83,6 +84,9 @@ function RevisionRow({
   const title = revisionTitle(rev, capturedActivity);
   const changes = capturedActivity.filter((a) => a.summary !== title);
   const expandable = changes.length > 0;
+  // Named once in the header when every change came through one app;
+  // otherwise each change made through an app says so in the drill-down.
+  const app = revisionApp(capturedActivity);
 
   return (
     <li className="py-3">
@@ -109,7 +113,7 @@ function RevisionRow({
               <KindBadge kind={rev.kind} />
             </p>
             <p className="text-xs text-muted-foreground">
-              {actorLabel(rev.actor)} · {formatRelativeTime(rev.createdAt)}
+              {actorLabel(rev.actor)}{app && <> via {app.name}</>} · {formatRelativeTime(rev.createdAt)}
               {expandable && ` · ${changes.length} change${changes.length === 1 ? '' : 's'}`}
               {!rev.hasSnapshot && ' · snapshot no longer kept'}
             </p>
@@ -133,6 +137,7 @@ function RevisionRow({
             <li key={a.id} className="text-xs text-muted-foreground">
               {a.summary}
               {a.count > 1 && <span className="ml-1">×{a.count}</span>}
+              {!app && a.via && <span className="ml-1">· via {a.via.name}</span>}
               <span className="ml-1 opacity-70">· {formatRelativeTime(a.createdAt)}</span>
             </li>
           ))}
