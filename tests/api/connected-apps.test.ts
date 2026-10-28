@@ -19,6 +19,7 @@ import {
   grantApp,
   registerApp,
   removeUser,
+  request,
   setConnectedApps,
   signInFreshUser,
   type SignedInUser,
@@ -26,6 +27,14 @@ import {
 
 const DATABASE_URL = process.env.DATABASE_URL;
 const resolve = (token: string) => auth.api.resolveAccessToken({ body: { token } });
+
+/** The revocation endpoint, as an app signing out calls it. */
+async function revoke(token: string, hint: 'access_token' | 'refresh_token', clientId: string): Promise<void> {
+  const res = await request(null, '/api/auth/oauth2/revoke', {
+    form: { token, token_type_hint: hint, client_id: clientId },
+  });
+  expect(res.status).toBe(200);
+}
 
 describe.skipIf(!DATABASE_URL)('connected apps', () => {
   let user!: SignedInUser;
@@ -80,6 +89,42 @@ describe.skipIf(!DATABASE_URL)('connected apps', () => {
   test('signing the CLI out', async () => {
     const tokens = await deviceSignIn(user, cliId);
     await disconnectApp(user.userId, { clientId: cliId, workspaceId: null });
+    expect(await resolve(tokens.accessToken)).toBeNull();
+    expect((await listConnectedApps(user.userId)).apps).toEqual([]);
+  });
+
+  test('an app revoking its last refresh token is disconnected, as if from the account page', async () => {
+    const tokens = await grantApp(user, appId, user.personalWorkspaceId, 'read races offline_access');
+    expect((await listConnectedApps(user.userId)).apps.map((a) => a.clientId)).toEqual([appId]);
+    await revoke(tokens.refreshToken, 'refresh_token', appId);
+    expect(await resolve(tokens.accessToken)).toBeNull();
+    expect((await listConnectedApps(user.userId)).apps).toEqual([]);
+    // No consent left, so signing in again asks for approval again.
+    const consents = await getDb()
+      .select()
+      .from(schema.oauthConsent)
+      .where(eq(schema.oauthConsent.userId, user.userId));
+    expect(consents).toEqual([]);
+  });
+
+  test('the grant stays while another of its refresh tokens is live, or when only an access token is revoked', async () => {
+    const here = await grantApp(user, appId, user.personalWorkspaceId, 'read races offline_access');
+    const there = await grantApp(user, appId, user.personalWorkspaceId, 'read races offline_access');
+
+    await revoke(here.accessToken, 'access_token', appId);
+    expect((await listConnectedApps(user.userId)).apps.map((a) => a.clientId)).toEqual([appId]);
+
+    await revoke(here.refreshToken, 'refresh_token', appId);
+    expect((await listConnectedApps(user.userId)).apps.map((a) => a.clientId)).toEqual([appId]);
+    expect((await resolve(there.accessToken))?.workspaceId).toBe(user.personalWorkspaceId);
+
+    await revoke(there.refreshToken, 'refresh_token', appId);
+    expect((await listConnectedApps(user.userId)).apps).toEqual([]);
+  });
+
+  test('the CLI signing out with its last refresh token leaves nothing listed', async () => {
+    const tokens = await deviceSignIn(user, cliId);
+    await revoke(tokens.refreshToken, 'refresh_token', cliId);
     expect(await resolve(tokens.accessToken)).toBeNull();
     expect((await listConnectedApps(user.userId)).apps).toEqual([]);
   });

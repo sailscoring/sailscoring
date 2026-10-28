@@ -136,7 +136,8 @@ export default function Collaboration() {
             Your <strong className="text-foreground">account page</strong> lists every app you’ve
             connected, under <strong className="text-foreground">Connected apps</strong>.{' '}
             <strong className="text-foreground">Disconnect</strong> takes an app’s access back
-            straight away. Only workspaces with connected apps switched on can be chosen; to ask
+            straight away; signing out in an app usually hands its access back too. Only
+            workspaces with connected apps switched on can be chosen; to ask
             for yours, contact <a href="mailto:mark@hyc.ie" className="underline">mark@hyc.ie</a>.
           </p>
         </Section>

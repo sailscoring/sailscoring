@@ -1,8 +1,10 @@
 import 'server-only';
+import { createHash } from 'node:crypto';
+
 import { and, eq, gt, inArray, isNull } from 'drizzle-orm';
 import { z } from 'zod';
 
-import { grantableWorkspaces, parseClientMetadata } from '@/lib/auth/oauth';
+import { grantableWorkspaces, parseClientMetadata, REFRESH_TOKEN_PREFIX } from '@/lib/auth/oauth';
 import { getDb } from '@/lib/db/client';
 import {
   oauthAccessToken,
@@ -102,6 +104,48 @@ export async function listConnectedApps(
     })
     .sort((a, b) => a.name.localeCompare(b.name) || (a.workspaceName ?? '').localeCompare(b.workspaceName ?? ''));
   return { apps, canConnect: grantable.length > 0 || apps.length > 0 };
+}
+
+/**
+ * After an app revokes a refresh token: if it was the last live one under its
+ * grant, take the grant back too, as Disconnect does. The provider's revoke
+ * ends the token and leaves the consent, so the app would stay on the account
+ * page and its next sign-in would skip the approval. The provider stores a
+ * refresh token as the SHA-256 of its body, after the prefix; anything else
+ * presented (an access token, a made-up string) finds no row and ends nothing.
+ */
+export async function endGrantAfterRevoke(presented: string): Promise<void> {
+  if (!presented.startsWith(REFRESH_TOKEN_PREFIX)) return;
+  const stored = createHash('sha256').update(presented.slice(REFRESH_TOKEN_PREFIX.length)).digest('base64url');
+  const db = getDb();
+  const [token] = await db
+    .select({
+      userId: oauthRefreshToken.userId,
+      clientId: oauthRefreshToken.clientId,
+      workspaceId: oauthRefreshToken.referenceId,
+      revoked: oauthRefreshToken.revoked,
+    })
+    .from(oauthRefreshToken)
+    .where(eq(oauthRefreshToken.token, stored))
+    .limit(1);
+  if (!token?.revoked) return;
+  const reference =
+    token.workspaceId === null ? isNull(oauthRefreshToken.referenceId) : eq(oauthRefreshToken.referenceId, token.workspaceId);
+  const [live] = await db
+    .select({ id: oauthRefreshToken.id })
+    .from(oauthRefreshToken)
+    .where(
+      and(
+        eq(oauthRefreshToken.userId, token.userId),
+        eq(oauthRefreshToken.clientId, token.clientId),
+        reference,
+        isNull(oauthRefreshToken.revoked),
+        gt(oauthRefreshToken.expiresAt, new Date()),
+      ),
+    )
+    .limit(1);
+  if (live) return;
+  await disconnectApp(token.userId, { clientId: token.clientId, workspaceId: token.workspaceId });
 }
 
 export const disconnectInputSchema = z

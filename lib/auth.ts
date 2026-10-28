@@ -7,6 +7,7 @@ import { apiKey } from '@better-auth/api-key';
 import { eq } from 'drizzle-orm';
 
 import { recordActivity } from '@/lib/activity-log';
+import { endGrantAfterRevoke } from '@/lib/api-handlers/connected-apps';
 import { sendInvitationEmail, sendMagicLinkEmail } from '@/lib/auth/email';
 import { membershipActivity } from '@/lib/auth/membership-activity';
 import { ACCESS_TOKEN_PREFIX, oauthPlugins } from '@/lib/auth/oauth';
@@ -138,8 +139,22 @@ export const auth = betterAuth({
   // written here, after the fact, where the session (the actor) and the
   // endpoint's return value (what changed) are both to hand. A failure
   // anywhere in here must never fail the membership change itself.
+  //
+  // An app revoking its last refresh token disconnects it, as the account
+  // page's Disconnect does; see endGrantAfterRevoke. That mustn't fail the
+  // revoke either.
   hooks: {
     after: createAuthMiddleware(async (ctx) => {
+      if (ctx.path === '/oauth2/revoke') {
+        const token: unknown = ctx.body?.token;
+        if (typeof token !== 'string') return;
+        try {
+          await endGrantAfterRevoke(token);
+        } catch (err) {
+          console.error('ending the grant after a revoke failed (non-fatal):', err);
+        }
+        return;
+      }
       if (!ctx.path.startsWith('/organization/')) return;
       try {
         // The endpoint's session middleware hands the session to the handler,

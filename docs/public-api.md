@@ -57,6 +57,8 @@ in one workspace they chose, and never beyond what their role there allows.
    another 180 days, and the old one stops working. To sign out, revoke the
    refresh token at `POST /api/auth/oauth2/revoke` (`token=…`, with the
    client id as at the token endpoint), which ends its access tokens too.
+   Revoking the grant's last live refresh token disconnects the app, as the
+   account page does: the user approves it again at the next sign-in.
    Both endpoints answer any origin,
    so a web page can call them itself.
 4. **Call the API** with `Authorization: Bearer ssat_…`.
@@ -86,6 +88,7 @@ long as the app refreshes at least once every 180 days. It ends when:
   treated as a stolen token, and ends every grant the user gave the app, so
   refresh one at a time, and store the new refresh token before using the
   new access token;
+- the app revokes its last refresh token;
 - the user disconnects the app from their account page.
 
 The app then sends the user through the flow again. Some things refuse calls
