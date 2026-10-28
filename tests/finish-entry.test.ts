@@ -655,6 +655,28 @@ describe('carryAcrossImport', () => {
     expect(out.penaltyOverrideByFleet).not.toBe(prior[0].penaltyOverrideByFleet);
   });
 
+  it('carries a lap count onto a boat the sheet still times without one', () => {
+    const prior = [stored({ id: 'f1', competitorId: 'c1', sortOrder: 1, finishTime: '10:23:41', laps: 1 })];
+    const [out] = carryAcrossImport(prior, [
+      row({ competitorId: 'c1', sortOrder: 1, resultCode: null, finishTime: '10:23:43' }),
+    ]);
+    expect(out.laps).toBe(1);
+    expect(carryOutcome(prior, [out]).cleared).toEqual([]);
+  });
+
+  it('keeps the sheet’s own lap count, and clears one with no timed row to go on', () => {
+    const prior = [
+      stored({ id: 'f1', competitorId: 'c1', sortOrder: 1, finishTime: '10:23:41', laps: 1 }),
+      stored({ id: 'f2', competitorId: 'c2', sortOrder: 2, finishTime: '10:30:00', laps: 1 }),
+    ];
+    const carried = carryAcrossImport(prior, [
+      row({ competitorId: 'c1', sortOrder: 1, resultCode: null, finishTime: '10:23:41', laps: 2 }),
+      row({ competitorId: 'c2', sortOrder: null, resultCode: 'DNF' }),
+    ]);
+    expect(carried.map((f) => f.laps)).toEqual([2, undefined]);
+    expect(carryOutcome(prior, carried).cleared).toEqual([{ competitorId: 'c2', what: '1 lap' }]);
+  });
+
   it('does not carry a penalty onto a boat the sheet now codes', () => {
     const prior = [stored({ id: 'f1', competitorId: 'c1', sortOrder: 24, penaltyCode: 'SCP', penaltyOverride: 10 })];
     const [out] = carryAcrossImport(prior, [row({ competitorId: 'c1', sortOrder: null, resultCode: 'DNF' })]);

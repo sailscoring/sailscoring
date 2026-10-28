@@ -631,6 +631,39 @@ describe('parseFinishSheetCsv elapsed times', () => {
   });
 });
 
+describe('parseFinishSheetCsv lap counts', () => {
+  const lapsMap = { 0: 'sailNumber', 1: 'finishTime', 2: 'laps', 3: 'resultCode' } as const;
+
+  it('detects a Laps header', () => {
+    expect(autoDetectFinishSheetField('Laps')).toBe('laps');
+    expect(autoDetectFinishSheetField('lap')).toBe('laps');
+    expect(autoDetectFinishSheetField('Laps sailed')).toBe('laps');
+  });
+
+  it('records each timed finisher’s laps, and none for a blank', () => {
+    const rows = [
+      ['15',   '10:23:41', '1', ''],
+      ['22',   '10:24:09', '2', ''],
+      ['254',  '10:26:15', '',  ''],
+    ];
+    const result = parseFinishSheetCsv({ rows, columnMap: lapsMap, candidates });
+    expect(result.errors).toEqual([]);
+    expect(result.finishes.map((f) => f.laps)).toEqual([1, 2, undefined]);
+  });
+
+  it('rejects a count that is not a whole number of laps', () => {
+    const result = parseFinishSheetCsv({ rows: [['15', '10:23:41', '1.5', '']], columnMap: lapsMap, candidates });
+    expect(result.finishes).toEqual([]);
+    expect(result.errors[0].reason).toBe('invalid lap count "1.5"');
+  });
+
+  it('ignores a count on a coded row', () => {
+    const result = parseFinishSheetCsv({ rows: [['15', '', '1', 'DNF']], columnMap: lapsMap, candidates });
+    expect(result.errors).toEqual([]);
+    expect(result.finishes[0].laps).toBeUndefined();
+  });
+});
+
 describe('parseFinishSheetCsv — rows already identified', () => {
   it('takes a row’s competitor id instead of matching its sail number', () => {
     const result = parseFinishSheetCsv({

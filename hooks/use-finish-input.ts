@@ -14,6 +14,7 @@ import {
   type NonFinisherView,
 } from '@/lib/finish-entry';
 import { competitorFleetNames } from '@/lib/competitor-fields';
+import { courseLapsOf } from '@/lib/laps';
 import { matchSailEntry, registeredSailForEntry } from '@/lib/rating-match';
 import { ordinal } from '@/lib/ordinal';
 import { formatElapsedInput, normalizeTimeInput, parseElapsedInput } from '@/lib/time-parse';
@@ -89,6 +90,7 @@ export function useFinishInput(args: UseFinishInputArgs) {
   const { finishingOrder, finishTimes, elapsedSecs, tiedWithPrevious, finishByCompetitorId } = derived;
   const byElapsed = finishRecording === 'elapsed';
   const stamp = byElapsed ? undefined : stampTime;
+  const courseLaps = courseLapsOf(finishByCompetitorId.values());
 
   // Input field state
   const [sailInput, setSailInput] = useState('');
@@ -314,6 +316,10 @@ export function useFinishInput(args: UseFinishInputArgs) {
           startPresent: true,
           ...(provenance.matchedOn ? provenance : {}),
           ...recorded,
+          // A sheet that carries lap counts gives every timed row one, the
+          // full course to begin with: a blank only means the full course
+          // while some other row says how many laps that was.
+          ...(recorded && courseLaps != null ? { laps: courseLaps } : {}),
         });
 
     const newEntry: FinishEntry = {

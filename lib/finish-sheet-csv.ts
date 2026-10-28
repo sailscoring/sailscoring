@@ -13,6 +13,9 @@
  *                companion: a row carrying both is an error, since the two
  *                are different measurements and nothing here can say which
  *                the scorer meant
+ *   laps         optional — laps of the course the boat sailed, for a fleet
+ *                in which slow boats are sent round fewer times. A blank
+ *                means the full course
  *   resultCode   optional — DNF, DSQ, OCS, RET, DNE, UFD, BFD, DNS, NSC, DNC
  *   fleet        optional — the boat's class, used only to break a tie when a
  *                sail number belongs to more than one boat in the race. Two
@@ -56,7 +59,7 @@ import {
   type SailEntryMatch,
 } from './rating-match';
 
-export type FinishSheetField = 'sailNumber' | 'finishTime' | 'elapsed' | 'resultCode' | 'fleet' | 'ignore';
+export type FinishSheetField = 'sailNumber' | 'finishTime' | 'elapsed' | 'laps' | 'resultCode' | 'fleet' | 'ignore';
 
 export type FinishSheetColumnMap = Record<number, FinishSheetField>;
 
@@ -160,6 +163,8 @@ function normalizeFleetName(raw: string): string {
 
 export function autoDetectFinishSheetField(header: string): FinishSheetField {
   const h = header.trim().toLowerCase();
+  // Ahead of the sail number, which "laps sailed" would otherwise match.
+  if (/^laps?(\s*sailed)?$/.test(h)) return 'laps';
   if (/sail\s*(number|no|#)?|^#$/.test(h) || h === 'sail') return 'sailNumber';
   // Elapsed is checked first: "elapsed time" would otherwise match the
   // finish-time pattern on the bare word "time".
@@ -193,6 +198,7 @@ export function parseFinishSheetCsv(input: ParseFinishSheetInput): ParseFinishSh
     sail: -1,
     time: -1,
     elapsed: -1,
+    laps: -1,
     code: -1,
     fleet: -1,
   };
@@ -201,6 +207,7 @@ export function parseFinishSheetCsv(input: ParseFinishSheetInput): ParseFinishSh
     if (field === 'sailNumber') cols.sail = col;
     else if (field === 'finishTime') cols.time = col;
     else if (field === 'elapsed') cols.elapsed = col;
+    else if (field === 'laps') cols.laps = col;
     else if (field === 'resultCode') cols.code = col;
     else if (field === 'fleet') cols.fleet = col;
   }
@@ -272,6 +279,7 @@ export function parseFinishSheetCsv(input: ParseFinishSheetInput): ParseFinishSh
     const rawElapsed = cols.elapsed >= 0 ? (row[cols.elapsed]?.trim() ?? '') : '';
     const rawCode = cols.code >= 0 ? (row[cols.code]?.trim() ?? '') : '';
     const rawFleet = cols.fleet >= 0 ? (row[cols.fleet]?.trim() ?? '') : '';
+    const rawLaps = cols.laps >= 0 ? (row[cols.laps]?.trim() ?? '') : '';
 
     if (!rawSail && !knownId) {
       errors.push({ rowIndex: csvRowNumber, reason: 'missing sail number' });
@@ -307,6 +315,18 @@ export function parseFinishSheetCsv(input: ParseFinishSheetInput): ParseFinishSh
         continue;
       }
       recorded = { elapsedSecs: secs };
+    }
+
+    // Laps only mean something on a timed finish: a coded row has no time
+    // to scale, and a place-only row is ranked by where it crossed the line.
+    let laps: { laps: number } | Record<string, never> = {};
+    if (rawLaps && recorded && !rawCode) {
+      const n = Number(rawLaps);
+      if (!Number.isInteger(n) || n < 1) {
+        errors.push({ rowIndex: csvRowNumber, reason: `invalid lap count "${rawLaps}"` });
+        continue;
+      }
+      laps = { laps: n };
     }
 
     let code: ResultCode | null = null;
@@ -446,6 +466,7 @@ export function parseFinishSheetCsv(input: ParseFinishSheetInput): ParseFinishSh
           sortOrder,
           resultCode: null,
           ...recorded,
+          ...laps,
           ...provenance,
         });
       } else {
@@ -461,6 +482,7 @@ export function parseFinishSheetCsv(input: ParseFinishSheetInput): ParseFinishSh
           sortOrder,
           resultCode: null,
           ...recorded,
+          ...laps,
         });
       }
     }

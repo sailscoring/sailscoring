@@ -26,6 +26,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Upload } from 'lucide-react';
+import { useFeatures } from '@/components/features-provider';
 import {
   autoDetectFinishSheetField,
   parseFinishSheetCsv,
@@ -48,6 +49,7 @@ const FIELD_LABELS: Record<FinishSheetField, string> = {
   sailNumber: 'Sail number',
   finishTime: 'Finish time',
   elapsed: 'Elapsed time',
+  laps: 'Laps sailed',
   resultCode: 'Result code',
   fleet: 'Class / fleet',
   ignore: '(ignore)',
@@ -102,6 +104,11 @@ export const FinishSheetImport = forwardRef<FinishSheetImportHandle, {
 }>(function FinishSheetImport({ candidates, existingFinishes, needsFinishTime, onConfirm, trigger, submitting = false }, ref) {
   const [flow, setFlow] = useState<ImportFlow>({ step: 'idle' });
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // A sheet's lap counts are only read with mixed laps on; without it a Laps
+  // column is just another column to ignore.
+  const { has } = useFeatures();
+  const fields = (Object.keys(FIELD_LABELS) as FinishSheetField[])
+    .filter((field) => field !== 'laps' || has('mixed-laps'));
 
   useImperativeHandle(ref, () => ({
     trigger: () => fileInputRef.current?.click(),
@@ -137,7 +144,8 @@ export const FinishSheetImport = forwardRef<FinishSheetImportHandle, {
     const sampleRows = dataRows.slice(0, 3);
     const columnMap: FinishSheetColumnMap = {};
     headers.forEach((h, i) => {
-      columnMap[i] = autoDetectFinishSheetField(h);
+      const field = autoDetectFinishSheetField(h);
+      columnMap[i] = fields.includes(field) ? field : 'ignore';
     });
     setFlow({ step: 'mapping', headers, sampleRows, rows: dataRows, columnMap });
   }
@@ -259,7 +267,7 @@ export const FinishSheetImport = forwardRef<FinishSheetImportHandle, {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            {(Object.keys(FIELD_LABELS) as FinishSheetField[]).map((field) => (
+                            {fields.map((field) => (
                               <SelectItem key={field} value={field}>
                                 {FIELD_LABELS[field]}
                               </SelectItem>

@@ -32,6 +32,7 @@ import { competitorFleetNames, displayCompetitorLabel } from '@/lib/competitor-f
 import { competitorMatchesFilter } from '@/lib/competitor-filter';
 import { ordinal } from '@/lib/ordinal';
 import { hasTrackData, trackDataStrip } from '@/lib/track-data';
+import { courseLapsOf } from '@/lib/laps';
 import { useShortcuts } from '@/hooks/use-keyboard-shortcut';
 import { formatElapsedInput, normalizeTimeInput, parseElapsedInput } from '@/lib/time-parse';
 import {
@@ -480,6 +481,40 @@ export function FinishTab(props: FinishTabProps) {
   // once the sheet carries either. Clearing the rows unlocks it.
   const hasRecordedTimes = finishTimes.size > 0 || elapsedSecs.size > 0;
 
+  // Mixed laps: a Laps column once any row carries a count. The full course
+  // is the most laps any row says, and a row with no count sailed it. Turning
+  // the column on asks how many laps the full course is and writes it on
+  // every timed row, so the count is there to edit down for the boats sent
+  // round fewer times — a blank only means the full course while another row
+  // says what that is. Shown whenever the sheet has counts; editable only
+  // with the feature on.
+  const timedFinishes = finishingOrder.flatMap((e) =>
+    e.kind === 'known' && needsFinishTime(e.competitorId)
+      ? [finishByCompetitorId.get(e.competitorId)].filter((f): f is Finish => f != null)
+      : []);
+  const courseLaps = courseLapsOf(timedFinishes);
+  const showLapsColumn = showFinishTimeColumn && courseLaps != null;
+  const canEditLaps = !readOnly && has('mixed-laps');
+  const [lapsPrompt, setLapsPrompt] = useState<string | null>(null);
+  const [editingLaps, setEditingLaps] = useState<ReadonlyMap<string, string>>(new Map());
+  const writeLaps = (rows: { finish: Finish; laps: number | undefined }[]) => {
+    const updated = new Map<string, Finish>();
+    for (const { finish, laps } of rows) {
+      if (finish.laps === laps) continue;
+      const { laps: _old, ...rest } = finish;
+      updated.set(finish.id, laps != null ? { ...rest, laps } : rest);
+    }
+    if (updated.size === 0) return;
+    patchCache((all) => all.map((r) => updated.get(r.id) ?? r));
+    for (const f of updated.values()) saveFinish.mutate(f);
+  };
+  const turnOnLaps = () => {
+    const laps = Number(lapsPrompt?.trim());
+    if (!Number.isInteger(laps) || laps < 1) return;
+    writeLaps(timedFinishes.map((finish) => ({ finish, laps })));
+    setLapsPrompt(null);
+  };
+
   // Side by side by the width the tab has, not the window's: the Record
   // finishes page holds it in a column a phone could, and a non-finishers
   // panel squeezed beside the order there pushes its rows out of the card.
@@ -532,6 +567,60 @@ export function FinishTab(props: FinishTabProps) {
               </SelectContent>
             </Select>
           )}
+          {showFinishTimeColumn && canEditLaps && (courseLaps != null ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" data-testid="laps-menu">
+                  Laps <ChevronDown className="h-3.5 w-3.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onSelect={() => writeLaps(timedFinishes.map((finish) => ({ finish, laps: undefined })))}
+                >
+                  Remove lap counts
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : lapsPrompt !== null ? (
+            <form
+              className="flex items-center gap-1.5"
+              onSubmit={(e) => { e.preventDefault(); turnOnLaps(); }}
+            >
+              <label htmlFor="full-course-laps" className="text-sm text-muted-foreground whitespace-nowrap">
+                Full course
+              </label>
+              <input
+                id="full-course-laps"
+                type="text"
+                inputMode="numeric"
+                autoFocus
+                value={lapsPrompt}
+                onChange={(e) => setLapsPrompt(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Escape') setLapsPrompt(null); }}
+                className="w-12 font-mono text-sm text-center rounded px-2 py-1 border border-input bg-background focus:outline-none focus:ring-1 focus:ring-ring"
+                data-testid="full-course-laps"
+              />
+              <span className="text-sm text-muted-foreground">laps</span>
+              <Button type="submit" size="sm">Set</Button>
+              <button type="button" onClick={() => setLapsPrompt(null)} aria-label="Cancel" className="text-muted-foreground hover:text-foreground">
+                <X className="h-4 w-4" />
+              </button>
+            </form>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setLapsPrompt('2')}
+              disabled={timedFinishes.length === 0}
+              title={timedFinishes.length === 0
+                ? 'Enter a finisher first, then record laps'
+                : 'Record the laps each boat sailed, for boats sent round fewer times than the rest'}
+              data-testid="turn-on-laps"
+            >
+              Laps
+            </Button>
+          ))}
           {(has('csv-finish-import') || recording) && !readOnly && (
             <FinishSheetImport
               ref={finishSheetImportRef}
@@ -884,6 +973,7 @@ export function FinishTab(props: FinishTabProps) {
                   {showFinishTimeColumn && (
                     <span className="w-24 text-center text-sm font-mono text-muted-foreground shrink-0">—</span>
                   )}
+                  {showLapsColumn && <span className="w-16 shrink-0" aria-hidden />}
                   {!readOnly && (
                     <>
                       {setResolvingEntry && (
@@ -1027,6 +1117,67 @@ export function FinishTab(props: FinishTabProps) {
                 ) : (
                   <span className="w-24 text-center text-sm font-mono text-muted-foreground shrink-0">—</span>
                 ))}
+                {showLapsColumn && (() => {
+                  if (!isTimed || !finish) return <span className="w-16 shrink-0" aria-hidden />;
+                  const sailed = finish.laps ?? courseLaps!;
+                  const label = `${sailed} lap${sailed === 1 ? '' : 's'}`;
+                  if (!canEditLaps) {
+                    return (
+                      <span
+                        className={cn('w-16 text-center text-sm shrink-0', sailed < courseLaps! ? 'font-medium' : 'text-muted-foreground')}
+                        data-testid={`laps-${competitor.sailNumber}`}
+                        title={sailed < courseLaps! ? `${label} of ${courseLaps}; scored on the full course` : label}
+                      >
+                        {label}
+                      </span>
+                    );
+                  }
+                  return (
+                    <span className="w-16 shrink-0 flex items-center gap-1" title={`Laps sailed — the full course is ${courseLaps}`}>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={editingLaps.get(entry.competitorId) ?? String(sailed)}
+                        onChange={(e) =>
+                          setEditingLaps((prev) => new Map(prev).set(entry.competitorId, e.target.value))
+                        }
+                        onBlur={(e) => {
+                          const competitorId = entry.competitorId;
+                          setEditingLaps((prev) => {
+                            const next = new Map(prev);
+                            next.delete(competitorId);
+                            return next;
+                          });
+                          const laps = Number(e.target.value.trim());
+                          if (!Number.isInteger(laps) || laps < 1) return;
+                          writeLaps([{ finish, laps }]);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            e.currentTarget.blur();
+                          } else if (e.key === 'Escape') {
+                            e.preventDefault();
+                            e.currentTarget.value = String(sailed);
+                            setEditingLaps((prev) => {
+                              const next = new Map(prev);
+                              next.delete(entry.competitorId);
+                              return next;
+                            });
+                            e.currentTarget.blur();
+                          }
+                        }}
+                        aria-label={`Laps sailed by ${competitor.sailNumber}`}
+                        data-testid={`laps-${competitor.sailNumber}`}
+                        className={cn(
+                          'w-9 font-mono text-sm text-center rounded px-1 py-0.5 border border-input bg-background focus:outline-none focus:ring-1 focus:ring-ring',
+                          sailed < courseLaps! && 'font-semibold',
+                        )}
+                      />
+                      <span className="text-xs text-muted-foreground">lap{sailed === 1 ? '' : 's'}</span>
+                    </span>
+                  );
+                })()}
                 {readOnly || derivedTies.has(eid) ? (
                   // Only say "tie" where there is one: an empty checkbox on
                   // every row is an offer, and there is nothing on offer here.

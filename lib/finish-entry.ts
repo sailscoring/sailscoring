@@ -84,6 +84,10 @@ function predecessors(
  *   the same pair on both sides; a reshuffled order breaks the fact the
  *   marker recorded.
  * - a start check-in carries whenever the boat appears on the sheet at all.
+ * - a lap count carries onto a boat the sheet still times and gives no count
+ *   of its own: a sheet re-imported for its times, without a Laps column,
+ *   would otherwise score a boat sent round once as though it had sailed
+ *   the full course.
  *
  * What cannot carry is left off, so the diff between the stored race and the
  * carried result shows exactly what an import would lose.
@@ -124,13 +128,17 @@ export function carryAcrossImport(
       const ahead = storedPredecessor.get(key);
       if (ahead != null && ahead === importedPredecessor.get(key)) out.tiedWithPrevious = true;
     }
+    if (prior.laps != null && out.laps == null && out.resultCode === null
+      && (out.finishTime != null || out.elapsedSecs != null)) {
+      out.laps = prior.laps;
+    }
     return out;
   });
 }
 
 /** One piece of inexpressible state {@link carryAcrossImport} either kept or
- *  couldn't: the penalty code itself, `redress`, `tie`, or `start check-in`,
- *  against the boat it sits on. */
+ *  couldn't: the penalty code itself, `redress`, `tie`, `start check-in`, or
+ *  a lap count (`1 lap`, only ever cleared), against the boat it sits on. */
 export interface CarryOutcomeItem {
   competitorId: string | null;
   unknownSailNumber?: string;
@@ -163,6 +171,9 @@ export function carryOutcome(
     if (f.resultCode === 'RDG') (after?.resultCode === 'RDG' ? kept : cleared).push(item('redress'));
     if (f.tiedWithPrevious) (after?.tiedWithPrevious ? kept : cleared).push(item('tie'));
     if (f.startPresent === true && !after) cleared.push(item('start check-in'));
+    // Only a count with nowhere to go is news: one that carried, or that the
+    // sheet states itself, is still on the row.
+    if (f.laps != null && after?.laps == null) cleared.push(item(`${f.laps} lap${f.laps === 1 ? '' : 's'}`));
   }
   return { kept, cleared };
 }
