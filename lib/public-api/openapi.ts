@@ -225,6 +225,7 @@ export function publicApiOpenApi(origin: string): Json {
           body: { schema: ref('CreateRaces') },
           result: 'RaceList',
           description: 'Added after the series\' last race, and numbered by the server. A fleet starts once per race.',
+          conflict: 'A race or start id sent is already a race\'s or start\'s: `conflict`. Re-sending a race never changes it.',
         }),
       },
       '/series/{id}/races/{raceId}': {

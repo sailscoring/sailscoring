@@ -422,6 +422,44 @@ describe.skipIf(!DATABASE_URL)('the public API, authenticated part', () => {
     expect(strangeFleet.body.message).toMatch(/No fleet/);
   });
 
+  test('a race re-sent with its id is refused, and left as it was', async () => {
+    const raceId = uuid();
+    const startId = uuid();
+    const first = await call(racesRoute.POST, `/series/${seriesId}/races`, {
+      token, params: { id: seriesId },
+      json: { races: [{ id: raceId, date: '2026-10-25', starts: [{ id: startId, fleetIds: [fleetA], startTime: '11:00' }] }] },
+    });
+    expect(first.status).toBe(200);
+
+    const again = await call(racesRoute.POST, `/series/${seriesId}/races`, {
+      token, params: { id: seriesId },
+      json: { races: [{ id: raceId, date: '2026-10-25', starts: [{ fleetIds: [fleetA, fleetB], startTime: '11:05' }] }] },
+    });
+    expect(again.status).toBe(409);
+    expect(again.body).toMatchObject({ error: 'conflict', message: expect.stringContaining(`race with the id ${raceId}`) });
+    const read = await call(raceRoute.GET, `/series/${seriesId}/races/${raceId}`, { token, params: { id: seriesId, raceId } });
+    expect(read.body.starts).toEqual([{ id: startId, fleetIds: [fleetA], startTime: '11:00:00', course: null }]);
+
+    // A new race can't take a start id that's in use either.
+    const taken = await call(racesRoute.POST, `/series/${seriesId}/races`, {
+      token, params: { id: seriesId },
+      json: { races: [{ date: '2026-10-25', starts: [{ id: startId, fleetIds: [fleetA] }] }] },
+    });
+    expect(taken.status).toBe(409);
+    expect(taken.body.message).toContain(`start with the id ${startId}`);
+
+    const twice = uuid();
+    const doubled = await call(racesRoute.POST, `/series/${seriesId}/races`, {
+      token, params: { id: seriesId },
+      json: { races: [{ id: twice, date: '2026-10-25' }, { id: twice, date: '2026-10-25' }] },
+    });
+    expect(doubled.status).toBe(400);
+    expect(doubled.body.message).toMatch(/sent twice/);
+
+    const list = await call(racesRoute.GET, `/series/${seriesId}/races`, { token, params: { id: seriesId } });
+    expect(list.body.races.filter((r: { date: string }) => r.date === '2026-10-25')).toHaveLength(1);
+  });
+
   test('a retried write with the same Idempotency-Key happens once', async () => {
     const body = { races: [{ date: '2026-10-18' }] };
     const headers = { 'idempotency-key': `race-day-${uuid()}` };

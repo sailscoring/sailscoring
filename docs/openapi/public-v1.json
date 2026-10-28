@@ -1415,6 +1415,16 @@
               }
             }
           },
+          "409": {
+            "description": "A race or start id sent is already a race's or start's: `conflict`. Re-sending a race never changes it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "423": {
             "description": "The series is archived or final, and read-only: `archived`.",
             "content": {
@@ -5392,7 +5402,7 @@
               "type": "object",
               "properties": {
                 "id": {
-                  "description": "Choose the id, so a retried call replaces rather than duplicates.",
+                  "description": "Choose the id, so a retried call can't add the race twice, and the race can be read back by it. An id that is already a race's is refused.",
                   "type": "string",
                   "format": "uuid",
                   "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"

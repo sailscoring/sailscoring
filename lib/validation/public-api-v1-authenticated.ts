@@ -290,7 +290,7 @@ export const createRacesInput = named(
         .array(
           z
             .object({
-              id: id.optional().describe('Choose the id, so a retried call replaces rather than duplicates.'),
+              id: id.optional().describe('Choose the id, so a retried call can\'t add the race twice, and the race can be read back by it. An id that is already a race\'s is refused.'),
               date: localDate,
               name: z.string().trim().max(120).nullable().optional(),
               starts: z

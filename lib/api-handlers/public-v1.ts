@@ -1,5 +1,5 @@
 import 'server-only';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, inArray } from 'drizzle-orm';
 
 import { BadRequestError, NotFoundError, WouldReplaceError } from '@/app/api/v1/_lib/handler';
 import { listCompetitors } from '@/lib/api-handlers/competitors';
@@ -28,7 +28,7 @@ import { getSeries, listSeries } from '@/lib/api-handlers/series';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
 import { getDb } from '@/lib/db/client';
 import { member, organization } from '@/lib/db/schema/auth';
-import { publishedSeries, raceStarts } from '@/lib/db/schema';
+import { publishedSeries, races as racesTable, raceStarts } from '@/lib/db/schema';
 import { publicationApiBase } from '@/lib/public-api/store';
 import {
   competitorResourceOf,
@@ -191,6 +191,30 @@ async function assertFleetsOfSeries(workspace: WorkspaceContext, seriesId: strin
 }
 
 /**
+ * Refuse ids an app chose that a race or start already has, or that it sent
+ * twice: the generator inserts, and re-sending a race never changes it.
+ */
+async function assertIdsFree(raceIds: readonly string[], startIds: readonly string[]) {
+  for (const [what, ids] of [['race', raceIds], ['start', startIds]] as const) {
+    const twice = ids.find((x, i) => ids.indexOf(x) !== i);
+    if (twice) throw new BadRequestError(`The ${what} id ${twice} is sent twice.`);
+  }
+  const db = getDb();
+  const [race] = raceIds.length
+    ? await db.select({ id: racesTable.id }).from(racesTable).where(inArray(racesTable.id, [...raceIds])).limit(1)
+    : [];
+  if (race) {
+    throw new WouldReplaceError(
+      `There is already a race with the id ${race.id}. Read it back by its id; change its starts with the start calls.`,
+    );
+  }
+  const [start] = startIds.length
+    ? await db.select({ id: raceStarts.id }).from(raceStarts).where(inArray(raceStarts.id, [...startIds])).limit(1)
+    : [];
+  if (start) throw new WouldReplaceError(`There is already a start with the id ${start.id}.`);
+}
+
+/**
  * Add races after the series' last, each with its starts. The server owns
  * the numbering and the creation time, which the internal generator's body
  * carries; they're filled in here, so a client sends only what it knows.
@@ -224,6 +248,10 @@ export async function createRacesPublic(
     }
   });
   await assertFleetsOfSeries(workspace, seriesId, starts.flatMap((s) => s.fleetIds));
+  await assertIdsFree(
+    input.races.flatMap((r) => (r.id ? [r.id] : [])),
+    input.races.flatMap((r) => r.starts.flatMap((s) => (s.id ? [s.id] : []))),
+  );
   const created = await generateRaces(workspace, seriesId, { races, starts });
   return { races: created.map((r) => raceResourceOf(r, starts)) };
 }

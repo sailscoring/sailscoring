@@ -179,8 +179,12 @@ What the description can't say:
 - **Writes are actions.** None replaces a whole record, so an app never has
   to send back fields it read. A field the call doesn't take is refused.
 - **Creating races**: they go after the series' last race and are numbered
-  by the server. Choose their ids (and their starts') if you may retry, so a
-  retry replaces rather than adds; or send an `Idempotency-Key`.
+  by the server. Choose their ids (and their starts') if you may retry: a
+  retry then can't add the race twice, since an id that is already a race's
+  or a start's is refused (`409`), and the race can be read back by its id.
+  Or send an `Idempotency-Key`, and a retry gets the first answer again.
+  Re-sending a race never changes it; its starts change through the start
+  calls.
 - **A day's races** (`/races?date=`) come from every series that isn't
   archived, each with its `seriesId` and `seriesName`: what a race-day app
   shows on the committee boat, whichever series each race counts in.
