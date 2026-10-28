@@ -276,6 +276,54 @@ export default function EnteringResults() {
           mind.
         </p>
       </Section>
+      {has('mixed-laps') && (
+      <Section id="mixed-laps" title="Boats sailing different numbers of laps">
+        <HelpShot
+          src="/help/shots/mixed-laps.webp"
+          alt="A finish sheet with a Laps column: the first boat across sailed one lap of two."
+          caption="The first boat across sailed one lap of two, and is scored on the full course."
+        />
+        <p>
+          A fleet with a wide spread of handicaps in one start — dinghies on Portsmouth
+          numbers from 940 to over 1400, say — leaves the fast boats waiting a long time for
+          the slow ones. A common answer is to send the slowest boats round once while
+          everyone else goes round twice, and scale their times up to the full course before
+          they are corrected:
+        </p>
+        <p className="text-center font-mono text-sm text-foreground">
+          corrected = elapsed × (full course ÷ laps sailed) × rating
+        </p>
+        <p>
+          Once the first timed finisher is in, click{' '}
+          <strong className="text-foreground">Laps</strong> above the finishing order and say
+          how many laps the full course was. Every timed row gets that count, and a{' '}
+          <strong className="text-foreground">Laps</strong> column appears beside the times;
+          change the count on the boats that sailed fewer. Boats you enter afterwards start on
+          the full course. <strong className="text-foreground">Laps → Remove lap counts</strong>{' '}
+          takes the column away again.
+        </p>
+        <p>
+          The full course is the most laps any boat in the fleet sailed, which is how Sailwave
+          and HalSail work it out too. A boat that finishes a lap down has an ordinary finish,
+          not a result code. Its elapsed time is published as it was sailed, next to the
+          corrected time on the full course, and the published race table shows a Laps column
+          wherever the counts differ.
+        </p>
+        <p>
+          It works with any rating corrected time-on-time: PY, a fixed TCF, IRC, ECHO and NHC.
+          The progressive systems work out each boat’s next handicap from the full-course
+          time too, so a boat sent round once isn’t cut as though it were twice as fast as its
+          handicap. A fleet ranked on finishing order has no time to scale, and ORC’s
+          time-on-distance and performance-curve options correct over the course distance, so
+          for those the standings warn that the lap counts are being ignored.
+        </p>
+        <p>
+          An imported finish sheet can carry a <em>Laps</em> column, and a recorder’s
+          submitted sheet carries the counts they wrote down. Re-importing a sheet without
+          one keeps the counts you already have.
+        </p>
+      </Section>
+      )}
       {has('csv-finish-import') && (
       <Section id="importing-finish-sheet" title="Importing a finish sheet from a spreadsheet">
         <HelpShot

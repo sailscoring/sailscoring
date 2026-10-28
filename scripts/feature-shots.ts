@@ -2257,6 +2257,66 @@ const SHOTS: Shot[] = [
       });
     },
   },
+  {
+    // Inventory: Mixed laps — a Laps column on the finish sheet, the slowest
+    // boat sent round once while the rest sailed two.
+    //
+    // Builds its own race, like elapsed-times, so the sample's races are left
+    // alone; last in the list for the same reason.
+    slug: 'mixed-laps',
+    group: 'Entering results',
+    async capture({ page, seriesId, shot }) {
+      if (!LOCAL) throw new Error('mixed-laps builds a race, so it is local-mode only');
+      await ensureFeature(page, 'mixed-laps');
+      const id = await seriesId();
+      await page.goto(`${BASE}/series/${id}/races`);
+      await settle(page);
+      const raceNumbers = async () =>
+        (await page.getByText(/^Race \d+\b/).allTextContents())
+          .map((t) => Number(/^Race (\d+)/.exec(t)?.[1]))
+          .filter((n) => Number.isFinite(n));
+      const highest = Math.max(...await raceNumbers());
+      await page.getByRole('button', { name: 'Add race' }).click();
+      await settle(page);
+      await openRace(page, id, highest + 1);
+      await page.getByRole('button', { name: 'Edit ▸' }).click();
+      await page.getByRole('button', { name: 'Add start' }).click();
+      const startDialog = page.getByRole('dialog');
+      await startDialog.waitFor();
+      await startDialog.getByPlaceholder('14:05', { exact: true }).fill('19:00:00');
+      await startDialog.getByRole('checkbox', { name: /^Class 3 IRC/ }).check();
+      await startDialog.getByRole('button', { name: 'Save' }).click();
+      await startDialog.waitFor({ state: 'hidden' });
+      const done = page.getByRole('button', { name: 'Done' });
+      if (await done.isVisible().catch(() => false)) await done.click();
+      const finishTab = page.getByRole('button', { name: 'Finish entry' });
+      if (await finishTab.isVisible().catch(() => false)) await finishTab.click();
+      await settle(page);
+
+      // Four boats in crossing order; the first across sailed one lap of two.
+      const sails = (await page.getByTestId(/^non-finisher-/).evaluateAll((els) =>
+        els.map((e) => e.getAttribute('data-testid')!.replace('non-finisher-', '')),
+      )).slice(0, 4);
+      const times = ['19:41:20', '20:08:45', '20:11:02', '20:16:38'];
+      for (const [i, sail] of sails.entries()) {
+        await page.getByLabel('Sail number').fill(sail);
+        await page.getByRole('button', { name: 'Add', exact: true }).click();
+        const prompt = page.getByRole('textbox', { name: 'Finish time', exact: true });
+        await prompt.waitFor();
+        await prompt.fill(times[i]);
+        await page.getByRole('button', { name: 'Add', exact: true }).click();
+      }
+      await page.getByTestId('turn-on-laps').click();
+      await page.getByTestId('full-course-laps').fill('2');
+      await page.getByRole('button', { name: 'Set', exact: true }).click();
+      const short = page.getByTestId(`laps-${sails[0]}`);
+      await short.fill('1');
+      await short.press('Enter');
+      await settle(page);
+      await scrollTo(page.getByText('Finishing order', { exact: true }).first());
+      await shot('mixed-laps.png');
+    },
+  },
 ];
 
 /** Open a published fleet page (by URL substring) in the anonymous context,

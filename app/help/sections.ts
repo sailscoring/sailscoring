@@ -62,6 +62,7 @@ export const HELP_GROUPS: HelpGroupDef[] = [
     sections: [
       { id: 'entering-results', title: 'Entering results', keywords: ['finish sheet', 'finishing order', 'dnc', 'dnf', 'dns', 'ocs', 'ufd', 'bfd', 'dsq', 'ret', 'nsc', 'result code', 'retired', 'did not finish', 'tie', 'dead heat', 'transcribe'] },
       { id: 'elapsed-times', title: 'Recording a race off a stopwatch', keywords: ['stopwatch', 'elapsed', 'timing', 'seconds', 'no gun', 'hand timing'] },
+      { id: 'mixed-laps', title: 'Boats sailing different numbers of laps', feature: 'mixed-laps', keywords: ['laps', 'average lap', 'average-lap racing', 'alr', 'short course', 'lap down', 'hansa', 'mixed py', 'one lap', 'fewer laps'] },
       { id: 'penalty-codes', title: 'Additive penalty codes', keywords: ['zfp', 'scp', 'dpi', 'penalty', 'points penalty', 'protest', 'discretionary', 'turn'] },
       { id: 'importing-finish-sheet', title: 'Importing a finish sheet from a spreadsheet', feature: 'csv-finish-import', keywords: ['csv', 'excel', 'spreadsheet', 'paste results', 'import finishes'] },
       { id: 'racesense-import', title: 'Importing from RaceSense', feature: 'racesense-import', keywords: ['vakaros', 'tracker', 'gps', 'track data', 'xlsx'] },

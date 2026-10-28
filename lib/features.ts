@@ -406,7 +406,7 @@ export const FEATURES = {
     // a race that already carries lap counts scores and publishes with them
     // regardless, so turning it off never silently changes a result.
     label: 'Mixed laps',
-    helpSectionIds: [],
+    helpSectionIds: ['mixed-laps'],
   },
 } as const satisfies Record<string, FeatureDef>;
 
