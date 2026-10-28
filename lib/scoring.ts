@@ -782,7 +782,10 @@ export function computeOrcCourseRace(
   for (const boat of result.boats) {
     if (boat.error || !Number.isFinite(boat.todAtScoringWind) || boat.todAtScoringWind <= 0) continue;
     const tod = boat.todAtScoringWind;
-    const tot = 600 / tod;
+    // 403.3's 600 / ToD, rounded to 4 dp as a certificate's ToT is: ORC
+    // Scorer applies the rating it publishes, and the unrounded figure can
+    // land a corrected time on the other side of a half second.
+    const tot = Math.round((600 / tod) * 1e4) / 1e4;
     ratingByCompetitorId.set(boat.id, asTot ? tot : tod);
     calcByCompetitorId.set(boat.id, {
       option,

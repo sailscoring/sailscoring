@@ -398,8 +398,8 @@ describe("ORC constructed course at the recorded wind (ORC Scorer's ToT/ToD - Co
       expect(got.orc?.impliedWind).toBeUndefined();
       expect(got.orc?.scoringWind).toBeCloseTo(cork.windSpeedKts, 9);
       expect(got.orc?.totApplied).toBeCloseTo(got.tcfApplied!, 9);
-      // 600 / the course allowance is the rating, per rule 403.3.
-      expect(600 / got.orc!.todApplied!).toBeCloseTo(got.orc!.totApplied!, 9);
+      // 600 / the course allowance is the rating, per rule 403.3, to 4 dp.
+      expect(got.orc!.totApplied).toBe(Math.round((600 / got.orc!.todApplied!) * 1e4) / 1e4);
       // Time-on-time anchors on nothing, so there is no scratch allowance.
       expect(got.orc?.scratchTod).toBeUndefined();
     }
@@ -408,6 +408,39 @@ describe("ORC constructed course at the recorded wind (ORC Scorer's ToT/ToD - Co
     expect([...entry.standings].sort((a, b) => a.rank - b.rank).map((s) => s.competitor.boatName))
       .toEqual(cork.boats.map((b) => b.boatName));
     expect(scores.get(cork.boats[0].sailNumber)!.orc?.distanceNm).toBeCloseTo(cork.distanceNm, 9);
+  });
+
+  it('applies the rating to 4 dp, as ORC Scorer publishes it (rhtld R2)', () => {
+    const r2: Omit<CorkFixture, 'windSpeedKts' | 'windDirectionDeg' | 'distanceNm' | 'legs'> & {
+      legs: Array<{ distanceNm: number; bearingDeg: number; windDirectionDeg: number; windSpeedKts: number }>;
+    } = JSON.parse(
+      readFileSync(join(process.cwd(), 'tests/fixtures/orc/orc-scorer-cork-tot-constructed-r2.json'), 'utf-8'),
+    );
+    const competitors: Competitor[] = r2.boats.map((boat) => ({
+      ...baseComp,
+      id: boat.sailNumber,
+      sailNumber: boat.sailNumber,
+      boatName: boat.boatName,
+      orcCert: { record: { YachtName: boat.boatName, Allowances: boat.allowances }, importedAt: 0 },
+    }));
+    const result = calculateFleetStandings(
+      [corkFleet('CC_TOT')], competitors, races,
+      r2.boats.map((boat, i) => finish(boat.sailNumber, i, boat.finishTime)), [], 'seriesEntries',
+      [{ ...start, startTime: r2.startTime, courseLegs: r2.legs }],
+    );
+    const scores = result.fleetStandings[0].orcRaceScoresByRaceId!.get('r1')!;
+    for (const boat of r2.boats) {
+      const got = scores.get(boat.sailNumber)!;
+      expect(got.tcfApplied, boat.boatName).toBe(boat.published.tot);
+      const [h, m, sec] = boat.published.correctedTime.split(':').map(Number);
+      expect(got.correctedTime, boat.boatName).toBe(h * 3600 + m * 60 + sec);
+    }
+    // Miss Whiplash's 600 / ToD is 1.1281542: 2360 s × 1.1281542 = 2662.44
+    // would round to 2662, where 2360 × 1.1282 = 2662.55 gives the 2663 ORC
+    // Scorer published.
+    const whiplash = scores.get('IRL 5435')!;
+    expect(600 / whiplash.orc!.todApplied!).toBeCloseTo(1.1281542, 6);
+    expect(whiplash.correctedTime).toBe(2663);
   });
 
   it('performance curves over the same course and finishes rank the fleet differently', () => {

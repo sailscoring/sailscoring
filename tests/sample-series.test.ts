@@ -294,7 +294,8 @@ describe('sample series files', () => {
     expect(r5?.scoringWind).toBeCloseTo(11, 9);
     expect(r5?.impliedWind).toBeUndefined();
     expect(r5?.scratchTod).toBeUndefined();
-    expect(r5?.totApplied).toBeCloseTo(600 / r5!.todApplied!, 9);
+    // 600 / the allowance, to the 4 dp a certificate's ToT carries.
+    expect(r5?.totApplied).toBe(Math.round((600 / r5!.todApplied!) * 1e4) / 1e4);
     const recorded = raceStarts.find((s) => s.orcOption === 'CC_TOT')!;
     expect(recorded.courseLegs?.every((leg) => leg.windSpeedKts === 11)).toBe(true);
     expect(recorded.course?.windSpeedKts).toBe(11);

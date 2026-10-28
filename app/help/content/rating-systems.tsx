@@ -321,7 +321,8 @@ export default function RatingSystems() {
           <strong className="text-foreground">no implied wind</strong> under these
           options, and the published page shows none. The rating is applied as the
           option says: <em>time-on-time</em>, where each boat’s allowance becomes a
-          multiplier (600 divided by it) and the course length drops out of the
+          multiplier (600 divided by it, to four decimal places as on a certificate)
+          and the course length drops out of the
           result, or <em>time-on-distance</em>, corrected against the scratch boat as
           the single-number ToD options are. The choice
           matters — the same finishes on the same course can come out in a different
