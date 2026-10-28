@@ -83,10 +83,13 @@ describe('ORC time-on-time scoring (APHT default)', () => {
 describe('ORC time-on-distance scoring (403.2)', () => {
   const todFleet: Fleet = { ...fleet, orcProfile: { option: 'APHD', kind: 'tod' } };
 
-  it('reproduces the ZW manual worked example, rounding included', () => {
-    // reference-docs:tool-manuals/zw/Manual-ZW-6.md: fleet-lowest ToD 621.8;
-    // boat ToD 681.7, elapsed 00:46:51 = 2811 s, course 5.15 NM →
-    // Δ 59.9 × 5.15 = 308.485 → CT 2502.515 → 00:41:43 (2503 s).
+  it('rounds each allowance product, as ORC Scorer does, not the difference', () => {
+    // The ZW manual's worked example (reference-docs:tool-manuals/zw/Manual-ZW-6.md):
+    // fleet-lowest ToD 621.8; boat ToD 681.7, elapsed 00:46:51 = 2811 s,
+    // course 5.15 NM. ZW rounds once: Δ 59.9 × 5.15 = 308.485 → CT
+    // 2502.515 → 2503 s. ORC Scorer rounds each product, as ORC's PCS module
+    // does: 681.7 × 5.15 = 3510.755 → 3511 and 621.8 × 5.15 = 3202.27 →
+    // 3202, so CT = 2811 − 3511 + 3202 = 2502 s.
     const boats: Competitor[] = [
       { ...baseComp, id: 'scr', sailNumber: 'S1', orcCert: { record: { APHD: 621.8 }, importedAt: 0 } },
       { ...baseComp, id: 'b', sailNumber: 'S2', orcCert: { record: { APHD: 681.7 }, importedAt: 0 } },
@@ -100,7 +103,7 @@ describe('ORC time-on-distance scoring (403.2)', () => {
     });
     // The scratch boat's CT is its elapsed time.
     expect(scores.get('scr')?.correctedTime).toBe(2400);
-    expect(scores.get('b')?.correctedTime).toBe(2503);
+    expect(scores.get('b')?.correctedTime).toBe(2502);
     expect(scores.get('b')?.tcfApplied).toBe(681.7);
   });
 
@@ -113,6 +116,23 @@ describe('ORC time-on-distance scoring (403.2)', () => {
     const result = calculateFleetStandings([todFleet], [impetuous, mojo], races, finishes, [], 'seriesEntries', [todStart]);
     const byRank = [...result.fleetStandings[0].standings].sort((a, b) => a.rank - b.rank).map((s) => s.competitor.id);
     expect(byRank).toEqual(['imp', 'mojo']);
+  });
+
+  it('standings: the scratch boat is the fastest-rated boat that finished', () => {
+    // A boat with a lower allowance than Mojo's retires, so Mojo is scratch
+    // and its corrected time is its elapsed time.
+    const fast: Competitor = { ...baseComp, id: 'fast', sailNumber: 'IRL 7720', orcCert: { record: { APHD: 548.2 }, importedAt: 0 } };
+    const todStart: RaceStart = { ...start, startTime: '15:15:00', distanceNm: 3.24 };
+    const { finishTime: _none, ...retired } = finish('fast', 3, '');
+    const finishes: Finish[] = [
+      finish('mojo', 1, '15:50:51'), finish('imp', 2, '15:51:49'),
+      { ...retired, resultCode: 'RET' },
+    ];
+    const result = calculateFleetStandings([todFleet], [impetuous, mojo, fast], races, finishes, [], 'seriesEntries', [todStart]);
+    const scores = result.fleetStandings[0].orcRaceScoresByRaceId!.get('r1')!;
+    expect(scores.get('mojo')?.orc?.scratchTod).toBe(594.7);
+    expect(scores.get('mojo')?.correctedTime).toBe(2151);
+    expect(scores.get('fast')?.orc?.scratchTod).toBe(594.7);
   });
 
   it('standings: a ToD race with no recorded distance scores nobody and reports the gap', () => {

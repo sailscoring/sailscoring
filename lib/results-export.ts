@@ -6,6 +6,7 @@ import {
   buildRaceFleetExclusionMap,
   UNKNOWN_FLEET_ID,
   computeOrcCourseRace,
+  orcCertificateTodContext,
   orcStartHasCourse,
   startKeyResolver,
   type TodCorrectionContext,
@@ -1191,8 +1192,8 @@ export async function buildFleetHtmlFiles(
             }
           }
           let ratedFleetCompetitors = fleetCompetitors.filter((c) => tcfMap.has(c.id));
-          let todContext: TodCorrectionContext | undefined = isOrcTod && !isOrcCurve && tcfMap.size > 0
-            ? { distanceNm: raceStart.distanceNm!, scratchTod: Math.min(...tcfMap.values()) }
+          let todContext: TodCorrectionContext | undefined = isOrcTod && !isOrcCurve
+            ? orcCertificateTodContext(raceStart, finishesForRace, tcfMap)
             : undefined;
           if (isOrcCurve) {
             const computed = computeOrcCourseRace(

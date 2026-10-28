@@ -1,0 +1,96 @@
+description: "ORC — time-on-distance rounds each allowance product, against the fastest boat that finished"
+rrs_notes: "ORC Rating Systems 403.2: CT = ET − ToD × distance + ToD of the scratch boat × distance, rounded to the second (401.2). ORC Scorer rounds each product to the second and subtracts, as ORC's PCS module does for 402.9, and takes the scratch boat from the boats that finished."
+
+# APHD allowances in s/NM, a 4.37 NM course, start 15:00:00:
+#   Kestrel  548.2 — the fastest rating, but retires
+#   Mojo     594.7 — the fastest-rated boat that finished: the scratch boat
+#   Ruffian  620.0
+#
+# The scratch boat is Mojo, not Kestrel: a boat that didn't finish isn't the
+# boat the fleet is corrected against. Mojo's corrected time is its elapsed
+# time. (With Kestrel as scratch every corrected time would fall by the same
+# 203 s and the order would be the same; it's the published figure that
+# changes.)
+#
+# Each product is rounded to the second before subtracting:
+#   Mojo:    594.7 × 4.37 = 2598.839 → 2599
+#   Ruffian: 620.0 × 4.37 = 2709.4   → 2709
+#
+#   Mojo:    finish 15:46:20  ET 2780  CT = 2780 − 2599 + 2599 = 2780
+#   Ruffian: finish 15:48:10  ET 2890  CT = 2890 − 2709 + 2599 = 2780
+#
+# They tie, sharing (1 + 2) / 2 = 1.5 points. Rounding the difference once
+# instead would give Ruffian 2890 − 110.561 = 2779.439 → 2779, and the race
+# outright.
+
+series:
+  discardThresholds: []
+
+fleet:
+  scoringSystem: orc
+  orcOption:
+    option: APHD
+    kind: tod
+
+competitors:
+  - sailNumber: "IRL 1551"
+    name: "Mojo"
+    orcCertFields:
+      APHD: 594.7
+  - sailNumber: "IRL 4410"
+    name: "Ruffian"
+    orcCertFields:
+      APHD: 620.0
+  - sailNumber: "IRL 7720"
+    name: "Kestrel"
+    orcCertFields:
+      APHD: 548.2
+
+races:
+  - number: 1
+    startTime: "15:00:00"
+    distanceNm: 4.37
+    finishes:
+      - sailor: "IRL 1551"
+        finishTime: "15:46:20"
+      - sailor: "IRL 4410"
+        finishTime: "15:48:10"
+      - sailor: "IRL 7720"
+        code: "RET"
+    expected:
+      - sailor: "IRL 1551"
+        rank: 1
+        points: 1.5
+        elapsedTime: 2780
+        correctedTime: 2780
+        tcfApplied: 594.7
+      - sailor: "IRL 4410"
+        rank: 1
+        points: 1.5
+        elapsedTime: 2890
+        correctedTime: 2780
+        tcfApplied: 620.0
+
+expected:
+  standings:
+    - rank: 1
+      sailor: "IRL 1551"
+      racePoints: [1.5]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 1.5
+      netPoints: 1.5
+    - rank: 1
+      sailor: "IRL 4410"
+      racePoints: [1.5]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 1.5
+      netPoints: 1.5
+    - rank: 3
+      sailor: "IRL 7720"
+      racePoints: [4]
+      raceCodes: ["RET"]
+      raceDiscards: [false]
+      totalPoints: 4
+      netPoints: 4

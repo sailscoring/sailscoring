@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="viewport" content="width=device-width">
+<title>ORC — time-on-distance rounds each allowance product, against the fastest boat that finished — Sail Scoring</title>
+<style>
+body { font: 100% arial, helvetica, sans-serif; max-width: 900px; margin: 40px auto; padding: 0 20px; color: #222; }
+h1 { font-size: 1.4em; }
+h2 { font-size: 1.1em; margin-top: 1.5em; border-bottom: 1px solid #ccc; padding-bottom: 0.2em; }
+table { border-collapse: collapse; width: 100%; margin-top: 0.5em; }
+td, th { text-align: left; padding: 6px 8px; border: 1px solid #ddd; }
+th { background: #f5f5f0; font-weight: bold; }
+tr:nth-child(even) { background: #fafafa; }
+.mono { font-family: monospace; }
+footer { margin-top: 3em; font-size: 0.9em; color: #999; border-top: 1px solid #eee; padding-top: 1em; }
+</style>
+</head>
+<body>
+<p><a href="../">&larr; All ORC handicap examples</a></p>
+<h1>ORC — time-on-distance rounds each allowance product, against the fastest boat that finished</h1>
+<p style="font-style:italic; color:#444;">ORC Rating Systems 403.2: CT = ET − ToD × distance + ToD of the scratch boat × distance, rounded to the second (401.2). ORC Scorer rounds each product to the second and subtracts, as ORC's PCS module does for 402.9, and takes the scratch boat from the boats that finished.</p>
+<div style="margin:0.8em 0; padding:0.6em 1em; background:#f5f5f0; border:1px solid #ccc; font-size:90%;">
+  <strong>Scoring system:</strong> ORC
+</div>
+<pre style="margin:0.6em 0 0; padding:0.5em; background:#fff; border:1px solid #ddd; font-size:0.95em; line-height:1.4; white-space:pre-wrap;">APHD allowances in s/NM, a 4.37 NM course, start 15:00:00:
+  Kestrel  548.2 — the fastest rating, but retires
+  Mojo     594.7 — the fastest-rated boat that finished: the scratch boat
+  Ruffian  620.0
+
+The scratch boat is Mojo, not Kestrel: a boat that didn't finish isn't the
+boat the fleet is corrected against. Mojo's corrected time is its elapsed
+time. (With Kestrel as scratch every corrected time would fall by the same
+203 s and the order would be the same; it's the published figure that
+changes.)
+
+Each product is rounded to the second before subtracting:
+  Mojo:    594.7 × 4.37 = 2598.839 → 2599
+  Ruffian: 620.0 × 4.37 = 2709.4   → 2709
+
+  Mojo:    finish 15:46:20  ET 2780  CT = 2780 − 2599 + 2599 = 2780
+  Ruffian: finish 15:48:10  ET 2890  CT = 2890 − 2709 + 2599 = 2780
+
+They tie, sharing (1 + 2) / 2 = 1.5 points. Rounding the difference once
+instead would give Ruffian 2890 − 110.561 = 2779.439 → 2779, and the race
+outright.</pre>
+<h2 style="margin-top:1.5em;">Race arithmetic</h2>
+<div style="margin:0.4em 0 0.6em; color:#444; font-size:90%;">
+  <strong>Gun time:</strong> 15:00:00 &nbsp; <strong>Course:</strong> 4.37 NM
+</div>
+<table>
+<thead>
+<tr><th>Rank</th><th>Name</th><th>Sail #</th><th>APHD</th><th>Finish time</th><th>ET</th><th>ToD</th><th>CT</th><th>Points</th></tr>
+</thead>
+<tbody>
+<tr>
+  <td>1</td>
+  <td>Mojo</td>
+  <td class="mono">IRL 1551</td>
+  <td class="mono">594.7</td>
+  <td class="mono">15:46:20</td>
+  <td class="mono">46m 20s</td>
+  <td class="mono">594.7</td>
+  <td class="mono">42m 57s</td>
+  <td>1.5</td>
+</tr>
+<tr>
+  <td>1</td>
+  <td>Ruffian</td>
+  <td class="mono">IRL 4410</td>
+  <td class="mono">620.0</td>
+  <td class="mono">15:48:10</td>
+  <td class="mono">48m 10s</td>
+  <td class="mono">620.0</td>
+  <td class="mono">42m 57s</td>
+  <td>1.5</td>
+</tr>
+<tr>
+  <td>—</td>
+  <td>Kestrel</td>
+  <td class="mono">IRL 7720</td>
+  <td class="mono">548.2</td>
+  <td class="mono">RET</td>
+  <td class="mono">—</td>
+  <td class="mono">548.2</td>
+  <td class="mono">—</td>
+  <td>4</td>
+</tr>
+</tbody>
+</table>
+<h2 style="margin-top:1.5em;">Series standings</h2>
+<table>
+<thead>
+<tr><th>Rank</th><th>Name</th><th>Sail #</th><th>R1</th><th>Total</th><th>Net</th></tr>
+</thead>
+<tbody>
+<tr>
+  <td>1</td>
+  <td>Mojo</td>
+  <td class="mono">IRL 1551</td>
+  <td class="mono">1.5</td>
+  <td class="mono">1.5</td>
+  <td class="mono">1.5</td>
+</tr>
+<tr>
+  <td>1</td>
+  <td>Ruffian</td>
+  <td class="mono">IRL 4410</td>
+  <td class="mono">1.5</td>
+  <td class="mono">1.5</td>
+  <td class="mono">1.5</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td>Kestrel</td>
+  <td class="mono">IRL 7720</td>
+  <td class="mono">RET</td>
+  <td class="mono">4</td>
+  <td class="mono">4</td>
+</tr>
+</tbody>
+</table>
+<footer><a href="https://sailscoring.ie">sailscoring.ie</a></footer>
+</body>
+</html>

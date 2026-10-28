@@ -433,12 +433,38 @@ function getTCF(competitor: Competitor, fleet: Fleet): number | null {
 export interface TodCorrectionContext {
   /** Course length in nautical miles (ORC records it to 0.01 NM). */
   distanceNm: number;
-  /** The lowest allowance among the fleet's rated boats — the scratch boat. */
+  /** The scratch boat's allowance — the lowest among the boats it corrects
+   *  against (see {@link orcCertificateTodContext}). */
   scratchTod: number;
-  /** Round each ToD × distance product to whole seconds before combining,
-   *  instead of rounding the corrected time once — the convention ORC's PCS
-   *  module uses, kept for exact parity on PCS races. */
-  roundEachProduct?: boolean;
+}
+
+/**
+ * The time-on-distance correction for an ORC race scored on an allowance
+ * read off the certificate (403.2), or null when there is nothing to correct
+ * with: no recorded course length, or no rated boat.
+ *
+ * The scratch boat is the lowest allowance among the boats that finished,
+ * as ORC Scorer takes it. Choosing it from the finishers moves every corrected
+ * time by the same amount, so it never changes the order — but it is the
+ * figure ORC Scorer publishes. With no finisher, any boat will do.
+ */
+export function orcCertificateTodContext(
+  raceStart: RaceStart,
+  finishes: Finish[],
+  allowanceByCompetitorId: Map<string, number>,
+): TodCorrectionContext | undefined {
+  if (raceStart.distanceNm == null || allowanceByCompetitorId.size === 0) return undefined;
+  const startSeconds = parseHmsToSeconds(raceStart.startTime);
+  const finisherAllowances = finishes.flatMap((f) => {
+    const allowance = f.competitorId !== null ? allowanceByCompetitorId.get(f.competitorId) : undefined;
+    return allowance != null && f.resultCode === null && elapsedSecondsOf(f, startSeconds) !== null
+      ? [allowance]
+      : [];
+  });
+  return {
+    distanceNm: raceStart.distanceNm,
+    scratchTod: Math.min(...(finisherAllowances.length > 0 ? finisherAllowances : allowanceByCompetitorId.values())),
+  };
 }
 
 /**
@@ -569,16 +595,14 @@ export function calculateHandicapRaceScores(
       candidates.push({ competitorId: competitor.id, elapsedTime: null, correctedTime: null, tcfApplied: tcf, resultCode: 'DNF', isFinisher: false });
       continue;
     }
-    // Both forms round half-up to the unit the race was timed in (ORC rule
-    // 401.2 states the whole-second convention the engine has always used for
-    // time-on-time, and it governs the allowance products either way — what
-    // the millisecond keeps is the boat's own elapsed time, which passes
-    // through the time-on-distance subtraction untouched).
+    // Time-on-time rounds half-up to the unit the race was timed in (ORC rule
+    // 401.2 states the whole-second convention the engine has always used).
+    // Time-on-distance rounds each allowance product to the second and
+    // subtracts, as ORC's PCS module and ORC Scorer both do: the boat's own
+    // elapsed time passes through the subtraction untouched.
     const courseEt = fullCourseElapsed(et, finish.laps, courseLaps);
     const ct = todContext
-      ? todContext.roundEachProduct
-        ? et - Math.round(tcf * todContext.distanceNm) + Math.round(todContext.scratchTod * todContext.distanceNm)
-        : roundToPrecision(et - (tcf - todContext.scratchTod) * todContext.distanceNm, precision)
+      ? et - Math.round(tcf * todContext.distanceNm) + Math.round(todContext.scratchTod * todContext.distanceNm)
       : roundCorrectedSecs(courseEt, tcf, precision);
     candidates.push({
       competitorId: competitor.id,
@@ -778,7 +802,7 @@ export function computeOrcCourseRace(
     ratingByCompetitorId,
     ...(asTot
       ? {}
-      : { todContext: { distanceNm, scratchTod: result.scratchTod, roundEachProduct: true } }),
+      : { todContext: { distanceNm, scratchTod: result.scratchTod } }),
     calcByCompetitorId,
   };
 }
@@ -1965,14 +1989,7 @@ function calculateHandicapStandings(
         effectiveTcfMap = new Map();
       } else if (orcProfile && !isOrcCurve) {
         effectiveTcfMap = orcRatingsFor(orcProfile);
-        if (isOrcTod && effectiveTcfMap.size > 0) {
-          // The scratch boat's allowance (ORC 403.2: the lowest ToD among
-          // the boats rated under this race's option).
-          todContext = {
-            distanceNm: raceStart.distanceNm!,
-            scratchTod: Math.min(...effectiveTcfMap.values()),
-          };
-        }
+        if (isOrcTod) todContext = orcCertificateTodContext(raceStart, raceFinishes, effectiveTcfMap);
       }
       if (isOrcCurve && !orcCourseMissing) {
         const computed = computeOrcCourseRace(

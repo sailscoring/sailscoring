@@ -145,7 +145,7 @@ round to nearest whole second; 401.3: course length to 0.01 NM):
   correction primitive applies unchanged. Scoring with `APHT` is
   operationally identical to IRC.
 - **Time-on-distance** (403.2): `CT = ET − (ToD_boat − ToD_scratch) ×
-  distance`, where the scratch boat is the fleet's fastest (lowest ToD). The
+  distance`, where the scratch boat is the fastest (lowest ToD) that finished. The
   scratch-boat normalization never changes finishing order — it only anchors
   the winner's corrected time near their elapsed time for presentation.
 

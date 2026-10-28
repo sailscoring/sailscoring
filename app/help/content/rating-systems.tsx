@@ -225,7 +225,9 @@ export default function RatingSystems() {
           give each boat an allowance in seconds per nautical mile — those need the
           course length recorded on each race start, and the corrected time is the
           elapsed time less the boat’s allowance over the course, measured against the
-          fleet’s fastest-rated (<em>scratch</em>) boat.
+          fastest-rated boat that finished (the <em>scratch</em> boat), whose corrected
+          time is its elapsed time. Each boat’s allowance over the course is rounded to
+          the second before it is subtracted, as ORC Scorer does.
         </p>
         <p>
           Between the single number and full performance curves sit the{' '}
@@ -320,8 +322,8 @@ export default function RatingSystems() {
           options, and the published page shows none. The rating is applied as the
           option says: <em>time-on-time</em>, where each boat’s allowance becomes a
           multiplier (600 divided by it) and the course length drops out of the
-          result, or <em>time-on-distance</em>, corrected against the fleet’s
-          fastest-rated boat as the single-number ToD options are. The choice
+          result, or <em>time-on-distance</em>, corrected against the scratch boat as
+          the single-number ToD options are. The choice
           matters — the same finishes on the same course can come out in a different
           order under each — so pick the one the sailing instructions name.
         </p>

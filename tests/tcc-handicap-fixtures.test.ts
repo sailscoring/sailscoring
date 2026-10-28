@@ -11,7 +11,7 @@
 import { describe, it, expect } from 'vitest';
 import { join } from 'node:path';
 import { orcProfileRating, orcRaceProfile } from '@/lib/orc-certificate';
-import { calculateFleetStandings, calculateHandicapRaceScores } from '@/lib/scoring';
+import { calculateFleetStandings, calculateHandicapRaceScores, orcCertificateTodContext } from '@/lib/scoring';
 import { buildFixtureInputs, loadFixturesFromDir } from './fixtures/scoring/types';
 import type { Finish } from '@/lib/types';
 
@@ -65,9 +65,7 @@ describe('TCC handicap scoring fixtures', () => {
 
         const { tcfMap, isOrcTod } = buildTcfMap(raceStart);
         const ratedCompetitors = competitors.filter((c) => tcfMap.has(c.id));
-        const todContext = isOrcTod && raceStart.distanceNm != null && tcfMap.size > 0
-          ? { distanceNm: raceStart.distanceNm, scratchTod: Math.min(...tcfMap.values()) }
-          : undefined;
+        const todContext = isOrcTod ? orcCertificateTodContext(raceStart, raceFinishes, tcfMap) : undefined;
         const { scores } = calculateHandicapRaceScores(raceFinishes, ratedCompetitors, raceStart, tcfMap, dnfScoring, todContext);
 
         for (const exp of fixtureRace.expected) {
