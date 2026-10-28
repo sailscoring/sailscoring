@@ -1,5 +1,6 @@
 import type { Competitor, Fleet, Race, Finish, RaceScore, HandicapRaceScore, RaceStart, RaceRatingOverride, Standing, ResultCode, PenaltyCode, DiscardThreshold, ProportionalDiscard, DnfScoring, ScoringRejection, RaceScoringGap, NhcRaceCalc, NhcRaceAggregates, EchoRaceCalc, EchoRaceAggregates, OrcProfile, OrcRaceCalc, TcfRecord, NhcProfile, ProgressiveHandicapConfig, ProgressiveRaceCalc, ProgressiveRaceAggregates, SubSeries, RaceFleetExclusion, CompetitorEntryOverride } from './types';
 import { elapsedSecondsOf, roundToPrecision, timingPrecisionOf, type TimingPrecision } from './elapsed-time';
+import { courseLapsOf, fullCourseElapsed, lapsDiffer } from './laps';
 import { getCodeDefinition } from './scoring-codes';
 import { orcConstructedOption, orcCurveOption, orcFleetProfile, orcPcsRatable, orcProfileRating, orcRaceProfile, orcRecordedWindOption, orcTodRating, orcTotRating } from './orc-certificate';
 import { scorePcsRace, type PcsAllowances, type PcsCourseModel } from './orc-pcs';
@@ -447,6 +448,12 @@ export interface TodCorrectionContext {
  *   CT = ET × TCF   where ET is the boat's elapsed time — recorded outright,
  *                   or finishTime − startTime (seconds-since-midnight)
  *
+ * A boat that sailed fewer laps than the most any boat in this fleet sailed
+ * has its ET scaled up to the full course first (see `lib/laps.ts`); its
+ * score keeps the elapsed time as sailed and carries the scaled one as
+ * `courseElapsedTime`. Time-on-distance ignores lap counts: the allowance is
+ * worked out over the course distance, and the orchestrator reports the race.
+ *
  * Corrected times are rounded to the unit the race was timed in, and boats
  * sharing one are tied. That unit is a whole second unless a finish on the
  * sheet was recorded with a fraction — see `timingPrecisionOf`.
@@ -518,10 +525,21 @@ export function calculateHandicapRaceScores(
   // that boats ranked against each other are corrected the same way.
   const precision = timingPrecisionOf(finishes);
 
+  // The full course, when this fleet's boats sailed different numbers of
+  // laps: the most any of its finishers sailed. Null when they all sailed
+  // the same, whether or not the sheet says how many.
+  const lapFinishes = competitors.flatMap((c) => {
+    const f = finishMap.get(c.id);
+    return f && f.resultCode === null ? [f] : [];
+  });
+  const courseLaps = !todContext && lapsDiffer(lapFinishes) ? courseLapsOf(lapFinishes) : null;
+
   // First pass: compute ET, CT, TCF for each competitor
   interface Candidate {
     competitorId: string;
     elapsedTime: number | null;
+    courseElapsedTime?: number;
+    laps?: number;
     correctedTime: number | null;
     tcfApplied: number;
     resultCode: ResultCode | null;
@@ -556,12 +574,24 @@ export function calculateHandicapRaceScores(
     // time-on-time, and it governs the allowance products either way — what
     // the millisecond keeps is the boat's own elapsed time, which passes
     // through the time-on-distance subtraction untouched).
+    const courseEt = fullCourseElapsed(et, finish.laps, courseLaps);
     const ct = todContext
       ? todContext.roundEachProduct
         ? et - Math.round(tcf * todContext.distanceNm) + Math.round(todContext.scratchTod * todContext.distanceNm)
         : roundToPrecision(et - (tcf - todContext.scratchTod) * todContext.distanceNm, precision)
-      : roundCorrectedSecs(et, tcf, precision);
-    candidates.push({ competitorId: competitor.id, elapsedTime: et, correctedTime: ct, tcfApplied: tcf, resultCode: null, isFinisher: true });
+      : roundCorrectedSecs(courseEt, tcf, precision);
+    candidates.push({
+      competitorId: competitor.id,
+      elapsedTime: et,
+      // Every finisher in a mixed-laps fleet says how far it went, so a
+      // published table can show the column whole.
+      ...(courseLaps !== null ? { laps: finish.laps ?? courseLaps } : {}),
+      ...(courseEt !== et ? { courseElapsedTime: courseEt } : {}),
+      correctedTime: ct,
+      tcfApplied: tcf,
+      resultCode: null,
+      isFinisher: true,
+    });
   }
 
   // Sort finishers by corrected time ascending; stable by competitorId
@@ -589,6 +619,8 @@ export function calculateHandicapRaceScores(
         rank: fleetRank,
         resultCode: null,
         elapsedTime: c.elapsedTime,
+        ...(c.laps != null ? { laps: c.laps } : {}),
+        ...(c.courseElapsedTime != null ? { courseElapsedTime: c.courseElapsedTime } : {}),
         correctedTime: c.correctedTime,
         tcfApplied: c.tcfApplied,
         newTcf: null,
@@ -900,7 +932,9 @@ function swnhc2015Adjustment(
 
   // Per-boat baselines, indexed parallel to finisherEntries.
   const L = finisherEntries.map(([, s]) => s.tcfApplied!);
-  const ET = finisherEntries.map(([, s]) => s.elapsedTime!);
+  // The full-course elapsed time: a boat that sailed one lap of two is
+  // compared with the fleet on what it would have taken to sail both.
+  const ET = finisherEntries.map(([, s]) => s.courseElapsedTime ?? s.elapsedTime!);
   const CT = finisherEntries.map(([, s]) => s.correctedTime!);
 
   // Step 1. Performance index O_i = 100 / minutes; fleet P50 = mean(L) / mean(O).
@@ -1040,8 +1074,11 @@ function symmetricBlendAdjustment(
   const finisherCount = finisherEntries.length;
   const ctSum = finisherEntries.reduce((sum, [, s]) => sum + s.correctedTime!, 0);
   const tcfSum = finisherEntries.reduce((sum, [, s]) => sum + s.tcfApplied!, 0);
+  // Full-course elapsed times, so a boat on fewer laps is compared on what it
+  // would have taken to sail the whole course.
+  const courseEt = (s: HandicapRaceScore) => s.courseElapsedTime ?? s.elapsedTime!;
   const sumReciprocalEt = finisherEntries.reduce(
-    (sum, [, s]) => sum + (s.elapsedTime! > 0 ? 1 / s.elapsedTime! : 0),
+    (sum, [, s]) => sum + (courseEt(s) > 0 ? 1 / courseEt(s) : 0),
     0,
   );
   const ctAvg = finisherCount > 0 ? ctSum / finisherCount : 0;
@@ -1054,8 +1091,8 @@ function symmetricBlendAdjustment(
   for (const [cid, s] of finisherEntries) {
     let fairTcf: number;
     if (config.formulaForm === 'is-pi') {
-      fairTcf = sumReciprocalEt > 0 && s.elapsedTime! > 0
-        ? tcfSum / (s.elapsedTime! * sumReciprocalEt)
+      fairTcf = sumReciprocalEt > 0 && courseEt(s) > 0
+        ? tcfSum / (courseEt(s) * sumReciprocalEt)
         : s.tcfApplied!;
     } else {
       fairTcf = s.tcfApplied! * (s.correctedTime! > 0 ? ctAvg / s.correctedTime! : 1);
@@ -1894,6 +1931,8 @@ function calculateHandicapStandings(
     // Reported below, once this race's exclusion for the fleet is known.
     let orcCourseMissing = false;
     let orcCourseOption: string | null = null;
+    // Corrected over the course distance, which lap counts can't scale.
+    let correctedOverDistance = false;
     if (raceStart) {
       // Phase A — race scoring (applies to both static and progressive fleets).
       // For static fleets, apply this race's rating overrides over the base map.
@@ -1952,6 +1991,7 @@ function calculateHandicapStandings(
           effectiveTcfMap = new Map();
         }
       }
+      correctedOverDistance = todContext != null;
       const phaseA = calculateHandicapRaceScores(raceFinishes, ratedCompetitors, raceStart, effectiveTcfMap, dnfScoring, todContext);
       let raceScores = phaseA.scores;
 
@@ -2122,6 +2162,12 @@ function calculateHandicapStandings(
       // doesn't count for the fleet — not held, or all-DNC, or struck — says
       // nothing about starts and is left alone.
       raceGaps.push({ raceId: race.id, fleetId: fleet.id, reason: 'fleet_not_in_start' });
+    }
+
+    // Boats in this fleet sailed different numbers of laps, but the race was
+    // corrected over the course distance, which has no lap to scale by.
+    if (correctedOverDistance && !raceExcluded[raceIdx] && lapsDiffer(finishedRows(fleetRaceFinishes))) {
+      raceGaps.push({ raceId: race.id, fleetId: fleet.id, reason: 'laps_not_applied' });
     }
 
     // Additive scoring penalties (ZFP/SCP/DPI) apply to finishers in handicap
@@ -2369,6 +2415,34 @@ export function buildRaceFleetExclusionMap(
 /** The fleet competitors in no known fleet are scored under. */
 export const UNKNOWN_FLEET_ID = '__unknown__';
 
+/** A finish sheet's rows that crossed the line: the ones a lap count is
+ *  about. */
+function finishedRows(finishes: Finish[]): Finish[] {
+  return finishes.filter((f) => f.resultCode === null);
+}
+
+/** The races in which a fleet ranked on finishing order had boats on
+ *  different numbers of laps. There is no time to scale, and a boat a lap
+ *  down placed by the order it crossed the line in would be ranked as though
+ *  it had sailed the full course, so the scorer is told. */
+function scratchLapsGaps(
+  fleet: Fleet,
+  fleetCompetitors: Competitor[],
+  races: Race[],
+  allFinishes: Finish[],
+  notIn: Set<string>,
+  excluded: Set<string> | undefined,
+): RaceScoringGap[] {
+  const ids = new Set(fleetCompetitors.map((c) => c.id));
+  const gaps: RaceScoringGap[] = [];
+  for (const race of races) {
+    if (notIn.has(race.id) || excluded?.has(race.id)) continue;
+    const rows = allFinishes.filter((f) => f.raceId === race.id && f.competitorId !== null && ids.has(f.competitorId));
+    if (lapsDiffer(finishedRows(rows))) gaps.push({ raceId: race.id, fleetId: fleet.id, reason: 'laps_not_applied' });
+  }
+  return gaps;
+}
+
 export function calculateFleetStandings(
   fleets: Fleet[],
   competitors: Competitor[],
@@ -2447,7 +2521,8 @@ export function calculateFleetStandings(
       raceStarts,
     );
     allCircular.push(...circularRedressRaces);
-    return { fleet, standings, rejections: detectPerFleetGaps(fleet, fleetCompetitors, allFinishes), raceGaps: [] };
+    const raceGaps = scratchLapsGaps(fleet, fleetCompetitors, races, allFinishes, notIn, excluded);
+    return { fleet, standings, rejections: detectPerFleetGaps(fleet, fleetCompetitors, allFinishes), raceGaps };
   });
 
   if (orphans.length > 0) {

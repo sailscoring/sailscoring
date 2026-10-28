@@ -1,0 +1,90 @@
+description: "Mixed laps — fixed TCF, two laps of three, and a row with no count"
+rrs_notes: "Not an RRS matter: average-lap racing applies to any time-on-time correction, not only PY. CT = ET × (full-course laps ÷ laps sailed) × TCF, rounded once."
+notes: |
+  A fixed-TCF fleet (a club handicap). The full course is 3 laps, the most
+  any boat sailed. Bravo's row carries no lap count, which means the full
+  course; Charlie sailed 2 laps of the 3.
+
+  Start 14:00:00.
+
+  Alpha    TCF 1.000  3 laps   ET 3600 s                      CT = 3600 × 1.000            = 3600
+  Bravo    TCF 0.900  (full)   ET 3900 s                      CT = 3900 × 0.900            = 3510
+  Charlie  TCF 0.850  2 laps   ET 2827 s → × 3/2 = 4240.5 s   CT = 4240.5 × 0.850 = 3604.43 → 3604
+
+  Charlie's full-course time has half a second in it. The corrected time is
+  rounded once, after the rating is applied; rounding the scaled elapsed time
+  first (4241 s) would give 3604.85 → 3605. Sailwave scales and corrects in
+  one step for the same reason ("there is no need for fractional seconds").
+
+series:
+  discardThresholds: []
+
+fleet:
+  scoringSystem: tcf
+
+competitors:
+  - sailNumber: "1"
+    name: "Alpha"
+    fixedTcf: 1.000
+  - sailNumber: "2"
+    name: "Bravo"
+    fixedTcf: 0.900
+  - sailNumber: "3"
+    name: "Charlie"
+    fixedTcf: 0.850
+
+races:
+  - number: 1
+    startTime: "14:00:00"
+    finishes:
+      - sailor: "3"
+        finishTime: "14:47:07"
+        laps: 2
+      - sailor: "1"
+        finishTime: "15:00:00"
+        laps: 3
+      - sailor: "2"
+        finishTime: "15:05:00"
+    expected:
+      - sailor: "2"
+        rank: 1
+        points: 1
+        elapsedTime: 3900
+        courseElapsedTime: null
+        correctedTime: 3510
+      - sailor: "1"
+        rank: 2
+        points: 2
+        elapsedTime: 3600
+        courseElapsedTime: null
+        correctedTime: 3600
+      - sailor: "3"
+        rank: 3
+        points: 3
+        elapsedTime: 2827
+        courseElapsedTime: 4240.5
+        correctedTime: 3604
+
+expected:
+  standings:
+    - rank: 1
+      sailor: "2"
+      racePoints: [1]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 1
+      netPoints: 1
+    - rank: 2
+      sailor: "1"
+      racePoints: [2]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 2
+      netPoints: 2
+    - rank: 3
+      sailor: "3"
+      racePoints: [3]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 3
+      netPoints: 3

@@ -98,6 +98,9 @@ describe('ECHO handicap scoring fixtures', () => {
             if (exp.elapsedTime !== undefined) {
               expect(score.elapsedTime, `${raceLabel} ${exp.sailor} elapsedTime`).toBe(exp.elapsedTime);
             }
+            if (exp.courseElapsedTime !== undefined) {
+              expect(score.courseElapsedTime ?? null, `${raceLabel} ${exp.sailor} courseElapsedTime`).toBe(exp.courseElapsedTime);
+            }
             if (exp.correctedTime !== undefined) {
               if (exp.correctedTime !== null && score.correctedTime !== null) {
                 expect(score.correctedTime, `${raceLabel} ${exp.sailor} correctedTime`).toBeCloseTo(exp.correctedTime, 4);

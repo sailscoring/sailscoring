@@ -82,6 +82,9 @@ describe('TCC handicap scoring fixtures', () => {
           if (exp.elapsedTime !== undefined) {
             expect(score.elapsedTime, `sailor ${exp.sailor} elapsedTime`).toBe(exp.elapsedTime);
           }
+          if (exp.courseElapsedTime !== undefined) {
+            expect(score.courseElapsedTime ?? null, `sailor ${exp.sailor} courseElapsedTime`).toBe(exp.courseElapsedTime);
+          }
           if (exp.tcfApplied !== undefined) {
             expect(score.tcfApplied, `sailor ${exp.sailor} tcfApplied`).toBe(exp.tcfApplied);
           }

@@ -1,0 +1,110 @@
+description: "ECHO — mixed laps: the handicap update uses the full-course elapsed time"
+notes: |
+  Three boats on ECHO 1.000. Alpha and Bravo sail the full course of 2 laps;
+  Charlie sails 1 lap. Charlie's elapsed time is scaled up to the full course
+  before correction, and the IS formula works out every boat's performance
+  from the full-course times too — otherwise Charlie, out for half as long,
+  would look nearly twice as fast as its handicap and be cut savagely.
+
+  Start 12:00:00. alpha = 0.25.
+
+  Alpha    2 laps  ET 3600 s                  CT 3600
+  Bravo    2 laps  ET 3700 s                  CT 3700
+  Charlie  1 lap   ET 1830 s → × 2 = 3660 s   CT 3660
+
+  Σ(1/ET) over the full-course times = 1/3600 + 1/3700 + 1/3660 = 0.000821272
+  ΣH = 3.000
+
+  PI = ΣH ÷ (ET × Σ(1/ET)), new H = H + α × (PI − H), rounded to 3 dp:
+
+  Alpha    PI = 3 ÷ (3600 × 0.000821272) = 1.014686   new H = 1.003672 → 1.004
+  Charlie  PI = 3 ÷ (3660 × 0.000821272) = 0.998052   new H = 0.999513 → 1.000
+  Bravo    PI = 3 ÷ (3700 × 0.000821272) = 0.987262   new H = 0.996816 → 0.997
+
+series:
+  discardThresholds: []
+
+fleet:
+  scoringSystem: echo
+  alpha: 0.25
+
+competitors:
+  - sailNumber: "1"
+    name: "Alpha"
+    echoStartingTcf: 1.000
+  - sailNumber: "2"
+    name: "Bravo"
+    echoStartingTcf: 1.000
+  - sailNumber: "3"
+    name: "Charlie"
+    echoStartingTcf: 1.000
+
+races:
+  - number: 1
+    startTime: "12:00:00"
+    finishes:
+      - sailor: "3"
+        finishTime: "12:30:30"
+        laps: 1
+      - sailor: "1"
+        finishTime: "13:00:00"
+        laps: 2
+      - sailor: "2"
+        finishTime: "13:01:40"
+        laps: 2
+    aggregates:
+      alpha: 0.25
+      finisherCount: 3
+      updateSuppressed: false
+    expected:
+      - sailor: "1"
+        rank: 1
+        points: 1
+        elapsedTime: 3600
+        courseElapsedTime: null
+        correctedTime: 3600
+        tcfApplied: 1.000
+        pi: 1.014686
+        newTcf: 1.004
+      - sailor: "3"
+        rank: 2
+        points: 2
+        elapsedTime: 1830
+        courseElapsedTime: 3660
+        correctedTime: 3660
+        tcfApplied: 1.000
+        pi: 0.998052
+        newTcf: 1.000
+      - sailor: "2"
+        rank: 3
+        points: 3
+        elapsedTime: 3700
+        courseElapsedTime: null
+        correctedTime: 3700
+        tcfApplied: 1.000
+        pi: 0.987262
+        newTcf: 0.997
+
+expected:
+  standings:
+    - rank: 1
+      sailor: "1"
+      racePoints: [1]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 1
+      netPoints: 1
+    - rank: 2
+      sailor: "3"
+      racePoints: [2]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 2
+      netPoints: 2
+    - rank: 3
+      sailor: "2"
+      racePoints: [3]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 3
+      netPoints: 3

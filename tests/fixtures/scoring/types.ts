@@ -61,6 +61,9 @@ export interface FixtureFinish {
    *  or a number of seconds. An alternative to `finishTime`, not a companion:
    *  a row carrying both is a fixture error. */
   elapsed?: string | number;
+  /** handicap: laps of the course sailed, when the fleet sailed different
+   *  numbers. Absent is the full course. */
+  laps?: number;
   code?: ResultCode;
   startPresent?: boolean;
   penaltyCode?: PenaltyCode;
@@ -77,6 +80,9 @@ export interface FixtureRaceExpected {
   rank: number | null;
   points: number;
   elapsedTime?: number | null;
+  /** Mixed laps: the elapsed time scaled up to the full course, for a boat
+   *  that sailed fewer laps. `null` asserts it was not scaled. */
+  courseElapsedTime?: number | null;
   correctedTime?: number | null;
   tcfApplied?: number | null;
   // Progressive (NHC / ECHO) — the per-system intermediates. ECHO uses
@@ -496,6 +502,7 @@ export function buildFixtureInputs(fixture: Fixture): FixtureInputs {
         tiedWithPrevious: f.tiedWithPrevious ?? false,
         ...(f.finishTime ? { finishTime: f.finishTime } : {}),
         ...(f.elapsed != null ? { elapsedSecs: fixtureElapsedSecs(fixture, f) } : {}),
+        ...(f.laps != null ? { laps: f.laps } : {}),
         resultCode: f.code ?? null,
         startPresent: f.startPresent ?? null,
         penaltyCode: f.penaltyCode ?? null,

@@ -16,8 +16,9 @@ export interface RaceScoringGapsWarningProps {
   orcScoringOptions?: OrcScoringOptionCatalog;
 }
 
-/** Races a fleet doesn't score the way its rating system says it should. Two
- *  kinds, and the difference is what the scorer can see without being told:
+/** Races a fleet doesn't score the way its rating system says it should, or
+ *  the way its finish sheet says it was sailed. Two kinds of the first, and
+ *  the difference is what the scorer can see without being told:
  *  an ORC race with no course to correct over scores nobody, so the race
  *  column is blank and publishing refuses the page; a fleet left out of a
  *  race's start still fills the column, on finishing order, which reads
@@ -49,6 +50,7 @@ export function RaceScoringGapsWarning({ gaps, races, fleet, orcScoringOptions }
   const missing = gaps.filter((g) => g.reason === 'orc_course_missing');
   const unstarted = gaps.filter((g) => g.reason === 'fleet_not_in_start');
   const notInRace = gaps.filter((g) => g.reason === 'fleet_not_in_race');
+  const lapsIgnored = gaps.filter((g) => g.reason === 'laps_not_applied');
   const system = fleet ? ratingSystemLabel(fleet) : '';
 
   return (
@@ -81,6 +83,17 @@ export function RaceScoringGapsWarning({ gaps, races, fleet, orcScoringOptions }
             This fleet is in no start for {unstarted.map(name).join(', ')}, so there is no elapsed
             time to correct and {unstarted.length === 1 ? 'it is' : 'they are'} scored on finishing
             order{system ? `, not ${system}` : ''}. Add the fleet to the race&apos;s start.
+          </span>
+        </div>
+      )}
+      {lapsIgnored.length > 0 && (
+        <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200 flex items-start gap-2">
+          <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+          <span data-testid="laps-not-applied-warning">
+            Boats sailed different numbers of laps in {lapsIgnored.map(name).join(', ')}, but this
+            fleet is {fleet?.scoringSystem === 'scratch' ? 'ranked on finishing order' : 'corrected over the course distance'},
+            so there is no elapsed time to scale and the lap counts are ignored. A boat a lap down
+            is ranked as though it sailed the full course.
           </span>
         </div>
       )}

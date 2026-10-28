@@ -1296,6 +1296,13 @@ export interface RaceScore {
 // Calculated, not stored — extends RaceScore with handicap time fields
 export interface HandicapRaceScore extends RaceScore {
   elapsedTime: number | null;    // seconds; null for coded finishes or missing start time
+  // Mixed laps: present on every finisher of a fleet whose boats sailed
+  // different numbers of laps — the laps this boat sailed.
+  laps?: number;
+  // The elapsed time scaled up to the full course, for a boat that sailed
+  // fewer laps than the most in its fleet. What the corrected time and the
+  // progressive handicaps are worked out from; `elapsedTime` stays as sailed.
+  courseElapsedTime?: number;
   correctedTime: number | null;  // integer seconds, rounded half-up; null for coded finishes or missing rating
   tcfApplied: number | null;     // TCF used this race (TCC, 1000/PY, or NHC race-N TCF); null if no rating
   newTcf: number | null;         // TCF for race N+1; null for static systems (IRC/PY) or no rating
@@ -1732,7 +1739,11 @@ export type RaceScoringGapReason =
   | 'fleet_not_in_start'
   /** The race has starts and none is this fleet's, so the fleet is not in the
    *  race: it scores nothing there and takes no DNCs for it. */
-  | 'fleet_not_in_race';
+  | 'fleet_not_in_race'
+  /** Boats in the fleet sailed different numbers of laps, but the fleet is
+   *  ranked on finishing order or corrected over the course distance, so
+   *  there is no elapsed time the lap counts could scale. They are ignored. */
+  | 'laps_not_applied';
 
 export interface RaceScoringGap {
   raceId: string;

@@ -1156,7 +1156,11 @@ export function buildPublicExportFromSnapshot(
           tcfApplied: s.tcfApplied!,
           newTcf: s.newTcf!,
           ...(s.echo ? { ctRatio: s.echo.ctRatio, fairTcf: s.echo.fairTcf, adjustment: s.echo.adjustment } : {}),
-          ...(s.elapsedTime != null && s.elapsedTime > 0 && s.resultCode == null ? { reciprocalEt: 1 / s.elapsedTime } : {}),
+          ...(() => {
+            // The full-course time is the one the handicap was worked from.
+            const et = s.courseElapsedTime ?? s.elapsedTime;
+            return et != null && et > 0 && s.resultCode == null ? { reciprocalEt: 1 / et } : {};
+          })(),
         }));
       const entry: EchoRaceFleetExport = {
         alpha: agg.alpha,

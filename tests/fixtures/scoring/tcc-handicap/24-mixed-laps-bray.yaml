@@ -1,0 +1,151 @@
+description: "Mixed laps — Bray SC Winter Series 2024/25, Race 11"
+rrs_notes: "Not an RRS matter: average-lap racing. CT = ET × (full-course laps ÷ laps sailed) × 1000 ÷ PY, the full course being the most laps any boat in the fleet sailed."
+notes: |
+  Bray Sailing Club races its dinghies in one mixed PY start and sends its
+  slowest boats round once while the rest go round twice. This is Race 11 of
+  the club's Winter Series 2024/25 as HalSail published it: five boats on two
+  laps, one Hansa 303 (PY 1434) on one. Every corrected time below reproduces
+  the published one to the second.
+
+  Start 10:00:00. The full course is 2 laps — the most any boat sailed.
+
+  3639       PY 1026  2 laps  ET 0:26:15 = 1575 s                 CT = 1575 × 1000/1026 = 1535.09 → 1535 (0:25:35)
+  802        PY  939  2 laps  ET 0:24:09 = 1449 s                 CT = 1449 × 1000/939  = 1543.13 → 1543 (0:25:43)
+  455        PY  939  2 laps  ET 0:26:33 = 1593 s                 CT = 1593 × 1000/939  = 1696.49 → 1696 (0:28:16)
+  W 10509    PY 1109  2 laps  ET 0:32:24 = 1944 s                 CT = 1944 × 1000/1109 = 1752.93 → 1753 (0:29:13)
+  170857_FR  PY 1102  2 laps  ET 0:34:35 = 2075 s                 CT = 2075 × 1000/1102 = 1882.94 → 1883 (0:31:23)
+  1888       PY 1434  1 lap   ET 0:23:41 = 1421 s → × 2/1 = 2842  CT = 2842 × 1000/1434 = 1981.87 → 1982 (0:33:02)
+
+  The Hansa crossed the line first and corrects last. Scored over the lap it
+  sailed it would have corrected to 0:16:31 and won by nine minutes.
+
+  The published series is scored high-point; this fixture asserts the race
+  arithmetic and scores it low-point like every other fixture here.
+
+series:
+  discardThresholds: []
+
+fleet:
+  scoringSystem: py
+
+competitors:
+  - sailNumber: "3639"
+    name: "Colbert Byrne"
+    pyNumber: 1026
+  - sailNumber: "802"
+    name: "David Sweeney"
+    pyNumber: 939
+  - sailNumber: "455"
+    name: "Donach O Lonargain"
+    pyNumber: 939
+  - sailNumber: "W 10509"
+    name: "Tony Garry"
+    pyNumber: 1109
+  - sailNumber: "170857_FR"
+    name: "Gareth Keenan"
+    pyNumber: 1102
+  - sailNumber: "1888"
+    name: "Mary Duffy"
+    pyNumber: 1434
+
+races:
+  - number: 1
+    startTime: "10:00:00"
+    finishes:
+      - sailor: "1888"
+        finishTime: "10:23:41"
+        laps: 1
+      - sailor: "802"
+        finishTime: "10:24:09"
+        laps: 2
+      - sailor: "3639"
+        finishTime: "10:26:15"
+        laps: 2
+      - sailor: "455"
+        finishTime: "10:26:33"
+        laps: 2
+      - sailor: "W 10509"
+        finishTime: "10:32:24"
+        laps: 2
+      - sailor: "170857_FR"
+        finishTime: "10:34:35"
+        laps: 2
+    expected:
+      - sailor: "3639"
+        rank: 1
+        points: 1
+        elapsedTime: 1575
+        courseElapsedTime: null
+        correctedTime: 1535
+      - sailor: "802"
+        rank: 2
+        points: 2
+        elapsedTime: 1449
+        courseElapsedTime: null
+        correctedTime: 1543
+      - sailor: "455"
+        rank: 3
+        points: 3
+        elapsedTime: 1593
+        correctedTime: 1696
+      - sailor: "W 10509"
+        rank: 4
+        points: 4
+        elapsedTime: 1944
+        correctedTime: 1753
+      - sailor: "170857_FR"
+        rank: 5
+        points: 5
+        elapsedTime: 2075
+        correctedTime: 1883
+      - sailor: "1888"
+        rank: 6
+        points: 6
+        elapsedTime: 1421
+        courseElapsedTime: 2842
+        correctedTime: 1982
+
+expected:
+  standings:
+    - rank: 1
+      sailor: "3639"
+      racePoints: [1]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 1
+      netPoints: 1
+    - rank: 2
+      sailor: "802"
+      racePoints: [2]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 2
+      netPoints: 2
+    - rank: 3
+      sailor: "455"
+      racePoints: [3]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 3
+      netPoints: 3
+    - rank: 4
+      sailor: "W 10509"
+      racePoints: [4]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 4
+      netPoints: 4
+    - rank: 5
+      sailor: "170857_FR"
+      racePoints: [5]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 5
+      netPoints: 5
+    - rank: 6
+      sailor: "1888"
+      racePoints: [6]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 6
+      netPoints: 6

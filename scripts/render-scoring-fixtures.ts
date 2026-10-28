@@ -215,6 +215,17 @@ function generateScratchFixtureHtml(fixture: Fixture, yamlSource: string): strin
  *  — a fixture about two boats inside the same second is unreadable without
  *  it. A derived figure such as the NHC fleet average is a float rather than
  *  a reading, so its call site rounds before printing. */
+/** The ET cell: the elapsed time as sailed, and for a boat that sailed fewer
+ *  laps than its fleet, the laps and the time scaled up to the full course. */
+function fmtElapsed(score: { elapsedTime: number | null; laps?: number; courseElapsedTime?: number }): string {
+  const sailed = fmtSeconds(score.elapsedTime);
+  if (score.laps == null) return sailed;
+  const laps = `${score.laps} lap${score.laps === 1 ? '' : 's'}`;
+  return score.courseElapsedTime != null
+    ? `${sailed} (${laps}) → ${fmtSeconds(score.courseElapsedTime)}`
+    : `${sailed} (${laps})`;
+}
+
 function fmtSeconds(s: number | null | undefined): string {
   if (s === null || s === undefined) return '—';
   const m = Math.floor(s / 60);
@@ -346,7 +357,7 @@ function generateHandicapFixtureHtml(fixture: Fixture, yamlSource: string): stri
   <td class="mono">${esc(c.sailNumber)}</td>
   <td class="mono">${esc(ratingDisplay)}</td>
   <td class="mono">${esc(finishTimeDisplay)}</td>
-  <td class="mono">${esc(fmtSeconds(score.elapsedTime))}</td>
+  <td class="mono">${esc(fmtElapsed(score))}</td>
   <td class="mono">${esc(sys === 'orc' && isOrcTod ? (score.tcfApplied?.toFixed(1) ?? '—') : fmtTcf(score.tcfApplied, sys === 'orc' ? 'irc' : sys))}</td>
   <td class="mono">${esc(fmtSeconds(score.correctedTime))}</td>
   <td>${esc(fmtPoints(score.points))}</td>
@@ -475,7 +486,7 @@ function generateNhcFixtureHtml(fixture: Fixture, yamlSource: string): string {
   <td>${esc(formatPrimaryNames(c.names))}</td>
   <td class="mono">${esc(c.sailNumber)}</td>
   <td class="mono">${esc(finishTimeDisplay)}</td>
-  <td class="mono">${esc(fmtSeconds(score.elapsedTime))}</td>
+  <td class="mono">${esc(fmtElapsed(score))}</td>
   <td class="mono">${esc(fmtTcf(score.tcfApplied, 'nhc'))}</td>
   <td class="mono">${esc(fmtSeconds(score.correctedTime))}</td>
   <td class="mono">${fairTcf !== undefined ? esc(fairTcf.toFixed(4)) : '—'}</td>
@@ -614,8 +625,9 @@ function generateEchoFixtureHtml(fixture: Fixture, yamlSource: string): string {
       const c = competitorByIdMap.get(cId)!;
       const finishTimeDisplay = finishTimeByCompetitorId.get(cId) ?? (score.resultCode ?? '—');
       const rankDisplay = score.rank !== null ? score.rank.toString() : '—';
-      const reciprocalEt = score.elapsedTime != null && score.elapsedTime > 0 && score.resultCode == null
-        ? 1 / score.elapsedTime
+      const courseEt = score.courseElapsedTime ?? score.elapsedTime;
+      const reciprocalEt = courseEt != null && courseEt > 0 && score.resultCode == null
+        ? 1 / courseEt
         : null;
       const pi = score.echo?.fairTcf;
       const adjustment = score.echo?.adjustment;
@@ -624,7 +636,7 @@ function generateEchoFixtureHtml(fixture: Fixture, yamlSource: string): string {
   <td>${esc(formatPrimaryNames(c.names))}</td>
   <td class="mono">${esc(c.sailNumber)}</td>
   <td class="mono">${esc(finishTimeDisplay)}</td>
-  <td class="mono">${esc(fmtSeconds(score.elapsedTime))}</td>
+  <td class="mono">${esc(fmtElapsed(score))}</td>
   <td class="mono">${reciprocalEt !== null ? reciprocalEt.toFixed(8) : '—'}</td>
   <td class="mono">${esc(fmtTcf(score.tcfApplied, 'echo'))}</td>
   <td class="mono">${esc(fmtSeconds(score.correctedTime))}</td>
