@@ -1,0 +1,73 @@
+description: "ORC — a race timed to the millisecond is scored on elapsed times to the second"
+rrs_notes: "ORC Rating Systems 401.2: the boat's elapsed time is translated to seconds, calculations are made, and the result is rounded to the nearest second (12345.5 = 12346). The ORC Race Management Guide §4.5 records finishes to the nearest second; boats whose corrected times are then equal tie under RRS A7."
+
+notes: |
+  Other fleets keep a fraction a device recorded (fixture 19). ORC's rules
+  score to the second, so an ORC fleet's elapsed times are rounded half-up
+  to the second first. The fraction stays on the sheet.
+
+  APHT time-on-time, from the boats' real 2026 IRL ORC certificates:
+
+  Mojo:      elapsed 2151.450 → 2151 s   CT = 2151 × 1.0089 = 2170.144 → 2170
+  Impetuous: elapsed 2253.200 → 2253 s   CT = 2253 × 0.9631 = 2169.864 → 2170
+
+  They tie, sharing (1 + 2) / 2 = 1.5 points. Kept to the millisecond, Mojo
+  would correct to 2151.450 × 1.0089 = 2170.598 and Impetuous to
+  2253.200 × 0.9631 = 2170.057, and Impetuous would win the race.
+
+series:
+  discardThresholds: []
+
+fleet:
+  scoringSystem: orc
+
+competitors:
+  - sailNumber: "IRL 2507"
+    name: "Impetuous"
+    orcCertFields:
+      APHT: 0.9631
+      APHD: 623.0
+  - sailNumber: "IRL 1551"
+    name: "Mojo"
+    orcCertFields:
+      APHT: 1.0089
+      APHD: 594.7
+
+races:
+  - number: 1
+    startTime: "14:00:00"
+    finishes:
+      - sailor: "IRL 1551"
+        elapsed: 2151.45
+      - sailor: "IRL 2507"
+        elapsed: 2253.2
+    expected:
+      - sailor: "IRL 1551"
+        rank: 1
+        points: 1.5
+        elapsedTime: 2151
+        correctedTime: 2170
+        tcfApplied: 1.0089
+      - sailor: "IRL 2507"
+        rank: 1
+        points: 1.5
+        elapsedTime: 2253
+        correctedTime: 2170
+        tcfApplied: 0.9631
+
+expected:
+  standings:
+    - rank: 1
+      sailor: "IRL 1551"
+      racePoints: [1.5]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 1.5
+      netPoints: 1.5
+    - rank: 1
+      sailor: "IRL 2507"
+      racePoints: [1.5]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 1.5
+      netPoints: 1.5

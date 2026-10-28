@@ -20,6 +20,9 @@ notes: |
   The three boats are otherwise fixture 01's, so the ranking is unchanged and
   the fraction is the only thing under test.
 
+  An ORC fleet is the exception: its rules score to the second, and fixture
+  27 shows it.
+
 series:
   discardThresholds: []
 

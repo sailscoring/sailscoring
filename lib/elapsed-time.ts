@@ -67,7 +67,9 @@ export function elapsedSecondsOf(
  *
  * So the fraction decides, and one race is scored one way throughout — read
  * off every finish in it, not per fleet and not per boat, so that boats ranked
- * against each other are always corrected the same way.
+ * against each other are always corrected the same way. ORC fleets are the
+ * exception: their rules score to the second, so they are scored on rounded
+ * elapsed times (`finishesScoredFor` in the scoring engine).
  *
  * The millisecond is a unit and not simply full float precision, which is what
  * keeps a real tie a tie: two corrected times that are equal in arithmetic can

@@ -259,7 +259,10 @@ export default function EnteringResults() {
           sheet is corrected to the millisecond instead. That is for the races timed
           electronically rather than by hand — a device that measured the gap between two
           boats crossing inside one second has recorded who was ahead, and scoring the race
-          to the second would throw that away and tie them.
+          to the second would throw that away and tie them. ORC fleets are the exception:
+          ORC’s rules score to the second, so an ORC fleet is scored on its elapsed times
+          rounded to the second, and its results show the rounded times. The fraction
+          stays on the sheet, and other fleets in the same race are still scored on it.
         </p>
         <p>
           Handicap scoring behaves identically either way — a boat’s elapsed time is a boat’s

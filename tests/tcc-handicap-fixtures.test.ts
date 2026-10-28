@@ -11,7 +11,7 @@
 import { describe, it, expect } from 'vitest';
 import { join } from 'node:path';
 import { orcProfileRating, orcRaceProfile } from '@/lib/orc-certificate';
-import { calculateFleetStandings, calculateHandicapRaceScores, orcCertificateTodContext } from '@/lib/scoring';
+import { calculateFleetStandings, calculateHandicapRaceScores, finishesScoredFor, orcCertificateTodContext } from '@/lib/scoring';
 import { buildFixtureInputs, loadFixturesFromDir } from './fixtures/scoring/types';
 import type { Finish } from '@/lib/types';
 
@@ -61,7 +61,7 @@ describe('TCC handicap scoring fixtures', () => {
         const raceId = races[ri].id;
         const raceStart = raceStarts.find((rs) => rs.raceId === raceId);
         if (!raceStart) throw new Error(`${yamlPath}: race ${ri + 1} has no startTime`);
-        const raceFinishes: Finish[] = finishes.filter((f) => f.raceId === raceId);
+        const raceFinishes: Finish[] = finishesScoredFor(fleet, finishes.filter((f) => f.raceId === raceId));
 
         const { tcfMap, isOrcTod } = buildTcfMap(raceStart);
         const ratedCompetitors = competitors.filter((c) => tcfMap.has(c.id));

@@ -440,6 +440,24 @@ export interface TodCorrectionContext {
 }
 
 /**
+ * The finishes a fleet is scored on: as recorded, except that an ORC fleet's
+ * elapsed times are rounded half-up to the second. ORC rule 401.2 translates
+ * the elapsed time to seconds before calculating, and the Race Management
+ * Guide (§4.5) records finishes "to the nearest second": boats inside the same
+ * second whose corrected times then agree tie under RRS A7. A fraction a
+ * device recorded stays on the sheet, and the other fleets in the race are
+ * still scored on it.
+ */
+export function finishesScoredFor<F extends { elapsedSecs?: number | null }>(fleet: Fleet, finishes: F[]): F[] {
+  if (fleet.scoringSystem !== 'orc') return finishes;
+  return finishes.map((f) =>
+    f.elapsedSecs != null && !Number.isInteger(f.elapsedSecs)
+      ? { ...f, elapsedSecs: roundToPrecision(f.elapsedSecs, 'second') }
+      : f,
+  );
+}
+
+/**
  * The time-on-distance correction for an ORC race scored on an allowance
  * read off the certificate (403.2), or null when there is nothing to correct
  * with: no recorded course length, or no rated boat.
@@ -1902,7 +1920,7 @@ function calculateHandicapStandings(
   }
   const racesFleetIsOut = racesFleetIsNotIn(fleet.id, raceStarts);
 
-  const finishesByRace = groupFinishesByRace(allFinishes);
+  const finishesByRace = groupFinishesByRace(finishesScoredFor(fleet, allFinishes));
 
   const ratedCompetitors = competitors.filter((c) => !rejectedIds.has(c.id));
 

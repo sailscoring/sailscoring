@@ -6,6 +6,7 @@ import {
   buildRaceFleetExclusionMap,
   UNKNOWN_FLEET_ID,
   computeOrcCourseRace,
+  finishesScoredFor,
   orcCertificateTodContext,
   orcStartHasCourse,
   startKeyResolver,
@@ -1055,7 +1056,9 @@ export async function buildFleetHtmlFiles(
     };
     const raceScoresByRaceId = new Map<string, Map<string, RaceScoreCellForRender>>(
       viewRaces.map((race) => {
-        const finishesForRace = allFinishes.filter((f) => f.raceId === race.id);
+        // An ORC fleet's times as it was scored on them, so the finish and
+        // elapsed columns show the second the corrected time was worked from.
+        const finishesForRace = finishesScoredFor(fleet, allFinishes.filter((f) => f.raceId === race.id));
         const finishByCompetitorId = new Map(
           finishesForRace
             .filter((f): f is typeof f & { competitorId: string } => f.competitorId !== null)
