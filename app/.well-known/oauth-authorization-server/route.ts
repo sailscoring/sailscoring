@@ -22,6 +22,11 @@ const AUTH_METHOD_KEYS = [
  * (PKCE, no secret), only when anyone may register a client. Here only the
  * operator registers them, but public clients are what most apps and the
  * CLI are, and the endpoints accept them, so the document says so.
+ *
+ * https://github.com/better-auth/better-auth/pull/11114 adds a provider
+ * option, `publicClientsSupported`, that advertises `none` regardless of
+ * registration. If it lands, set it in `oauthOptions` and go back to
+ * exporting `oauthProviderAuthServerMetadata(auth, { headers })` here.
  */
 export async function GET(request: Request): Promise<Response> {
   const doc: Record<string, unknown> = { ...(await auth.api.getOAuthServerConfig({ request, asResponse: false })) };
