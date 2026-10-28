@@ -398,6 +398,16 @@ export const FEATURES = {
     label: 'Finish sheet submissions',
     helpSectionIds: ['finish-submissions'],
   },
+  'mixed-laps': {
+    // A lap count on each finish, so a slow boat can sail fewer laps than
+    // the rest of its fleet and have its elapsed time scaled up to the full
+    // course before correction. Gates the Laps column on the finish sheet
+    // (the scorer's and the recorder's). Only the authoring surface is gated:
+    // a race that already carries lap counts scores and publishes with them
+    // regardless, so turning it off never silently changes a result.
+    label: 'Mixed laps',
+    helpSectionIds: [],
+  },
 } as const satisfies Record<string, FeatureDef>;
 
 export type FeatureKey = keyof typeof FEATURES;
