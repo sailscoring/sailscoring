@@ -868,6 +868,36 @@ test('ORC fleet: time-on-distance over the start course length', async ({ page }
   await expect(page.getByRole('row').nth(2)).toContainText('IRL 1551');
 });
 
+test('ORC start: the course length is set aside when the start is scored on a constructed course', async ({ page }) => {
+  await createSeriesQuick(page, { name: 'ORC Length Unused 2026' });
+  await setUpOrcFleet(page, [{ sailNumber: 'IRL 2507', name: 'Impetuous' }]);
+
+  await page.getByRole('link', { name: 'Races' }).click();
+  await page.getByRole('button', { name: 'Add race' }).click();
+  await page.getByText('Race 1').click();
+  await expect(page.getByText('Race 1 — results')).toBeVisible();
+  await page.getByRole('button', { name: 'Edit ▸' }).click();
+  await page.getByRole('button', { name: 'Add start' }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByRole('checkbox', { name: 'Class 2' }).check();
+
+  // The fleet's default option isn't a constructed course: the length is asked for.
+  await expect(dialog.getByText('Required to score a time-on-distance fleet')).toBeVisible();
+  await dialog.getByLabel(/Course length/).fill('3.24');
+
+  // Scored on a constructed course, a length typed in is kept in view, marked unused…
+  await dialog.getByTestId('start-orc-option').click();
+  await page.getByRole('option', { name: 'Constructed course at the recorded wind · time-on-time' }).click();
+  await expect(dialog.getByTestId('distance-unused')).toContainText('Not used');
+  // …and once cleared, the dialog shows no course length but the legs'.
+  await dialog.getByLabel(/Course length/).fill('');
+  await expect(dialog.getByLabel(/Course length/)).toHaveCount(0);
+
+  await dialog.getByTestId('start-orc-option').click();
+  await page.getByRole('option', { name: 'Fleet default' }).click();
+  await expect(dialog.getByLabel(/Course length/)).toBeVisible();
+});
+
 test('a race waiting on its course holds the publish until the scorer publishes without it', async ({ page }) => {
   await createSeriesQuick(page, { name: 'ORC Autumn League 2026' });
   await setUpOrcFleet(page, [

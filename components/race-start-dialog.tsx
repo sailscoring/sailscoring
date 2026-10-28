@@ -52,6 +52,7 @@ import {
   ORC_STANDARD_OPTIONS,
   orcConstructedOption,
   orcOptionKind,
+  orcRaceProfile,
   orcRecordedWindOption,
   orcSelectableOptions,
 } from '@/lib/orc-certificate';
@@ -215,6 +216,15 @@ function RaceStartDialogInner({
     }),
   );
   const legsTotal = legRows.reduce((sum, r) => sum + (Number(r.distance) || 0), 0);
+  // A start whose ORC fleets are all scored on a constructed course is
+  // scored over its legs, and nothing reads the course length: resolved per
+  // fleet as scoring resolves it, the start's own option else the fleet's.
+  const startOrcFleets = fleets.filter((f) => f.scoringSystem === 'orc' && fleetIds.includes(f.id));
+  const distanceUnused =
+    startOrcFleets.length > 0 &&
+    startOrcFleets.every((f) =>
+      orcConstructedOption(orcRaceProfile(f, { orcOption: orcOptionValue || undefined }).option),
+    );
   // Also wherever a leg already has a speed — one typed under another
   // option, or a course that arrived with the recorded wind — so a figure
   // that is saved is never one the scorer can't see.
@@ -612,7 +622,9 @@ function RaceStartDialogInner({
               {optionHint && <p className="text-xs text-amber-600 dark:text-amber-500">{optionHint}</p>}
             </div>
           )}
-          {offerDistance && (
+          {/* Kept while a length is stored or typed, so the scorer can see it
+              isn't used and clear it. */}
+          {offerDistance && (!distanceUnused || seed?.distanceNm != null || distanceInput.trim() !== '') && (
             <div className="space-y-1.5">
               <label className="text-sm font-medium" htmlFor="start-distance-nm">
                 Course length <span className="font-normal text-muted-foreground">(NM, optional)</span>
@@ -625,9 +637,17 @@ function RaceStartDialogInner({
                 inputMode="decimal"
                 onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); }}
               />
-              <p className="text-xs text-muted-foreground">
-                Required to score a time-on-distance fleet; record it to 0.01 NM.
-              </p>
+              {distanceUnused ? (
+                <p className="text-xs text-amber-600 dark:text-amber-500" data-testid="distance-unused">
+                  Not used: this start is scored on its constructed course, over its legs
+                  {legsTotal > 0 && <> ({legsTotal.toFixed(2)} NM)</>}. Clear it unless the
+                  start will be scored another way.
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Required to score a time-on-distance fleet; record it to 0.01 NM.
+                </p>
+              )}
             </div>
           )}
           {offerCourse && (snapshot || drawing) && (
