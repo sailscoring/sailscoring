@@ -79,6 +79,8 @@ How it works, and why.
 
 ### UX flows and screens
 
+- [`ux/conventions.md`](design/ux/conventions.md) — how forms and
+  messages read: placeholders, labels and units, error messages.
 - [`ux/screen-inventory.md`](design/ux/screen-inventory.md) — every
   screen in the app, by route (predates ADR-008 in places — see the
   currency note at the top).
