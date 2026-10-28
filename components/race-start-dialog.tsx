@@ -593,7 +593,7 @@ function RaceStartDialogInner({
 
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onCancel(); }}>
-      <DialogContent className={`${offerCourse ? 'max-w-lg' : 'max-w-sm'} max-h-[90vh] grid-rows-[auto_minmax(0,1fr)_auto]`}>
+      <DialogContent className={`${offerCourse ? 'max-w-lg' : offerOption ? 'max-w-md' : 'max-w-sm'} max-h-[90vh] grid-rows-[auto_minmax(0,1fr)_auto]`}>
         <DialogHeader>
           <DialogTitle>{mode.kind === 'edit' ? 'Edit start' : 'Add start'}</DialogTitle>
           <DialogDescription>
