@@ -900,9 +900,7 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
       starts: [
         {
           id: startId, raceId, fleetIds: [fleetA], startTime: '11:00:00',
-          // A course as a build from before the course library was removed
-          // still sends it, waypoints and all.
-          distanceNm: 1.5, courseLegs, course: { name: 'Course 1', waypoints: [] },
+          distanceNm: 1.5, courseLegs, course: { name: 'Course 1' },
         },
         { id: otherId, raceId, fleetIds: [fleetB], startTime: '11:05:00' },
       ],

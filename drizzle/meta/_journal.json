@@ -883,6 +883,13 @@
       "when": 1793197518787,
       "tag": "0125_finish_laps",
       "breakpoints": true
+    },
+    {
+      "idx": 126,
+      "version": "7",
+      "when": 1793357754880,
+      "tag": "0126_drop_course_library",
+      "breakpoints": true
     }
   ]
 }

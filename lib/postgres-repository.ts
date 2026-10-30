@@ -265,7 +265,7 @@ function raceStartRowToType(row: RaceStartRow): RaceStart {
     ...(row.distanceNm != null ? { distanceNm: row.distanceNm } : {}),
     ...(row.orcScoringWind != null ? { orcScoringWind: row.orcScoringWind } : {}),
     ...(row.courseLegs?.length ? { courseLegs: row.courseLegs } : {}),
-    ...(row.course ? { course: schema.raceStartCourseOfRow(row.course) } : {}),
+    ...(row.course ? { course: row.course } : {}),
     ...(row.orcOption ? { orcOption: row.orcOption } : {}),
     version: row.version,
   };
@@ -1849,7 +1849,7 @@ function raceStartToRow(s: RaceStart) {
     distanceNm: s.distanceNm ?? null,
     orcScoringWind: s.orcScoringWind ?? null,
     courseLegs: s.courseLegs?.length ? s.courseLegs : null,
-    course: schema.storedRaceStartCourse(s.course),
+    course: s.course ?? null,
     orcOption: s.orcOption ?? null,
   };
 }

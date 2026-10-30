@@ -18,9 +18,7 @@ const courseLegSchema = z.object({
 });
 
 /** The course a start sailed: its name, the legs it gave, where the first
- *  of them starts, and its wind (see RaceStartCourse). A key it doesn't
- *  name is dropped: a build from before the course library was removed
- *  still sends a course's `courseId` and `waypoints`. */
+ *  of them starts, and its wind (see RaceStartCourse). */
 export const raceStartCourseSchema = z.object({
   name: z.string().trim().min(1).max(80),
   legs: z.array(courseLegSchema).max(MAX_COURSE_LEGS).optional(),

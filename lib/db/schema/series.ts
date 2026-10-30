@@ -1018,100 +1018,13 @@ export const raceStarts = pgTable(
     courseLegs: jsonb('course_legs').$type<OrcCourseLeg[]>(),
     // The course those legs came from (see RaceStartCourse). Null on a start
     // whose legs were typed by hand.
-    course: jsonb('course').$type<StoredRaceStartCourse>(),
+    course: jsonb('course').$type<RaceStartCourse>(),
     orcOption: text('orc_option'),
     version: versionCol,
     updatedAt: updatedAtCol,
     updatedBy: updatedByCol,
   },
   (table) => [index('race_starts_race_idx').on(table.raceId)],
-);
-
-/**
- * A start's course as a row holds it: the current shape, and an empty
- * `waypoints` list. Builds from before the course library was removed read
- * `waypoints` unguarded, so every row keeps one until no such build can be
- * running; a row one of them wrote may also still name its library course.
- */
-export type StoredRaceStartCourse = RaceStartCourse & { waypoints?: unknown[]; courseId?: string };
-
-/** A start's course as a row is written: with its empty `waypoints`. */
-export function storedRaceStartCourse(course: RaceStartCourse | undefined): StoredRaceStartCourse | null {
-  return course ? { ...course, waypoints: [] } : null;
-}
-
-/** A row's course in the current shape, whatever build wrote it. */
-export function raceStartCourseOfRow(stored: StoredRaceStartCourse): RaceStartCourse {
-  const { waypoints: _waypoints, courseId: _courseId, ...course } = stored;
-  return course;
-}
-
-/**
- * The course library earlier versions kept behind ORC constructed courses:
- * the marks a series' courses were built from, and the courses. Nothing
- * reads or writes them now; they stay only until no build that reads them
- * can be running. Series-scoped, cascading with the series.
- */
-export const seriesMarks = pgTable(
-  'series_marks',
-  {
-    id: uuid('id').primaryKey(),
-    seriesId: uuid('series_id')
-      .notNull()
-      .references(() => series.id, { onDelete: 'cascade' }),
-    workspaceId: text('workspace_id')
-      .notNull()
-      .references(() => organization.id, { onDelete: 'cascade' }),
-    name: text('name').notNull(),
-    lat: doublePrecision('lat').notNull(),
-    lng: doublePrecision('lng').notNull(),
-    // Adopted from a course-cards data set: {set, markId, release}.
-    card: jsonb('card').$type<{ set: string; markId: string; release: string }>(),
-    shape: text('shape'),
-    color: text('color'),
-    // How a laid mark was logged: {markId, bearingDeg, distanceM} off another
-    // mark. `from` is reserved in SQL, hence the column name.
-    from: jsonb('laid_from').$type<{ markId: string; bearingDeg: number; distanceM: number }>(),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
-    version: versionCol,
-    updatedAt: updatedAtCol,
-    updatedBy: updatedByCol,
-  },
-  (table) => [
-    index('series_marks_series_idx').on(table.seriesId),
-    index('series_marks_workspace_idx').on(table.workspaceId),
-  ],
-);
-
-export const seriesCourses = pgTable(
-  'series_courses',
-  {
-    id: uuid('id').primaryKey(),
-    seriesId: uuid('series_id')
-      .notNull()
-      .references(() => series.id, { onDelete: 'cascade' }),
-    workspaceId: text('workspace_id')
-      .notNull()
-      .references(() => organization.id, { onDelete: 'cascade' }),
-    name: text('name').notNull(),
-    // The card course it was made from: {set, cardId, courseId, release}.
-    card: jsonb('card').$type<{ set: string; cardId: string; courseId: string; release: string }>(),
-    modified: boolean('modified').notNull().default(false),
-    // The sequence, in sailing order: [{markId, side?, passing?}]. Empty on a
-    // course defined by its leg table instead.
-    marks: jsonb('marks').$type<{ markId: string; side?: 'port' | 'starboard'; passing?: boolean }[]>().notNull(),
-    // The race committee's own leg table: [{distanceNm, bearingDeg}]. Null on
-    // a course defined by marks; exactly one of the two is populated.
-    legs: jsonb('legs').$type<{ distanceNm: number; bearingDeg: number }[]>(),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
-    version: versionCol,
-    updatedAt: updatedAtCol,
-    updatedBy: updatedByCol,
-  },
-  (table) => [
-    index('series_courses_series_idx').on(table.seriesId),
-    index('series_courses_workspace_idx').on(table.workspaceId),
-  ],
 );
 
 export const raceRatingOverrides = pgTable(

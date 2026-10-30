@@ -231,7 +231,7 @@ function seedRepos(db: SailScoringDb, workspaceId: string): SeriesFileRepos {
             distanceNm: s.distanceNm ?? null,
             orcScoringWind: s.orcScoringWind ?? null,
             courseLegs: s.courseLegs ?? null,
-            course: schema.storedRaceStartCourse(s.course),
+            course: s.course ?? null,
             orcOption: s.orcOption ?? null,
           })),
         );

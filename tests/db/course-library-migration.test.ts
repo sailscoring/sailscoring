@@ -1,13 +1,13 @@
 // @vitest-environment node
 
 /**
- * Migration 0123 rewrites the race starts' courses the way
+ * Migration 0126 rewrites the race starts' courses the way
  * lib/course-library-upgrade.ts rewrites a stored file's, and the two have
  * to agree: every row here is written in a shape a build with the course
- * library could leave, the migration's own SQL is run over it, and the row
- * must come out exactly as the TS upgrader brings the same start forward —
- * plus the empty `waypoints` every row keeps for the build before. Skipped
- * when DATABASE_URL is unset; runs against the local/CI Postgres.
+ * library could leave, or in the one migration 0123 left behind, the
+ * migration's own SQL is run over it, and the row must come out exactly as
+ * the TS upgrader brings the same start forward. Skipped when DATABASE_URL
+ * is unset; runs against the local/CI Postgres.
  */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -20,11 +20,16 @@ import postgres, { type Sql } from 'postgres';
 import { upgradeStartCourse } from '@/lib/course-library-upgrade';
 import * as schema from '@/lib/db/schema';
 import { seedFeatureSample } from '@/lib/sample-series/seed';
+import type { RaceStartCourse } from '@/lib/types';
 
 const DATABASE_URL = process.env.DATABASE_URL;
 const skip = !DATABASE_URL;
 
-const MIGRATION = readFileSync(join(__dirname, '..', '..', 'drizzle', '0123_course_library_upgrade.sql'), 'utf8');
+// The statements that rewrite the courses; the tables it drops are long gone.
+const MIGRATION = readFileSync(join(__dirname, '..', '..', 'drizzle', '0126_drop_course_library.sql'), 'utf8')
+  .split('--> statement-breakpoint')
+  .filter((statement) => !statement.trim().startsWith('DROP TABLE'))
+  .join('\n');
 
 type Raw = Record<string, unknown>;
 
@@ -82,9 +87,20 @@ const CASES: { name: string; course: Raw; courseLegs: Raw[] | null }[] = [
     courseLegs: [{ distanceNm: 0.67, bearingDeg: 282, windDirectionDeg: 280 }],
   },
   { name: 'picked, with no legs scored', course: libraryCourse(), courseLegs: null },
+  {
+    name: 'brought forward by 0123, its empty waypoints kept',
+    course: {
+      name: '19 — 12 Sep R1',
+      waypoints: [],
+      anchor: { lat: 53.4055, lng: -6.0675 },
+      legs: LEGS.map((l) => ({ distanceNm: l.distanceNm, bearingDeg: l.bearingDeg })),
+      windDirectionDeg: 190,
+    },
+    courseLegs: LEGS.map((l, i) => ({ ...l, name: ['Start – Z', 'Z – I', 'I – Start'][i] })),
+  },
 ];
 
-describe.skipIf(skip)('migration 0123: race starts’ courses without the library', () => {
+describe.skipIf(skip)('migration 0126: race starts’ courses without the library', () => {
   let sql!: Sql;
   let db!: PostgresJsDatabase<typeof schema>;
   let workspaceId: string;
@@ -95,7 +111,7 @@ describe.skipIf(skip)('migration 0123: race starts’ courses without the librar
   beforeAll(async () => {
     sql = postgres(DATABASE_URL!, { max: 1, prepare: false });
     db = drizzle(sql, { schema });
-    workspaceId = `org_cl0123_${crypto.randomUUID().replace(/-/g, '')}`;
+    workspaceId = `org_cl0126_${crypto.randomUUID().replace(/-/g, '')}`;
     await db.insert(schema.organization).values({
       id: workspaceId,
       name: 'Course Library Migration Test',
@@ -114,7 +130,7 @@ describe.skipIf(skip)('migration 0123: race starts’ courses without the librar
       raceId,
       fleetIds: [fleetId],
       courseLegs: c.courseLegs as (typeof schema.raceStarts.$inferInsert)['courseLegs'],
-      course: c.course as unknown as schema.StoredRaceStartCourse,
+      course: c.course as unknown as RaceStartCourse,
     })));
   });
 
@@ -135,7 +151,7 @@ describe.skipIf(skip)('migration 0123: race starts’ courses without the librar
       const row = byId.get(ids[i])!;
       expect({ name: c.name, course: row.course, courseLegs: row.courseLegs }).toEqual({
         name: c.name,
-        course: { ...(expected.course as Raw), waypoints: [] },
+        course: expected.course,
         courseLegs: expected.courseLegs ?? null,
       });
     }

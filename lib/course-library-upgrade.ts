@@ -5,8 +5,8 @@
 // A stored series can still carry the library, and starts whose course was
 // picked from it — in a `.sailscoring` file, a revision snapshot, a Trash
 // tombstone or a published data file — so every entry point that reads one
-// of those passes it through here, and migration 0123 does the same for the
-// rows the database holds. Each removed value is one of:
+// of those passes it through here, and migrations 0123 and 0126 do the same
+// for the rows the database holds. Each removed value is one of:
 //
 //   lossless        the library's marks and courses, which nothing scored
 //                   reads, and the library course a start was picked from:
