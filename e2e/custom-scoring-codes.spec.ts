@@ -49,3 +49,83 @@ test('a series adds a code of its own through the Scoring codes dialog', async (
   await dialog.getByRole('button', { name: 'Done' }).click();
   await expect(page.getByTestId('scoring-codes-line')).toContainText('1 added, 1 changed from the RRS (TLE added, BFD changed)');
 });
+
+/** Add a code of the series' own through the Scoring codes dialog, which is
+ *  open on its table. */
+async function addCode(
+  page: import('@playwright/test').Page,
+  code: { code: string; description: string; adds?: { points: string } },
+) {
+  const dialog = page.getByTestId('scoring-codes-dialog');
+  await dialog.getByRole('button', { name: 'Add a code' }).click();
+  const editor = dialog.getByTestId('scoring-code-editor');
+  await editor.getByLabel('Code').fill(code.code);
+  await editor.getByLabel('Description').fill(code.description);
+  if (code.adds) {
+    await editor.getByLabel('Adds points to her finishing place').check();
+    await editor.getByLabel('Points to add').fill(code.adds.points);
+  }
+  await editor.getByRole('button', { name: 'Save' }).click();
+  await expect(dialog.getByTestId(`code-row-${code.code}`)).toBeVisible();
+}
+
+test('the series’ own codes are offered on the finish sheet and score as the series says', async ({ page, signedInEmail }) => {
+  await createSeriesQuick(page, { name: 'Frostbites Sheet' });
+  await enableFeatures(page, signedInEmail, ['custom-scoring-codes']);
+
+  for (const c of [
+    { sailNumber: '101', name: 'Alice' },
+    { sailNumber: '202', name: 'Bob' },
+    { sailNumber: '303', name: 'Carol' },
+    { sailNumber: '404', name: 'Dave' },
+  ]) {
+    await page.getByRole('button', { name: 'Add competitor' }).click();
+    await page.getByLabel('Sail number').fill(c.sailNumber);
+    await page.getByLabel('Competitor name').fill(c.name);
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.getByRole('cell', { name: c.sailNumber })).toBeVisible();
+  }
+
+  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+  await expect(page).toHaveURL(/\/settings$/);
+  const card = page.locator('div', { has: page.getByRole('heading', { name: 'Scoring', exact: true }) }).last();
+  await card.getByRole('button', { name: 'Edit ▸' }).click();
+  await page.getByRole('button', { name: 'Change scoring codes…' }).click();
+  await page.getByTestId('scoring-codes-dialog').getByRole('button', { name: 'Change scoring codes' }).click();
+  await addCode(page, { code: 'TLE', description: 'Time limit expired (SI 16.1)' });
+  await addCode(page, { code: 'SOP', description: 'Failed to sign out (SI 19.1)', adds: { points: '2' } });
+  await page.getByTestId('scoring-codes-dialog').getByRole('button', { name: 'Done' }).click();
+
+  await page.getByRole('navigation').getByRole('link', { name: 'Races' }).click();
+  await page.getByRole('button', { name: 'Add race' }).click();
+  await page.getByText('Race 1').click();
+  await expect(page.getByTestId('non-finisher-404')).toBeVisible();
+  for (const sail of ['101', '202']) {
+    await page.getByLabel('Sail number').fill(sail);
+    await page.getByRole('button', { name: 'Add' }).click();
+  }
+
+  // Carol finished outside the window: TLE, from the series' own codes.
+  await page.getByTestId('non-finisher-303').getByRole('combobox').click();
+  await expect(page.getByRole('group').getByText('This series')).toBeVisible();
+  await page.getByRole('option', { name: 'TLE' }).click();
+
+  // Alice didn't sign out: SOP, which carries its points.
+  await page.getByRole('button', { name: 'Row actions for 101' }).click();
+  await page.getByRole('menuitem', { name: 'Set scoring penalty' }).click();
+  await page.getByRole('combobox').click();
+  await page.getByRole('option', { name: /SOP/ }).click();
+  await expect(page.getByTestId('penalty-code-rule')).toContainText('has 2 points added to her score');
+  await page.getByRole('button', { name: 'Apply' }).click();
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+
+  // Two finished: TLE scores the place after them, 3. Alice's 1 + 2 is 3,
+  // and Bob keeps his 2 (A6.2). Dave never came: 4 entries + 1.
+  await page.getByRole('navigation').getByRole('link', { name: 'Standings' }).click();
+  const row = (sail: string) => page.getByRole('row').filter({ has: page.getByRole('cell', { name: sail, exact: true }) });
+  await expect(row('303')).toContainText('3 TLE');
+  await expect(row('101')).toContainText('SOP');
+  await expect(row('101').getByRole('cell').last()).toHaveText('3');
+  await expect(row('202').getByRole('cell').last()).toHaveText('2');
+  await expect(row('404')).toContainText('5 DNC');
+});

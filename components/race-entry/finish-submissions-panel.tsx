@@ -23,7 +23,7 @@ import { carryAcrossImport, carryOutcome } from '@/lib/finish-entry';
 import type { ParseFinishSheetResult } from '@/lib/finish-sheet-csv';
 import { diffSheets, raceCandidates, readSubmission, type SheetLine } from '@/lib/finish-submission';
 import { formatRelativeTime } from '@/lib/relative-time';
-import type { Competitor, Finish, FinishSubmission, Fleet, RaceStart } from '@/lib/types';
+import type { Competitor, Finish, FinishSubmission, Fleet, RaceStart, SeriesScoringCode } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 /** Who sent a submission, as the panel and the dialog name them. */
@@ -60,6 +60,7 @@ export function FinishSubmissionsPanel({
   savedFinishes,
   needsFinishTime,
   applyImport,
+  seriesCodes,
 }: {
   raceId: string;
   /** The series' competitors, under the numbers they sail in this race. */
@@ -70,6 +71,8 @@ export function FinishSubmissionsPanel({
   needsFinishTime: (competitorId: string) => boolean;
   /** Replace the race's finishes with an imported sheet's. */
   applyImport: (result: ParseFinishSheetResult) => Promise<void>;
+  /** The series' own scoring codes, which a recorder may have used. */
+  seriesCodes?: readonly SeriesScoringCode[];
 }) {
   const { data: submissions } = useRaceSubmissions(raceId, { enabled: true });
   const [reviewing, setReviewing] = useState<FinishSubmission | null>(null);
@@ -131,6 +134,7 @@ export function FinishSubmissionsPanel({
           savedFinishes={savedFinishes}
           needsFinishTime={needsFinishTime}
           applyImport={applyImport}
+          seriesCodes={seriesCodes}
           onClose={() => setReviewing(null)}
         />
       )}
@@ -146,6 +150,7 @@ function ReviewDialog({
   savedFinishes,
   needsFinishTime,
   applyImport,
+  seriesCodes,
   onClose,
 }: {
   submission: FinishSubmission;
@@ -155,6 +160,7 @@ function ReviewDialog({
   savedFinishes: Finish[];
   needsFinishTime: (competitorId: string) => boolean;
   applyImport: (result: ParseFinishSheetResult) => Promise<void>;
+  seriesCodes?: readonly SeriesScoringCode[];
   onClose: () => void;
 }) {
   const review = useReviewFinishSubmission();
@@ -169,8 +175,8 @@ function ReviewDialog({
     [competitors, raceStarts, fleetName],
   );
   const read = useMemo(
-    () => readSubmission(submission.finishes, candidates, (id) => byId.get(id)?.sailNumber),
-    [submission, candidates, byId],
+    () => readSubmission(submission.finishes, candidates, (id) => byId.get(id)?.sailNumber, seriesCodes),
+    [submission, candidates, byId, seriesCodes],
   );
   const carried = useMemo(() => carryAcrossImport(savedFinishes, read.finishes), [savedFinishes, read]);
   const outcome = useMemo(() => carryOutcome(savedFinishes, carried), [savedFinishes, carried]);

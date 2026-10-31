@@ -7,7 +7,7 @@ import {
   type PenaltyDraft,
 } from '@/components/penalty-editor-dialog';
 import type { deriveFinishState } from '@/lib/finish-entry';
-import type { Competitor, Finish, Fleet } from '@/lib/types';
+import type { Competitor, Finish, Fleet, SeriesScoringCode } from '@/lib/types';
 
 export interface PenaltyEditorHandle {
   /** Open the penalty editor for one finisher. */
@@ -32,8 +32,10 @@ export const PenaltyEditorController = forwardRef<PenaltyEditorHandle, {
    *  standings page depends on mounting it fresh. Mounting it here would hand
    *  that page a cache from before any result was entered. */
   raceFinishes?: Finish[];
+  /** The series' own scoring codes, offered beside the RRS penalties. */
+  seriesCodes?: readonly SeriesScoringCode[];
 }>(function PenaltyEditorController(
-  { finishByCompetitorId, finisherPenalties, competitorMap, fleets, patchCache, saveFinish, raceFinishes },
+  { finishByCompetitorId, finisherPenalties, competitorMap, fleets, patchCache, saveFinish, raceFinishes, seriesCodes },
   ref,
 ) {
   // competitorId of the row being edited, or null.
@@ -85,6 +87,7 @@ export const PenaltyEditorController = forwardRef<PenaltyEditorHandle, {
       ].sort()}
       onApply={applyPenalty}
       onCancel={() => setEditingPenaltyEntryId(null)}
+      seriesCodes={seriesCodes}
     />
   );
 });

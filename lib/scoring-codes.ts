@@ -521,3 +521,25 @@ export function finishCodeProblem(
   }
   return null;
 }
+
+/**
+ * The result code a typed or imported string names, or null: an RRS code
+ * that replaces the result (or RDG), or one of the series' own codes that
+ * does. An exact match wins; failing that, the one code that matches
+ * ignoring case — codes may be lower case (`RDGa`), but no two in a series
+ * differ only by case, so the match is never ambiguous.
+ */
+export function resolveResultCode(
+  raw: string,
+  seriesCodes: readonly SeriesScoringCode[] = [],
+): string | null {
+  const text = raw.trim();
+  if (!text) return null;
+  const candidates = [
+    ...BUILT_IN_CODES.filter((d) => d.kind !== 'add').map((d) => d.code),
+    ...seriesCodes.filter((c) => c.kind === 'replace' && !BUILT_IN_MAP.has(c.code)).map((c) => c.code),
+  ];
+  if (candidates.includes(text)) return text;
+  const folded = text.toUpperCase();
+  return candidates.find((c) => c.toUpperCase() === folded) ?? null;
+}

@@ -11,7 +11,10 @@ import {
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
@@ -19,7 +22,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PerFleetPoints } from '@/components/per-fleet-points';
 import { seedFromFinish, toStorage, type PerFleetPointsValue } from '@/lib/per-fleet-points';
-import type { PenaltyCode } from '@/lib/types';
+import type { PenaltyCode, SeriesScoringCode } from '@/lib/types';
+import { ruleSentence } from '@/lib/scoring-codes-text';
 
 export interface PenaltyDraft {
   code: PenaltyCode | null;
@@ -44,6 +48,10 @@ export interface PenaltyEditorDialogProps {
   competitorFleets: { id: string; name: string }[];
   onApply: (draft: PenaltyDraft) => void;
   onCancel: () => void;
+  /** The series' own scoring codes: those that add to the finishing place
+   *  are offered after the RRS penalties, and a changed ZFP shows its
+   *  percentage. */
+  seriesCodes?: readonly SeriesScoringCode[];
 }
 
 export function PenaltyEditorDialog(props: PenaltyEditorDialogProps) {
@@ -65,6 +73,7 @@ function PenaltyEditorDialogInner({
   knownLabels,
   onApply,
   onCancel,
+  seriesCodes = [],
 }: PenaltyEditorDialogProps & { competitor: { id: string; sailNumber: string } }) {
   const [code, setCode] = useState<PenaltyCode | 'none'>(initialPenalty?.code ?? 'none');
   // An SCP is the points the NoR or SIs state (rule 44.3(c)), or a percentage
@@ -89,6 +98,11 @@ function PenaltyEditorDialogInner({
     ),
   );
   const statedPoints = code === 'DPI' || (code === 'SCP' && scpInPoints);
+  // The series' own penalty codes carry their points; nothing is entered.
+  const ownPenaltyCodes = seriesCodes.filter((c) => c.kind === 'add' && !['ZFP', 'SCP', 'DPI'].includes(c.code));
+  const ownCode = ownPenaltyCodes.find((c) => c.code === code);
+  const zfp = seriesCodes.find((c) => c.code === 'ZFP');
+  const zfpPercent = zfp?.rule.type === 'addPercent' ? zfp.rule.percent : 20;
   // An SCP in points has no default to fall back on: rule 44.3(c)'s default
   // is the percentage.
   const missingScpPoints = code === 'SCP' && scpInPoints && (() => {
@@ -100,6 +114,10 @@ function PenaltyEditorDialogInner({
     if (missingScpPoints) return;
     if (code === 'none') {
       onApply({ code: null, override: null, overrideByFleet: null, inPoints: false, label: null });
+      return;
+    }
+    if (ownCode) {
+      onApply({ code, override: null, overrideByFleet: null, inPoints: false, label: null });
       return;
     }
     if (statedPoints) {
@@ -143,12 +161,28 @@ function PenaltyEditorDialogInner({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">No penalty</SelectItem>
-                <SelectItem value="ZFP">ZFP — Z Flag (20%)</SelectItem>
+                <SelectItem value="ZFP">ZFP — Z Flag ({zfpPercent}%){zfp ? ' · changed' : ''}</SelectItem>
                 <SelectItem value="SCP">SCP — Scoring Penalty</SelectItem>
                 <SelectItem value="DPI">DPI — Discretionary Points</SelectItem>
+                {ownPenaltyCodes.length > 0 && (
+                  <>
+                    <SelectSeparator />
+                    <SelectGroup>
+                      <SelectLabel>This series</SelectLabel>
+                      {ownPenaltyCodes.map((c) => (
+                        <SelectItem key={c.code} value={c.code}>
+                          {c.code}{c.description ? ` — ${c.description}` : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </>
+                )}
               </SelectContent>
             </Select>
           </div>
+          {ownCode && (
+            <p className="text-sm text-muted-foreground" data-testid="penalty-code-rule">{ruleSentence(ownCode)}</p>
+          )}
           {code === 'SCP' && (
             <div className="space-y-1.5">
               <span className="text-sm font-medium" id="scp-unit-label">Stated as</span>

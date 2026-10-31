@@ -19,7 +19,7 @@ import {
 import type { ImportedFinish } from './finish-entry';
 import { raceFleetIds, withRaceSailNumbers } from './race-membership';
 import { formatElapsedInput } from './time-parse';
-import type { Competitor, Finish, RaceStart, SubmittedFinish } from './types';
+import type { Competitor, Finish, RaceStart, SeriesScoringCode, SubmittedFinish } from './types';
 
 const COLUMNS: FinishSheetColumnMap = { 0: 'sailNumber', 1: 'finishTime', 2: 'elapsed', 3: 'resultCode', 4: 'laps' };
 
@@ -58,6 +58,7 @@ export function readSubmission(
   finishes: readonly SubmittedFinish[],
   candidates: Candidate[],
   sailNumberOf: (competitorId: string) => string | undefined,
+  seriesCodes?: readonly SeriesScoringCode[],
 ): ParseFinishSheetResult {
   return parseFinishSheetCsv({
     rows: finishes.map((f) => [
@@ -71,6 +72,7 @@ export function readSubmission(
     candidates,
     identified: finishes.map((f) => f.competitorId),
     firstRowNumber: 1,
+    seriesCodes,
   });
 }
 

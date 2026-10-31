@@ -153,11 +153,11 @@ function RaceRecording({ dated, userId, onBack }: { dated: DatedRace; userId: st
   // Edits live in a draft; until the first edit, the page shows the latest
   // submission as sent.
   const sent = useMemo<Draft>(() => ({
-    finishes: mine ? sheetFromSubmission(race.id, mine, candidates, sailNumberOf) : [],
+    finishes: mine ? sheetFromSubmission(race.id, mine, candidates, sailNumberOf, series?.scoringCodes) : [],
     startTimes: Object.fromEntries((mine?.starts ?? []).map((s) => [s.startId, s.startTime])),
     recordedBy: mine?.recordedBy ?? '',
     complete: mine?.complete ?? false,
-  }), [mine, race.id, candidates, sailNumberOf]);
+  }), [mine, race.id, candidates, sailNumberOf, series?.scoringCodes]);
   const [draft, setDraft] = useState<Draft | null>(null);
   const shown = draft ?? sent;
   const [message, setMessage] = useState<string | null>(null);
@@ -323,6 +323,7 @@ function RaceRecording({ dated, userId, onBack }: { dated: DatedRace; userId: st
             patchCache={patchCache}
             saveFinish={KEPT_IN_THE_DRAFT}
             leave={onBack}
+            seriesScoring={series ? { dnfScoring: series.dnfScoring, scoringCodes: series.scoringCodes } : undefined}
           />
         </div>
       )}

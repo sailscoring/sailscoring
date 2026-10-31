@@ -10,8 +10,10 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
+  DropdownMenuSeparator,
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
@@ -20,7 +22,10 @@ import {
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
@@ -41,7 +46,8 @@ import {
   entryKey,
   type FinishEntry,
 } from '@/lib/finish-entry';
-import type { Competitor, CompetitorFieldKey, Finish, FinishRecording, Fleet, ResultCode } from '@/lib/types';
+import type { Competitor, CompetitorFieldKey, DnfScoring, Finish, FinishRecording, Fleet, ResultCode, SeriesScoringCode } from '@/lib/types';
+import { codesSummary } from '@/lib/scoring-codes-text';
 
 /** One badge per fleet a competitor belongs to, scoped to the fleets actually
  *  racing this sheet. Multi-fleet boats (e.g. a handicap fleet and a scratch
@@ -159,6 +165,9 @@ export interface FinishTabProps {
    * offered.
    */
   recording?: boolean;
+  /** The series' A5 rule and its own scoring codes: its codes that replace
+   *  the result join the code menus, and a changed RRS code is marked. */
+  seriesScoring?: { dnfScoring: DnfScoring; scoringCodes?: readonly SeriesScoringCode[] };
 }
 
 export function FinishTab(props: FinishTabProps) {
@@ -171,8 +180,21 @@ export function FinishTab(props: FinishTabProps) {
     finishRecording, onSetFinishRecording, derived, savedFinishes,
     finishSheetImportRef, applyCsvImport,
     setEditingPenaltyEntryId, openRedressDialog, setResolvingEntry,
-    patchCache, saveFinish, leave, readOnly = false, recording = false,
+    patchCache, saveFinish, leave, readOnly = false, recording = false, seriesScoring,
   } = props;
+  // The series' own codes that replace the result, after the RRS codes in
+  // both menus; and the RRS codes it scores differently, marked where they
+  // stand.
+  const ownResultCodes = (seriesScoring?.scoringCodes ?? [])
+    .filter((c) => c.kind === 'replace' && !(c.code in NON_FINISHER_CODE_LABELS))
+    .map((c) => c.code);
+  const changedCodes = new Set(
+    seriesScoring ? codesSummary(seriesScoring.dnfScoring, seriesScoring.scoringCodes).changed : [],
+  );
+  const codeLabel = (code: NonFinisherCode) => {
+    const label = NON_FINISHER_CODE_LABELS[code] ?? code;
+    return changedCodes.has(code) ? `${label} · changed` : label;
+  };
   const {
     finishingOrder, tiedWithPrevious, finishTimes, elapsedSecs,
     finisherPenalties, redressEntries, finishByCompetitorId, finisherCodes,
@@ -425,7 +447,7 @@ export function FinishTab(props: FinishTabProps) {
           className="w-36 shrink-0 text-xs text-muted-foreground text-right"
           data-testid={`non-finisher-code-${competitor.sailNumber}`}
         >
-          {NON_FINISHER_CODE_LABELS[code]}
+          {codeLabel(code)}
         </span>
       ) : (
       <Select
@@ -444,9 +466,20 @@ export function FinishTab(props: FinishTabProps) {
         <SelectContent>
           {nonFinisherCodes.map((c) => (
             <SelectItem key={c} value={c}>
-              {NON_FINISHER_CODE_LABELS[c]}
+              {codeLabel(c)}
             </SelectItem>
           ))}
+          {ownResultCodes.length > 0 && (
+            <>
+              <SelectSeparator />
+              <SelectGroup>
+                <SelectLabel>This series</SelectLabel>
+                {ownResultCodes.map((c) => (
+                  <SelectItem key={c} value={c}>{c}</SelectItem>
+                ))}
+              </SelectGroup>
+            </>
+          )}
         </SelectContent>
       </Select>
       )}
@@ -465,9 +498,18 @@ export function FinishTab(props: FinishTabProps) {
       <DropdownMenuRadioItem value="finished">Finished — no code</DropdownMenuRadioItem>
       {(Object.keys(FINISHER_CODE_LABELS) as FinisherCode[]).map((c) => (
         <DropdownMenuRadioItem key={c} value={c}>
-          {FINISHER_CODE_LABELS[c]}
+          {changedCodes.has(c) ? `${FINISHER_CODE_LABELS[c]} · changed` : FINISHER_CODE_LABELS[c]}
         </DropdownMenuRadioItem>
       ))}
+      {ownResultCodes.length > 0 && (
+        <>
+          <DropdownMenuSeparator />
+          <DropdownMenuLabel className="text-xs text-muted-foreground">This series</DropdownMenuLabel>
+          {ownResultCodes.map((c) => (
+            <DropdownMenuRadioItem key={c} value={c}>{c}</DropdownMenuRadioItem>
+          ))}
+        </>
+      )}
     </DropdownMenuRadioGroup>
   );
 
@@ -627,6 +669,7 @@ export function FinishTab(props: FinishTabProps) {
               ref={finishSheetImportRef}
               submitting={recording}
               candidates={importCandidates}
+              seriesCodes={seriesScoring?.scoringCodes}
               needsFinishTime={needsFinishTime}
               existingFinishes={savedFinishes ?? []}
               onConfirm={applyCsvImport}

@@ -128,6 +128,22 @@ describe('parseFinishSheetCsv', () => {
     expect(result.errors).toEqual([{ rowIndex: 2, reason: 'unknown result code "ZZZ"' }]);
   });
 
+  it('reads a series’ own code that replaces the result, in any case, and refuses a penalty code', () => {
+    const seriesCodes = [
+      { code: 'TLE', description: 'Time limit expired', kind: 'replace' as const, rule: { type: 'placeAfter' as const, base: 'finishers' as const, plus: 1 }, discardable: true },
+      { code: 'SOP', description: 'Sign-out', kind: 'add' as const, rule: { type: 'addPoints' as const, points: 2 }, discardable: true },
+    ];
+    const rows = [['15', '', 'tle'], ['22', '', 'SOP'], ['6413', '', 'dnf']];
+    const result = parseFinishSheetCsv({ rows, columnMap: defaultMap, candidates, seriesCodes });
+    expect(result.finishes.map((f) => f.resultCode)).toEqual(['TLE', 'DNF']);
+    expect(result.errors).toEqual([{ rowIndex: 3, reason: 'unknown result code "SOP"' }]);
+  });
+
+  it('refuses a series’ own code where the series has none', () => {
+    const result = parseFinishSheetCsv({ rows: [['15', '', 'TLE']], columnMap: defaultMap, candidates });
+    expect(result.errors).toEqual([{ rowIndex: 2, reason: 'unknown result code "TLE"' }]);
+  });
+
   it('imports a place-only sheet — rows with only a sail number are finishers in row order', () => {
     const rows = [
       ['6413', '', ''],

@@ -8,7 +8,7 @@ import type { Candidate } from './finish-sheet-csv';
 import { finishRowsFromImport } from './finish-entry';
 import { readSubmission } from './finish-submission';
 import { normalizeTimeInput } from './time-parse';
-import type { Finish, FinishSubmission, SubmittedFinish } from './types';
+import type { Finish, FinishSubmission, SubmittedFinish, SeriesScoringCode } from './types';
 import type { SubmitFinishesInput } from './validation/finish-submission';
 
 /** Days either side of today a recorder can pick a race from. */
@@ -48,8 +48,9 @@ export function sheetFromSubmission(
   submission: Pick<FinishSubmission, 'finishes'>,
   candidates: Candidate[],
   sailNumberOf: (competitorId: string) => string | undefined,
+  seriesCodes?: readonly SeriesScoringCode[],
 ): Finish[] {
-  return finishRowsFromImport(raceId, readSubmission(submission.finishes, candidates, sailNumberOf).finishes);
+  return finishRowsFromImport(raceId, readSubmission(submission.finishes, candidates, sailNumberOf, seriesCodes).finishes);
 }
 
 /** The recording's lines as an upload carries them: the finishers in

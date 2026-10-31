@@ -525,6 +525,7 @@ export default function ResultEntryPage({
           savedFinishes={savedFinishes ?? []}
           needsFinishTime={finishInput.needsFinishTime}
           applyImport={applyCsvImport}
+          seriesCodes={series?.scoringCodes}
         />
       )}
 
@@ -558,6 +559,7 @@ export default function ResultEntryPage({
           patchCache={patchCache}
           saveFinish={saveFinish}
           leave={leave}
+          seriesScoring={series ? { dnfScoring: series.dnfScoring, scoringCodes: series.scoringCodes } : undefined}
         />
         </div>
       )}
@@ -596,6 +598,7 @@ export default function ResultEntryPage({
         patchCache={patchCache}
         saveFinish={saveFinish}
         raceFinishes={savedFinishes ?? []}
+        seriesCodes={series?.scoringCodes}
       />
 
       <RedressController

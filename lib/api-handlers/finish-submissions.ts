@@ -57,15 +57,17 @@ export async function matcherFor(
   race: Race,
 ): Promise<(finishes: FinishSubmission['finishes']) => SubmissionMatch> {
   const repos = createRepos({ workspaceId: workspace.workspaceId });
-  const [competitors, fleets, starts] = await Promise.all([
+  const [competitors, fleets, starts, series] = await Promise.all([
     repos.competitors.listBySeries(race.seriesId),
     repos.fleets.listBySeries(race.seriesId),
     repos.raceStarts.listByRace(race.id),
+    repos.series.get(race.seriesId),
   ]);
   const fleetNames = new Map(fleets.map((f) => [f.id, f.name]));
   const sailNumbers = new Map(competitors.map((c) => [c.id, c.sailNumber]));
   const candidates = raceCandidates(competitors, starts, (id) => fleetNames.get(id));
-  return (finishes) => matchOf(finishes, readSubmission(finishes, candidates, (id) => sailNumbers.get(id)));
+  return (finishes) =>
+    matchOf(finishes, readSubmission(finishes, candidates, (id) => sailNumbers.get(id), series?.scoringCodes));
 }
 
 /** The race, refused where the workspace has no such race. */

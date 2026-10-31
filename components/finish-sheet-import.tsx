@@ -41,7 +41,7 @@ import {
   TABULAR_IMPORT_ACCEPT,
   type WorkbookSheet,
 } from '@/lib/import-table';
-import type { Finish } from '@/lib/types';
+import type { Finish, SeriesScoringCode } from '@/lib/types';
 import { SheetPickerDialog, ImportFileErrorDialog } from '@/components/import-file-dialogs';
 import { FinishSheetPreviewSummary, untimedHandicapCount } from '@/components/finish-sheet-preview-summary';
 
@@ -101,7 +101,9 @@ export const FinishSheetImport = forwardRef<FinishSheetImportHandle, {
   /** The sheet becomes a recording to submit for review, not the race's
    *  finishes: nothing is replaced, and the preview says so. */
   submitting?: boolean;
-}>(function FinishSheetImport({ candidates, existingFinishes, needsFinishTime, onConfirm, trigger, submitting = false }, ref) {
+  /** The series' own scoring codes, which a sheet may use. */
+  seriesCodes?: readonly SeriesScoringCode[];
+}>(function FinishSheetImport({ candidates, existingFinishes, needsFinishTime, onConfirm, trigger, submitting = false, seriesCodes }, ref) {
   const [flow, setFlow] = useState<ImportFlow>({ step: 'idle' });
   const fileInputRef = useRef<HTMLInputElement>(null);
   // A sheet's lap counts are only read with mixed laps on; without it a Laps
@@ -156,6 +158,7 @@ export const FinishSheetImport = forwardRef<FinishSheetImportHandle, {
       rows: flow.rows,
       columnMap: flow.columnMap,
       candidates,
+      seriesCodes,
     });
     setFlow({ step: 'preview', result });
   }

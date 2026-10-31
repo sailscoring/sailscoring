@@ -49,8 +49,8 @@
  * in lib/finish-entry.ts).
  */
 
-import type { Finish, ResultCode } from './types';
-import { BUILT_IN_CODES } from './scoring-codes';
+import type { Finish, ResultCode, SeriesScoringCode } from './types';
+import { resolveResultCode } from './scoring-codes';
 import { normalizeTimeInput, parseElapsedInput } from './time-parse';
 import {
   matchPlainEntry,
@@ -138,9 +138,10 @@ export interface ParseFinishSheetInput {
   /** What the first data row is called in the messages: 2 for a sheet whose
    *  header is row 1 (the default), 1 for a list with no header. */
   firstRowNumber?: number;
+  /** The series' own scoring codes: a row may carry one that replaces the
+   *  result, as well as an RRS code. */
+  seriesCodes?: readonly SeriesScoringCode[];
 }
-
-const CODE_SET = new Set<string>(BUILT_IN_CODES.map((c) => c.code));
 
 /**
  * Excel stores times of day as fractions of a day; import-table renders
@@ -331,12 +332,11 @@ export function parseFinishSheetCsv(input: ParseFinishSheetInput): ParseFinishSh
 
     let code: ResultCode | null = null;
     if (hasCode) {
-      const upper = rawCode.toUpperCase();
-      if (!CODE_SET.has(upper)) {
+      code = resolveResultCode(rawCode, input.seriesCodes);
+      if (code === null) {
         errors.push({ rowIndex: csvRowNumber, reason: `unknown result code "${rawCode}"` });
         continue;
       }
-      code = upper as ResultCode;
     }
 
     // Resolve sail number → competitor. The fallback tiers sit strictly
