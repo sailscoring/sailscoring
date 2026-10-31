@@ -1190,6 +1190,42 @@ const SHOTS: Shot[] = [
     },
   },
   {
+    // Inventory: Custom scoring codes — the Scoring codes dialog's table with a
+    // code of the series' own (TLE) and a changed RRS code (BFD made
+    // non-discardable). Reset to the RRS afterwards, so the demo series every
+    // other shot uses scores its codes as it did.
+    slug: 'custom-scoring-codes',
+    group: 'Scoring correctness',
+    async capture({ page, seriesId, shot }) {
+      await ensureFeature(page, 'custom-scoring-codes');
+      await page.goto(`${BASE}/series/${await seriesId()}/settings`);
+      await settle(page);
+      const heading = page.getByRole('heading', { name: 'Scoring', exact: true });
+      await heading.locator('..').getByRole('button', { name: 'Edit ▸' }).click();
+      await page.getByRole('button', { name: /^(Change|Edit) scoring codes…$/ }).click();
+      const dialog = page.getByTestId('scoring-codes-dialog');
+      const intro = dialog.getByRole('button', { name: 'Change scoring codes' });
+      if (await intro.isVisible()) await intro.click();
+      const editor = dialog.getByTestId('scoring-code-editor');
+      if ((await dialog.getByTestId('code-row-TLE').count()) === 0) {
+        await dialog.getByRole('button', { name: 'Add a code' }).click();
+        await editor.getByLabel('Code').fill('TLE');
+        await editor.getByLabel('Description').fill('Time limit expired (SI 16.1)');
+        await editor.getByRole('button', { name: 'Save' }).click();
+        await dialog.getByTestId('code-row-TLE').waitFor();
+      }
+      await dialog.getByTestId('code-row-BFD').click();
+      await editor.getByLabel('Can be discarded').uncheck();
+      await editor.getByRole('button', { name: 'Save' }).click();
+      await dialog.getByText('(RRS: as DNF)').waitFor();
+      await dialog.getByTestId('code-row-DNF').scrollIntoViewIfNeeded();
+      await shot('custom-scoring-codes.png');
+      await dialog.getByRole('button', { name: 'Reset all to the RRS' }).click();
+      await dialog.getByTestId('reset-all-confirm').getByRole('button', { name: 'Reset all to the RRS' }).click();
+      await dialog.getByTestId('code-row-TLE').waitFor({ state: 'detached' });
+    },
+  },
+  {
     // Inventory: Proportional discards — the One-per-so-many mode with its
     // steps-up readback, left unsaved.
     slug: 'proportional-discards',

@@ -1,0 +1,87 @@
+description: "A series' own codes — TLE replaces the result, SOP adds points"
+rrs_notes: >
+  Custom scoring codes. HYC's Dinghy Frostbites SIs define two codes the RRS
+  doesn't have: TLE (SI 16.1, a boat finishing outside the finishing window,
+  scored one place more than the boats that finished) and a sign-out penalty
+  (SI 19.1, 2 points added). The series defines TLE as the place after the
+  finishers + 1, never more than DNF, and SOP as adding 2 points, capped at
+  DNF like any scoring penalty, leaving other boats' scores alone (A6.2).
+  5 competitors, N=5, DNF score=6.
+  Bob finishes 1st → 1. Carol finishes 2nd → 2.
+  Alice finishes 3rd + SOP of 2 points → 3 + 2 = 5.
+  Dave finished outside the window: TLE, the place after the 3 finishers → 4.
+  Eve retired: DNF → 6.
+
+series:
+  discardThresholds: []
+  scoringCodes:
+    - code: TLE
+      description: "Time limit expired (SI 16.1)"
+      kind: replace
+      rule: { type: placeAfter, base: finishers, plus: 1 }
+      capAtDnf: true
+      discardable: true
+    - code: SOP
+      description: "Failed to sign out (SI 19.1)"
+      kind: add
+      rule: { type: addPoints, points: 2 }
+      discardable: true
+
+competitors:
+  - { sailNumber: "1", name: "Alice" }
+  - { sailNumber: "2", name: "Bob" }
+  - { sailNumber: "3", name: "Carol" }
+  - { sailNumber: "4", name: "Dave" }
+  - { sailNumber: "5", name: "Eve" }
+
+races:
+  - number: 1
+    finishes:
+      - { sailor: "2", position: 1 }
+      - { sailor: "3", position: 2 }
+      - { sailor: "1", position: 3, penaltyCode: SOP }
+      - { sailor: "4", code: TLE }
+      - { sailor: "5", code: DNF }
+
+expected:
+  standings:
+    - rank: 1
+      sailor: "2"
+      racePoints: [1]
+      raceCodes: [null]
+      racePenaltyCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 1
+      netPoints: 1
+    - rank: 2
+      sailor: "3"
+      racePoints: [2]
+      raceCodes: [null]
+      racePenaltyCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 2
+      netPoints: 2
+    - rank: 3
+      sailor: "4"
+      racePoints: [4]
+      raceCodes: [TLE]
+      racePenaltyCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 4
+      netPoints: 4
+    - rank: 4
+      sailor: "1"
+      racePoints: [5]
+      raceCodes: [null]
+      racePenaltyCodes: [SOP]
+      raceDiscards: [false]
+      totalPoints: 5
+      netPoints: 5
+    - rank: 5
+      sailor: "5"
+      racePoints: [6]
+      raceCodes: [DNF]
+      racePenaltyCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 6
+      netPoints: 6

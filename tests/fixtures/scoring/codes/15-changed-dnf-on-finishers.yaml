@@ -1,0 +1,70 @@
+description: "Changed RRS codes — DNF and DNC scored on the finishers"
+rrs_notes: >
+  Custom scoring codes. The 2026 ILCA Leinsters scored DNF as the place after
+  the finishers + 1 and DNC as the finishers + 2, where RRS A5.2 scores both
+  as the boats entered + 1. The series changes DNF and DNC; DNS, OCS and the
+  other codes scored as DNF follow DNF.
+  4 competitors, N=4 (RRS DNF and DNC would both score 5).
+  Alice finishes 1st → 1. Bob finishes 2nd → 2.
+  Carol retired: DNF, the place after the 2 finishers → 3.
+  Dave never came to the start: DNC, the finishers + 2 → 4.
+
+series:
+  discardThresholds: []
+  scoringCodes:
+    - code: DNF
+      kind: replace
+      rule: { type: placeAfter, base: finishers, plus: 1 }
+      discardable: true
+    - code: DNC
+      kind: replace
+      rule: { type: placeAfter, base: finishers, plus: 2 }
+      discardable: true
+
+competitors:
+  - { sailNumber: "1", name: "Alice" }
+  - { sailNumber: "2", name: "Bob" }
+  - { sailNumber: "3", name: "Carol" }
+  - { sailNumber: "4", name: "Dave" }
+
+races:
+  - number: 1
+    finishes:
+      - { sailor: "1", position: 1 }
+      - { sailor: "2", position: 2 }
+      - { sailor: "3", code: DNF }
+
+expected:
+  standings:
+    - rank: 1
+      sailor: "1"
+      racePoints: [1]
+      raceCodes: [null]
+      racePenaltyCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 1
+      netPoints: 1
+    - rank: 2
+      sailor: "2"
+      racePoints: [2]
+      raceCodes: [null]
+      racePenaltyCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 2
+      netPoints: 2
+    - rank: 3
+      sailor: "3"
+      racePoints: [3]
+      raceCodes: [DNF]
+      racePenaltyCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 3
+      netPoints: 3
+    - rank: 4
+      sailor: "4"
+      racePoints: [4]
+      raceCodes: [DNC]
+      racePenaltyCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 4
+      netPoints: 4

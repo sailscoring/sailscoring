@@ -177,6 +177,53 @@ export default function ScoringCorrectness() {
           unticked there — so if check-in is not done, the finish records alone decide it.
         </p>
       </Section>
+      {has('custom-scoring-codes') && (
+        <Section id="custom-scoring-codes" title="Scoring codes your instructions change or add">
+          <HelpShot
+            src="/help/shots/custom-scoring-codes.webp"
+            alt="The Scoring codes dialog: the codes a series can change, each marked RRS, Changed or Series."
+            caption="The Scoring codes dialog: the codes a series can change, each marked RRS, Changed or Series."
+          />
+          <p>
+            Every series scores the RRS Appendix A codes as the rules set out, under A5.2 or A5.3.
+            Some sailing instructions say otherwise: they define a code the RRS doesn’t have — TLE
+            for a boat that finishes outside the finishing window, a penalty for not signing out —
+            or score a standard code differently, such as DNF on the number of finishers. Change the
+            series’ codes only when your notice of race or sailing instructions do.
+          </p>
+          <p>
+            On the <strong className="text-foreground">Settings</strong> tab, open the{' '}
+            <strong className="text-foreground">Scoring</strong> card and choose{' '}
+            <strong className="text-foreground">Change scoring codes…</strong> under the A5 choice.
+            The dialog lists the codes a series can change — DNF, DNS, OCS, NSC, RET, DSQ, DNE, UFD,
+            BFD, DNC and ZFP’s percentage — and the series’ own. Each is marked{' '}
+            <strong className="text-foreground">RRS</strong>,{' '}
+            <strong className="text-foreground">Changed</strong> (with the rule it replaced) or{' '}
+            <strong className="text-foreground">Series</strong>. SCP, DPI and RDG aren’t listed:
+            their amounts are decided for each boat, in the penalty and redress dialogs.
+          </p>
+          <p>
+            A code either <strong className="text-foreground">replaces the boat’s result</strong> —
+            the place after the series entries, the boats that came to the starting area or the
+            finishers, plus a number; the same as another code; or a fixed number of points, never
+            more than a DNF if you tick it — or{' '}
+            <strong className="text-foreground">adds points to her finishing place</strong>, a
+            stated number or a percentage of DNF, never more than a DNF, with every other boat’s
+            score left alone. DNS, OCS and the other disqualifications score as DNF, as the RRS
+            writes it, so changing DNF changes them too. The editor restates each rule as a
+            sentence: check it against your instructions.
+          </p>
+          <p>
+            The series’ own codes then appear on the finish sheet under{' '}
+            <strong className="text-foreground">This series</strong>, in the penalty dialog, and in
+            imported finish sheets and recorders’ submissions. Each published results page lists
+            the codes it uses that differ from the RRS, with their rules, so readers can check them;
+            a split-fleet championship lists them on its Scoring notes page. A code that results use
+            can’t be deleted until they are given another. DBSC’s A5.3 variant, where a DNC is scored
+            from the boats that came to the start, is DNC changed to score the same as DNF.
+          </p>
+        </Section>
+      )}
     </>
   );
 }
