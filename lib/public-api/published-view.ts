@@ -455,6 +455,13 @@ function resultsSectionParts(
       netDisplay: placeholder || !hasDiscards ? null : formatPoints(s.netPoints),
     })),
   };
+  // The codes in this table that the series scores differently from the RRS,
+  // stated as the published page states them.
+  const used = new Set(
+    data.standings.flatMap((s) => s.raceScores.flatMap((sc) => [sc.resultCode, sc.penaltyCode])).filter(Boolean),
+  );
+  const codeNotes = (data.scoringCodeNotes ?? []).filter((n) => used.has(n.code));
+  if (codeNotes.length > 0) table.scoringCodes = codeNotes;
 
   const parts: ContributedPart[] = [
     {

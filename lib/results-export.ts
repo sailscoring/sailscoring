@@ -13,6 +13,7 @@ import {
   type TodCorrectionContext,
 } from './scoring';
 import { seriesCodeTable } from './scoring-codes';
+import { scoringCodeNotes } from './scoring-codes-text';
 import {
   renderSeriesHtml,
   renderCombinedSeriesHtml,
@@ -1322,6 +1323,7 @@ export async function buildFleetHtmlFiles(
     // axis-sectioned page (#390) renders the same fleet several times over,
     // once per subdivision value, each with its own heading and its own 1..n
     // ranks. Everything else — race scores, discards, chrome — is the fleet's.
+    const codeNotes = scoringCodeNotes(series.dnfScoring ?? 'seriesEntries', series.scoringCodes);
     const assemble = (
       anchorPrefix?: string,
       section?: { name: string; standings: typeof standings; axisId: string },
@@ -1383,6 +1385,9 @@ export async function buildFleetHtmlFiles(
       // nothing rather than claiming a list it never used.
       const ircSource = ircRatingSourceOf(competitors.filter((c) => fleetCompetitorIds.has(c.id)));
       if (ircSource) data.ircRatingSource = ircSource;
+      // The series' codes that differ from the RRS, so the page can say what
+      // a TLE in a cell is, or that a DNC is scored from the starting area.
+      if (codeNotes.length > 0) data.scoringCodeNotes = codeNotes;
       return data;
     };
     // The whole fleet, unsectioned, is wanted twice — its own page, and the

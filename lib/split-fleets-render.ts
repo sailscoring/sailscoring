@@ -15,7 +15,9 @@ import type {
   Race,
   RaceOfficial,
   RaceStart,
+  SeriesScoringCode,
 } from './types';
+import { scoringCodeNotes } from './scoring-codes-text';
 import {
   renderFlagDefs,
   renderHelmCell,
@@ -74,6 +76,10 @@ export interface SplitFleetRenderInput {
   finishes: Finish[];
   /** The series' non-finisher rule (see `SplitFleetData.dnfScoring`). */
   dnfScoring?: DnfScoring;
+  /** The series' custom scoring codes (see `SplitFleetData.scoringCodes`):
+   *  scored by the engine, worded in the format, and listed on the Scoring
+   *  notes page where they differ from the RRS. */
+  scoringCodes?: SeriesScoringCode[];
   /** Which optional competitor fields the scorer shows; drives the Nat
    *  column. Absent = none. */
   enabledCompetitorFields?: CompetitorFieldKey[];
@@ -131,8 +137,9 @@ function formatDetails(
   config: SplitFleetConfig,
   rounds: readonly { stage: string }[],
   dnfScoring: DnfScoring | undefined,
+  scoringCodes?: readonly SeriesScoringCode[],
 ): string {
-  return `<details class="sfformat"><summary>${FORMAT_HEADING}</summary>\n${formatList(config, rounds, dnfScoring)}</details>`;
+  return `<details class="sfformat"><summary>${FORMAT_HEADING}</summary>\n${formatList(config, rounds, dnfScoring, scoringCodes)}</details>`;
 }
 
 const FORMAT_HEADING = 'How this championship is scored';
@@ -141,10 +148,12 @@ function formatList(
   config: SplitFleetConfig,
   rounds: readonly { stage: string }[],
   dnfScoring: DnfScoring | undefined,
+  scoringCodes?: readonly SeriesScoringCode[],
 ): string {
   const lines = describeSplitFleetConfig(config, {
     repechage: rounds.some((r) => r.stage === 'repechage'),
     dnfScoring,
+    scoringCodes,
   })
     .map((line) => `<li>${esc(line.text)}</li>`)
     .join('\n');
@@ -820,7 +829,7 @@ ${body}
   // the foot rather than lose it.
   const format = opts.scoringNotesHref
     ? ''
-    : formatDetails(input.config, input.rounds, input.dnfScoring);
+    : formatDetails(input.config, input.rounds, input.dnfScoring, input.scoringCodes);
 
   return renderHtmlDocument(
     {
@@ -856,12 +865,20 @@ export function renderSplitFleetScoringNotesPage(
       ? `<a href="${esc(opts.dataFileUrl)}" target="_top" rel="noopener">Data (.sailscoring.json)</a>, the same series as a file`
       : '',
   ].filter(Boolean);
+  // A championship lists its codes that differ from the RRS here, once, rather
+  // than under every page's tables.
+  const codeNotes = scoringCodeNotes(input.dnfScoring ?? 'seriesEntries', input.scoringCodes);
+  const codes = codeNotes.length
+    ? `<h3>Scoring codes that differ from the RRS</h3>\n<ul>\n${codeNotes
+        .map((n) => `<li><strong>${esc(n.code)}</strong> ${esc(n.name)}. ${esc(n.sentence)}${n.rrs ? ` (RRS: ${esc(n.rrs)})` : ''}</li>`)
+        .join('\n')}\n</ul>\n`
+    : '';
   const data = dataLinks.length
     ? `<h3>The data behind these results</h3>\n<ul>\n${dataLinks.map((l) => `<li>${l}</li>`).join('\n')}\n</ul>`
     : '';
   return renderHtmlDocument(
     { ...chromeFor(input, opts), fleetName: SCORING_NOTES_PAGE, omitFooterDataLinks: true },
-    `${PAGE_CSS}\n<div class="sfnotes">\n<h3>${FORMAT_HEADING}</h3>\n${formatList(input.config, input.rounds, input.dnfScoring)}\n${data}\n</div>`,
+    `${PAGE_CSS}\n<div class="sfnotes">\n<h3>${FORMAT_HEADING}</h3>\n${formatList(input.config, input.rounds, input.dnfScoring, input.scoringCodes)}\n${codes}${data}\n</div>`,
     {
       fontPercent: 72,
       hasNhcDetail: false,

@@ -194,3 +194,29 @@ export function codesSummaryText(summary: { added: string[]; changed: string[] }
     summary.changed.length ? `${join(summary.changed)} changed` : '',
   ].filter(Boolean).join(', ');
 }
+
+/** A scoring code that differs from the RRS, as a published page states it. */
+export interface ScoringCodeNote {
+  code: string;
+  /** "Time limit expired (SI 16.1)" — the series' description of its own
+   *  code, or the RRS name of a changed one. */
+  name: string;
+  /** The rule in full (`ruleSentence`). */
+  sentence: string;
+  /** For a changed built-in: how the RRS scores it. */
+  rrs?: string;
+}
+
+/** The notes a published page carries for a series' codes: one for each code
+ *  that differs from the RRS. Empty for a series scoring the RRS codes. */
+export function scoringCodeNotes(
+  dnfScoring: DnfScoring,
+  scoringCodes: readonly SeriesScoringCode[] = [],
+): ScoringCodeNote[] {
+  return codesDifferingFromRrs(dnfScoring, scoringCodes).map((row) => ({
+    code: row.code,
+    name: row.name,
+    sentence: ruleSentence(row.scored),
+    ...(row.status === 'changed' && row.rrs ? { rrs: ruleShortText(row.rrs) } : {}),
+  }));
+}

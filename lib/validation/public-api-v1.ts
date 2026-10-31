@@ -148,6 +148,17 @@ export const standingsTableSchema = named(
     caption: z.string().optional(),
     races: z.array(standingsRaceSchema),
     rows: z.array(standingsRowSchema),
+    scoringCodes: z
+      .array(
+        z.object({
+          code: z.string(),
+          name: z.string().describe('The series\' description of its own code, or the RRS name of one it scores differently.'),
+          sentence: z.string().describe('The rule in full, as the published page states it.'),
+          rrs: z.string().optional().describe('For an RRS code the series scores differently: how the RRS scores it.'),
+        }),
+      )
+      .optional()
+      .describe('The codes in this table that the series scores differently from the RRS: its own codes, such as `TLE`, and RRS codes it has changed. Absent when every code is scored as RRS Appendix A sets out.'),
   }),
   'StandingsTable',
   'A fleet\'s standings, as published.',

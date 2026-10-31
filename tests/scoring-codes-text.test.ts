@@ -68,3 +68,28 @@ describe('a rule in words', () => {
     );
   });
 });
+
+describe('the notes a published page carries', () => {
+  it('states each code that differs from the RRS, with the RRS rule for a changed one', async () => {
+    const { scoringCodeNotes } = await import('@/lib/scoring-codes-text');
+    const dncAsDnf: SeriesScoringCode = { code: 'DNC', kind: 'replace', rule: { type: 'sameAs', code: 'DNF' }, discardable: true };
+    expect(scoringCodeNotes('startingArea', [TLE, dncAsDnf, rrsCode('DSQ', 'startingArea')])).toEqual([
+      { code: 'DNC', name: 'Did Not Come to start area', sentence: 'A boat scored DNC scores the same as DNF. It can be discarded.', rrs: 'series entries + 1' },
+      { code: 'TLE', name: 'Time limit expired (SI 16.1)', sentence: ruleSentence(TLE) },
+    ]);
+  });
+
+  it('lists only the codes the page uses', async () => {
+    const { renderScoringCodeNotes } = await import('@/lib/results-renderer');
+    const notes = [
+      { code: 'TLE', name: 'Time limit expired', sentence: 'A boat scored TLE …' },
+      { code: 'SOP', name: 'Failed to sign out', sentence: 'A boat scored SOP …' },
+    ];
+    const html = renderScoringCodeNotes(notes, new Set(['TLE', 'DNF']));
+    expect(html).toContain('Scoring codes that differ from the RRS');
+    expect(html).toContain('<strong>TLE</strong>');
+    expect(html).not.toContain('SOP');
+    expect(renderScoringCodeNotes(notes, new Set(['DNF']))).toBe('');
+    expect(renderScoringCodeNotes(undefined)).toBe('');
+  });
+});

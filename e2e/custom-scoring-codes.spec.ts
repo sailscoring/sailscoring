@@ -1,5 +1,5 @@
 import { signedInTest as test, expect } from './fixtures';
-import { createSeriesQuick, enableFeatures } from './helpers';
+import { createSeriesQuick, downloadFleetHtml, enableFeatures } from './helpers';
 
 /**
  * Custom scoring codes (#717): the escape hatch from the RRS codes. A series
@@ -128,4 +128,17 @@ test('the series’ own codes are offered on the finish sheet and score as the s
   await expect(row('101').getByRole('cell').last()).toHaveText('3');
   await expect(row('202').getByRole('cell').last()).toHaveText('2');
   await expect(row('404')).toContainText('5 DNC');
+
+  // The published page says what each of the series' own codes means.
+  const download = await downloadFleetHtml(page);
+  const stream = await download.createReadStream();
+  const html = await new Promise<string>((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    stream.on('data', (c: Buffer) => chunks.push(c));
+    stream.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+    stream.on('error', reject);
+  });
+  expect(html).toContain('Scoring codes that differ from the RRS');
+  expect(html).toContain('<strong>TLE</strong> Time limit expired (SI 16.1). A boat scored TLE gets points for the finishing place one more than the number of boats that finished in her fleet, but never more than a DNF.');
+  expect(html).toContain('<strong>SOP</strong> Failed to sign out (SI 19.1). A boat scored SOP has 2 points added to her score for the race');
 });

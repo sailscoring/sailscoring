@@ -1,6 +1,7 @@
 import type { FinishTrackData, Fleet, ResultCode, PenaltyCode, CompetitorFieldKey, MultiPersonFieldKey, OrcCertData, OrcCourseLeg, OrcRaceCalc, OrcScoringOptionCatalog, PrimaryPersonLabel, RaceConditions, RaceDiscardPolicy, RaceOfficial, RaceStartCourse, SubdivisionAxis } from './types';
 import { buildOrcMix, type OrcMix } from './orc-mix';
 import { penaltyAmountText } from './scoring-codes';
+import type { ScoringCodeNote } from './scoring-codes-text';
 import { orcOptionName } from './orc-certificate';
 import type { PcsAllowances } from './orc-pcs';
 import { renderCourseBackgroundSymbol, renderCourseSvg, type CourseBackground } from '@sailscoring/course-cards';
@@ -100,6 +101,12 @@ export interface SeriesResultsData {
   races: RaceData[];
   /** Standings sorted by rank ascending */
   standings: StandingRowData[];
+  /** The series' scoring codes that differ from the RRS — its own codes and
+   *  the built-ins it scores differently — each stated in full. The page
+   *  lists those it uses under the results. Absent on a series scoring the
+   *  RRS codes, and on a split-fleet championship, whose Scoring notes page
+   *  lists them once. */
+  scoringCodeNotes?: ScoringCodeNote[];
   /** Full import URL. Embedded payload (`/import#data=<base64url>`) for
    *  standalone artifacts; a reference (`/import?from=/p/...`) on published
    *  pages, whose data lives in the publication's data file (ADR-012). When
@@ -928,6 +935,45 @@ export interface DocumentChrome {
   omitFooterDataLinks?: boolean;
 }
 
+/** The codes a page's cells carry, results and penalties alike. */
+function codesUsed(sections: readonly SeriesResultsData[]): Set<string> {
+  const used = new Set<string>();
+  for (const data of sections) {
+    for (const row of data.standings) {
+      for (const sc of row.raceScores) {
+        if (sc.resultCode) used.add(sc.resultCode);
+        if (sc.penaltyCode) used.add(sc.penaltyCode);
+      }
+    }
+    for (const race of data.races) {
+      for (const r of race.results) {
+        if (r.resultCode) used.add(r.resultCode);
+        if (r.penaltyCode) used.add(r.penaltyCode);
+      }
+    }
+  }
+  return used;
+}
+
+/**
+ * The scoring codes a page uses that differ from the RRS, each with its rule
+ * in full, so a reader meeting `TLE` in a cell — or a DNC scored from the
+ * starting area — can check it against the sailing instructions. Empty when
+ * the page uses none. `all` lists every note whether used or not, for the
+ * split-fleet Scoring notes page.
+ */
+export function renderScoringCodeNotes(
+  notes: readonly ScoringCodeNote[] | undefined,
+  used?: ReadonlySet<string>,
+): string {
+  const shown = (notes ?? []).filter((n) => !used || used.has(n.code));
+  if (shown.length === 0) return '';
+  const items = shown
+    .map((n) => `<li><strong>${esc(n.code)}</strong> ${esc(n.name)}. ${esc(n.sentence)}${n.rrs ? ` <span class="rrs">(RRS: ${esc(n.rrs)})</span>` : ''}</li>`)
+    .join('\n');
+  return `<div class="scoringcodes"><p>Scoring codes that differ from the RRS</p>\n<ul>\n${items}\n</ul></div>`;
+}
+
 export function renderSeriesHtml(
   data: SeriesResultsData,
   options?: { fontPercent?: number; detail?: SectionDetail },
@@ -941,6 +987,7 @@ export function renderSeriesHtml(
     hasNhcDetail ? renderNhcToggle() + '\n' + renderNhcExplainer() : '',
     hasEchoDetail ? renderEchoToggle() + '\n' + renderEchoExplainer() : '',
     renderSectionTables(data, view, { detail, linkRaceLabels: detail === 'full' }),
+    renderScoringCodeNotes(data.scoringCodeNotes, codesUsed([data])),
   ].join('\n');
   const flagDefs =
     renderFlagDefs(collectReferencedCodes([data]), data.flagSvgByCode) + renderCourseChartDefs([data], content);
@@ -1074,6 +1121,8 @@ export function renderCombinedSeriesHtml(
     hasNhcDetail ? renderNhcToggle() + '\n' + renderNhcExplainer() : '',
     hasEchoDetail ? renderEchoToggle() + '\n' + renderEchoExplainer() : '',
     sectionHtml,
+    // One list for the page: every section is the same series.
+    renderScoringCodeNotes(sections[0]?.scoringCodeNotes, codesUsed(sections)),
   ].join('\n');
   const flagDefs =
     renderFlagDefs(collectReferencedCodes(sections), flagSvgByCode) + renderCourseChartDefs(sections, content);
@@ -1973,6 +2022,10 @@ td.excluded { color: #888; text-align: center; }
 .override-marker { color: #b45309; font-weight: bold; margin-left: 1px; cursor: help; }
 .raceoptions { font-size: 0.85em; color: #444; margin: -20px auto 30px auto; max-width: 60em; }
 .penaltylabels { font-size: 0.85em; color: #444; margin: -20px auto 30px auto; max-width: 60em; }
+.scoringcodes { font-size: 0.85em; color: #444; margin: 0 auto 30px auto; max-width: 60em; text-align: left; }
+.scoringcodes p { font-weight: bold; margin: 0 0 4px 0; text-align: left; }
+.scoringcodes ul { margin: 0; padding-left: 1.4em; }
+.scoringcodes .rrs { color: #666; }
 .notscored { font-size: 0.85em; color: #444; margin: -20px auto 30px auto; max-width: 60em; }
 .racelimitnote { font-size: 0.85em; color: #444; margin: 0 auto 24px auto; max-width: 60em; }
 /* The course, folded away: the map and the leg record under it, for whoever

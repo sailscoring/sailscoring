@@ -3663,6 +3663,35 @@
             "items": {
               "$ref": "#/components/schemas/StandingsRow"
             }
+          },
+          "scoringCodes": {
+            "description": "The codes in this table that the series scores differently from the RRS: its own codes, such as `TLE`, and RRS codes it has changed. Absent when every code is scored as RRS Appendix A sets out.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string",
+                  "description": "The series' description of its own code, or the RRS name of one it scores differently."
+                },
+                "sentence": {
+                  "type": "string",
+                  "description": "The rule in full, as the published page states it."
+                },
+                "rrs": {
+                  "description": "For an RRS code the series scores differently: how the RRS scores it.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "name",
+                "sentence"
+              ]
+            }
           }
         },
         "required": [
