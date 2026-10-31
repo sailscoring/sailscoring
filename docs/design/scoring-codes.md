@@ -812,8 +812,15 @@ and it may change what follows.
 - What "finishers" counts: per fleet or per start, and whether a UFD or
   BFD boat that crossed the line is one (the 2025 Appendix LG excludes
   them).
-- How the A5.2/A5.3 setting (`dnfScoring`) and a changed DNF live together.
-  Does DBSC's third option become a changed DNC?
+
+**Settled since:** the A5.2/A5.3 setting (`dnfScoring`) stays as the common
+choice and sets DNF's rule, with DNS to BFD scoring "as DNF". An edit in the
+table is a change from whichever rule is chosen. DBSC's
+`startingAreaInclDnc` (SI A13.2) is removed: it becomes A5.3 with DNC
+changed to "the same as DNF", converted by an ADR-013 upgrader in step 2
+with no score changing. A built-in keeps its own came-to-the-start answer
+whatever its points, so a changed DNC still doesn't count the boat as
+having come. DBSC's workspace has the gate on.
 
 ---
 

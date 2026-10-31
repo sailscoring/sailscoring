@@ -37,10 +37,13 @@ it asks of the engine is collected under *What this asks of the engine*.
 
 ## Where it starts
 
-The Scoring card, expanded, ends with one line under the A5 radios:
+The Scoring card's A5 choice offers only the two rules the RRS gives, A5.2
+and A5.3. Its third option today, "Starting area, including DNC (RRS A5.3
+as changed by DBSC)", becomes a changed DNC (see *Use cases*). Expanded, the
+card ends with one line under the A5 radios:
 
 ```
-│  ○ Starting area, including DNC (RRS A5.3 as changed by DBSC)        │
+│  ○ Boats in the starting area (RRS A5.3 — alternative)               │
 │  ☐ Rank only boats that took part                                    │
 │                                                                      │
 │  Scoring codes: as RRS Appendix A                                    │
@@ -328,9 +331,13 @@ sign-out penalty. Reading the sentence is where the scorer would notice.
 to finishers + 1 and DNC to finishers + 2. The rest of the group follows
 DNF. The import fills this in.
 
-**DBSC.** Its "starting area, including DNC" option is DNC changed to
-"the same as DNF". Whether that option stays on the Scoring card is an
-open question below.
+**DBSC.** SI A13.2 changes A5.3 so that a DNC is also scored from the boats
+that came to the starting area + 1. Today that is a third A5 option on the
+Scoring card. Under this design it is A5.3 with DNC changed to "the same as
+DNF". The table marks DNC *Changed* (RRS: series entries + 1), and DBSC's
+published pages list it. Existing series are converted when step 2 of
+Phase 4 lands, with no change to any score. DBSC's workspace has the gate
+on, so its scorers can see and edit the change.
 
 ---
 
@@ -342,10 +349,18 @@ open question below.
 - **The kind is fixed per code and decides A6.2.** A code that replaces
   the result moves other boats up. One that adds leaves their scores alone.
   There is no separate A6.2 control.
-- **No control for "came to the starting area".** Every code except DNC
-  counts the boat as having come, and a code that is "the same as DNC"
-  inherits DNC's answer. Sailwave's started and finished flags are left
+- **No control for "came to the starting area".** A built-in keeps its
+  own answer, whatever its points: DNC never counts the boat as having
+  come, even when it is changed to score "the same as DNF". A series code
+  takes the answer of the code it scores the same as. Otherwise it counts
+  the boat as having come. Sailwave's started and finished flags are left
   out unless a real SI needs them.
+- **`dnfScoring` loses `startingAreaInclDnc`.** Under ADR-013 one upgrader
+  turns it into `startingArea` with DNC changed to "the same as DNF". It
+  runs in a migration for stored series and in the readers of older
+  `.sailscoring` files and public exports. The DBSC fixtures must score
+  identically before and after. dbsc-archive's HalSail converter writes the
+  new form, though the upgrader still accepts its older output.
 - **"Finishers" means the boats that finished in her fleet**, counted as
   places, so ties and a penalised last boat don't move the base. Whether
   a UFD or BFD boat that crossed counts is open.
@@ -355,16 +370,16 @@ open question below.
 
 ## Open questions
 
-1. **The A5 radios.** Keep them on the Scoring card as the quick, common
-   choice, with the table following them (as drawn), or move them into the
-   DNF row? Keeping them means DBSC's third option either stays as it is or
-   turns into a changed DNC.
-2. **Rescoring preview.** Is it worth showing the points that will change
+Settled: the A5.2/A5.3 radios stay on the Scoring card as the common
+choice, and the table follows them. DBSC's third option becomes a changed
+DNC (see *Use cases*).
+
+1. **Rescoring preview.** Is it worth showing the points that will change
    ("R5 Murphy 13 → 21") before saving a code in use, or is the count
    enough?
-3. **Code spelling.** Sailwave allows mixed case (`RDGa`). Should codes be
+2. **Code spelling.** Sailwave allows mixed case (`RDGa`). Should codes be
    uppercase only?
-4. **Where the list publishes** for split-fleet championships, which
+3. **Where the list publishes** for split-fleet championships, which
    already have a Scoring notes page: on every page, there, or both?
-5. **Finish-sheet submissions** through the public API (ADR-016) accept the
+4. **Finish-sheet submissions** through the public API (ADR-016) accept the
    RRS codes. Should they accept series codes too?
