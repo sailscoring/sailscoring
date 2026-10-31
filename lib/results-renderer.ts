@@ -3815,6 +3815,7 @@ export function assembleSeriesResultsData(
       competitorId: s.competitor.id,
       sailNumber: s.competitor.sailNumber,
       ...(s.competitor.boatName ? { boatName: s.competitor.boatName } : {}),
+      ...(s.competitor.boatClass ? { boatClass: s.competitor.boatClass } : {}),
       ...(s.competitor.bowNumber ? { bowNumber: s.competitor.bowNumber } : {}),
       ...(s.competitor.entryNumber ? { entryNumber: s.competitor.entryNumber } : {}),
       ...(s.competitor.tallyNumber ? { tallyNumber: s.competitor.tallyNumber } : {}),

@@ -1179,6 +1179,26 @@ describe('assembleSeriesResultsData', () => {
     expect(data.races[0].results.find((r) => r.sailNumber === '42')?.clubs).toEqual(['HYC']);
     expect(data.races[0].results.find((r) => r.sailNumber === '99')?.clubs).toEqual(['RStGYC']);
   });
+
+  it('publishes each boat class in the summary table, before any race is sailed', () => {
+    const data = assembleSeriesResultsData(
+      series,
+      [],
+      [
+        { ...standings[0], competitor: { ...standings[0].competitor, boatClass: 'Finn' }, racePoints: [], raceCodes: [], raceDiscards: [], totalPoints: 0, netPoints: 0 },
+        { ...standings[1], competitor: { ...standings[1].competitor, boatClass: 'RS Aero 6' }, racePoints: [], raceCodes: [], raceDiscards: [], totalPoints: 0, netPoints: 0 },
+      ],
+      new Map(),
+      competitorsById,
+      ['boatClass'],
+      now,
+    );
+    expect(data.standings.map((s) => s.boatClass)).toEqual(['Finn', 'RS Aero 6']);
+    const html = renderSeriesHtml(data);
+    expect(html).toContain('<th>Class</th>');
+    expect(html).toContain('<td>Finn</td>');
+    expect(html).toContain('<td>RS Aero 6</td>');
+  });
 });
 
 // ---- NHC viewer toggle ----
