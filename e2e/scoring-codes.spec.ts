@@ -245,6 +245,56 @@ test('ZFP penalty can be set on a finisher and appears in standings with amber s
   await expect(aliceR1Cell.locator('span').first()).toHaveAttribute('title', 'ZFP penalty applied');
 });
 
+// ── Test 3b: an SCP stated in points ─────────────────────────────────────────
+
+test('an SCP can be stated in points, as RRS 44.3(c) provides', async ({ page }) => {
+  // 3 competitors, N=3, DNF score=4. An SI's "Scoring Penalty of 2 points":
+  // Alice finishes 1st + SCP 2 points → 3, not 1 + 2% of 4.
+  await createSeriesQuick(page, { name: 'SCP Points Test' });
+
+  for (const c of [
+    { sailNumber: '601', name: 'Alice' },
+    { sailNumber: '602', name: 'Bob' },
+    { sailNumber: '603', name: 'Carol' },
+  ]) {
+    await page.getByRole('button', { name: 'Add competitor' }).click();
+    await page.getByLabel('Sail number').fill(c.sailNumber);
+    await page.getByLabel('Competitor name').fill(c.name);
+    await page.getByRole('button', { name: 'Save' }).click();
+  }
+
+  await page.getByRole('link', { name: 'Races' }).click();
+  await page.getByRole('button', { name: 'Add race' }).click();
+  await page.getByText('Race 1').click();
+  await expect(page.getByTestId('non-finisher-603')).toBeVisible();
+
+  for (const sail of ['601', '602', '603']) {
+    await page.getByLabel('Sail number').fill(sail);
+    await page.getByRole('button', { name: 'Add' }).click();
+  }
+
+  await page.getByRole('button', { name: 'Row actions for 601' }).click();
+  await page.getByRole('menuitem', { name: 'Set scoring penalty' }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByRole('combobox').click();
+  await page.getByRole('option', { name: /SCP/ }).click();
+  await dialog.getByRole('radio', { name: 'Points' }).click();
+  // Points have no default to fall back on, so Apply waits for a number.
+  await expect(dialog.getByRole('button', { name: 'Apply' })).toBeDisabled();
+  await dialog.getByLabel('Points to add').fill('2');
+  await dialog.getByRole('button', { name: 'Apply' }).click();
+
+  await expect(page.getByText('SCP (2pts)')).toBeVisible();
+
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+  await page.getByRole('navigation').getByRole('link', { name: 'Races' }).click();
+  await expect(page).toHaveURL(/\/races$/);
+  await page.getByRole('link', { name: 'Standings' }).click();
+
+  const aliceR1Cell = page.getByRole('row').filter({ hasText: 'Alice' }).getByRole('cell').nth(5);
+  await expect(aliceR1Cell).toContainText('3 SCP(2pts)');
+});
+
 // ── Test 4: DNC is selectable on a boat with a retained check-in record ──────
 
 test('DNC sticks on a non-finisher whose row retained a check-in flag', async ({ page }) => {

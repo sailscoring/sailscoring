@@ -200,12 +200,15 @@ export default function EnteringResults() {
             <strong className="text-foreground">ZFP</strong> — Z Flag Penalty (rule 30.2):
             automatically applied (no hearing) to a boat in the triangle zone during the
             last minute before the start. Adds 20% of the DNF score, rounded to the
-            nearest whole number (formula per rule 44.3(c)).
+            nearest tenth of a point (formula per rule 44.3(c)).
           </li>
           <li>
-            <strong className="text-foreground">SCP</strong> — Scoring Penalty (PC-imposed):
-            adds a specified percentage of the DNF score (default 20%; enter a different value
-            to override).
+            <strong className="text-foreground">SCP</strong> — Scoring Penalty (rule 44.3(c)):
+            adds the number of points the notice of race or sailing instructions state —
+            choose <em>Points</em> in the penalty editor and enter them — or, where they state
+            a percentage or nothing at all, a percentage of the DNF score (default 20%; enter
+            a different value to override). On a boat scored in more than one fleet, points
+            can be set per fleet, as for a DPI.
           </li>
           <li>
             <strong className="text-foreground">DPI</strong> — Discretionary Points Increase:

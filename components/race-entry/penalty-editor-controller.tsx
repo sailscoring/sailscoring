@@ -53,6 +53,7 @@ export const PenaltyEditorController = forwardRef<PenaltyEditorHandle, {
       penaltyCode: draft.code,
       penaltyOverride: draft.override,
       penaltyOverrideByFleet: draft.overrideByFleet ?? undefined,
+      penaltyInPoints: draft.inPoints || undefined,
       penaltyLabel: draft.label ?? undefined,
     };
     patchCache((rows) => rows.map((r) => (r.id === finish.id ? next : r)));
