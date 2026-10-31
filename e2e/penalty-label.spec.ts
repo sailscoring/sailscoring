@@ -40,9 +40,7 @@ test('a named DPI publishes under its name, with a legend explaining it', async 
   await page.getByRole('menuitem', { name: 'Set scoring penalty' }).click();
   await page.getByRole('combobox').click();
   await page.getByRole('option', { name: /DPI/ }).click();
-  // The points input carries no accessible label of its own (PerFleetPoints
-  // renders a bare <label>), so locate it by role.
-  await page.getByRole('spinbutton').fill('2');
+  await page.getByLabel('Points to add').fill('2');
   await page.getByLabel('What it was for (optional)').fill('TPO');
   await page.getByRole('button', { name: 'Apply' }).click();
   await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');

@@ -1,5 +1,6 @@
 'use client';
 
+import { useId } from 'react';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import type { PerFleetPointsValue } from '@/lib/per-fleet-points';
@@ -36,14 +37,16 @@ export function PerFleetPoints({
   onSubmit,
 }: PerFleetPointsProps) {
   const multiFleet = fleets.length > 1;
+  const inputId = useId();
 
   // Single fleet (or none): plain input, no per-fleet affordance at all.
   if (!multiFleet) {
     const v = value.mode === 'uniform' ? value.value : Object.values(value.values)[0] ?? '';
     return (
       <div className="space-y-1.5">
-        <label className="text-sm font-medium">{label}</label>
+        <label className="text-sm font-medium" htmlFor={inputId}>{label}</label>
         <Input
+          id={inputId}
           type="number"
           min={min}
           step="0.1"
@@ -67,8 +70,9 @@ export function PerFleetPoints({
     };
     return (
       <div className="space-y-1.5">
-        <label className="text-sm font-medium">{label}</label>
+        <label className="text-sm font-medium" htmlFor={inputId}>{label}</label>
         <Input
+          id={inputId}
           type="number"
           min={min}
           step="0.1"
