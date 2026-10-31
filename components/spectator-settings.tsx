@@ -5,6 +5,7 @@ import {
   defaultEnabledCompetitorFields,
 } from '@/lib/competitor-fields';
 import { summarizeDiscardRules } from '@/lib/discard-rules';
+import { dncScoredAsDnf } from '@/lib/scoring-codes';
 import type { Fleet, Series } from '@/lib/types';
 
 /**
@@ -111,12 +112,8 @@ function discardsLabel(series: Series): string {
 }
 
 function dnfLabel(series: Series): string {
-  switch (series.dnfScoring) {
-    case 'startingArea':
-      return 'Scored on boats that came to the starting area (RRS A5.3)';
-    case 'startingAreaInclDnc':
-      return 'Scored on boats that came to the starting area, DNC included';
-    default:
-      return 'Scored on series entries (RRS A5.2)';
-  }
+  if (series.dnfScoring !== 'startingArea') return 'Scored on series entries (RRS A5.2)';
+  return dncScoredAsDnf(series.scoringCodes)
+    ? 'Scored on boats that came to the starting area, DNC included'
+    : 'Scored on boats that came to the starting area (RRS A5.3)';
 }

@@ -435,7 +435,8 @@ is therefore "already supported" vs "genuinely new", not a fresh MVP list.
 - **Sliding-scale discards** — `discardThresholds: {minRaces, discardCount}[]`
   is already a table; the DBSC ladder is pure configuration.
 - **Modified A5.3 (DNC = starters + 1)** — `dnfScoring='startingAreaInclDnc'`
-  scores DNC as `startingAreaCount + 1` too. *Added during M1:* the existing
+  scores DNC as `startingAreaCount + 1` too (since #717, A5.3 with DNC changed
+  to score the same as DNF; the setting itself is gone). *Added during M1:* the existing
   `startingArea` mode applied the starters-+1 value to came-but-didn't-finish
   codes only and left DNC on the A5.2 (entries + 1) value, which is **not**
   what DBSC's SI A13.2 specifies; the new mode extends it to DNC.

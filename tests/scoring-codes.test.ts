@@ -143,11 +143,11 @@ describe('a changed built-in code', () => {
     expect(scores.get('H')?.points).toBe(8);
   });
 
-  it('matches the DBSC rule it replaces', () => {
+  it('scores DBSC’s A5.3 variant: a DNC from the boats that came', () => {
     const dnc: SeriesScoringCode = { code: 'DNC', kind: 'replace', rule: { type: 'sameAs', code: 'DNF' }, discardable: true };
-    const changed = calculateRaceScores(sheet({}), competitors, buildCodeTable('startingArea', [dnc]));
-    const dbsc = calculateRaceScores(sheet({}), competitors, 'startingAreaInclDnc');
-    expect([...changed.values()]).toEqual([...dbsc.values()]);
+    const scores = calculateRaceScores(sheet({}), competitors, buildCodeTable('startingArea', [dnc]));
+    // Seven came: every non-finisher, the absent DNCs included, scores 8.
+    expect(['E', 'F', 'G', 'H', 'I', 'J'].map((id) => scores.get(id)?.points)).toEqual([8, 8, 8, 8, 8, 8]);
   });
 
   it('changes ZFP’s percentage', () => {

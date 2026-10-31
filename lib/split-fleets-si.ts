@@ -11,7 +11,8 @@
 
 import { directSeatsPerFleet, ranksEachFleet, resolveVocabulary, stageAdjective, stageRaceLabel } from './split-fleets';
 import type { SplitFleetConfig } from './split-fleets';
-import type { DnfScoring } from './types';
+import type { DnfScoring, SeriesScoringCode } from './types';
+import { dncScoredAsDnf } from './scoring-codes';
 
 const COUNT_WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six'];
 
@@ -139,6 +140,9 @@ export function describeSplitFleetConfig(
     repechage?: boolean;
     /** The series' non-finisher rule; A5.3 replaces each stage's own base. */
     dnfScoring?: DnfScoring;
+    /** The series' scoring codes; under A5.3 a DNC scored as DNF (DBSC SI
+     *  A13.2) changes the rule's wording. */
+    scoringCodes?: readonly SeriesScoringCode[];
   },
 ): SplitFleetSentence[] {
   const lines: SplitFleetSentence[] = [];
@@ -286,9 +290,9 @@ export function describeSplitFleetConfig(
   const finalBase = `the number of boats in her own ${vocab.stages.final.fleetNoun}, plus one`;
   push(
     'non-finisher',
-    opts?.dnfScoring === 'startingArea'
+    opts?.dnfScoring === 'startingArea' && !dncScoredAsDnf(opts.scoringCodes)
       ? 'Rule A5.3 applies. A boat that came to the starting area but did not start, did not finish, retired or was disqualified will be scored the number of boats that came to the starting area in that race, plus one; a boat that did not come to the starting area will be scored the number of boats entered, plus one.'
-      : opts?.dnfScoring === 'startingAreaInclDnc'
+      : opts?.dnfScoring === 'startingArea'
         ? 'Rule A5.3 applies, changed so that a boat that did not come to the starting area is scored as one that did: a boat that did not start, did not finish, retired, was disqualified or did not come to the starting area will be scored the number of boats that came to the starting area in that race, plus one.'
         : unbanded
       ? `A boat that does not start, does not finish, retires or is disqualified will be scored ${qualifyingBase}.`

@@ -904,6 +904,13 @@
       "when": 1793473387462,
       "tag": "0128_series_scoring_codes",
       "breakpoints": true
+    },
+    {
+      "idx": 129,
+      "version": "7",
+      "when": 1793473975005,
+      "tag": "0129_dnc_rule_upgrade",
+      "breakpoints": true
     }
   ]
 }

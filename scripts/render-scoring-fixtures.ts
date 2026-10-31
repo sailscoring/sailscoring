@@ -90,9 +90,12 @@ function buildPreamble(fixture: Fixture, yamlSource: string): string {
     ? `<p style="margin:0 0 0.5em; font-style:italic; color:#444;">${esc(fixture.rrs_notes.trim())}</p>`
     : '';
 
-  const dnfLabel = fixture.series.dnfScoring === 'startingArea'
+  const dnfLabel = (fixture.series.dnfScoring === 'startingArea'
     ? 'A5.3 (starting area)'
-    : 'A5.2 (series entries)';
+    : 'A5.2 (series entries)')
+    + (fixture.series.scoringCodes?.length
+      ? `; scoring codes changed or added: ${fixture.series.scoringCodes.map((c) => c.code).join(', ')}`
+      : '');
   const configHtml = `<p style="margin:0 0 0.5em; color:#333;"><strong>Scoring configuration:</strong> ${esc(discardSummary(fixture.series))} DNF/OCS scoring: ${esc(dnfLabel)}.</p>`;
 
   const comments = extractComments(yamlSource);
@@ -108,7 +111,7 @@ ${notesHtml}${configHtml}${commentsHtml}
 // ─── Scratch / fleets / codes renderer (full series results layout) ─────────
 
 function generateScratchFixtureHtml(fixture: Fixture, yamlSource: string): string {
-  const { competitors: listed, fleets, races, finishes, discardThresholds, proportionalDiscard, dnfScoring, excludeDncOnlyCompetitors } = buildFixtureInputs(fixture);
+  const { competitors: listed, fleets, races, finishes, discardThresholds, proportionalDiscard, codes, excludeDncOnlyCompetitors } = buildFixtureInputs(fixture);
   // The per-race tables below score the entrants, as the engine does; a boat
   // excluded from the series — by the scorer or by the all-DNC rule — is on
   // the list but in no race.
@@ -119,7 +122,7 @@ function generateScratchFixtureHtml(fixture: Fixture, yamlSource: string): strin
   const preamble = buildPreamble(fixture, yamlSource);
 
   if (isMultiFleet) {
-    const { fleetStandings: fleetResults } = calculateFleetStandings(fleets, competitors, races, finishes, discardThresholds, dnfScoring, [], [], undefined, undefined, proportionalDiscard);
+    const { fleetStandings: fleetResults } = calculateFleetStandings(fleets, competitors, races, finishes, discardThresholds, codes, [], [], undefined, undefined, proportionalDiscard);
     const sections: string[] = [];
 
     for (const { fleet, standings } of fleetResults) {
@@ -135,7 +138,7 @@ function generateScratchFixtureHtml(fixture: Fixture, yamlSource: string): strin
           (f) => f.raceId === race.id && f.competitorId !== null && fleetCompetitorIds.has(f.competitorId),
         );
         const finishByCompetitorId = new Map(raceFinishes.filter((f) => f.competitorId !== null).map((f) => [f.competitorId!, f]));
-        const scores = calculateRaceScores(raceFinishes, competitors.filter((c) => fleetCompetitorIds.has(c.id)), dnfScoring);
+        const scores = calculateRaceScores(raceFinishes, competitors.filter((c) => fleetCompetitorIds.has(c.id)), codes);
         raceScoresByRaceId.set(race.id, new Map([...scores.entries()].map(([id, s]) => [
           id,
           { points: s.points, place: s.place, rank: s.rank, resultCode: s.resultCode, penaltyCode: finishByCompetitorId.get(id)?.penaltyCode ?? null, penaltyOverride: finishByCompetitorId.get(id)?.penaltyOverride ?? null, penaltyInPoints: finishByCompetitorId.get(id)?.penaltyInPoints },
@@ -175,7 +178,7 @@ function generateScratchFixtureHtml(fixture: Fixture, yamlSource: string): strin
     return shell + sections.map(extractFleetContent).join('\n') + '\n' + footer;
   }
 
-  const { standings } = calculateStandings(competitors, races, finishes, discardThresholds, dnfScoring, undefined, undefined, proportionalDiscard);
+  const { standings } = calculateStandings(competitors, races, finishes, discardThresholds, codes, undefined, undefined, proportionalDiscard);
 
   const raceScoresByRaceId = new Map<
     string,
@@ -184,7 +187,7 @@ function generateScratchFixtureHtml(fixture: Fixture, yamlSource: string): strin
   for (const race of races) {
     const raceFinishes = finishes.filter((f) => f.raceId === race.id);
     const finishByCompetitorId = new Map(raceFinishes.filter((f) => f.competitorId !== null).map((f) => [f.competitorId!, f]));
-    const scores = calculateRaceScores(raceFinishes, competitors, dnfScoring);
+    const scores = calculateRaceScores(raceFinishes, competitors, codes);
     raceScoresByRaceId.set(race.id, new Map([...scores.entries()].map(([id, s]) => [
       id,
       { points: s.points, place: s.place, rank: s.rank, resultCode: s.resultCode, penaltyCode: finishByCompetitorId.get(id)?.penaltyCode ?? null, penaltyOverride: finishByCompetitorId.get(id)?.penaltyOverride ?? null, penaltyInPoints: finishByCompetitorId.get(id)?.penaltyInPoints },
@@ -435,7 +438,7 @@ function generateNhcFixtureHtml(fixture: Fixture, yamlSource: string): string {
   if (!fixture.fleet || fixture.fleet.scoringSystem !== 'nhc') {
     throw new Error(`Expected NHC fleet, got ${fixture.fleet?.scoringSystem}`);
   }
-  const { competitors, fleets, races, finishes, raceStarts, ratingOverrides, discardThresholds, dnfScoring } = buildFixtureInputs(fixture);
+  const { competitors, fleets, races, finishes, raceStarts, ratingOverrides, discardThresholds, codes } = buildFixtureInputs(fixture);
 
   const { fleetStandings } = calculateFleetStandings(
     fleets,
@@ -443,7 +446,7 @@ function generateNhcFixtureHtml(fixture: Fixture, yamlSource: string): string {
     races,
     finishes,
     discardThresholds,
-    dnfScoring,
+    codes,
     raceStarts,
     ratingOverrides,
   );
@@ -585,7 +588,7 @@ function generateEchoFixtureHtml(fixture: Fixture, yamlSource: string): string {
   if (!fixture.fleet || fixture.fleet.scoringSystem !== 'echo') {
     throw new Error(`Expected ECHO fleet, got ${fixture.fleet?.scoringSystem}`);
   }
-  const { competitors, fleets, races, finishes, raceStarts, ratingOverrides, discardThresholds, dnfScoring } = buildFixtureInputs(fixture);
+  const { competitors, fleets, races, finishes, raceStarts, ratingOverrides, discardThresholds, codes } = buildFixtureInputs(fixture);
 
   const { fleetStandings } = calculateFleetStandings(
     fleets,
@@ -593,7 +596,7 @@ function generateEchoFixtureHtml(fixture: Fixture, yamlSource: string): string {
     races,
     finishes,
     discardThresholds,
-    dnfScoring,
+    codes,
     raceStarts,
     ratingOverrides,
   );

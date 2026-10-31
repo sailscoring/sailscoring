@@ -162,10 +162,11 @@ th[aria-sort="descending"]::after { content: " ▼"; font-size: 0.75em; }
 </table>
 <div style="clear:both;"></div>
 <div style="max-width:900px; margin:1em auto; padding:0.8em 1.2em; background:#f5f5f0; border:1px solid #ccc; text-align:left; font-family:arial,helvetica,sans-serif; font-size:80%; line-height:1.5;">
-<p style="margin:0 0 0.5em; font-style:italic; color:#444;">DBSC Sailing Instruction A13.2 changes RRS A5.3 so that a boat that did not come to the starting area (DNC) is also scored the number of boats that came to the starting area plus one — not series entries + 1. This is the 'startingAreaInclDnc' mode. Contrast 09-a53-starting-area, which is identical except DNC keeps the entries + 1 base. Race 2 has only 3 boats in the starting area: starting-area penalty = 4, and under this mode DNC scores 4 as well (instead of series entries + 1 = 6).</p><p style="margin:0 0 0.5em; color:#333;"><strong>Scoring configuration:</strong> No discards. DNF/OCS scoring: A5.2 (series entries).</p><pre style="margin:0.6em 0 0; padding:0.5em; background:#fff; border:1px solid #ddd; font-size:0.95em; line-height:1.4; white-space:pre-wrap; overflow-x:auto;">All 5 boats finish cleanly
+<p style="margin:0 0 0.5em; font-style:italic; color:#444;">DBSC Sailing Instruction A13.2 changes RRS A5.3 so that a boat that did not come to the starting area (DNC) is also scored the number of boats that came to the starting area plus one — not series entries + 1. The series is on A5.3 with DNC changed to score the same as DNF. Contrast 09-a53-starting-area, which is identical except DNC keeps the entries + 1 base. Race 2 has only 3 boats in the starting area: starting-area penalty = 4, and with DNC changed, DNC scores 4 as well (instead of series entries + 1 = 6).</p><p style="margin:0 0 0.5em; color:#333;"><strong>Scoring configuration:</strong> No discards. DNF/OCS scoring: A5.3 (starting area); scoring codes changed or added: DNC.</p><pre style="margin:0.6em 0 0; padding:0.5em; background:#fff; border:1px solid #ddd; font-size:0.95em; line-height:1.4; white-space:pre-wrap; overflow-x:auto;">DBSC SI A13.2 as a changed scoring code: DNC scores the same as DNF.
+    All 5 boats finish cleanly
     Only Alice, Bob, Carol come to the starting area (startPresent: true).
     David and Eve do not appear (implicit DNC).
-    came = 3 → starting-area penalty = 4. Under startingAreaInclDnc the
+    came = 3 → starting-area penalty = 4. With DNC changed, the
     implicit DNCs (David, Eve) also score 4, not 6.
       David (&quot;404&quot;) and Eve (&quot;505&quot;) have no record — implicit DNC, score 4
 Points summary (starting-area penalty = 4 for DNF/OCS *and* DNC):

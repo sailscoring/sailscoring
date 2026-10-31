@@ -200,7 +200,7 @@ export const seriesSchema = z.object({
   // A proportional allowance in place of the threshold list. Optional on the
   // wire so sparse creation and older clients round-trip cleanly.
   proportionalDiscard: proportionalDiscardSchema.optional(),
-  dnfScoring: z.enum(['seriesEntries', 'startingArea', 'startingAreaInclDnc']),
+  dnfScoring: z.enum(['seriesEntries', 'startingArea']),
   excludeDncOnlyCompetitors: z.boolean().optional(),
   // Custom scoring codes. Optional on the wire; absent = the RRS codes.
   scoringCodes: seriesScoringCodesSchema.optional(),

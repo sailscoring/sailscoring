@@ -24,8 +24,10 @@ import type {
   Race,
   RaceStart, RaceRatingOverride,
   ResultCode,
+  SeriesScoringCode,
   SubSeries,
 } from '@/lib/types';
+import { buildCodeTable, type ScoringCodeTable } from '@/lib/scoring-codes';
 
 /**
  * A fixture's `elapsed` value in seconds. Written the way a scorer would read
@@ -245,7 +247,10 @@ export interface Fixture {
     /** A discard allowance stated as a proportion — "one discard for every
      *  three races sailed". Supersedes `discardThresholds` when present. */
     proportionalDiscard?: ProportionalDiscard;
-    dnfScoring?: 'seriesEntries' | 'startingArea' | 'startingAreaInclDnc';
+    dnfScoring?: 'seriesEntries' | 'startingArea';
+    /** Custom scoring codes: changes to the built-in RRS codes and the
+     *  series' own codes, as `Series.scoringCodes` holds them. */
+    scoringCodes?: SeriesScoringCode[];
     // When true, a sub-series drops competitors that are all-DNC across the
     // block (and from the entry count its DNC penalty is based on) — the #203
     // "entrants per block" behaviour, now opt-in. Default false: a sub-series
@@ -280,7 +285,8 @@ export interface FixtureInputs {
   ratingOverrides: RaceRatingOverride[];
   discardThresholds: DiscardThreshold[];
   proportionalDiscard?: ProportionalDiscard;
-  dnfScoring: 'seriesEntries' | 'startingArea' | 'startingAreaInclDnc';
+  /** The series' code table: its A5 rule and its scoring codes. */
+  codes: ScoringCodeTable;
   excludeDncOnlyCompetitors: boolean;
   sailToId: Map<string, string>;
   /** Sub-series named by races' `subSeries:` fields, in race order; empty
@@ -528,7 +534,7 @@ export function buildFixtureInputs(fixture: Fixture): FixtureInputs {
     ratingOverrides,
     discardThresholds: fixture.series.discardThresholds,
     proportionalDiscard: fixture.series.proportionalDiscard,
-    dnfScoring: fixture.series.dnfScoring ?? 'seriesEntries',
+    codes: buildCodeTable(fixture.series.dnfScoring ?? 'seriesEntries', fixture.series.scoringCodes ?? []),
     excludeDncOnlyCompetitors: fixture.series.excludeDncOnlyCompetitors ?? false,
     sailToId,
     subSeriesList,

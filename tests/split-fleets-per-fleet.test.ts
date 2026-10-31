@@ -9,6 +9,7 @@ import {
   type SplitRound,
 } from '@/lib/split-fleets';
 import type { Competitor, Finish, Fleet, Race, RaceStart } from '@/lib/types';
+import { DNC_SCORED_AS_DNF } from '@/lib/dnc-rule-upgrade';
 
 import { championsCupConfig, ilca2026Config, openingSeriesMedalConfig } from './fixtures/split-fleet-configs';
 
@@ -189,8 +190,12 @@ describe('non-finishers under the series rule', () => {
     A: [['a1', 'a2 DNS', 'a3 DNF']],
     B: [['b1', 'b2', 'b3']],
   };
-  const scores = (dnfScoring?: SplitFleetData['dnfScoring']) => {
-    const rows = splitFleetStandings({ ...flights(PER_FLEET, sheets), ...(dnfScoring ? { dnfScoring } : {}) });
+  const scores = (dnfScoring?: SplitFleetData['dnfScoring'], scoringCodes?: SplitFleetData['scoringCodes']) => {
+    const rows = splitFleetStandings({
+      ...flights(PER_FLEET, sheets),
+      ...(dnfScoring ? { dnfScoring } : {}),
+      ...(scoringCodes ? { scoringCodes } : {}),
+    });
     return Object.fromEntries(
       ['a2', 'a3', 'a4'].map((id) => {
         const cell = rows.find((r) => r.competitor.id === id)!.cells[0];
@@ -211,7 +216,7 @@ describe('non-finishers under the series rule', () => {
   });
 
   it('scores a DNC from the starting area too, where A5.3 is changed so', () => {
-    expect(scores('startingAreaInclDnc')).toEqual({ a2: '4 DNS', a3: '4 DNF', a4: '4 DNC' });
+    expect(scores('startingArea', [DNC_SCORED_AS_DNF])).toEqual({ a2: '4 DNS', a3: '4 DNF', a4: '4 DNC' });
   });
 
   it('counts the check-in where the sheet records it, and scores a boat checked in but not finished DNF', () => {

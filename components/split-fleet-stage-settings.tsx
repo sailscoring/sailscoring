@@ -17,7 +17,8 @@ import { SiTranslation } from '@/components/split-fleet-si';
 import { Button } from '@/components/ui/button';
 import { useUpdateSeries } from '@/hooks/use-series';
 import { useSaveSplitFleetConfig } from '@/hooks/use-split-fleets';
-import type { DnfScoring } from '@/lib/types';
+import type { DnfScoring, SeriesScoringCode } from '@/lib/types';
+import { dncScoredAsDnf } from '@/lib/scoring-codes';
 import { SENTENCES_BY_SETTING, type SplitFleetSentenceId } from '@/lib/split-fleets-si';
 import {
   directSeatsPerFleet,
@@ -125,12 +126,14 @@ export function SailingInstructionsDrawer({
   config,
   repechage = false,
   dnfScoring,
+  scoringCodes,
 }: {
   config: SplitFleetConfig;
   /** The championship has a repêchage, whose rule is then stated. */
   repechage?: boolean;
   /** The series' non-finisher rule. */
   dnfScoring?: DnfScoring;
+  scoringCodes?: readonly SeriesScoringCode[];
 }) {
   const { marked, siOpen, setSiOpen } = useContext(MarkContext);
   if (!siOpen) return null;
@@ -156,7 +159,7 @@ export function SailingInstructionsDrawer({
         </Button>
       </div>
       <div className="min-h-0 flex-1 px-4 py-3 text-sm">
-        <SiTranslation config={config} repechage={repechage} dnfScoring={dnfScoring} marked={marked} alwaysOpen fill />
+        <SiTranslation config={config} repechage={repechage} dnfScoring={dnfScoring} scoringCodes={scoringCodes} marked={marked} alwaysOpen fill />
       </div>
     </aside>
   );
@@ -298,14 +301,16 @@ function useSave(seriesId: string, config: SplitFleetConfig) {
 /** The series' non-finisher rule as a card states it, where it is A5.3 —
  *  which then replaces every stage's own "largest fleet" or "own fleet"
  *  line. Null under A5.2, where each stage states its own base. */
-function a53Rule(dnfScoring: DnfScoring | undefined): string | null {
-  if (dnfScoring === 'startingArea') {
-    return 'Rule A5.3 applies: a boat that came to the starting area but doesn’t finish scores the boats that came to it in that race, plus one; a boat that didn’t come scores the number of entries, plus one.';
-  }
-  if (dnfScoring === 'startingAreaInclDnc') {
+function a53Rule(
+  dnfScoring: DnfScoring | undefined,
+  scoringCodes: readonly SeriesScoringCode[] | undefined,
+): string | null {
+  if (dnfScoring !== 'startingArea') return null;
+  // DBSC SI A13.2: DNC changed to score the same as DNF.
+  if (dncScoredAsDnf(scoringCodes)) {
     return 'Rule A5.3 applies, DNC included: a boat that doesn’t finish, or doesn’t come to the start, scores the boats that came to the starting area in that race, plus one.';
   }
-  return null;
+  return 'Rule A5.3 applies: a boat that came to the starting area but doesn’t finish scores the boats that came to it in that race, plus one; a boat that didn’t come scores the number of entries, plus one.';
 }
 
 /** The series' non-finisher rule, written to the series row — the same
@@ -336,7 +341,6 @@ function NonFinishersControl({
       >
         <option value="seriesEntries">As each stage scores them (RRS A5.2)</option>
         <option value="startingArea">From the boats that came to the starting area (RRS A5.3)</option>
-        <option value="startingAreaInclDnc">From the starting area, DNC included (RRS A5.3 as changed)</option>
       </select>
       <p className={hint}>
         A5.3 where the sailing instructions say it applies. It counts the boats checked in at the
@@ -508,6 +512,7 @@ export function OpeningSettings({
   seriesId,
   config,
   dnfScoring = 'seriesEntries',
+  scoringCodes,
   locks,
   canEdit,
   medalSelected = false,
@@ -517,6 +522,7 @@ export function OpeningSettings({
   config: SplitFleetConfig;
   /** The series' non-finisher rule (`Series.dnfScoring`). */
   dnfScoring?: DnfScoring;
+  scoringCodes?: readonly SeriesScoringCode[];
   locks: StageLocks;
   canEdit: boolean;
   /** The medal fleet is selected, so an undivided series' next race is the
@@ -538,7 +544,7 @@ export function OpeningSettings({
 
   const rules = divided
     ? [
-        ...(a53Rule(dnfScoring) ? [a53Rule(dnfScoring)!] : []),
+        ...(a53Rule(dnfScoring, scoringCodes) ? [a53Rule(dnfScoring, scoringCodes)!] : []),
         `The discards run over the ${q.name} and the ${f.name} together.`,
         ...(config.medal
           ? [`No ${vocab.stages.medal.raceNoun} counts towards the discards, and none is excluded.`]
@@ -546,7 +552,7 @@ export function OpeningSettings({
       ]
     : [
         `Races are numbered ${labels(config, 'qualifying')}.`,
-        a53Rule(dnfScoring) ??
+        a53Rule(dnfScoring, scoringCodes) ??
           (oneFleet
             ? `A boat that doesn’t finish scores the number of entries, plus one.`
             : perFleet
@@ -709,6 +715,7 @@ export function Stage1Settings({
   seriesId,
   config,
   dnfScoring,
+  scoringCodes,
   locks,
   canEdit,
   current,
@@ -716,6 +723,7 @@ export function Stage1Settings({
   seriesId: string;
   config: SplitFleetConfig;
   dnfScoring?: DnfScoring;
+  scoringCodes?: readonly SeriesScoringCode[];
   locks: StageLocks;
   canEdit: boolean;
   current?: boolean;
@@ -731,7 +739,7 @@ export function Stage1Settings({
       summary={`${fleets.length} fleet${fleets.length === 1 ? '' : 's'} · ${fleets.map((f) => f.label).join(', ')}`}
       rules={[
         `Races are numbered ${labels(config, 'qualifying')}.`,
-        a53Rule(dnfScoring) ??
+        a53Rule(dnfScoring, scoringCodes) ??
           `A boat that doesn’t finish scores the number of boats in the largest ${stageAdjective(q.name)} fleet, plus one.`,
         ...(fleets.length > 1
           ? [
@@ -764,6 +772,7 @@ export function Stage2Settings({
   seriesId,
   config,
   dnfScoring,
+  scoringCodes,
   locks,
   canEdit,
   medalSelected,
@@ -772,6 +781,7 @@ export function Stage2Settings({
   seriesId: string;
   config: SplitFleetConfig;
   dnfScoring?: DnfScoring;
+  scoringCodes?: readonly SeriesScoringCode[];
   locks: StageLocks;
   canEdit: boolean;
   medalSelected: boolean;
@@ -791,7 +801,7 @@ export function Stage2Settings({
       rules={[
         `Races are numbered ${labels(config, 'final')}.`,
         `Boats are divided by their ${q.name} rank into near-equal fleets, the top fleet largest.`,
-        a53Rule(dnfScoring) ?? `A boat that doesn’t finish scores the number of boats in her own fleet, plus one.`,
+        a53Rule(dnfScoring, scoringCodes) ?? `A boat that doesn’t finish scores the number of boats in her own fleet, plus one.`,
         ...(config.final.carry === 'net'
           ? [
               `Points carry on from the ${q.name} as one series.`,

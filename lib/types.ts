@@ -214,9 +214,9 @@ export interface RrsOrgPushConfig {
  *  - `seriesEntries` — A5.2: penalty = series entries + 1.
  *  - `startingArea` — A5.3: came-but-didn't-finish codes (DNF/RET/OCS/…) =
  *    boats that came to the start + 1; DNC stays at entries + 1.
- *  - `startingAreaInclDnc` — A5.3 as changed by DBSC SI A13.2: DNC is *also*
- *    scored from the boats that came to the start (came + 1). */
-export type DnfScoring = 'seriesEntries' | 'startingArea' | 'startingAreaInclDnc';
+ *  A sailing instruction that changes either — DBSC's SI A13.2 scores a DNC
+ *  from the boats that came too — is a changed code (`scoringCodes`). */
+export type DnfScoring = 'seriesEntries' | 'startingArea';
 
 /** What a "place after … + N" scoring-code rule counts, per race and fleet:
  *  the boats entered, those that came to the starting area, or those that
@@ -372,7 +372,7 @@ export interface Series {
   // for scoring; the thresholds are kept so switching back in the editor loses
   // nothing. Absent is the common case.
   proportionalDiscard?: ProportionalDiscard;
-  dnfScoring: DnfScoring;  // A5.2, A5.3, or A5.3-with-DNC-from-starting-area
+  dnfScoring: DnfScoring;  // A5.2 or A5.3
   // Treat a boat with no result other than DNC across the series as not
   // entered: off the standings and out of the A5.2 entry count, exactly as
   // if the scorer had excluded it (Sailwave's "mark all un-sailed competitors

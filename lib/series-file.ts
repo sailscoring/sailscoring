@@ -40,6 +40,7 @@ import {
   upgradeSubdivisionAxes,
 } from './competitor-fields';
 import { upgradeCourseLibrary } from './course-library-upgrade';
+import { upgradeDncRule } from './dnc-rule-upgrade';
 import { isFleetRatingVariant } from './fleet-rating-variant';
 import { fleetIdFromPageKey, fleetPageKey } from './publish-pages';
 import { withoutPrizes } from './prizes';
@@ -1366,6 +1367,9 @@ export function migrateSeriesFileObject(obj: Record<string, unknown>): void {
   if (obj.formatVersion < 58) upgradeSplitFleetsBlock(obj);
   if (obj.formatVersion < 59) upgradeSplitFleetCarry((obj.splitFleets as { config?: unknown } | undefined)?.config);
   if (obj.formatVersion < 71) upgradeCourseLibrary(obj);
+  // Read by field rather than version: the setting a v74 file can no longer
+  // carry is upgraded wherever it turns up.
+  upgradeDncRule(obj.series as Record<string, unknown> | undefined);
 }
 
 /** ≤v57 → v58: the split-fleet configuration narrowed (ADR-013). Throws,

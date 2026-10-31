@@ -8,6 +8,8 @@ import { describe, it, expect } from 'vitest';
 
 import { describeSplitFleetConfig, SENTENCES_BY_SETTING } from '@/lib/split-fleets-si';
 import type { SplitFleetSentenceId } from '@/lib/split-fleets-si';
+import { DNC_SCORED_AS_DNF } from '@/lib/dnc-rule-upgrade';
+import type { SeriesScoringCode } from '@/lib/types';
 import { defaultSplitFleetConfig, type SplitFleetConfig } from '@/lib/split-fleets';
 import {
   championsCupConfig,
@@ -223,8 +225,8 @@ describe('fleets ranked each on their own', () => {
 });
 
 describe('the non-finisher rule', () => {
-  const nonFinisher = (dnfScoring?: 'seriesEntries' | 'startingArea' | 'startingAreaInclDnc') =>
-    describeSplitFleetConfig(championsCupConfig(), dnfScoring ? { dnfScoring } : undefined).find(
+  const nonFinisher = (dnfScoring?: 'seriesEntries' | 'startingArea', scoringCodes?: SeriesScoringCode[]) =>
+    describeSplitFleetConfig(championsCupConfig(), dnfScoring ? { dnfScoring, scoringCodes } : undefined).find(
       (s) => s.id === 'non-finisher',
     )!.text;
 
@@ -236,7 +238,7 @@ describe('the non-finisher rule', () => {
   it('says Rule A5.3 applies, and what it scores', () => {
     expect(nonFinisher('startingArea')).toMatch(/^Rule A5\.3 applies\. A boat that came to the starting area/);
     expect(nonFinisher('startingArea')).toContain('did not come to the starting area will be scored the number of boats entered, plus one');
-    expect(nonFinisher('startingAreaInclDnc')).toMatch(/^Rule A5\.3 applies, changed so that/);
+    expect(nonFinisher('startingArea', [DNC_SCORED_AS_DNF])).toMatch(/^Rule A5\.3 applies, changed so that/);
   });
 });
 

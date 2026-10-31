@@ -30,7 +30,7 @@ describe('ECHO handicap scoring fixtures', () => {
 
   for (const { yamlPath, fixture } of loaded) {
     it(fixture.description, () => {
-      const { competitors, fleets, races, finishes, raceStarts, discardThresholds, dnfScoring, sailToId } =
+      const { competitors, fleets, races, finishes, raceStarts, discardThresholds, codes, sailToId } =
         buildFixtureInputs(fixture);
 
       const { fleetStandings } = calculateFleetStandings(
@@ -39,7 +39,7 @@ describe('ECHO handicap scoring fixtures', () => {
         races,
         finishes,
         discardThresholds,
-        dnfScoring,
+        codes,
         raceStarts,
       );
       const result = fleetStandings[0];

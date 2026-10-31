@@ -34,6 +34,7 @@ import type {
   SubSeriesRepository,
 } from './repository';
 import { upgradeCourseLibrary } from './course-library-upgrade';
+import { upgradeDncRule } from './dnc-rule-upgrade';
 import { instanceTimeZone } from './instance-time-zone';
 import { orcCertFromSummary, orcCertSummary } from './orc-certificate';
 import { withoutPrizes } from './prizes';
@@ -1747,12 +1748,22 @@ function upgradeExportCourses(data: PublicSeriesExport): PublicSeriesExport {
   return upgraded;
 }
 
+/** An export written before v14 may score DNC under DBSC's A5.3 variant,
+ *  which is now A5.3 with DNC changed to score the same as DNF (ADR-013,
+ *  `lib/dnc-rule-upgrade.ts`). */
+function upgradeExportDncRule(data: PublicSeriesExport): PublicSeriesExport {
+  if ((data.series.dnfScoring as string) !== 'startingAreaInclDnc') return data;
+  const series = structuredClone(data.series);
+  upgradeDncRule(series as unknown as Record<string, unknown>);
+  return { ...data, series };
+}
+
 export async function importPublicExport(
   exported: PublicSeriesExport,
   repos: ImportRepos,
   ids?: ImportIdOptions,
 ): Promise<string> {
-  const data = upgradeExportCourses(upgradeExportSplitFleets(exported));
+  const data = upgradeExportDncRule(upgradeExportCourses(upgradeExportSplitFleets(exported)));
   const newId = ids?.newId ?? (() => crypto.randomUUID());
   const newSeriesId = ids?.seriesId ?? newId();
   const now = Date.now();

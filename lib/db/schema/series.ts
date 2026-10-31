@@ -365,7 +365,7 @@ export const series = pgTable(
     ),
     check(
       'series_dnf_scoring_chk',
-      sql`${table.dnfScoring} in ('seriesEntries','startingArea','startingAreaInclDnc')`,
+      sql`${table.dnfScoring} in ('seriesEntries','startingArea')`,
     ),
     check(
       'series_primary_person_label_chk',

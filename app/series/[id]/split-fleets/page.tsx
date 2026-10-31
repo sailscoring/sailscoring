@@ -428,6 +428,7 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
             seriesId={seriesId}
             config={sfState.config}
             dnfScoring={data.series.dnfScoring}
+            scoringCodes={data.series.scoringCodes}
             locks={locks}
             canEdit={canManage}
             medalSelected={medalRound !== null}
@@ -462,6 +463,7 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
             seriesId={seriesId}
             config={sfState.config}
             dnfScoring={data.series.dnfScoring}
+            scoringCodes={data.series.scoringCodes}
             locks={locks}
             canEdit={canManage}
             current={qualifyingRounds.length === 0}
@@ -481,6 +483,7 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
               seriesId={seriesId}
               config={sfState.config}
               dnfScoring={data.series.dnfScoring}
+              scoringCodes={data.series.scoringCodes}
               locks={locks}
               canEdit={canManage}
               current={qualifyingRounds.length === 0}
@@ -506,6 +509,7 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
               seriesId={seriesId}
               config={sfState.config}
               dnfScoring={data.series.dnfScoring}
+              scoringCodes={data.series.scoringCodes}
               locks={locks}
               canEdit={canManage}
               medalSelected={medalRound !== null}
@@ -649,6 +653,7 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
         config={sfState.config}
         repechage={repechageRound(sfData) !== null}
         dnfScoring={data.series.dnfScoring}
+        scoringCodes={data.series.scoringCodes}
       />
     </SplitFleetsFrame>
   );

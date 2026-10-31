@@ -292,12 +292,12 @@ describe('calculateSubSeriesFleetStandings (NHC carry)', () => {
 
   const full = calculateFleetStandings(
     inputs.fleets, inputs.competitors, inputs.races, inputs.finishes,
-    inputs.discardThresholds, inputs.dnfScoring, inputs.raceStarts,
+    inputs.discardThresholds, inputs.codes, inputs.raceStarts,
   ).fleetStandings[0];
 
   const blocks = calculateSubSeriesFleetStandings(
     [early, late], inputs.fleets, inputs.competitors, inputs.races, inputs.finishes,
-    inputs.discardThresholds, inputs.dnfScoring, inputs.raceStarts,
+    inputs.discardThresholds, inputs.codes, inputs.raceStarts,
   );
 
   it('reproduces the whole-series TCF chain exactly across the carry', () => {
@@ -365,13 +365,13 @@ describe('end-of-series TCF over independent sub-series blocks', () => {
 
   const blocks = calculateSubSeriesFleetStandings(
     [early, lateIndependent], inputs.fleets, inputs.competitors, inputs.races, inputs.finishes,
-    inputs.discardThresholds, inputs.dnfScoring, inputs.raceStarts,
+    inputs.discardThresholds, inputs.codes, inputs.raceStarts,
   );
   const subSeriesHistory = blocks.flatMap((b) => b.fleetStandings.flatMap((fr) => fr.tcfHistory ?? []));
 
   const wholeSeries = calculateFleetStandings(
     inputs.fleets, inputs.competitors, inputs.races, inputs.finishes,
-    inputs.discardThresholds, inputs.dnfScoring, inputs.raceStarts,
+    inputs.discardThresholds, inputs.codes, inputs.raceStarts,
   ).fleetStandings[0];
   const wholeHistory = wholeSeries.tcfHistory ?? [];
 

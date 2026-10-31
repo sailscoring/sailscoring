@@ -29,7 +29,7 @@ describe('TCC handicap scoring fixtures', () => {
 
   for (const { yamlPath, fixture } of loaded) {
     it(fixture.description, () => {
-      const { competitors, fleets, races, finishes, raceStarts, ratingOverrides, discardThresholds, dnfScoring, sailToId } =
+      const { competitors, fleets, races, finishes, raceStarts, ratingOverrides, discardThresholds, codes, sailToId } =
         buildFixtureInputs(fixture);
       const fleet = fleets[0];
 
@@ -66,7 +66,7 @@ describe('TCC handicap scoring fixtures', () => {
         const { tcfMap, isOrcTod } = buildTcfMap(raceStart);
         const ratedCompetitors = competitors.filter((c) => tcfMap.has(c.id));
         const todContext = isOrcTod ? orcCertificateTodContext(raceStart, raceFinishes, tcfMap) : undefined;
-        const { scores } = calculateHandicapRaceScores(raceFinishes, ratedCompetitors, raceStart, tcfMap, dnfScoring, todContext);
+        const { scores } = calculateHandicapRaceScores(raceFinishes, ratedCompetitors, raceStart, tcfMap, codes, todContext);
 
         for (const exp of fixtureRace.expected) {
           const cid = sailToId.get(exp.sailor);
@@ -103,7 +103,7 @@ describe('TCC handicap scoring fixtures', () => {
         races,
         finishes,
         discardThresholds,
-        dnfScoring,
+        codes,
         raceStarts,
         ratingOverrides,
       );

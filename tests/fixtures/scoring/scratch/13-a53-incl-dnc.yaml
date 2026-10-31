@@ -2,15 +2,22 @@ description: "Scratch — A5.3 with DNC scored from the starting area (DBSC SI A
 rrs_notes: >
   DBSC Sailing Instruction A13.2 changes RRS A5.3 so that a boat that did not
   come to the starting area (DNC) is also scored the number of boats that came
-  to the starting area plus one — not series entries + 1. This is the
-  'startingAreaInclDnc' mode. Contrast 09-a53-starting-area, which is identical
-  except DNC keeps the entries + 1 base.
+  to the starting area plus one — not series entries + 1. The series is on
+  A5.3 with DNC changed to score the same as DNF. Contrast
+  09-a53-starting-area, which is identical except DNC keeps the entries + 1
+  base.
   Race 2 has only 3 boats in the starting area: starting-area penalty = 4, and
-  under this mode DNC scores 4 as well (instead of series entries + 1 = 6).
+  with DNC changed, DNC scores 4 as well (instead of series entries + 1 = 6).
 
 series:
   discardThresholds: []
-  dnfScoring: startingAreaInclDnc
+  dnfScoring: startingArea
+  # DBSC SI A13.2 as a changed scoring code: DNC scores the same as DNF.
+  scoringCodes:
+    - code: DNC
+      kind: replace
+      rule: { type: sameAs, code: DNF }
+      discardable: true
 
 competitors:
   - sailNumber: "101"
@@ -42,7 +49,7 @@ races:
   - number: 2
     # Only Alice, Bob, Carol come to the starting area (startPresent: true).
     # David and Eve do not appear (implicit DNC).
-    # came = 3 → starting-area penalty = 4. Under startingAreaInclDnc the
+    # came = 3 → starting-area penalty = 4. With DNC changed, the
     # implicit DNCs (David, Eve) also score 4, not 6.
     finishes:
       - sailor: "101"

@@ -20,6 +20,7 @@
  */
 import type { SeriesFile } from './series-file';
 import type { DiscardThreshold, ProportionalDiscard, ResultCode } from './types';
+import { dncScoredAsDnf } from './scoring-codes';
 import {
   SAILWAVE_COLUMN_DEFAULTS,
   SAILWAVE_GLOBAL_DEFAULTS,
@@ -165,26 +166,22 @@ export function discardListFor(
 // ---- Scoring codes ----
 
 /** Our A5.2 / A5.3 choice as Sailwave's DNC / DNF base methods. Every other
- *  code in the template scores "like DNF", so setting these two sets all. */
-function codeBases(dnfScoring: SeriesFile['series']['dnfScoring']): {
+ *  code in the template scores "like DNF", so setting these two sets all. A
+ *  DNC changed to score the same as DNF (DBSC SI A13.2) takes DNF's base. */
+function codeBases(series: Pick<SeriesFile['series'], 'dnfScoring' | 'scoringCodes'>): {
   dnc: [string, string];
   dnf: [string, string];
 } {
-  switch (dnfScoring) {
-    case 'seriesEntries':
-      return { dnc: ['Boats in series +', '1'], dnf: ['Boats in series +', '1'] };
-    case 'startingArea':
-      return { dnc: ['Boats in series +', '1'], dnf: ['Boats in race +', '1'] };
-    case 'startingAreaInclDnc':
-      return { dnc: ['Boats in race +', '1'], dnf: ['Boats in race +', '1'] };
-  }
+  const dnf: [string, string] =
+    series.dnfScoring === 'startingArea' ? ['Boats in race +', '1'] : ['Boats in series +', '1'];
+  return { dnc: dncScoredAsDnf(series.scoringCodes) ? dnf : ['Boats in series +', '1'], dnf };
 }
 
 function scoringCodeRows(
   systemHandle: number,
-  dnfScoring: SeriesFile['series']['dnfScoring'],
+  series: Pick<SeriesFile['series'], 'dnfScoring' | 'scoringCodes'>,
 ): string[] {
-  const bases = codeBases(dnfScoring);
+  const bases = codeBases(series);
   return SAILWAVE_SCORING_CODE_DEFAULTS.map((row) => {
     const parts = row.split('|');
     parts[14] = String(systemHandle);
@@ -336,7 +333,7 @@ export function buildSailwaveBlw(file: SeriesFile): SailwaveExportResult {
     });
   });
   for (const handle of [ROOT_SYSTEM_HANDLE, ...childSystems.map((c) => c.handle)]) {
-    for (const row of scoringCodeRows(handle, series.dnfScoring)) w.row('scrcode', row);
+    for (const row of scoringCodeRows(handle, series)) w.row('scrcode', row);
   }
   w.row('ui', '0|0|0|1|0|0|0|0|0|0|0|0|0|0|0');
 

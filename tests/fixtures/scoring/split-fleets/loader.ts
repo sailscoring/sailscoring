@@ -33,7 +33,7 @@ import type {
   StoredStage,
   VocabularyKey,
 } from '@/lib/split-fleets';
-import type { Competitor, Finish, Fleet, Race, RaceStart, ResultCode } from '@/lib/types';
+import type { Competitor, Finish, Fleet, Race, RaceStart, ResultCode, SeriesScoringCode } from '@/lib/types';
 
 // ─── Fixture schema ──────────────────────────────────────────────────────────
 
@@ -158,7 +158,9 @@ export interface SplitFleetFixture {
     };
   };
   /** The series' non-finisher rule; RRS A5.2 when omitted. */
-  dnfScoring?: 'seriesEntries' | 'startingArea' | 'startingAreaInclDnc';
+  dnfScoring?: 'seriesEntries' | 'startingArea';
+  /** The series' scoring codes, as `Series.scoringCodes` holds them. */
+  scoringCodes?: SeriesScoringCode[];
   competitors: string[]; // "sail name..." — first token is the sail number
   stages: FixtureStage[];
   /** Post-hoc result amendments (a protest or redress decided after later
@@ -327,6 +329,7 @@ export function buildSplitFleet(fx: SplitFleetFixture): BuiltSplitFleet {
   const snapshot = (): SplitFleetData => ({
     config, rounds, fleets, competitors: [...competitors.values()], races, raceStarts, finishes,
     ...(fx.dnfScoring ? { dnfScoring: fx.dnfScoring } : {}),
+    ...(fx.scoringCodes ? { scoringCodes: fx.scoringCodes } : {}),
   });
   /** Ordered sails of a qualifying standings snapshot restricted to Q≤n. */
   const qualifyingOrder = (throughRace: number | null): string[] => {

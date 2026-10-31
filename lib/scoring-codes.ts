@@ -228,10 +228,6 @@ export function buildCodeTable(
         ...def,
         pointsMethod: { type: 'place_after', base: dnfScoring === 'seriesEntries' ? 'entries' : 'startingArea', plus: 1 },
       });
-    } else if (def.code === 'DNC' && dnfScoring === 'startingAreaInclDnc') {
-      // DBSC SI A13.2 changes A5.3 so a boat that did not come to the start is
-      // scored from the number that came: DNC scores the same as DNF.
-      defs.set(def.code, { ...def, pointsMethod: AS_DNF });
     } else {
       defs.set(def.code, def);
     }
@@ -482,4 +478,12 @@ export function seriesCodeProblems(codes: readonly SeriesScoringCode[]): SeriesC
     }
   }
   return problems;
+}
+
+/** Whether a series scores DNC the same as DNF — DBSC SI A13.2's change to
+ *  A5.3, under which a boat that did not come to the starting area is scored
+ *  from the boats that came. */
+export function dncScoredAsDnf(codes: readonly SeriesScoringCode[] | undefined): boolean {
+  const dnc = codes?.find((c) => c.code === 'DNC');
+  return dnc?.rule.type === 'sameAs' && dnc.rule.code === 'DNF';
 }
