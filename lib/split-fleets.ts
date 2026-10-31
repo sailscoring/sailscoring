@@ -7,6 +7,7 @@
 import type { Competitor, DnfScoring, Finish, Fleet, Race, RaceStart } from './types';
 import { compareSailNumbersIgnoringPrefix } from './sail-number-sort';
 import { applyAdditivePenalty, resolveEntrants, startingAreaCount } from './scoring';
+import { codeTableOf, type RaceCounts, type ScoringCodeTable } from './scoring-codes';
 import { weightedRacePoints } from './race-scoring-options';
 
 /**
@@ -1126,7 +1127,7 @@ export interface SplitStandingRow {
 /** How a race scores a boat that did not sail the course: the series'
  *  non-finisher rule, and the championship's entries it may be scored from. */
 interface NonFinisherRule {
-  dnfScoring: DnfScoring | undefined;
+  codes: ScoringCodeTable;
   /** Boats entered in the championship. */
   entries: number;
 }
@@ -1150,25 +1151,30 @@ function scorePhysicalRace(
   // RRS A5.2, as the stage adapts it: every code scores the stage's base.
   // RRS A5.3 ("when the notice of race states that A5.3 applies"): a boat
   // that came to the starting area scores the boats of this race that came
-  // to it, plus one; a boat that did not scores the boats entered, plus one
-  // (the DBSC variant scores her from the starting area too). The starting
-  // area is read as the ordinary engine reads it.
-  const a53 = rule.dnfScoring !== undefined && rule.dnfScoring !== 'seriesEntries';
-  const cameToStart = startingAreaCount(rows);
-  const starterBase = a53 ? cameToStart + 1 : codeBase;
-  const dncBase = !a53 ? codeBase : rule.dnfScoring === 'startingAreaInclDnc' ? starterBase : rule.entries + 1;
-  // This race's score for a boat that did not sail the course: the weighting
-  // reaches it, so it is also the DNF cap the penalties below are measured
-  // against.
-  const codePoints = weightedRacePoints(starterBase, multiplier);
-  const dncPoints = weightedRacePoints(dncBase, multiplier);
+  // to it, plus one; a boat that did not scores the boats entered in the
+  // championship, plus one. The starting area is read as the ordinary engine
+  // reads it, and the series' own codes and changes are scored over the same
+  // counts.
+  const { codes } = rule;
+  const a53 = codes.dnfScoring !== 'seriesEntries';
+  const counts: RaceCounts = {
+    entries: a53 ? rule.entries : codeBase - 1,
+    startingArea: startingAreaCount(rows, codes),
+    finishers: finishers.length,
+  };
+  // A code's score in this race. The weighting reaches it, so DNF's is also
+  // the cap the penalties below are measured against.
+  const pointsFor = (code: string) =>
+    weightedRacePoints(codes.replacePoints(code, counts) ?? codeBase, multiplier);
+  const codePoints = pointsFor('DNF');
+  const dncPoints = pointsFor('DNC');
   const out = new Map<string, { points: number; code: string | null; rdg: Finish | null }>();
   finishers.forEach((f, i) => {
     const placePoints = weightedRacePoints(i + 1 + offset, multiplier);
     // One implementation of RRS 44.3(c) for both engines: the percentage is of
     // the race's DNF score, rounded to the nearest tenth (0.05 up), and the
     // penalty never makes her worse than DNF.
-    const points = applyAdditivePenalty(placePoints, f, codePoints, ref.fleetId);
+    const points = applyAdditivePenalty(placePoints, f, codePoints, ref.fleetId, codes);
     out.set(f.competitorId!, { points, code: f.penaltyCode ?? null, rdg: null });
   });
   for (const f of rows) {
@@ -1176,11 +1182,7 @@ function scorePhysicalRace(
     if (f.resultCode === 'RDG') {
       out.set(f.competitorId!, { points: 0, code: 'RDG', rdg: f });
     } else if (f.resultCode) {
-      out.set(f.competitorId!, {
-        points: f.resultCode === 'DNC' ? dncPoints : codePoints,
-        code: f.resultCode,
-        rdg: null,
-      });
+      out.set(f.competitorId!, { points: pointsFor(f.resultCode), code: f.resultCode, rdg: null });
     } else if (a53 && f.startPresent === true) {
       // Checked in at the start and neither finished nor coded: she came to
       // the starting area, so under A5.3 she is a DNF, as the ordinary engine
@@ -1380,6 +1382,7 @@ export function splitFleetStandings(
   // the replacement score is counted from, so scoring a list that still holds
   // non-entrants is wrong for every boat in the fleet, not just for them.
   const data = dropNonEntrants(input);
+  const codes = codeTableOf(data.dnfScoring);
   const { config, rounds, competitors } = data;
 
   const qRaces = logicalRaces(data, 'qualifying');
@@ -1450,7 +1453,7 @@ export function splitFleetStandings(
           stage !== 'medal' && (ref.start.firstPlaceOffset ?? 0) > 0 && medalMembers !== null;
         const sailing = companion ? members.filter((m) => !medalMembers!.has(m.id)) : members;
         const scores = scorePhysicalRace(ref, sailing, data.finishes, codeBase, multiplier, {
-          dnfScoring: data.dnfScoring,
+          codes,
           entries: competitors.length,
         });
         for (const [competitorId, sc] of scores) {
@@ -1900,7 +1903,7 @@ export function repechageStandings(input: SplitFleetData): RepechageTable[] {
       if (!ref) continue;
       const counts = physicalRaceCompleted(ref, data.competitors, data.finishes);
       const scores = scorePhysicalRace(ref, members, data.finishes, members.length + 1, 1, {
-        dnfScoring: data.dnfScoring,
+        codes: codeTableOf(data.dnfScoring),
         entries: data.competitors.length,
       });
       for (const [competitorId, sc] of scores) {

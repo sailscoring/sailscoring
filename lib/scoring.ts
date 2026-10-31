@@ -1,7 +1,7 @@
-import type { Competitor, Fleet, Race, Finish, RaceScore, HandicapRaceScore, RaceStart, RaceRatingOverride, Standing, ResultCode, PenaltyCode, DiscardThreshold, ProportionalDiscard, DnfScoring, ScoringRejection, RaceScoringGap, NhcRaceCalc, NhcRaceAggregates, EchoRaceCalc, EchoRaceAggregates, OrcProfile, OrcRaceCalc, TcfRecord, NhcProfile, ProgressiveHandicapConfig, ProgressiveRaceCalc, ProgressiveRaceAggregates, SubSeries, RaceFleetExclusion, CompetitorEntryOverride } from './types';
+import type { Competitor, Fleet, Race, Finish, RaceScore, HandicapRaceScore, RaceStart, RaceRatingOverride, Standing, ResultCode, PenaltyCode, DiscardThreshold, ProportionalDiscard, ScoringRejection, RaceScoringGap, NhcRaceCalc, NhcRaceAggregates, EchoRaceCalc, EchoRaceAggregates, OrcProfile, OrcRaceCalc, TcfRecord, NhcProfile, ProgressiveHandicapConfig, ProgressiveRaceCalc, ProgressiveRaceAggregates, SubSeries, RaceFleetExclusion, CompetitorEntryOverride } from './types';
 import { elapsedSecondsOf, roundToPrecision, timingPrecisionOf, type TimingPrecision } from './elapsed-time';
 import { courseLapsOf, fullCourseElapsed, lapsDiffer } from './laps';
-import { getCodeDefinition, penaltyIsStatedPoints, penaltyPointsMethod } from './scoring-codes';
+import { codeTableOf, penaltyIsStatedPoints, penaltyPointsMethod, type CodeScoring, type RaceCounts, type ScoringCodeTable } from './scoring-codes';
 import { orcConstructedOption, orcCurveOption, orcFleetProfile, orcPcsRatable, orcProfileRating, orcRaceProfile, orcRecordedWindOption, orcTodRating, orcTotRating } from './orc-certificate';
 import { scorePcsRace, type PcsAllowances, type PcsCourse, type PcsCourseModel } from './orc-pcs';
 import { courseLength } from './course-precision';
@@ -52,46 +52,35 @@ export function roundCorrectedSecs(
  *
  * Rules (Low Point, RRS Appendix A):
  *  - finisher:  points = finishing position within fleet
- *  - Coded result: points determined by the code's ScoringCodeDefinition.
- *    penaltyBase 'entries' → series entries + 1 (e.g. DNC under A5.2/A5.3)
- *    penaltyBase 'starters' → depends on dnfScoring:
- *      'seriesEntries' (A5.2, default): series entries + 1
- *      'startingArea'  (A5.3): starting-area count + 1
- *  - DNC base depends on dnfScoring: entries + 1 under 'seriesEntries' and
- *    standard 'startingArea'; came-to-start + 1 under 'startingAreaInclDnc'
- *    (DBSC SI A13.2 changes A5.3 so a boat that did not come to the start is
- *    scored from the number that came).
+ *  - Coded result: points from the series' code table (`ScoringCodeTable`).
+ *    DNF scores the place after the boats entered (A5.2, default) or after
+ *    the boats that came to the starting area (A5.3); DNS to BFD score as
+ *    DNF; DNC scores the place after the boats entered. A series may change
+ *    these and add codes of its own.
  *  - Missing finish record → implicit DNC.
  *
  * @param finishes  All Finish records for this race
  * @param competitors  All competitors in the series
- * @param dnfScoring  'seriesEntries' (A5.2), 'startingArea' (A5.3), or
- *   'startingAreaInclDnc' (A5.3 with DNC also scored from the starting area)
+ * @param dnfScoring  the series' A5 rule alone, or its full code table
  * @returns  Map of competitorId → RaceScore
  */
-/** The penalty ceiling for a race (RRS 44.3(c): never worse than DNF): the
- *  score a boat gets for DNF, per the dnfScoring rule (mirrors
- *  `startingAreaPenalty` in calculateRaceScores). `fleetFinishes` must be
- *  pre-filtered to the fleet. */
-function dnfScoreForRace(fleetFinishes: Finish[], entrantCount: number, dnfScoring: DnfScoring): number {
-  if (dnfScoring === 'seriesEntries') return entrantCount + 1;
-  return startingAreaCount(fleetFinishes) + 1;
-}
-
 /** Whether a finish record says the boat came to the starting area (RRS
- *  A5.3): checked in at the start, or on the sheet as anything but a DNC
- *  and not explicitly un-ticked at check-in. A boat that finished or was
- *  scored DNF / OCS / RET came to the start whether or not anyone ticked
- *  her in — the Start check-in tab counts her present on the same terms. */
-export function cameToStartingArea(f: Finish): boolean {
+ *  A5.3): checked in at the start, or on the sheet with any code but one
+ *  saying she did not come (DNC, or a series code scored as DNC) and not
+ *  explicitly un-ticked at check-in. A boat that finished or was scored
+ *  DNF / OCS / RET came to the start whether or not anyone ticked her in —
+ *  the Start check-in tab counts her present on the same terms. */
+export function cameToStartingArea(f: Finish, codes?: ScoringCodeTable): boolean {
   if (f.startPresent === true) return true;
-  return f.startPresent !== false && f.resultCode !== 'DNC';
+  if (f.startPresent === false) return false;
+  if (f.resultCode === null) return true;
+  return codes ? codes.cameToStart(f.resultCode) : f.resultCode !== 'DNC';
 }
 
 /** The number of boats that came to the starting area, over finish records
  *  already filtered to the boats being scored together. */
-export function startingAreaCount(finishes: Finish[]): number {
-  return finishes.filter(cameToStartingArea).length;
+export function startingAreaCount(finishes: Finish[], codes?: ScoringCodeTable): number {
+  return finishes.filter((f) => cameToStartingArea(f, codes)).length;
 }
 
 /**
@@ -141,9 +130,10 @@ export function applyAdditivePenalty(
   finish: Finish | undefined,
   cap: number,
   fleetId?: string,
+  codes?: ScoringCodeTable,
 ): number {
   if (!finish?.penaltyCode) return basePoints;
-  const method = penaltyPointsMethod(finish);
+  const method = penaltyPointsMethod(finish, codes);
   if (method?.type === 'additive_percentage') {
     // SCP/ZFP are a percentage of the DNF score, which is already per-fleet —
     // so a single stored rate yields the correct per-fleet points; no per-fleet
@@ -159,6 +149,10 @@ export function applyAdditivePenalty(
   if (method?.type === 'additive_stated') {
     const { value } = resolvePerFleetScalar(finish.penaltyOverrideByFleet, finish.penaltyOverride, fleetId);
     return capPenalized(basePoints, roundToTenth(basePoints + (value ?? 0)), cap);
+  }
+  if (method?.type === 'additive_points') {
+    // A series' own penalty code carries its points; nothing is entered per boat.
+    return capPenalized(basePoints, roundToTenth(basePoints + method.points), cap);
   }
   return basePoints;
 }
@@ -232,12 +226,11 @@ function finishedTogether(
 export function calculateRaceScores(
   finishes: Finish[],
   competitors: Competitor[],
-  dnfScoring: DnfScoring = 'seriesEntries',
+  dnfScoring: CodeScoring = 'seriesEntries',
   fleetId?: string,
   startKeyOf?: (competitorId: string) => string,
 ): Map<string, RaceScore> {
-  const n = competitors.length;
-  const seriesEntryPenalty = n + 1;
+  const codes = codeTableOf(dnfScoring);
   const competitorIds = new Set(competitors.map((c) => c.id));
 
   // Boats from other fleets are scored separately; counting them as starters
@@ -246,18 +239,22 @@ export function calculateRaceScores(
     (f) => f.competitorId !== null && competitorIds.has(f.competitorId),
   );
 
-  // Under A5.3, compute a per-race penalty for 'starters'-base codes from the
-  // number of boats that came to the start. DNC normally stays at entries + 1;
-  // under 'startingAreaInclDnc' (DBSC A13.2) it uses the starting-area count too.
-  let startingAreaPenalty = seriesEntryPenalty;
-  if (dnfScoring !== 'seriesEntries') {
-    startingAreaPenalty = startingAreaCount(fleetFinishes) + 1;
-  }
-  const dncPenalty = dnfScoring === 'startingAreaInclDnc' ? startingAreaPenalty : seriesEntryPenalty;
-
   const finishMap = new Map(
     fleetFinishes.map((f) => [f.competitorId as string, f]),
   );
+
+  // The counts every code's points are worked out from: the boats entered
+  // (A5.2), those that came to the starting area (A5.3), and those that
+  // finished — one row per competitor, placed and not coded.
+  const counts: RaceCounts = {
+    entries: competitors.length,
+    startingArea: startingAreaCount(fleetFinishes, codes),
+    finishers: competitors.filter((c) => {
+      const f = finishMap.get(c.id);
+      return f !== undefined && f.resultCode === null && f.sortOrder !== null;
+    }).length,
+  };
+  const codePoints = (code: string): number => codes.replacePoints(code, counts) ?? counts.entries + 1;
 
   const result = new Map<string, RaceScore>();
 
@@ -268,19 +265,15 @@ export function calculateRaceScores(
       // Missing finish record = implicit DNC.
       result.set(competitor.id, {
         competitorId: competitor.id,
-        points: dncPenalty,
+        points: codePoints('DNC'),
         place: null,
         rank: null,
         resultCode: 'DNC',
       });
     } else if (finish.resultCode !== null) {
-      const def = getCodeDefinition(finish.resultCode);
-      const points = finish.resultCode === 'DNC'
-        ? dncPenalty
-        : penaltyPoints(def?.pointsMethod ?? { type: 'fixed_penalty', penaltyBase: 'entries' }, seriesEntryPenalty, startingAreaPenalty);
       result.set(competitor.id, {
         competitorId: competitor.id,
-        points,
+        points: codePoints(finish.resultCode),
         place: null,
         rank: null,
         resultCode: finish.resultCode,
@@ -297,7 +290,7 @@ export function calculateRaceScores(
       // Check-in-only record (startPresent=true, no position, no code) — treat as DNF
       result.set(competitor.id, {
         competitorId: competitor.id,
-        points: startingAreaPenalty,
+        points: codePoints('DNF'),
         place: null,
         rank: null,
         resultCode: 'DNF',
@@ -348,14 +341,14 @@ export function calculateRaceScores(
     fi = fj;
   }
 
-  // Apply additive penalty codes (ZFP, SCP, DPI) to finishers.
+  // Apply additive penalty codes (ZFP, SCP, DPI, a series' own) to finishers.
   // Per A6.2 other boats are NOT re-ranked; duplicate scores are allowed.
-  // Cap: penalised score cannot exceed the DNF score (startingAreaPenalty).
+  // Cap: penalised score cannot exceed the DNF score.
+  const dnfCap = codes.dnfPoints(counts);
   for (const competitor of competitors) {
     const score = result.get(competitor.id);
     if (!score || score.place === null) continue; // only apply to finishers
-    // Cap at the DNF score (starters base) per A6.2.
-    const penalized = applyAdditivePenalty(score.points, finishMap.get(competitor.id), startingAreaPenalty, fleetId);
+    const penalized = applyAdditivePenalty(score.points, finishMap.get(competitor.id), dnfCap, fleetId, codes);
     if (penalized !== score.points) result.set(competitor.id, { ...score, points: penalized });
   }
 
@@ -514,8 +507,8 @@ export function orcCertificateTodContext(
  * this function (and a `ScoringRejection` emitted there). Every competitor
  * passed in must have an entry in the TCF map.
  *
- * Coded finishes are scored through the same per-code penalty rules as scratch
- * (RRS A5.2 default; A5.3 when `dnfScoring === 'startingArea'`). The penalty
+ * Coded finishes are scored through the series' code table, as scratch is
+ * (RRS A5.2 default; A5.3 when the series says so). The penalty
  * base N is the rated fleet size — unrated boats can't be scored in this
  * fleet, so they don't enter the count for A5.2 entries or A5.3 starters.
  *
@@ -528,7 +521,7 @@ export function orcCertificateTodContext(
  * @param appliedTcfByCompetitorId  Per-competitor rating used this race — a
  *   TCF multiplier normally, or a time-on-distance allowance in s/NM when
  *   `todContext` is given
- * @param dnfScoring  'seriesEntries' (A5.2, default) or 'startingArea' (A5.3)
+ * @param dnfScoring  the series' A5 rule alone, or its full code table
  * @param todContext  Present for a time-on-distance fleet (ORC rule 403.2):
  *   the map's values are allowances in seconds per nautical mile and
  *   CT = ET − (allowance − scratch allowance) × distance, anchoring the
@@ -540,13 +533,11 @@ export function calculateHandicapRaceScores(
   competitors: Competitor[],
   raceStart: RaceStart,
   appliedTcfByCompetitorId: Map<string, number>,
-  dnfScoring: DnfScoring = 'seriesEntries',
+  dnfScoring: CodeScoring = 'seriesEntries',
   todContext?: TodCorrectionContext,
 ): { scores: Map<string, HandicapRaceScore> } {
   const startSeconds = parseHmsToSeconds(raceStart.startTime);
-
-  const n = competitors.length;
-  const seriesEntryPenalty = n + 1;
+  const codes = codeTableOf(dnfScoring);
 
   const ratedIds = new Set(competitors.map((c) => c.id));
 
@@ -556,16 +547,10 @@ export function calculateHandicapRaceScores(
       .map((f) => [f.competitorId, f]),
   );
 
-  // A5.3 starting-area penalty: count only rated boats — unrated boats aren't
-  // scored in this fleet, so they don't enter the starters count either.
-  let startingAreaPenalty = seriesEntryPenalty;
-  if (dnfScoring !== 'seriesEntries') {
-    const ratedFinishes = Array.from(finishMap.values()).filter((f) => ratedIds.has(f.competitorId));
-    startingAreaPenalty = startingAreaCount(ratedFinishes) + 1;
-  }
-  // DBSC A13.2 (startingAreaInclDnc): DNC is scored from the starting-area
-  // count too, not series entries.
-  const dncPenalty = dnfScoring === 'startingAreaInclDnc' ? startingAreaPenalty : seriesEntryPenalty;
+  // A5.3 starting-area count: only rated boats — unrated boats aren't scored
+  // in this fleet, so they don't enter the starters count either.
+  const ratedFinishes = Array.from(finishMap.values()).filter((f) => ratedIds.has(f.competitorId));
+  const startingArea = startingAreaCount(ratedFinishes, codes);
 
   // How finely this race is scored — decided once, off every finish in it, so
   // that boats ranked against each other are corrected the same way.
@@ -676,16 +661,10 @@ export function calculateHandicapRaceScores(
 
   // Penalty points for non-finishers; tcfApplied is the TCF that *would have*
   // been used, preserved for the audit trail (matters for progressive systems).
+  const counts: RaceCounts = { entries: competitors.length, startingArea, finishers: finishers.length };
   for (const c of candidates) {
     if (scores.has(c.competitorId)) continue;
-    const def = c.resultCode ? getCodeDefinition(c.resultCode) : undefined;
-    const points = c.resultCode === 'DNC'
-      ? dncPenalty
-      : penaltyPoints(
-          def?.pointsMethod ?? { type: 'fixed_penalty', penaltyBase: 'entries' },
-          seriesEntryPenalty,
-          startingAreaPenalty,
-        );
+    const points = (c.resultCode ? codes.replacePoints(c.resultCode, counts) : undefined) ?? counts.entries + 1;
     scores.set(c.competitorId, {
       competitorId: c.competitorId,
       points,
@@ -1320,23 +1299,6 @@ function resolveRedressScore(
 }
 
 /**
- * Resolve penalty points for fixed-penalty result codes (DNC, DNS, OCS, etc.).
- * Additive penalty codes (ZFP, SCP, DPI) are handled separately in calculateRaceScores.
- * Redress (RDG) scores are handled separately in calculateStandings second pass.
- */
-function penaltyPoints(
-  method: import('./scoring-codes').PointsMethod,
-  seriesEntryPenalty: number,
-  startingAreaPenalty: number,
-): number {
-  if (method.type === 'fixed_penalty') {
-    return method.penaltyBase === 'entries' ? seriesEntryPenalty : startingAreaPenalty;
-  }
-  // Additive methods should not appear as resultCode definitions; fall back to entries+1.
-  return seriesEntryPenalty;
-}
-
-/**
  * Get the number of discards to apply for a given race count.
  *
  * A proportional rule, when the series has one, replaces the thresholds
@@ -1580,6 +1542,7 @@ function assembleStandings(
   per: PerCompetitorSeries,
   raceExcluded: boolean[],
   discardCount: number,
+  codes: ScoringCodeTable,
   raceNotScored?: boolean[],
 ): Standing[] {
   return competitors.map((competitor) => {
@@ -1603,11 +1566,7 @@ function assembleStandings(
     const totalPoints = roundToTenth(racePoints.reduce((sum, p) => sum + p, 0));
 
     // Determine non-discardable flags from code definitions
-    const raceNonDiscardable = raceCodes.map((code) => {
-      if (!code) return false;
-      const def = getCodeDefinition(code);
-      return def ? !def.discardable : false;
-    });
+    const raceNonDiscardable = raceCodes.map((code) => (code ? !codes.discardable(code) : false));
 
     // Select worst N discardable scores to discard. Excluded races (no
     // finishers), codes that protect against discard, and races the scorer
@@ -1691,7 +1650,7 @@ export function calculateStandings(
   races: Race[],
   allFinishes: Finish[],
   discardThresholds: DiscardThreshold[] = [],
-  dnfScoring: DnfScoring = 'seriesEntries',
+  dnfScoring: CodeScoring = 'seriesEntries',
   fleetId?: string,
   excludedRaceIds?: Set<string>,
   proportionalDiscard?: ProportionalDiscard,
@@ -1758,7 +1717,7 @@ export function calculateStandings(
     fleetId,
   });
 
-  const standings = assembleStandings(competitors, races, per, raceExcluded, discardCount);
+  const standings = assembleStandings(competitors, races, per, raceExcluded, discardCount, codeTableOf(dnfScoring));
   sortAndRank(standings);
 
   return { standings, circularRedressRaces };
@@ -1788,7 +1747,7 @@ function calculateHandicapStandings(
   raceStarts: RaceStart[],
   fleet: Fleet,
   discardThresholds: DiscardThreshold[] = [],
-  dnfScoring: DnfScoring = 'seriesEntries',
+  dnfScoring: CodeScoring = 'seriesEntries',
   ratingOverrides: RaceRatingOverride[] = [],
   startingTcfOverrides?: Map<string, number>,
   excludedRaceIds?: Set<string>,
@@ -1810,6 +1769,7 @@ function calculateHandicapStandings(
   tcfHistory?: TcfRecord[];
   circularRedressRaces: number[];
 } {
+  const codes = codeTableOf(dnfScoring);
   const config = deriveProgressiveHandicapConfig(fleet);
   const isProgressive = config !== null;
   const isNhc = fleet.scoringSystem === 'nhc';
@@ -2219,7 +2179,11 @@ function calculateHandicapStandings(
 
     // Additive scoring penalties (ZFP/SCP/DPI) apply to finishers in handicap
     // fleets too, capped at this race's DNF score.
-    const penaltyCap = dnfScoreForRace(fleetRaceFinishes, competitors.length, dnfScoring);
+    const penaltyCap = codes.dnfPoints({
+      entries: competitors.length,
+      startingArea: startingAreaCount(fleetRaceFinishes, codes),
+      finishers: [...scores.values()].filter((sc) => sc.place != null).length,
+    });
     const finishMap = new Map(fleetRaceFinishes.map((f) => [f.competitorId as string, f]));
 
     for (const competitor of competitors) {
@@ -2228,7 +2192,7 @@ function calculateHandicapStandings(
       const rawPoints = score?.points ?? competitors.length + 1;
       const finish = finishMap.get(competitor.id);
       const isFinisher = score?.place != null;
-      const points = isFinisher ? applyAdditivePenalty(rawPoints, finish, penaltyCap, fleet.id) : rawPoints;
+      const points = isFinisher ? applyAdditivePenalty(rawPoints, finish, penaltyCap, fleet.id, codes) : rawPoints;
       per.racePoints.get(competitor.id)!.push(raceExcluded[raceIdx] ? 0 : points);
       per.raceRanks.get(competitor.id)!.push(raceExcluded[raceIdx] ? null : (score?.rank ?? null));
       // Nothing is scored in a race that isn't scored yet, and that includes
@@ -2266,7 +2230,7 @@ function calculateHandicapStandings(
     fleetId: fleet.id,
   });
 
-  const standings = assembleStandings(ratedCompetitors, races, per, raceExcluded, discardCount, raceNotScored);
+  const standings = assembleStandings(ratedCompetitors, races, per, raceExcluded, discardCount, codes, raceNotScored);
   sortAndRank(standings);
 
   return {
@@ -2361,7 +2325,7 @@ function detectPerFleetGaps(
  * @param races  All races in the series, sorted by raceNumber ascending
  * @param allFinishes  All finishes in the series
  * @param discardThresholds  Discard rules for this series
- * @param dnfScoring  'seriesEntries' (A5.2, default) or 'startingArea' (A5.3)
+ * @param dnfScoring  the series' A5 rule alone, or its full code table
  * @param raceStarts  All race starts in the series (for handicap fleets)
  * @param ratingOverrides  Per-race static-rating overrides
  * @param progressiveSeedTcfs  Per-fleet applied-TCF seeds (fleetId →
@@ -2497,7 +2461,7 @@ export function calculateFleetStandings(
   races: Race[],
   allFinishes: Finish[],
   discardThresholds: DiscardThreshold[] = [],
-  dnfScoring: DnfScoring = 'seriesEntries',
+  dnfScoring: CodeScoring = 'seriesEntries',
   raceStarts: RaceStart[] = [],
   ratingOverrides: RaceRatingOverride[] = [],
   progressiveSeedTcfs?: Map<string, Map<string, number>>,
@@ -2692,7 +2656,7 @@ export function calculateSubSeriesFleetStandings(
   races: Race[],
   allFinishes: Finish[],
   discardThresholds: DiscardThreshold[] = [],
-  dnfScoring: DnfScoring = 'seriesEntries',
+  dnfScoring: CodeScoring = 'seriesEntries',
   raceStarts: RaceStart[] = [],
   ratingOverrides: RaceRatingOverride[] = [],
   excludeDncOnlyCompetitors = false,

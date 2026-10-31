@@ -5,187 +5,346 @@
  * ScoringCodeDefinition record. The scoring engine reads these properties at
  * runtime rather than branching on code strings.
  *
- * Built-in definitions ship as a static asset (this file). The engine merges
- * them with any user-defined codes at scoring time. builtIn: true definitions
- * are read-only in the UI.
+ * Built-in definitions ship as a static asset (this file), described the way
+ * RRS A5 words them: DNF scores the place after the boats entered (A5.2) or
+ * the boats that came to the starting area (A5.3), and DNS, OCS, NSC, RET,
+ * DSQ, DNE, UFD and BFD score the same as DNF. A series may change some of
+ * them and add codes of its own (`SeriesScoringCode`); `buildCodeTable`
+ * merges the two into the table the engine scores a series with.
  */
 
+import type { DnfScoring } from './types';
+
+/** What a "place after … + N" rule counts, per race and per fleet. */
+export type PlaceBase = 'entries' | 'startingArea' | 'finishers';
+
 export type PointsMethod =
-  // Standard position-replacing: the boat receives N+1 penalty points.
-  // penaltyBase 'entries' → always series entries + 1 (e.g. DNC).
-  // penaltyBase 'starters' → subject to the series dnfScoring setting:
-  //   'seriesEntries' (A5.2, default) → entries + 1
-  //   'startingArea'  (A5.3)          → starting-area count + 1
-  | { type: 'fixed_penalty'; penaltyBase: 'entries' | 'starters' }
+  // Position-replacing: the place `plus` beyond a count of boats. DNF's own
+  // base is the series' A5 rule (`follows A5`, resolved by buildCodeTable).
+  | { type: 'place_after'; base: PlaceBase; plus: number }
+  // Position-replacing: whatever another code scores.
+  | { type: 'same_as'; code: string }
+  // Position-replacing: a fixed number of points.
+  | { type: 'fixed_points'; points: number }
   // Additive penalty (applied on top of finish place; A6.2: other scores unchanged).
-  // Formula (rule 44.3(c)): min(place + round(pct/100 × dnfScore), dnfScore)
+  // Formula (rule 44.3(c)): min(place + roundToTenth(pct/100 × dnfScore), dnfScore)
   // penaltyOverride on Finish overrides defaultPct for SCP — unless the SCP is
   // stated in points (Finish.penaltyInPoints), which scores as additive_stated.
   | { type: 'additive_percentage'; defaultPct: number }
   // Discretionary Points Increase: min(place + override, dnfScore)
   // Finish.penaltyOverride is the stated points to add.
   | { type: 'additive_stated' }
+  // A series' own additive code: min(place + points, dnfScore).
+  | { type: 'additive_points'; points: number }
   // Redress (RDG): score replaced by A9 average — computed dynamically in calculateStandings.
   | { type: 'redress' };
+
+/** Whether a code replaces the boat's result, adds to her finishing place,
+ *  or is redress. The kind also settles RRS A6.2: a code that adds leaves
+ *  every other boat's score unchanged. */
+export type CodeKind = 'replace' | 'add' | 'redress';
 
 export interface ScoringCodeDefinition {
   code: string;
   name: string;
   builtIn: boolean;
+  kind: CodeKind;
   pointsMethod: PointsMethod;
   /** Whether the score for this code can be selected as a discard. */
   discardable: boolean;
   /**
    * RRS A6.2: when true, other boats' scores are not recalculated when this
-   * code is applied (two boats may share the same score). Phase 2 concern.
+   * code is applied (two boats may share the same score).
    */
   otherScoresUnchanged: boolean;
+  /** Whether a boat scored with this code came to the starting area (RRS
+   *  A5.3's count). Only DNC says no. */
+  cameToStart: boolean;
+  /** A replacing code's points are never more than DNF's. */
+  capAtDnf?: boolean;
+  /** DNF's base is the series' A5 rule rather than a fixed count. */
+  followsA5?: boolean;
+  /** The description a series gives its own code, printed under the results. */
+  description?: string;
 }
 
+const replacing = (
+  code: string,
+  name: string,
+  pointsMethod: PointsMethod,
+  extra: Partial<ScoringCodeDefinition> = {},
+): ScoringCodeDefinition => ({
+  code,
+  name,
+  builtIn: true,
+  kind: 'replace',
+  pointsMethod,
+  discardable: true,
+  otherScoresUnchanged: false,
+  cameToStart: true,
+  ...extra,
+});
+
+const AS_DNF: PointsMethod = { type: 'same_as', code: 'DNF' };
+
 export const BUILT_IN_CODES: readonly ScoringCodeDefinition[] = [
-  {
-    code: 'DNC',
-    name: 'Did Not Come to start area',
-    builtIn: true,
-    pointsMethod: { type: 'fixed_penalty', penaltyBase: 'entries' },
-    discardable: true,
-    otherScoresUnchanged: false,
-  },
-  {
-    code: 'DNS',
-    name: 'Did Not Start',
-    builtIn: true,
-    pointsMethod: { type: 'fixed_penalty', penaltyBase: 'starters' },
-    discardable: true,
-    otherScoresUnchanged: false,
-  },
-  {
-    code: 'OCS',
-    name: 'On Course Side',
-    builtIn: true,
-    pointsMethod: { type: 'fixed_penalty', penaltyBase: 'starters' },
-    discardable: true,
-    otherScoresUnchanged: false,
-  },
-  {
-    code: 'NSC',
-    name: 'Did Not Sail the Course',
-    builtIn: true,
-    pointsMethod: { type: 'fixed_penalty', penaltyBase: 'starters' },
-    discardable: true,
-    otherScoresUnchanged: false,
-  },
-  {
-    code: 'DNF',
-    name: 'Did Not Finish',
-    builtIn: true,
-    pointsMethod: { type: 'fixed_penalty', penaltyBase: 'starters' },
-    discardable: true,
-    otherScoresUnchanged: false,
-  },
-  {
-    code: 'RET',
-    name: 'Retired',
-    builtIn: true,
-    pointsMethod: { type: 'fixed_penalty', penaltyBase: 'starters' },
-    discardable: true,
-    otherScoresUnchanged: false,
-  },
-  {
-    code: 'DSQ',
-    name: 'Disqualified',
-    builtIn: true,
-    pointsMethod: { type: 'fixed_penalty', penaltyBase: 'starters' },
-    discardable: true,
-    otherScoresUnchanged: false,
-  },
-  {
-    code: 'DNE',
-    name: 'Disqualification Not Excludable',
-    builtIn: true,
-    pointsMethod: { type: 'fixed_penalty', penaltyBase: 'starters' },
-    discardable: false,
-    otherScoresUnchanged: false,
-  },
-  {
-    code: 'UFD',
-    name: 'U Flag Disqualification',
-    builtIn: true,
-    pointsMethod: { type: 'fixed_penalty', penaltyBase: 'starters' },
-    discardable: true,
-    otherScoresUnchanged: false,
-  },
-  {
-    code: 'BFD',
-    name: 'Black Flag Disqualification',
-    builtIn: true,
-    // Rule 30.4: a black-flagged boat was in the triangle in the last minute
-    // before her start, so she came to the starting area and is scored on the
-    // 'starters' base (A5.2), same as DSQ/UFD. A plain BFD is an ordinary
-    // disqualification and IS discardable. The only non-discardable variant is
-    // the niche case of a boat that sailed a restart after being black-flagged
-    // (scored DNE); that is not modelled here.
-    pointsMethod: { type: 'fixed_penalty', penaltyBase: 'starters' },
-    discardable: true,
-    otherScoresUnchanged: false,
-  },
+  replacing('DNC', 'Did Not Come to start area', { type: 'place_after', base: 'entries', plus: 1 }, { cameToStart: false }),
+  replacing('DNS', 'Did Not Start', AS_DNF),
+  replacing('OCS', 'On Course Side', AS_DNF),
+  replacing('NSC', 'Did Not Sail the Course', AS_DNF),
+  // A5.2: the place after the boats entered; A5.3: after the boats that came
+  // to the starting area. buildCodeTable picks the base from the series.
+  replacing('DNF', 'Did Not Finish', { type: 'place_after', base: 'entries', plus: 1 }, { followsA5: true }),
+  replacing('RET', 'Retired', AS_DNF),
+  replacing('DSQ', 'Disqualified', AS_DNF),
+  replacing('DNE', 'Disqualification Not Excludable', AS_DNF, { discardable: false }),
+  replacing('UFD', 'U Flag Disqualification', AS_DNF),
+  // Rule 30.4: a black-flagged boat was in the triangle in the last minute
+  // before her start, so she came to the starting area and scores as DNF, the
+  // same as DSQ/UFD. A plain BFD is an ordinary disqualification and IS
+  // discardable. The only non-discardable variant is the niche case of a boat
+  // that sailed a restart after being black-flagged (scored DNE); that is not
+  // modelled here.
+  replacing('BFD', 'Black Flag Disqualification', AS_DNF),
   // ── Additive penalty codes (Phase 2) ───────────────────────────────────────
   {
     code: 'ZFP',
     name: 'Z Flag Penalty',
     builtIn: true,
+    kind: 'add',
     // Rule 30.2 (Z Flag Rule): 20% of the DNF score added to finish place (formula per 44.3(c)).
     // Applied automatically — no hearing required. No penaltyOverride (percentage is fixed by rule).
     pointsMethod: { type: 'additive_percentage', defaultPct: 20 },
     discardable: true,
     otherScoresUnchanged: true,   // A6.2: other boats keep their scores
+    cameToStart: true,
   },
   {
     code: 'SCP',
     name: 'Scoring Penalty',
     builtIn: true,
+    kind: 'add',
     // Rule 44.3(c): the points stated in the NoR or SIs, else 20% of DNF.
     // Finish.penaltyOverride can specify a different %, or — with
     // Finish.penaltyInPoints — the stated points (see penaltyPointsMethod).
     pointsMethod: { type: 'additive_percentage', defaultPct: 20 },
     discardable: true,
     otherScoresUnchanged: true,
+    cameToStart: true,
   },
   {
     code: 'DPI',
     name: 'Discretionary Points Increase',
     builtIn: true,
+    kind: 'add',
     // PC-specified points added; Finish.penaltyOverride is the stated amount.
     pointsMethod: { type: 'additive_stated' },
     discardable: true,
     otherScoresUnchanged: true,
+    cameToStart: true,
   },
   // ── Redress (Phase 3) ──────────────────────────────────────────────────────
   {
     code: 'RDG',
     name: 'Redress Given',
     builtIn: true,
+    kind: 'redress',
     // Score is replaced by an A9 average calculated dynamically by calculateStandings().
     // The placeholder score assigned by calculateRaceScores() is always overwritten.
     pointsMethod: { type: 'redress' },
     discardable: true,
     otherScoresUnchanged: false,
+    cameToStart: true,
   },
 ];
 
 const BUILT_IN_MAP = new Map(BUILT_IN_CODES.map((d) => [d.code, d]));
 
+/** The built-in codes a series may change: those whose points the rules fix
+ *  and a sailing instruction may change. SCP, DPI and RDG are decided for
+ *  each boat when they are applied. */
+export const CHANGEABLE_BUILT_IN_CODES: readonly string[] = [
+  'DNC', 'DNS', 'OCS', 'NSC', 'DNF', 'RET', 'DSQ', 'DNE', 'UFD', 'BFD', 'ZFP',
+];
+
 /**
- * Look up a scoring code definition. Custom codes (Phase 4) can be passed as
- * the second argument; they take precedence over built-in codes.
+ * A code as a series writes it: a change to a built-in code (same `code`),
+ * or a code of its own. Stored on the series; `buildCodeTable` turns it into
+ * a definition.
  */
-export function getCodeDefinition(
-  code: string,
-  customCodes: readonly ScoringCodeDefinition[] = [],
-): ScoringCodeDefinition | undefined {
-  for (const def of customCodes) {
-    if (def.code === code) return def;
+export interface SeriesScoringCode {
+  code: string;
+  /** Printed under the results. Required for a series' own code; a changed
+   *  built-in keeps its RRS name. */
+  description?: string;
+  /** 'replace' or 'add'; a changed built-in keeps its own kind. */
+  kind: 'replace' | 'add';
+  rule: SeriesCodeRule;
+  /** A replacing code's points are never more than DNF's. */
+  capAtDnf?: boolean;
+  discardable: boolean;
+}
+
+export type SeriesCodeRule =
+  | { type: 'placeAfter'; base: PlaceBase; plus: number }
+  | { type: 'sameAs'; code: string }
+  | { type: 'fixedPoints'; points: number }
+  | { type: 'addPoints'; points: number }
+  | { type: 'addPercent'; percent: number };
+
+function methodOf(rule: SeriesCodeRule): PointsMethod {
+  switch (rule.type) {
+    case 'placeAfter': return { type: 'place_after', base: rule.base, plus: rule.plus };
+    case 'sameAs': return { type: 'same_as', code: rule.code };
+    case 'fixedPoints': return { type: 'fixed_points', points: rule.points };
+    case 'addPoints': return { type: 'additive_points', points: rule.points };
+    case 'addPercent': return { type: 'additive_percentage', defaultPct: rule.percent };
   }
+}
+
+/** The counts a race's code points are worked out from, for one fleet. */
+export interface RaceCounts {
+  /** Boats entered — the A5.2 base. */
+  entries: number;
+  /** Boats that came to the starting area — the A5.3 base. */
+  startingArea: number;
+  /** Boats that finished (took a place). */
+  finishers: number;
+}
+
+/**
+ * The codes a series scores with: the built-ins under its A5 rule, its
+ * changes to them, and its own codes. Built once per scoring run.
+ */
+export interface ScoringCodeTable {
+  /** The series' A5 rule, which DNF's base follows unless DNF is changed. */
+  readonly dnfScoring: DnfScoring;
+  /** The series' changes and own codes, as stored. */
+  readonly seriesCodes: readonly SeriesScoringCode[];
+  definition(code: string): ScoringCodeDefinition | undefined;
+  /** Points for a replacing code in a race, or undefined for a code that
+   *  adds, a redress code or an unknown one. */
+  replacePoints(code: string, counts: RaceCounts): number | undefined;
+  /** What DNF scores in the race: the cap for additive penalties and for
+   *  codes capped at DNF. */
+  dnfPoints(counts: RaceCounts): number;
+  /** Whether a boat scored with the code came to the starting area. */
+  cameToStart(code: string): boolean;
+  /** Whether a score with the code may be discarded. */
+  discardable(code: string): boolean;
+}
+
+/** How deep "the same as" may chain before it is taken for a loop. */
+const MAX_SAME_AS_DEPTH = 16;
+
+/**
+ * Merge the built-ins, the series' A5 rule and the series' own codes into
+ * the table the engine scores with. A series code with a built-in's name
+ * changes that code's points and discardability, keeping its kind, name and
+ * came-to-start answer; any other is a code of the series' own.
+ */
+export function buildCodeTable(
+  dnfScoring: DnfScoring = 'seriesEntries',
+  seriesCodes: readonly SeriesScoringCode[] = [],
+): ScoringCodeTable {
+  const defs = new Map<string, ScoringCodeDefinition>();
+  for (const def of BUILT_IN_CODES) {
+    if (def.followsA5) {
+      defs.set(def.code, {
+        ...def,
+        pointsMethod: { type: 'place_after', base: dnfScoring === 'seriesEntries' ? 'entries' : 'startingArea', plus: 1 },
+      });
+    } else if (def.code === 'DNC' && dnfScoring === 'startingAreaInclDnc') {
+      // DBSC SI A13.2 changes A5.3 so a boat that did not come to the start is
+      // scored from the number that came: DNC scores the same as DNF.
+      defs.set(def.code, { ...def, pointsMethod: AS_DNF });
+    } else {
+      defs.set(def.code, def);
+    }
+  }
+  const ownCodes: ScoringCodeDefinition[] = [];
+  for (const sc of seriesCodes) {
+    const builtIn = BUILT_IN_MAP.get(sc.code);
+    if (builtIn) {
+      defs.set(sc.code, {
+        ...builtIn,
+        followsA5: false,
+        pointsMethod: methodOf(sc.rule),
+        discardable: sc.discardable,
+        capAtDnf: sc.capAtDnf,
+      });
+    } else {
+      const def: ScoringCodeDefinition = {
+        code: sc.code,
+        name: sc.description ?? sc.code,
+        description: sc.description,
+        builtIn: false,
+        kind: sc.kind,
+        pointsMethod: methodOf(sc.rule),
+        discardable: sc.discardable,
+        otherScoresUnchanged: sc.kind === 'add',
+        cameToStart: true,
+        capAtDnf: sc.capAtDnf,
+      };
+      defs.set(sc.code, def);
+      ownCodes.push(def);
+    }
+  }
+  // A series code that scores the same as another takes that code's answer
+  // to whether the boat came to the starting area: one scored as DNC did not.
+  for (const def of ownCodes) {
+    let target = def;
+    for (let depth = 0; depth < MAX_SAME_AS_DEPTH && target.pointsMethod.type === 'same_as'; depth++) {
+      const next = defs.get(target.pointsMethod.code);
+      if (!next) break;
+      target = next;
+    }
+    def.cameToStart = target.cameToStart;
+  }
+
+  const rawPoints = (code: string, counts: RaceCounts, depth: number): number | undefined => {
+    const def = defs.get(code);
+    if (!def || def.kind !== 'replace' || depth > MAX_SAME_AS_DEPTH) return undefined;
+    let points: number | undefined;
+    const m = def.pointsMethod;
+    if (m.type === 'place_after') points = counts[m.base] + m.plus;
+    else if (m.type === 'fixed_points') points = m.points;
+    else if (m.type === 'same_as') points = rawPoints(m.code, counts, depth + 1);
+    if (points === undefined) return undefined;
+    if (def.capAtDnf && code !== 'DNF') {
+      const dnf = rawPoints('DNF', counts, depth + 1);
+      if (dnf !== undefined) points = Math.min(points, dnf);
+    }
+    return points;
+  };
+
+  return {
+    dnfScoring,
+    seriesCodes,
+    definition: (code) => defs.get(code),
+    replacePoints: (code, counts) => rawPoints(code, counts, 0),
+    // Unreachable fallback: DNF is always a replacing built-in, and a loop
+    // through "the same as" is refused when the series' codes are saved.
+    dnfPoints: (counts) => rawPoints('DNF', counts, 0) ?? counts.entries + 1,
+    cameToStart: (code) => defs.get(code)?.cameToStart ?? true,
+    discardable: (code) => defs.get(code)?.discardable ?? true,
+  };
+}
+
+/** The engine accepts a series' A5 rule alone (the built-ins under it), or a
+ *  full table. */
+export type CodeScoring = DnfScoring | ScoringCodeTable;
+
+export function codeTableOf(scoring: CodeScoring | undefined): ScoringCodeTable {
+  if (scoring === undefined) return buildCodeTable();
+  return typeof scoring === 'string' ? buildCodeTable(scoring) : scoring;
+}
+
+/**
+ * Look up a built-in scoring code definition, as the RRS defines it (DNF on
+ * the A5.2 base). Scoring a series reads its table instead.
+ */
+export function getCodeDefinition(code: string): ScoringCodeDefinition | undefined {
   return BUILT_IN_MAP.get(code);
 }
 
@@ -199,11 +358,11 @@ export function getCodeDefinition(
  */
 export function penaltyPointsMethod(
   finish: { penaltyCode: string | null; penaltyInPoints?: boolean },
-  customCodes: readonly ScoringCodeDefinition[] = [],
+  codes?: ScoringCodeTable,
 ): PointsMethod | undefined {
   if (!finish.penaltyCode) return undefined;
   if (finish.penaltyCode === 'SCP' && finish.penaltyInPoints) return { type: 'additive_stated' };
-  return getCodeDefinition(finish.penaltyCode, customCodes)?.pointsMethod;
+  return codeTableOf(codes).definition(finish.penaltyCode)?.pointsMethod;
 }
 
 /** Whether a finish's penalty is a stated number of points (a DPI, or an SCP

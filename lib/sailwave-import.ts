@@ -832,7 +832,7 @@ function describeDnfChoice(choice: 'seriesEntries' | 'startingArea' | null): str
 }
 
 /** The Sailwave codes we map to a Sail Scoring code scored by a fleet-count base
- *  (`fixed_penalty`), paired with that code's engine base. These are the codes
+ *  (a replacing code), paired with that code's engine base. These are the codes
  *  whose Sailwave configuration must line up with one of our A5.2/A5.3 modes.
  *  Codes our engine scores as additive penalties or redress (SCP/ZFP/DPI/RDG)
  *  are excluded — their Sailwave method is recognised but handled separately.
@@ -840,8 +840,12 @@ function describeDnfChoice(choice: 'seriesEntries' | 'startingArea' | null): str
  *  (e.g. BFD is a starters-base code, not entries). */
 const SAILWAVE_FIXED_PENALTY_CODES: ReadonlyArray<{ sailwave: string; base: 'entries' | 'starters' }> =
   Object.entries(SAILWAVE_TO_SAILSCORING_CODE).flatMap(([sailwave, sc]) => {
-    const method = getCodeDefinition(sc)?.pointsMethod;
-    return method?.type === 'fixed_penalty' ? [{ sailwave, base: method.penaltyBase }] : [];
+    const def = getCodeDefinition(sc);
+    if (!def || def.kind !== 'replace') return [];
+    // DNF follows the A5 rule, and the codes scored as DNF with it; DNC keeps
+    // the boats entered.
+    const followsDnf = def.followsA5 || (def.pointsMethod.type === 'same_as' && def.pointsMethod.code === 'DNF');
+    return [{ sailwave, base: followsDnf ? 'starters' as const : 'entries' as const }];
   });
 
 /** A warning that the Sailwave scoring-code configuration can't be faithfully
