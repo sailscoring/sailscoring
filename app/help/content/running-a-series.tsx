@@ -122,7 +122,9 @@ export default function RunningASeries() {
           controlled by the <strong className="text-foreground">Competitor fields</strong> card on
           the <strong className="text-foreground">Settings</strong> tab. Enable{' '}
           <em>Class</em> for PY fleets with mixed classes (Laser, Firefly, Mirror) to show the boat
-          class alongside each entry. Enable{' '}
+          class alongside each entry. Published results drop the column from any fleet whose
+          boats are all one class, so a series that also races ILCA or Melges 15 fleets doesn’t
+          repeat the class down their pages. Enable{' '}
           <em>Crew</em> for classes that sail with crew.
         </p>
         <p>

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+  boatClassDistinguishes,
   ALL_COMPETITOR_FIELDS,
   COMPETITOR_FIELD_LABELS,
   DEFAULT_PRIMARY_PERSON_LABEL,
@@ -475,5 +476,25 @@ describe('addAlternativeSailNumber', () => {
 
   it('records nothing for a blank entry', () => {
     expect(addAlternativeSailNumber({ sailNumber: 'IRL 1234' }, '   ')).toBeNull();
+  });
+});
+
+describe('boatClassDistinguishes', () => {
+  it('is false for a one-design list, however its values are spaced', () => {
+    expect(boatClassDistinguishes(['ILCA 7', 'ILCA 7 ', ' ILCA 7'])).toBe(false);
+  });
+
+  it('is false when no boat has a class, and for an empty list', () => {
+    expect(boatClassDistinguishes([undefined, '', '  '])).toBe(false);
+    expect(boatClassDistinguishes([])).toBe(false);
+  });
+
+  it('is true when the classes differ', () => {
+    expect(boatClassDistinguishes(['Finn', 'RS Aero 6', 'Finn'])).toBe(true);
+  });
+
+  it('counts a boat with no class as different from one with a class', () => {
+    expect(boatClassDistinguishes(['Finn', undefined])).toBe(true);
+    expect(boatClassDistinguishes(['', 'Finn'])).toBe(true);
   });
 });

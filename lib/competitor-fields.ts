@@ -173,6 +173,26 @@ export const ALL_COMPETITOR_FIELDS: readonly CompetitorFieldKey[] = [
   'subdivision',
 ] as const;
 
+/**
+ * Whether a published Class column would tell the reader anything about the
+ * boats it lists: only when they are not all the same class. A one-design
+ * fleet's table says "ILCA 7" in its heading, so a column repeating it down
+ * the page is noise; a column with nothing in it is worse. The series turns
+ * the field on for the fleets where the class varies, typically a PY fleet,
+ * and every other fleet's table drops it by this test. A boat with no class
+ * recorded counts as different from one with a class, so a mixed table shows
+ * the gap rather than hiding the column over it.
+ */
+export function boatClassDistinguishes(classes: Iterable<string | undefined>): boolean {
+  let first: string | undefined;
+  for (const raw of classes) {
+    const value = raw?.trim() ?? '';
+    if (first === undefined) first = value;
+    else if (value !== first) return true;
+  }
+  return false;
+}
+
 /** Human-readable labels for each configurable field. For `subdivision` this is
  *  only a fallback used when no axis is configured: the effective headers are
  *  per-series and come from `Series.subdivisionAxes` (see `subdivisionAxisLabel`). */

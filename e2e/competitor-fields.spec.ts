@@ -289,7 +289,7 @@ test('two clubs: Add club rows, both in the column, both in the export', async (
   expect(html).toContain('<td>HYC<br>RIYC</td>');
 });
 
-test('class field shows Class column and exports in results', async ({ page }) => {
+test('class field shows Class column and exports it when the classes differ', async ({ page }) => {
   await createSeriesQuick(page, { name: 'PY Handicap' });
 
   // Enable Class in Settings → Competitor fields
@@ -310,11 +310,22 @@ test('class field shows Class column and exports in results', async ({ page }) =
   await expect(page.getByRole('columnheader', { name: 'Class', exact: true })).toBeVisible();
   await expect(page.getByRole('cell', { name: 'Laser' })).toBeVisible();
 
+  // A second boat of another class: a published table shows the column only
+  // when its boats are not all one class.
+  await page.getByRole('button', { name: 'Add competitor' }).click();
+  await page.getByLabel('Sail number').fill('6');
+  await page.getByLabel('Competitor name').fill('Richard Tate');
+  await page.getByLabel('Class', { exact: true }).fill('Finn');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('cell', { name: 'Finn' })).toBeVisible();
+
   // Add a race and export HTML
   await page.getByRole('link', { name: 'Races' }).click();
   await page.getByRole('button', { name: 'Add race' }).click();
   await page.getByText('Race 1').click();
   await page.getByLabel('Sail number').fill('207112');
+  await page.getByRole('button', { name: 'Add' }).click();
+  await page.getByLabel('Sail number').fill('6');
   await page.getByRole('button', { name: 'Add' }).click();
   await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
 
@@ -324,8 +335,10 @@ test('class field shows Class column and exports in results', async ({ page }) =
   const fs = await import('node:fs');
   const html = fs.readFileSync(path, 'utf-8');
 
-  expect(html).toContain('<th>Class</th>');
-  expect(html).toContain('>Laser<');
+  // The summary table and the race table each carry the column and the class.
+  expect(html.split('<th>Class</th>').length - 1).toBe(2);
+  expect(html.split('<td>Laser</td>').length - 1).toBe(2);
+  expect(html.split('<td>Finn</td>').length - 1).toBe(2);
 });
 
 test('subdivisions: two axes through the form, standings, and export', async ({ page }) => {

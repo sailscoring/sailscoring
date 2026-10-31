@@ -24,6 +24,7 @@ import {
   TRACK_DATA_COLUMNS,
   type DocumentChrome,
 } from './results-renderer';
+import { boatClassDistinguishes } from './competitor-fields';
 import { CHAMPIONSHIP_PAGE, SCORING_NOTES_PAGE } from './publish-pages';
 import { formatConditions, hasConditions } from './race-conditions';
 import { formatOfficials, hasOfficials } from './race-officials';
@@ -188,7 +189,7 @@ function showNat(input: SplitFleetRenderInput): boolean {
 function showClass(input: SplitFleetRenderInput): boolean {
   return (
     (input.enabledCompetitorFields ?? []).includes('boatClass') &&
-    input.competitors.some((c) => c.boatClass?.trim())
+    boatClassDistinguishes(input.competitors.map((c) => c.boatClass))
   );
 }
 

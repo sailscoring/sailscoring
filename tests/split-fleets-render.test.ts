@@ -261,6 +261,14 @@ describe('renderSplitFleetStandingsPage', () => {
     expect(html).not.toContain('<th>Class</th>');
   });
 
+  it('drops the Class column when every boat is the same class', () => {
+    const input = renderInputFor('01-f1-ilca-continuous-carry.yaml');
+    for (const c of input.competitors) c.boatClass = 'ILCA 7';
+    input.enabledCompetitorFields = ['boatClass'];
+    const html = renderSplitFleetStandingsPage(input);
+    expect(html).not.toContain('<th>Class</th>');
+  });
+
   it('escapes user-controlled fields', () => {
     const input = renderInputFor('01-f1-ilca-continuous-carry.yaml');
     input.seriesName = '<script>alert(1)</script>';

@@ -22,6 +22,7 @@ import {
 } from './track-data';
 import {
   PRIMARY_PERSON_LABEL_TEXT,
+  boatClassDistinguishes,
   formatClubs,
   formatPrimaryNames,
   DEFAULT_PRIMARY_PERSON_LABEL,
@@ -563,7 +564,14 @@ function computeSectionView(data: SeriesResultsData): SectionView {
   const showEntryNumber = identifierShown('entryNumber', (r) => r.entryNumber);
   const showTallyNumber = identifierShown('tallyNumber', (r) => r.tallyNumber);
   const showBoatName = enabledCompetitorFields.includes('boatName');
-  const showBoatClass = enabledCompetitorFields.includes('boatClass');
+  // The Class column shows only when the boats in this section are not all
+  // one class: a one-design fleet's heading already names the boat.
+  const showBoatClass =
+    enabledCompetitorFields.includes('boatClass') &&
+    boatClassDistinguishes([
+      ...standings.map((s) => s.boatClass),
+      ...races.flatMap((r) => r.results.map((x) => x.boatClass)),
+    ]);
   const showHelm = enabledCompetitorFields.includes('helm') && !isFieldDisabledByPrimary('helm', primaryLabel);
   const showOwner = enabledCompetitorFields.includes('owner') && !isFieldDisabledByPrimary('owner', primaryLabel);
   const { pairCrew, showCrewColumn } = crewLayout(enabledCompetitorFields.includes('crewName'), showHelm);
@@ -1444,7 +1452,9 @@ export function renderCompetitorListHtml(
   const showEntryNumber = shown('entryNumber', (r) => r.entryNumber);
   const showTallyNumber = shown('tallyNumber', (r) => r.tallyNumber);
   const showBoatName = shown('boatName', (r) => r.boatName);
-  const showBoatClass = shown('boatClass', (r) => r.boatClass);
+  // Not "some entry fills it" but "the entries differ": a list of one class
+  // gains nothing from a column repeating it.
+  const showBoatClass = enabled.includes('boatClass') && boatClassDistinguishes(rows.map((r) => r.boatClass));
   const showHelm = !isFieldDisabledByPrimary('helm', primaryLabel) && shown('helm', (r) => r.helms);
   const { pairCrew, showCrewColumn } = crewLayout(shown('crewName', (r) => r.crewNames), showHelm);
   const showOwner = !isFieldDisabledByPrimary('owner', primaryLabel) && shown('owner', (r) => r.owners);

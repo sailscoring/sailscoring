@@ -877,6 +877,40 @@ describe('renderSeriesHtml', () => {
     });
   });
 
+  describe('class column', () => {
+    const withClass = (classes: [string, string]): SeriesResultsData => ({
+      ...MINIMAL,
+      enabledCompetitorFields: ['boatClass'],
+      standings: MINIMAL.standings.map((s, i) => ({ ...s, boatClass: classes[i] })),
+      races: MINIMAL.races.map((r) => ({
+        ...r,
+        results: r.results.map((res) => ({ ...res, boatClass: classes[res.sailNumber === '42' ? 0 : 1] })),
+      })),
+    });
+
+    it('shows the column in every table when the boats are of different classes', () => {
+      const html = renderSeriesHtml(withClass(['Finn', 'RS Aero 6']));
+      // Summary table + two race tables.
+      expect(html.split('<th>Class</th>').length - 1).toBe(3);
+      expect(html).toContain('<td>RS Aero 6</td>');
+    });
+
+    it('drops the column when every boat is the same class', () => {
+      const html = renderSeriesHtml(withClass(['ILCA 7', 'ILCA 7']));
+      expect(html).not.toContain('<th>Class</th>');
+      expect(html).not.toContain('<td>ILCA 7</td>');
+    });
+
+    it('decides per fleet on a page carrying several', () => {
+      const html = renderCombinedSeriesHtml([
+        { ...withClass(['Finn', 'RS Aero 6']), fleetName: 'PY Fleet' },
+        { ...withClass(['ILCA 7', 'ILCA 7']), fleetName: 'ILCA 7' },
+      ], { pageName: 'ILCA and PY' });
+      expect(html.split('<th>Class</th>').length - 1).toBe(3);
+      expect(html).not.toContain('<td>ILCA 7</td>');
+    });
+  });
+
   describe('club column', () => {
     // Club appears in both the summary and per-race tables, so set it on
     // standings and race results alike.
@@ -2246,6 +2280,23 @@ describe('renderCompetitorListHtml', () => {
     expect(html).toContain('<th>Tally</th>');
     expect(html).toContain('<td>T0001</td>');
     expect(html).toContain('<th>Club</th>');
+  });
+
+  it('shows the Class column only when the entries are not all one class', () => {
+    const opts = { enabledCompetitorFields: ['boatClass'] as CompetitorFieldKey[], multiFleet: false };
+    const mixed = renderCompetitorListHtml(
+      chrome,
+      flat([row({ boatClass: 'Finn' }), row({ sailNumber: 'IRL 99', boatClass: '49er' })]),
+      opts,
+    );
+    expect(mixed).toContain('<th>Class</th>');
+    expect(mixed).toContain('<td>49er</td>');
+    const oneDesign = renderCompetitorListHtml(
+      chrome,
+      flat([row({ boatClass: 'Melges 15' }), row({ sailNumber: 'IRL 806', boatClass: 'Melges 15' })]),
+      opts,
+    );
+    expect(oneDesign).not.toContain('<th>Class</th>');
   });
 
   it('suppresses an enabled field no entry fills', () => {

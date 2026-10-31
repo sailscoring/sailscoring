@@ -502,7 +502,8 @@ export default function Publishing() {
           <p>
             The columns are whichever competitor fields your series has enabled — nationality,
             club, tally number, division, and the rest — and any field no entry fills is left out
-            rather than published as an empty column.
+            rather than published as an empty column. Class is left out too when every entry is
+            the same class.
           </p>
           <HelpShot
             src="/help/shots/published-competitor-list.webp"
