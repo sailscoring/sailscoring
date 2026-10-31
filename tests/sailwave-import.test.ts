@@ -101,7 +101,7 @@ describe('parseSailwaveBlw', () => {
     ]));
     const system = raw['scoring-systems']?.['67'];
     expect(system?.scrdiscardlist).toBe('0,0,1');
-    expect(system?.['scoring-codes']?.DNF).toEqual({ method: 'Boats in series +', value: '1' });
+    expect(system?.['scoring-codes']?.DNF).toEqual({ method: 'Boats in series +', value: '1', discardable: 'Yes', description: 'desc' });
   });
 
   it('decodes windows-1252 helm names (Sailwave saves on Windows)', () => {
@@ -355,6 +355,29 @@ describe('analyzeSailwaveScoring', () => {
     // Children follow the root — the per-fleet mechanism is exercised without a
     // genuine divergence, so no per-fleet warning fires.
     expect(analysis.warnings.some((w) => w.kind === 'perFleet')).toBe(false);
+  });
+
+  it('carries the Leinsters finishers-based config as the series’ own scoring codes', () => {
+    const raw = loadFile(`${FIXTURES}/2026 ILCA Leinsters results.blw`);
+    const analysis = analyzeSailwaveScoring(raw, { carryCodes: true });
+    // DNF and DNC on the finishers; DNS to BFD score like DNF, as the RRS
+    // writes them, so they stay unchanged. Nothing is left to warn about.
+    expect(analysis.scoringCodes).toEqual([
+      { code: 'DNC', kind: 'replace', rule: { type: 'placeAfter', base: 'finishers', plus: 2 }, discardable: true },
+      { code: 'DNF', kind: 'replace', rule: { type: 'placeAfter', base: 'finishers', plus: 1 }, discardable: true },
+    ]);
+    expect(analysis.warnings).toEqual([]);
+    const file = buildSeriesFileFromSailwave(raw, { ...DEFAULT_OPTS, importScoringCodes: true });
+    expect(file.series.scoringCodes).toEqual(analysis.scoringCodes);
+    // Off, the import is what it was: the RRS codes and the warnings.
+    expect(buildSeriesFileFromSailwave(raw, DEFAULT_OPTS).series).not.toHaveProperty('scoringCodes');
+  });
+
+  it('carries a code of the file’s own only where a result uses it', () => {
+    const raw = loadFile(`${HYC}/2026 Tues Series 1.blw`);
+    // The template's DGM and DPI1 sit in every file and no result here uses
+    // them, so a standard club file comes across as the RRS codes.
+    expect(analyzeSailwaveScoring(raw, { carryCodes: true }).scoringCodes).toEqual([]);
   });
 
   it('produces no scoring warnings for the real HYC / NHC / PY fixtures', () => {

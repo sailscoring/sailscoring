@@ -25,7 +25,9 @@ import type {
   PrimaryPersonLabel,
   Prize,
   PrizeClause,
+  DnfScoring,
   ResultCode,
+  SeriesScoringCode,
   SubdivisionAxis,
 } from './types';
 import {
@@ -39,7 +41,15 @@ import {
   newSubdivisionAxis,
 } from './competitor-fields';
 import { splitPersonCell } from './csv-import';
-import { getCodeDefinition } from './scoring-codes';
+import { CHANGEABLE_BUILT_IN_CODES, getCodeDefinition, seriesCodeProblems } from './scoring-codes';
+import { rrsCode, sameScoring } from './scoring-codes-text';
+import {
+  ruleFromSailwave,
+  SAILWAVE_METHOD_FINISHERS_PLUS,
+  SAILWAVE_METHOD_RACE_PLUS,
+  SAILWAVE_METHOD_SCORE_LIKE,
+  SAILWAVE_METHOD_SERIES_PLUS,
+} from './sailwave-codes';
 import { lookupAlias } from './nationality';
 
 // ---- Raw Sailwave shape ----
@@ -104,7 +114,7 @@ export interface SailwaveResultRaw {
 }
 
 export interface SailwaveScoringSystemRaw {
-  'scoring-codes'?: Record<string, { method?: string; value?: string }>;
+  'scoring-codes'?: Record<string, SailwaveCodeRaw>;
   /** CSV of cumulative discard counts indexed by races-sailed − 1, e.g.
    *  `"0,0,0,1,1,1,1,2,..."`. Lives on the root scoring system that
    *  `globals.serscoringhandle` points at; per-fleet child systems set
@@ -178,10 +188,6 @@ const VALID_SCORING_SYSTEMS: ReadonlySet<ScoringSystem> = new Set([
   'scratch', 'irc', 'py', 'nhc', 'echo', 'tcf',
 ]);
 
-const SAILWAVE_METHOD_SERIES_PLUS = 'Boats in series +';
-const SAILWAVE_METHOD_RACE_PLUS = 'Boats in race +';
-const SAILWAVE_METHOD_FINISHERS_PLUS = 'Finishers +';
-const SAILWAVE_METHOD_SCORE_LIKE = 'Score like';
 
 /** Sailwave rrestyp values we recognise:
  *    "0" = no result entered                  → skip
@@ -230,6 +236,15 @@ const SAILWAVE_TO_SAILSCORING_CODE: Record<string, ResultCode> = {
  *  our engine doesn't model, so recomputing would quietly change the score. */
 const SAILWAVE_STATED_REDRESS_CODES = new Set(['OOD']);
 
+/** One row of a Sailwave scoring system's code table. */
+export interface SailwaveCodeRaw {
+  method?: string;
+  value?: string;
+  /** `Yes` / `No`. */
+  discardable?: string;
+  description?: string;
+}
+
 // ---- Error type ----
 
 export class SailwaveImportError extends Error {
@@ -277,7 +292,7 @@ export function parseSailwaveBlw(bytes: ArrayBuffer): SailwaveRaw {
   const raceStarts: Record<string, string[]> = {};
   const results: Record<string, SailwaveResultRaw> = {};
   const systemFields: Record<string, Record<string, string>> = {};
-  const systemCodes: Record<string, Record<string, { method?: string; value?: string }>> = {};
+  const systemCodes: Record<string, Record<string, SailwaveCodeRaw>> = {};
 
   let columnSeq = 0;
 
@@ -298,14 +313,20 @@ export function parseSailwaveBlw(bytes: ArrayBuffer): SailwaveRaw {
       continue;
     }
     if (key === 'scrcode') {
-      // Pipe-delimited: `code|method|value|...|systemHandle(idx 14)|...`. The
-      // builder only reads method + value (for A5.2/A5.3 DNF inference); the
-      // rest of the row is carried by Sailwave but unused here.
+      // Pipe-delimited: `code|method|value|discardable|…|systemHandle(idx 14)|
+      // |description`. The builder reads the method and value (for the A5
+      // inference and the series' own codes), whether the code can be
+      // discarded, and its description.
       const parts = value.split('|');
       const code = (parts[0] ?? '').trim();
       const handle = (parts[14] ?? '').trim();
       if (code && handle) {
-        (systemCodes[handle] ??= {})[code] = { method: parts[1] ?? '', value: parts[2] ?? '' };
+        (systemCodes[handle] ??= {})[code] = {
+          method: parts[1] ?? '',
+          value: parts[2] ?? '',
+          discardable: parts[3] ?? '',
+          description: parts[16] ?? '',
+        };
       }
       continue;
     }
@@ -620,9 +641,15 @@ export interface SailwavePreview {
    *  Empty when the config is fully representable. The import still proceeds
    *  with the closest mode; the wizard surfaces these so the scorer knows. */
   scoringWarnings: SailwaveScoringWarning[];
+  /** With `carryCodes`: the codes the import will give the series as its own
+   *  scoring codes, for the wizard to list. */
+  scoringCodes?: SeriesScoringCode[];
 }
 
-export function inspectSailwave(raw: SailwaveRaw): SailwavePreview {
+export function inspectSailwave(
+  raw: SailwaveRaw,
+  opts?: { carryCodes?: boolean },
+): SailwavePreview {
   const globals = raw.globals ?? {};
   const comps = raw.competitors ?? {};
   const races = raw.races ?? {};
@@ -659,7 +686,7 @@ export function inspectSailwave(raw: SailwaveRaw): SailwavePreview {
   });
 
   const subdivisionAxisSources = resolveSubdivisionAxes(comps, parseSailwaveColumns(raw));
-  const scoring = analyzeSailwaveScoring(raw);
+  const scoring = analyzeSailwaveScoring(raw, { carryCodes: opts?.carryCodes });
   const prizeResolution = resolveSailwavePrizes(
     raw.prizes ?? [],
     parseSailwaveColumns(raw),
@@ -688,6 +715,7 @@ export function inspectSailwave(raw: SailwaveRaw): SailwavePreview {
     detectedPrizeCount: prizeResolution.specs.length,
     prizeWarnings: prizeResolution.warnings,
     scoringWarnings: scoring.warnings,
+    ...(scoring.scoringCodes ? { scoringCodes: scoring.scoringCodes } : {}),
   };
 }
 
@@ -873,6 +901,102 @@ export interface SailwaveScoringAnalysis {
    *  config is missing/unrecognised (the caller then defaults to seriesEntries). */
   dnfScoring: 'seriesEntries' | 'startingArea' | null;
   warnings: SailwaveScoringWarning[];
+  /** With `carryCodes`: the file's codes as the series' own scoring codes —
+   *  its changes to the RRS codes, and its own codes that a result uses. A
+   *  code carried this way raises no warning. */
+  scoringCodes?: SeriesScoringCode[];
+}
+
+/**
+ * A Sailwave file's scoring codes as the series' own (custom scoring codes),
+ * read off the root scoring system against the series' A5 rule:
+ *
+ *  - an RRS code Sailwave scores differently becomes a changed code — DNF on
+ *    the finishers + 1, DNC "score like DNF" — and one it scores as the RRS
+ *    does is left alone;
+ *  - a code of the file's own becomes one of the series', but only where a
+ *    result uses it: Sailwave's template carries DGM and DPI1 in every file,
+ *    and carrying them would mark every import as changed.
+ *
+ * "Score like" chains read as the RRS writes them: DNE "score like DSQ", where
+ * DSQ scores like DNF, is the same as DNF. A method no series code can hold
+ * (an average, points set by hand) is not carried, and keeps its warning.
+ * Returns the codes, and the Sailwave codes faithfully represented.
+ */
+export function seriesCodesFromSailwave(
+  raw: SailwaveRaw,
+  dnfScoring: DnfScoring,
+): { codes: SeriesScoringCode[]; represented: Set<string> } {
+  const rootHandle = raw.globals?.serscoringhandle;
+  const rootCodes = (rootHandle && raw['scoring-systems']?.[rootHandle]?.['scoring-codes']) || {};
+  const used = new Set(
+    Object.values(raw.results ?? {})
+      .map((r) => (r.rcod ?? '').trim())
+      .filter(Boolean),
+  );
+  // Our name for a Sailwave code: the RRS code it maps to, its own name for
+  // a code of its own, or null for one a series doesn't hold (redress, SCP
+  // and DPI, decided for each boat).
+  const ourName = (sw: string): string | null => {
+    const up = sw.trim().toUpperCase();
+    const mapped = SAILWAVE_TO_SAILSCORING_CODE[up];
+    if (mapped) return mapped === 'RDG' ? null : mapped;
+    if (up === 'ZFP') return 'ZFP';
+    if (up === 'SCP' || up === 'DPI') return null;
+    return sw.trim();
+  };
+  const endsAtDnf = (sw: string, seen = new Set<string>()): boolean => {
+    if (seen.has(sw)) return false;
+    seen.add(sw);
+    if (ourName(sw) === 'DNF') return true;
+    const entry = rootCodes[sw];
+    return entry?.method === SAILWAVE_METHOD_SCORE_LIKE ? endsAtDnf((entry.value ?? '').trim(), seen) : false;
+  };
+
+  const codes: SeriesScoringCode[] = [];
+  const swByCode = new Map<string, string>();
+  const represented = new Set<string>();
+  for (const [sw, entry] of Object.entries(rootCodes)) {
+    const name = ourName(sw);
+    if (!name) continue;
+    // RAF and RET are both our RET: RET's row speaks for it where both exist.
+    if (sw.toUpperCase() === 'RAF' && 'RET' in rootCodes) continue;
+    const parsed = ruleFromSailwave(entry.method ?? '', entry.value ?? '');
+    if (!parsed) continue;
+    let rule = parsed.rule;
+    if (rule.type === 'sameAs') {
+      const target = rule.code;
+      const targetName = ourName(target);
+      if (!targetName) continue;
+      rule = { type: 'sameAs', code: endsAtDnf(target) ? 'DNF' : targetName };
+    }
+    const discardable = (entry.discardable ?? '').trim() !== 'No';
+    const builtIn = getCodeDefinition(name);
+    if (builtIn) {
+      if (!CHANGEABLE_BUILT_IN_CODES.includes(name) || builtIn.kind !== parsed.kind) continue;
+      if (name === 'ZFP' && rule.type !== 'addPercent') continue;
+      const candidate: SeriesScoringCode = { code: name, kind: parsed.kind, rule, discardable };
+      represented.add(sw);
+      if (sameScoring(candidate, rrsCode(name, dnfScoring))) continue;
+      codes.push(candidate);
+      swByCode.set(name, sw);
+    } else if (used.has(sw)) {
+      codes.push({ code: name, description: entry.description?.trim() || name, kind: parsed.kind, rule, discardable });
+      swByCode.set(name, sw);
+      represented.add(sw);
+    }
+  }
+
+  // Keep a table the series can hold: drop any code it would refuse, and
+  // again for a "same as" left pointing at a dropped one.
+  let table = codes;
+  for (let round = 0; round < 5; round++) {
+    const refused = new Set(seriesCodeProblems(table).map((p) => p.code));
+    if (refused.size === 0) break;
+    table = table.filter((c) => !refused.has(c.code));
+    for (const code of refused) represented.delete(swByCode.get(code) ?? code);
+  }
+  return { codes: table, represented };
 }
 
 /** Analyse one system's scoring codes: which A5.2/A5.3 choices its
@@ -881,6 +1005,7 @@ export interface SailwaveScoringAnalysis {
  *  codes collapse into one line rather than nine near-identical ones. */
 function analyzeSystemCodes(
   codes: Record<string, { method?: string; value?: string }>,
+  represented: ReadonlySet<string> = new Set(),
 ): { choices: Set<'seriesEntries' | 'startingArea'>; warnings: SailwaveScoringWarning[] } {
   const choices = new Set<'seriesEntries' | 'startingArea'>();
   const groups = new Map<
@@ -891,6 +1016,12 @@ function analyzeSystemCodes(
   for (const { sailwave, base: engineBase } of SAILWAVE_FIXED_PENALTY_CODES) {
     const resolved = resolveSailwaveCode(codes, sailwave);
     if (!resolved) continue;
+    // Carried into the series' own scoring codes: nothing is lost.
+    if (represented.has(sailwave)) {
+      const choice = engineBase === 'starters' ? baseToDnfChoice(classifySailwaveMethod(resolved)) : null;
+      if (choice) choices.add(choice);
+      continue;
+    }
     const base = classifySailwaveMethod(resolved);
 
     const representable = engineBase === 'entries'
@@ -947,7 +1078,17 @@ function codesDifferFromRoot(
  *  and any per-fleet child systems — reporting the closest representable
  *  series-wide DNF base plus warnings for anything our engine can't reproduce.
  *  Pure inspection: it never runs the scoring engine or blocks the import. */
-export function analyzeSailwaveScoring(raw: SailwaveRaw): SailwaveScoringAnalysis {
+export function analyzeSailwaveScoring(
+  raw: SailwaveRaw,
+  opts?: {
+    /** Carry the file's codes into the series' own scoring codes (the
+     *  `custom-scoring-codes` feature), warning only about what can't be. */
+    carryCodes?: boolean;
+    /** The A5 rule the series will be on, where the caller overrides the
+     *  file's; the carried codes are read against it. */
+    dnfScoring?: DnfScoring;
+  },
+): SailwaveScoringAnalysis {
   const globals = raw.globals ?? {};
   const rootHandle = globals.serscoringhandle;
   const systems = raw['scoring-systems'] ?? {};
@@ -963,7 +1104,16 @@ export function analyzeSailwaveScoring(raw: SailwaveRaw): SailwaveScoringAnalysi
   const dnfResolved = resolveSailwaveCode(rootCodes, 'DNF');
   const dnfChoice = dnfResolved ? baseToDnfChoice(classifySailwaveMethod(dnfResolved)) : null;
 
-  const { choices, warnings: codeWarnings } = analyzeSystemCodes(rootCodes);
+  const firstPass = analyzeSystemCodes(rootCodes);
+  const inferred = dnfChoice ?? [...firstPass.choices][0] ?? null;
+  // The file's codes as the series' own, read against the rule the series
+  // will be on; whatever they represent warns no more.
+  const carried = opts?.carryCodes
+    ? seriesCodesFromSailwave(raw, opts.dnfScoring ?? inferred ?? 'seriesEntries')
+    : null;
+  const { choices, warnings: codeWarnings } = carried
+    ? analyzeSystemCodes(rootCodes, carried.represented)
+    : firstPass;
   warnings.push(...codeWarnings);
 
   const chosen = dnfChoice ?? [...choices][0] ?? null;
@@ -998,7 +1148,7 @@ export function analyzeSailwaveScoring(raw: SailwaveRaw): SailwaveScoringAnalysi
     });
   }
 
-  return { dnfScoring: chosen, warnings };
+  return { dnfScoring: chosen, warnings, ...(carried ? { scoringCodes: carried.codes } : {}) };
 }
 
 // ---- Discard profile detection ----
@@ -1263,6 +1413,9 @@ export interface SailwaveImportOptions {
    *  uses inspectSailwave's inference, defaulting to seriesEntries (A5.2) if
    *  Sailwave's config is missing/unrecognised. */
   dnfScoring?: 'seriesEntries' | 'startingArea';
+  /** Carry the file's scoring codes into the series' own (custom scoring
+   *  codes): see `seriesCodesFromSailwave`. */
+  importScoringCodes?: boolean;
 }
 
 // ---- Build (the main conversion) ----
@@ -1344,6 +1497,11 @@ export function buildSeriesFileFromSailwave(
   const yearHint = Number.parseInt(defaultDate.slice(0, 4), 10) || undefined;
 
   const dnfScoring = resolveDnfScoring(raw, opts);
+  const scoringCodes = opts.importScoringCodes ? seriesCodesFromSailwave(raw, dnfScoring).codes : [];
+  // The file's own codes a result may carry, beside the RRS ones.
+  const ownResultCodes = new Set(
+    scoringCodes.filter((c) => c.kind === 'replace' && !getCodeDefinition(c.code)).map((c) => c.code),
+  );
 
   const { fleets, fleetIdByName, fleetSystemByName, baseToFleetIds } = buildFleets(
     rawComps, opts.fleetScoringOverrides, opts.includeScratchCompanions,
@@ -1374,7 +1532,7 @@ export function buildSeriesFileFromSailwave(
     const resolvedDate = parseSailwaveRaceDate(race.racedate, datespec, yearHint) ?? defaultDate;
     const starts = buildRaceStarts(race.starts ?? {}, fleetIdByName, baseToFleetIds);
     const finishes = opts.includeResults
-      ? buildRaceFinishes(resultsByRace[handle] ?? [], compIdByHandle)
+      ? buildRaceFinishes(resultsByRace[handle] ?? [], compIdByHandle, ownResultCodes)
       : [];
     built.push({
       id: cryptoUuid(),
@@ -1467,6 +1625,7 @@ export function buildSeriesFileFromSailwave(
       eventUrl: (globals.sereventwebsite ?? '').trim(),
       discardThresholds: parseDiscardThresholds(raw),
       dnfScoring,
+      ...(scoringCodes.length > 0 ? { scoringCodes } : {}),
       ftpHost: '',
       ftpPath: '',
       includeJsonExport: true,
@@ -1780,7 +1939,8 @@ function buildRaceStarts(
   return out;
 }
 
-function mapSailwaveCode(rcod: string | undefined): ResultCode {
+function mapSailwaveCode(rcod: string | undefined, ownCodes: ReadonlySet<string> = new Set()): ResultCode {
+  if (rcod && ownCodes.has(rcod.trim())) return rcod.trim();
   const trimmed = (rcod ?? '').trim().toUpperCase();
   const mapped = SAILWAVE_TO_SAILSCORING_CODE[trimmed];
   if (!mapped) {
@@ -1795,6 +1955,7 @@ function mapSailwaveCode(rcod: string | undefined): ResultCode {
 function buildRaceFinishes(
   resultsForRace: SailwaveResultRaw[],
   compIdByHandle: Map<string, string>,
+  ownCodes: ReadonlySet<string> = new Set(),
 ): FinishBuild[] {
   // Collapse primary+alias rows for the same physical boat — Sailwave
   // duplicates the rft/rcod across alias rows; keep the first one we see.
@@ -1862,7 +2023,7 @@ function buildRaceFinishes(
   });
 
   for (const { compId, raw } of coded) {
-    const code = mapSailwaveCode(raw.rcod);
+    const code = mapSailwaveCode(raw.rcod, ownCodes);
     // Treat DNC as implicit — Sailwave eagerly stamps every non-entered race
     // as an explicit DNC row, which on import would clutter Sailscoring's
     // race standings table with placeholder entries. Sailscoring's scoring

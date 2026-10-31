@@ -40,7 +40,7 @@ import {
   parseRaceSenseWorkbook,
   type RaceSenseWorkbook,
 } from '@/lib/racesense-workbook';
-import type { Finish, Fleet, RaceSenseLink } from '@/lib/types';
+import type { Finish, Fleet, RaceSenseLink, SeriesScoringCode } from '@/lib/types';
 
 const ACCEPT =
   '.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
@@ -147,12 +147,14 @@ export const RaceSenseImport = forwardRef<RaceSenseImportHandle, {
   fleets: Fleet[];
   competitors: Candidate[];
   finishes: Finish[] | undefined;
+  /** The series' own scoring codes: a finish marker may name one. */
+  seriesCodes?: readonly SeriesScoringCode[];
   /** `links` is the new RaceSense link list for each race whose list
    *  changes, imported or not. */
   onConfirm: (races: PlannedRace[], links: Map<string, RaceSenseLink[]>) => Promise<void> | void;
   trigger?: React.ReactNode;
 }>(function RaceSenseImport(
-  { seriesId, races, fleets, competitors, finishes, onConfirm, trigger },
+  { seriesId, races, fleets, competitors, finishes, seriesCodes, onConfirm, trigger },
   ref,
 ) {
   const [flow, setFlow] = useState<Flow>({ step: 'idle' });
@@ -208,7 +210,9 @@ export const RaceSenseImport = forwardRef<RaceSenseImportHandle, {
       setFlow({ step: 'fileError', message: parsed.message });
       return;
     }
-    const workbook = parseRaceSenseWorkbook(parsed.sheets);
+    const workbook = parseRaceSenseWorkbook(parsed.sheets, {
+      ownCodes: new Set((seriesCodes ?? []).filter((c) => c.kind === 'replace').map((c) => c.code)),
+    });
     if (workbook.races.length === 0) {
       setFlow({ step: 'fileError', message: NOT_RACESENSE });
       return;
@@ -266,8 +270,9 @@ export const RaceSenseImport = forwardRef<RaceSenseImportHandle, {
       finishes: finishes ?? [],
       offset,
       overrides,
+      seriesCodes,
     });
-  }, [flow, fleetId, offset, overrides, races, competitors, finishes]);
+  }, [flow, fleetId, offset, overrides, races, competitors, finishes, seriesCodes]);
 
   const selected = useMemo(() => {
     if (!plan) return [] as PlannedRace[];

@@ -276,6 +276,19 @@ describe('parseRaceSenseWorkbook', () => {
     }));
   });
 
+  it('reads a marker naming one of the series’ own codes, such as TLE', () => {
+    const w = parseRaceSenseWorkbook([raceSheet({
+      number: 1,
+      starters: [['1021', '', '', '', '1.0'], ['563', '', '', '', '1.0']],
+      finishes: [
+        ['1.', '1021', '', '', '14:20.450', '11:45:20.450', '14.6', '2.730'],
+        ['TLE', '563', '', '', '---', '---', '---', ''],
+      ],
+    })], { ownCodes: new Set(['TLE']) });
+    expect(w.races[0].finishes?.map((f) => [f.sailNumber, f.code])).toEqual([['1021', null], ['563', 'TLE']]);
+    expect(w.anomalies.some((a) => a.kind === 'unknown-position')).toBe(false);
+  });
+
   it('flags finish times that run backwards', () => {
     const w = parseRaceSenseWorkbook([raceSheet({
       number: 1,

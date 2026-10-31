@@ -150,6 +150,36 @@ describe('buildSailwaveBlw', () => {
     expect(a53).toContain('"scrcode","DNC|Boats in series +|1|');
   });
 
+  it('writes the series’ scoring codes, and reads them back', () => {
+    const original = importFixture(`${HYC}/2026 Sat Cruisers Series 1.blw`);
+    const tle = {
+      code: 'TLE', description: 'Time limit expired (SI 16.1)', kind: 'replace' as const,
+      rule: { type: 'placeAfter' as const, base: 'finishers' as const, plus: 1 }, discardable: true,
+    };
+    const bfd = { code: 'BFD', kind: 'replace' as const, rule: { type: 'sameAs' as const, code: 'DNF' }, discardable: false };
+    const race = original.races[0];
+    const coded = race.finishes.find((f) => f.resultCode === null && f.competitorId)!;
+    const modified: SeriesFile = {
+      ...original,
+      series: { ...original.series, scoringCodes: [tle, bfd] },
+      races: [
+        { ...race, finishes: race.finishes.map((f) => (f === coded ? { ...f, resultCode: 'TLE', sortOrder: null } : f)) },
+        ...original.races.slice(1),
+      ],
+    };
+    const { blw, warnings } = buildSailwaveBlw(modified);
+    expect(blw).toContain('"scrcode","BFD|Score like|DNF|No|');
+    expect(blw).toContain('"scrcode","TLE|Finishers +|1|Yes|');
+    expect(warnings.map((w) => w.code)).toEqual([]);
+
+    const back = buildSeriesFileFromSailwave(
+      parseSailwaveBlw(toArrayBuffer(encodeWindows1252(blw))),
+      { ...OPTS, importScoringCodes: true },
+    );
+    expect(back.series.scoringCodes).toEqual(expect.arrayContaining([tle, bfd]));
+    expect(back.races[0].finishes.some((f) => f.resultCode === 'TLE')).toBe(true);
+  });
+
   it('reports what Sailwave cannot carry instead of dropping it silently', () => {
     const original = importFixture(`${HYC}/2026 Sat Cruisers Series 1.blw`);
     const race = original.races[0];

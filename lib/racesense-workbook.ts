@@ -386,6 +386,9 @@ export function startStatusCode(
 interface Ctx {
   sheet: string;
   anomalies: RaceSenseAnomaly[];
+  /** The series' own codes that replace the result, read as finish markers
+   *  (a `TLE` where the series has one) rather than flagged. */
+  ownCodes?: ReadonlySet<string>;
 }
 
 function flag(
@@ -562,7 +565,7 @@ function parseFinishes(ctx: Ctx, rows: string[][], headerAt: number): RaceSenseF
     const asPosition = /^(\d+)\.?$/.exec(marker);
     if (asPosition) {
       position = Number(asPosition[1]);
-    } else if (marker in FINISH_CODES) {
+    } else if (marker in FINISH_CODES || ctx.ownCodes?.has(marker)) {
       code = marker;
     } else {
       flag(ctx, 'warning', 'unknown-position',
@@ -920,7 +923,10 @@ function checkSummary(
  * of the race it could read. Mid-regatta, a partial parse the scorer can see
  * around beats an exception.
  */
-export function parseRaceSenseWorkbook(sheets: WorkbookSheet[]): RaceSenseWorkbook {
+export function parseRaceSenseWorkbook(
+  sheets: WorkbookSheet[],
+  opts?: { ownCodes?: ReadonlySet<string> },
+): RaceSenseWorkbook {
   const anomalies: RaceSenseAnomaly[] = [];
   const races: RaceSenseRace[] = [];
   let summary: RaceSenseSummaryEntry[] | null = null;
@@ -944,7 +950,7 @@ export function parseRaceSenseWorkbook(sheets: WorkbookSheet[]): RaceSenseWorkbo
 
   for (const sheet of sheets) {
     if (sheet.rows.length === 0) continue;
-    const ctx: Ctx = { sheet: sheet.name, anomalies };
+    const ctx: Ctx = { sheet: sheet.name, anomalies, ...(opts?.ownCodes ? { ownCodes: opts.ownCodes } : {}) };
 
     if (sheet.name === SUMMARY_SHEET) {
       summary = parseSummarySheet(sheet, ctx);

@@ -982,6 +982,7 @@ export default function RacesPage({
               fleets={fleets ?? []}
               competitors={competitors ?? []}
               finishes={allFinishes}
+              seriesCodes={series?.scoringCodes}
               onConfirm={applyRaceSenseImport}
               trigger={
                 <div className="inline-flex">

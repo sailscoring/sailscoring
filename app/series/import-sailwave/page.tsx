@@ -38,6 +38,9 @@ import {
   PRIMARY_PERSON_LABEL_TEXT,
 } from '@/lib/competitor-fields';
 import type { PrimaryPersonLabel } from '@/lib/types';
+import { useFeatures } from '@/components/features-provider';
+import { getCodeDefinition } from '@/lib/scoring-codes';
+import { rrsCode, ruleShortText } from '@/lib/scoring-codes-text';
 
 /** Hand-off key used by the home-page "Import Series" dialog. The parsed
  *  SailwaveRaw is JSON-stringified into sessionStorage so it survives the
@@ -140,14 +143,17 @@ function Wizard({
 }: WizardProps) {
   const { raw, fileName, updateSeriesId } = handoff;
   const isUpdate = updateSeriesId != null;
+  // With custom scoring codes on, the file's codes come across as the
+  // series' own instead of being warned about.
+  const carryCodes = useFeatures().has('custom-scoring-codes');
 
   const preview: SailwavePreview | null = useMemo(() => {
     try {
-      return inspectSailwave(raw);
+      return inspectSailwave(raw, { carryCodes });
     } catch {
       return null;
     }
-  }, [raw]);
+  }, [raw, carryCodes]);
 
   // Form state
   const [name, setName] = useState(preview?.name ?? '');
@@ -216,6 +222,7 @@ function Wizard({
       includeScratchCompanions: true,
       includeResults: true,
       dnfScoring: dnfScoring === 'auto' ? undefined : dnfScoring,
+      importScoringCodes: carryCodes,
     };
 
     setSubmitting(true);
@@ -353,6 +360,27 @@ function Wizard({
                 {preview.prizeWarnings.map((w, i) => (
                   <li key={i}>
                     <span className="font-medium">{w.label}</span> — {w.detail}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {preview.scoringCodes && preview.scoringCodes.length > 0 && (
+            <div className="rounded-md border p-3" data-testid="sailwave-scoring-codes">
+              <p className="font-medium">
+                This file scores {preview.scoringCodes.length === 1 ? '1 code' : `${preview.scoringCodes.length} codes`}{' '}
+                differently from the RRS. They&apos;ll be the series&apos; scoring codes:
+              </p>
+              <ul className="mt-1.5 space-y-0.5 pl-1">
+                {preview.scoringCodes.map((c) => (
+                  <li key={c.code} className="grid grid-cols-[4rem_1fr] gap-2">
+                    <span className="font-mono">{c.code}</span>
+                    <span>
+                      {ruleShortText(c)}
+                      {getCodeDefinition(c.code)
+                        ? ` (RRS: ${ruleShortText(rrsCode(c.code, preview.detectedDnfScoring ?? 'seriesEntries'))})`
+                        : ' (not an RRS code)'}
+                    </span>
                   </li>
                 ))}
               </ul>

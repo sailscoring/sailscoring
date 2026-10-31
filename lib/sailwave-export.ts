@@ -19,8 +19,10 @@
  * `buildSeriesFile` produces.
  */
 import type { SeriesFile } from './series-file';
-import type { DiscardThreshold, ProportionalDiscard, ResultCode } from './types';
-import { dncScoredAsDnf } from './scoring-codes';
+import type { DiscardThreshold, ProportionalDiscard, ResultCode, SeriesScoringCode } from './types';
+import { getCodeDefinition } from './scoring-codes';
+import { rrsCode } from './scoring-codes-text';
+import { ruleToSailwave } from './sailwave-codes';
 import {
   SAILWAVE_COLUMN_DEFAULTS,
   SAILWAVE_GLOBAL_DEFAULTS,
@@ -165,33 +167,59 @@ export function discardListFor(
 
 // ---- Scoring codes ----
 
-/** Our A5.2 / A5.3 choice as Sailwave's DNC / DNF base methods. Every other
- *  code in the template scores "like DNF", so setting these two sets all. A
- *  DNC changed to score the same as DNF (DBSC SI A13.2) takes DNF's base. */
-function codeBases(series: Pick<SeriesFile['series'], 'dnfScoring' | 'scoringCodes'>): {
-  dnc: [string, string];
-  dnf: [string, string];
-} {
-  const dnf: [string, string] =
-    series.dnfScoring === 'startingArea' ? ['Boats in race +', '1'] : ['Boats in series +', '1'];
-  return { dnc: dncScoredAsDnf(series.scoringCodes) ? dnf : ['Boats in series +', '1'], dnf };
-}
-
+/**
+ * The scoring-code table for one Sailwave scoring system: Sailwave's template
+ * with the series' rules written over it. DNF follows the series' A5 rule;
+ * each RRS code the series scores differently takes its rule; and each of the
+ * series' own codes is a row of its own. What Sailwave can't hold — a fixed
+ * number of points in place of the result, a cap at DNF — is reported through
+ * `warn` rather than dropped silently.
+ */
 function scoringCodeRows(
   systemHandle: number,
   series: Pick<SeriesFile['series'], 'dnfScoring' | 'scoringCodes'>,
+  warn: (code: string, message: string) => void = () => {},
 ): string[] {
-  const bases = codeBases(series);
-  return SAILWAVE_SCORING_CODE_DEFAULTS.map((row) => {
+  const dnfScoring = series.dnfScoring ?? 'seriesEntries';
+  const own = series.scoringCodes ?? [];
+  const byCode = new Map(own.map((c) => [c.code, c]));
+  const setRule = (parts: string[], sc: SeriesScoringCode): void => {
+    const method = ruleToSailwave(sc.rule);
+    if (!method) {
+      warn('scoring-code-rule', `${sc.code} scores a fixed number of points, which Sailwave has no method for; it exports as Sailwave scores ${sc.code} by default.`);
+      return;
+    }
+    [parts[1], parts[2]] = method;
+    parts[3] = sc.discardable ? 'Yes' : 'No';
+    if (sc.kind === 'replace' && sc.capAtDnf && sc.rule.type !== 'sameAs') {
+      warn('scoring-code-cap', `${sc.code} is never scored more than DNF here; Sailwave has no such cap.`);
+    }
+  };
+  const rows = SAILWAVE_SCORING_CODE_DEFAULTS.map((row) => {
     const parts = row.split('|');
     parts[14] = String(systemHandle);
-    const base = parts[0] === 'DNC' ? bases.dnc : parts[0] === 'DNF' ? bases.dnf : null;
-    if (base) {
-      parts[1] = base[0];
-      parts[2] = base[1];
-    }
+    const changed = byCode.get(parts[0]);
+    if (changed) setRule(parts, changed);
+    // The template's own DNF and DNC are one club's; ours are the RRS's.
+    else if (parts[0] === 'DNF' || parts[0] === 'DNC') setRule(parts, rrsCode(parts[0], dnfScoring));
     return parts.join('|');
   });
+  // The series' own codes, after Sailwave's: replacing codes came to the
+  // starting area and started; adding codes also finished, and leave other
+  // boats' scores alone (A6.2).
+  for (const sc of own) {
+    if (getCodeDefinition(sc.code)) continue;
+    const parts = ['', '', '', '', 'Yes', '', '', 'spare', 'spare', 'spare', 'spare', 'Yes', '', '', String(systemHandle), '', ''];
+    parts[0] = sc.code;
+    const adds = sc.kind === 'add';
+    parts[12] = adds ? 'Yes' : 'No';
+    parts[13] = adds ? 'Yes' : 'No';
+    parts[16] = sc.description ?? '';
+    setRule(parts, sc);
+    if (!parts[1]) continue;
+    rows.push(parts.join('|'));
+  }
+  return rows;
 }
 
 /** Sailwave code for one of ours. Sailwave's table has both RET and RAF;
@@ -333,7 +361,7 @@ export function buildSailwaveBlw(file: SeriesFile): SailwaveExportResult {
     });
   });
   for (const handle of [ROOT_SYSTEM_HANDLE, ...childSystems.map((c) => c.handle)]) {
-    for (const row of scoringCodeRows(handle, series)) w.row('scrcode', row);
+    for (const row of scoringCodeRows(handle, series, warn)) w.row('scrcode', row);
   }
   w.row('ui', '0|0|0|1|0|0|0|0|0|0|0|0|0|0|0');
 
@@ -639,7 +667,8 @@ function writeResult(
   } else if (f.resultCode) {
     if (f.resultCode === 'DNC') return false; // blank is DNC to Sailwave
     w.row('rrestyp', '3', ch, rh);
-    w.row('rcod', RESULT_CODE_TOKEN[f.resultCode], ch, rh);
+    // A series' own code goes as itself: the code table above defines it.
+    w.row('rcod', RESULT_CODE_TOKEN[f.resultCode as keyof typeof RESULT_CODE_TOKEN] ?? f.resultCode, ch, rh);
   } else {
     return false; // nothing recorded
   }

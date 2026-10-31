@@ -51,7 +51,7 @@ import {
 } from './racesense-workbook';
 import type { StoredStage } from './split-fleets';
 import { hasTrackData } from './track-data';
-import type { Finish, FinishTrackData, RaceSenseLink } from './types';
+import type { Finish, FinishTrackData, RaceSenseLink, SeriesScoringCode } from './types';
 
 /** Columns of the rows this module builds for the finish-sheet parser.
  *
@@ -175,6 +175,8 @@ export interface RaceSensePlanInput {
   offset?: number;
   /** sheetName → raceId, overriding the match for one sheet. */
   overrides?: Record<string, string>;
+  /** The series' own scoring codes, which a finish marker may name. */
+  seriesCodes?: readonly SeriesScoringCode[];
 }
 
 // ---------------------------------------------------------------------------
@@ -815,6 +817,7 @@ export function planRaceSenseImport(input: RaceSensePlanInput): RaceSensePlan {
       rows: built.rows,
       columnMap: COLUMN_MAP,
       candidates: eligible,
+      seriesCodes: input.seriesCodes,
     });
     // What the workbook can't express — penalties, redress, ties, start
     // check-ins — is carried across from the stored race before diffing: a
