@@ -1267,20 +1267,8 @@ base already does.
 
 ### Custom scoring codes
 
-`lib/scoring-codes.ts` is a fixed registry: the RRS A10 set and nothing else.
-Sailwave, HalSail and ZW all let a scorer define a code that is not in the
-rulebook, and the codes that recur in real SIs are the case for doing the
-same: **TLE** above is the leading one; the Sailwave manual also lists ARB and
-XPA (Appendix T arbitration penalties), DFP (left before flag D), NDA (no
-advertising), TPI/TPO (tally in/out penalties) and per-value DPI variants.
-Each is a label the SI attaches to one of a small number of points methods
-we already have or nearly have — fixed penalty on an entries / starters /
-finishers base, an additive percentage, stated points — plus a discardable
-flag and the A6.2 "other scores unchanged" flag. `scoring-codes.md` Option B
-and Phase 4 sketch the definition entity and the per-series table; the
-import side needs to carry an unknown Sailwave code through to a definition
-rather than warn and drop it. Demand-driven: build it for the first series
-that needs one.
+No longer deferred: scoped in October 2026 as Phase 4 of
+`scoring-codes.md`, with the UX in `ux/flows/scoring-codes.md`.
 
 ### High-point and bonus-point scoring systems
 

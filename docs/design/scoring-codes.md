@@ -259,7 +259,7 @@ flags as an unknown position.
 differently is esoteric — one club fleet in our corpus. Not adding the code.
 Where a scorer's results say TLE with DNF points, our DNF is the SI-correct
 rendering. If a series ever needs TLE scored off the finishers, it is a
-**custom scoring code** (Phase 4 below, and `horizon.md`) on a
+**custom scoring code** (Phase 4 below) on a
 `finishers + N` base, N ∈ {1, 2}, capped at the fleet's DNF score — the cap is
 what handles the nobody-finished race. The converters' TLE→DNF mappings
 (HalSail, and RaceSense's unknown-position warning) stand.
@@ -494,7 +494,8 @@ discardable: false        # OOD races are typically excluded from standings
 otherScoresUnchanged: false
 ```
 
-**Built-in code protection:** Built-in definitions are read-only in the UI.
+**Built-in code protection:** *(reversed by Phase 4, which lets a series
+change a built-in code and reset it.)* Built-in definitions are read-only in the UI.
 The `builtIn` flag prevents them from appearing in the "edit" flow. Internally
 they are still plain data — the engine imposes no special handling — but the
 UI enforces their immutability. This prevents surprising reconfigurations
@@ -547,7 +548,8 @@ modest. The key discipline required is that the built-in definitions are
 treated as a canonical, tested dataset — any change to them is as significant
 as a change to the scoring engine itself.
 
-The one area where we deliberately diverge from Sailwave's approach: we do
+*(Phase 4 reverses the following, since changing a built-in code includes
+SCP's and ZFP's percentage.)* The one area where we deliberately diverge from Sailwave's approach: we do
 not expose the definition's `defaultPct` as a series-level override in the
 UI. The 20% figure for ZFP and SCP is set by the RRS and should not be
 quietly changed at series level. Instead, the per-application override on
@@ -727,22 +729,71 @@ race both have RDG assigned; the engine should detect this and surface an error.
 
 ### Phase 4 — Scoring code configurability
 
-**Scope (indicative, needs separate design):**
-- Per-series configurable scoring code table.
-- Custom code definitions: name, abbr., base points method, discardable flag,
-  A6.2 flag, "came to start area" / "started" / "finished" semantics.
-- The leading motivation is TLE (above): a code that recurs in SIs and
-  scoring tools yet is not in the RRS, and whose points method is one we
-  nearly have (`finishers + N`). ARB, XPA, DFP, NDA and TPI/TPO from the
-  Sailwave manual are the same shape.
-- Pre-defined code library that matches the full RRS set but allows SI/NOR
-  overrides (e.g. a club that uses a non-standard points value for DSQ).
-- Fleet-level scoring configuration override (per Sailwave model).
+Scoped October 2026. Clubs, classes and organisers keep writing codes the
+RRS doesn't have (TLE, tally penalties, arbitration penalties) and changing
+how standard ones score, and scorers coming from Sailwave are used to
+following them. The defaults stay as they are: the A10 set, scored under
+A5.2 or A5.3. Phase 4 adds a way out for a series whose SIs need something
+else. The UX is in [`ux/flows/scoring-codes.md`](ux/flows/scoring-codes.md),
+and it may change what follows.
 
-**Dependencies:** Phases 1–3 complete.
+**Decided:**
+- **One code table per series**, used by every fleet. There are no per-fleet
+  or per-class tables, although Sailwave has them.
+- **Built-in codes can be changed** (their points and whether they can be
+  discarded) and reset to the RRS. This reverses *Built-in code protection*
+  and the `defaultPct` paragraph under Option B. A changed code is shown as
+  changed wherever it is published.
+- **A series can define its own codes**: a code, a description that is
+  published, and a rule. The RRS says a code not in A10 must be defined in
+  the SIs; the description is how a reader of the results finds that
+  definition.
+- **Rules come from a fixed list**, as in Sailwave, whose methods are
+  "hard coded … no option for defining an algorithm". A code either
+  *replaces* the boat's result, or *adds* to her finishing place:
+  - replaces: the place one or more beyond the series entries, the boats
+    that came to the starting area, or the finishers; or a fixed number of
+    points; or the same score as another code. It can be capped at the DNF
+    score, which covers a race nobody finished.
+  - adds: a stated number of points, or a percentage of the DNF score
+    (44.3(c)), capped at the DNF score as now.
+  The choice between them also settles A6.2: a code that replaces the
+  result moves the boats behind her up, and one that adds leaves every
+  other score unchanged.
+- **Averages and points set by hand stay with RDG.** A series' own codes
+  can't average.
+- **A self-service feature gate**, `custom-scoring-codes`.
+- **Out of scope:** per-fleet or per-class tables; ready-made definitions
+  (TLE, TPI/TPO, ARB/XPA); formulas; high-point scoring; more than one
+  penalty on a boat in one race.
 
-**Effort:** High — this is largely a UI problem (configuration screens are
-complex to build well) rather than a scoring logic problem.
+**Work:**
+1. **Engine, with no visible change.** The engine looks codes up in the
+   series' table instead of the fixed registry. `ResultCode` and
+   `PenaltyCode` stop being closed unions, and the checks for particular
+   codes in `scoring.ts`, `split-fleets.ts` and `finish-entry.ts` become
+   properties of the definition. Every existing fixture must score exactly
+   as it does now.
+2. **Series codes and changed codes.** Storage (on the series, a
+   migration, and the file and export formats). Under ADR-013, a code that
+   results use can't be deleted. Codes are checked against the series'
+   table at `/api/v1` and the public API instead of an enum. Then the
+   settings UI, finish entry, and a list of codes on published pages and
+   in the published results API.
+3. **Imports and exports.** Sailwave import copies a file's scoring codes
+   into the table instead of raising #238's warnings, and Sailwave export
+   writes them back out. HalSail's and RaceSense's TLE map to the series'
+   own TLE when it has one.
+
+**Engine questions the UX may reopen:**
+- What a code says about the boat. Sailwave records came to the starting
+  area, started, finished and A6.2 on each code; which of these does our
+  engine need?
+- What "finishers" counts: per fleet or per start, and whether a UFD or
+  BFD boat that crossed the line is one (the 2025 Appendix LG excludes
+  them).
+- How the A5.2/A5.3 setting (`dnfScoring`) and a changed DNF live together.
+  Does DBSC's third option become a changed DNC?
 
 ---
 
