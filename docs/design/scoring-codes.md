@@ -494,8 +494,9 @@ discardable: false        # OOD races are typically excluded from standings
 otherScoresUnchanged: false
 ```
 
-**Built-in code protection:** *(reversed by Phase 4, which lets a series
-change a built-in code and reset it.)* Built-in definitions are read-only in the UI.
+**Built-in code protection:** *(partly reversed by Phase 4, which lets a
+series change the points of DNC through BFD and ZFP's percentage, and reset
+them.)* Built-in definitions are read-only in the UI.
 The `builtIn` flag prevents them from appearing in the "edit" flow. Internally
 they are still plain data — the engine imposes no special handling — but the
 UI enforces their immutability. This prevents surprising reconfigurations
@@ -548,8 +549,9 @@ modest. The key discipline required is that the built-in definitions are
 treated as a canonical, tested dataset — any change to them is as significant
 as a change to the scoring engine itself.
 
-*(Phase 4 reverses the following, since changing a built-in code includes
-SCP's and ZFP's percentage.)* The one area where we deliberately diverge from Sailwave's approach: we do
+*(Phase 4 keeps this for SCP and reverses it for ZFP, whose percentage a
+series may change. The per-application SCP override is a percentage only;
+#716 adds stated points.)* The one area where we deliberately diverge from Sailwave's approach: we do
 not expose the definition's `defaultPct` as a series-level override in the
 UI. The 20% figure for ZFP and SCP is set by the RRS and should not be
 quietly changed at series level. Instead, the per-application override on
@@ -740,10 +742,28 @@ and it may change what follows.
 **Decided:**
 - **One code table per series**, used by every fleet. There are no per-fleet
   or per-class tables, although Sailwave has them.
-- **Built-in codes can be changed** (their points and whether they can be
-  discarded) and reset to the RRS. This reverses *Built-in code protection*
-  and the `defaultPct` paragraph under Option B. A changed code is shown as
-  changed wherever it is published.
+- **Some built-in codes can be changed**, and reset to the RRS. Which ones
+  depends on who sets their points:
+  - **The rules fix them, and an SI may change them**: DNC, DNS, OCS, NSC,
+    DNF, RET, DSQ, DNE, UFD and BFD. Their points and whether they can be
+    discarded can be changed. This is where real SIs depart from the RRS:
+    the 2026 ILCA Leinsters scored DNF and DNC on the finishers, DBSC scores
+    DNC from the starting area, and older-style SIs make BFD non-excludable.
+  - **Rule 30.2 fixes ZFP at 20%.** Its percentage can be changed. No SI in
+    `reference-docs` changes it, but the "adds a percentage of DNF" form a
+    series' own codes need makes it nearly free.
+  - **Decided for each boat**: SCP, DPI and RDG are not changeable. A hearing
+    or the race committee sets DPI's points and RDG's method each time. SCP's
+    amount is "stated in the notice of race or sailing instructions"
+    (44.3(c)). Real SIs state several amounts in one series: the ILCA 7
+    Worlds 2026 uses 10% in SI 15.1.1 and 30% in SI 17.10. So there is no
+    one series value, and the per-boat override already covers it. A penalty
+    an SI applies repeatedly at its own amount becomes a series code
+    instead, e.g. HYC's sign-out penalty as SOP, adding 2 points.
+
+  This partly reverses *Built-in code protection* and, for ZFP, the
+  `defaultPct` paragraph under Option B. A changed code is shown as changed
+  wherever it is published.
 - **A series can define its own codes**: a code, a description that is
   published, and a rule. The RRS says a code not in A10 must be defined in
   the SIs; the description is how a reader of the results finds that

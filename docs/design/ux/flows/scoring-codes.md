@@ -6,8 +6,9 @@ otherwise, the scorer can change a built-in code or add one of the series'
 own. That is the escape hatch, and the design treats it as one.
 
 Context: Phase 4 of [`scoring-codes.md`](../../scoring-codes.md), which
-records the scope decided in October 2026: one table per series, built-in
-codes changeable, the series' own codes chosen from a fixed list of rules,
+records the scope decided in October 2026: one table per series, the
+built-in codes whose points the rules fix (DNC to BFD, and ZFP's percentage)
+changeable, the series' own codes chosen from a fixed list of rules,
 averages and points set by hand left to RDG, and a self-service gate
 (`custom-scoring-codes`). This flow may change the engine design there. What
 it asks of the engine is collected under *What this asks of the engine*.
@@ -55,7 +56,7 @@ standard. Once a code has changed, the summary names the change:
 ```
 │ Scoring                                                       Edit ▸  │
 │ 1 discard per 4 races · DNF: starting area · Codes: TLE added,        │
-│ SCP changed                                                           │
+│ BFD changed                                                           │
 ```
 
 and the expanded line becomes **Scoring codes: 1 added, 1 changed from the
@@ -64,7 +65,7 @@ RRS — Edit scoring codes…**.
 With the gate off, the line is absent. A series that already has changed
 codes (one imported, or one made in another workspace) says so
 instead, in the way the card already handles proportional discards: *"This
-series scores 2 codes differently from the RRS (TLE, SCP). Turn on **Custom
+series scores 2 codes differently from the RRS (TLE, BFD). Turn on **Custom
 scoring codes** in Workspace settings to edit them."* The codes still
 score, publish and appear in the finish-sheet menus.
 
@@ -112,18 +113,18 @@ the table.
 │  DSQ   Disqualified              as DNF                          RRS     │
 │  DNE   Not excludable DSQ        as DNF · not discardable        RRS     │
 │  UFD   U flag disqualification   as DNF                          RRS     │
-│  BFD   Black flag disq.          as DNF                          RRS     │
+│  BFD   Black flag disq.          as DNF · not discardable        Changed │
+│                                  RRS: as DNF                             │
 │  DNC   Did not come to the start series entries + 1              RRS     │
 │  TLE   Time limit expired        finishers + 1, at most DNF      Series  │
 │                                                                          │
 │  ADD TO THE BOAT’S FINISHING PLACE                                       │
 │  ZFP   Z flag penalty            20% of DNF                      RRS     │
-│  SCP   Scoring penalty           2 points                        Changed │
-│                                  RRS: 20% of DNF, or as decided          │
-│  DPI   Discretionary penalty     points decided per boat         RRS     │
+│  SOP   Failed to sign out        2 points                        Series  │
 │                                                                          │
-│  REDRESS                                                                 │
-│  RDG   Redress given             decided per boat                RRS     │
+│  SCP, DPI and RDG are decided for each boat, in the penalty and          │
+│  redress dialogs. A penalty your instructions apply at one amount        │
+│  every time can be a code of its own.                                    │
 │                                                                          │
 │  [ Add a code ]                                                          │
 │                                                                          │
@@ -131,9 +132,19 @@ the table.
 └──────────────────────────────────────────────────────────────────────────┘
 ```
 
-- **The groups are the two kinds of code** the engine knows, plus redress.
-  The kind is the first thing a scorer has to understand about a new code,
-  so it organises the list.
+- **The groups are the two kinds of code** the engine knows. The kind is
+  the first thing a scorer has to understand about a new code, so it
+  organises the list.
+- **Only the codes a series can change are listed.** DNC to BFD have points
+  the rules fix and an SI may change, and rule 30.2 fixes ZFP's 20%. SCP,
+  DPI and RDG aren't listed, because their amounts are set when they are
+  applied:
+  - a hearing or the race committee decides DPI's points and RDG's method;
+  - SCP's amount is whatever the SI clause that imposes it states, and one
+    series often has several (the ILCA 7 Worlds 2026 uses 10% and 30%).
+
+  The note under the list says where they are, so a scorer who comes
+  looking for SCP isn't left wondering.
 - **"as DNF"** is how the RRS itself is written. A5.2 and A5.3 score DNS,
   OCS, NSC, RET, DSQ, DNE, UFD and BFD all the same way as DNF, so the table
   says so. Changing DNF moves the whole group, which is what an SI that
@@ -144,9 +155,6 @@ the table.
   edit here is a change from whichever A5 rule is chosen.
 - **A changed row shows the RRS rule beneath it**, so the departure can be
   read without opening the row.
-- **RDG and DPI rows open read-only.** Their points are decided for each
-  boat, in the redress and penalty dialogs. Only DPI's "can be discarded"
-  is editable.
 - Every row opens the code's editor, including the RRS rows. **Reset all to
   the RRS** lists what it will undo and asks first. It is refused while any
   result uses one of the series' own codes (see *Codes in use*).
@@ -200,8 +208,8 @@ to return. A series code:
   kind are fixed, and it shows the RRS rule above the controls:
   *"RRS A5.3, chosen on the Scoring card: one place after the boats that
   came to the starting area + 1."* **Reset to the RRS** takes the place of
-  Delete. For ZFP and SCP the editable figure is the percentage, or a
-  switch to a stated number of points.
+  Delete. ZFP's editor has only its percentage. Its kind is fixed, and
+  rule 30.2's penalty is always a percentage.
 
 **Messages** (per [conventions](../conventions.md)):
 
@@ -259,9 +267,11 @@ under a *This series* divider:
   in this series. Add it under Settings → Scoring → Scoring codes."
 
 Today, HYC's sign-out penalty is a DPI of 2 points labelled "Sign-out",
-typed for each boat. A series code, *SOP: adds 2 points*, makes it one
-choice from a menu with nothing to type. The DPI label stays for one-off
-penalties.
+typed for each boat. The SI calls it a 44.3(c) Scoring Penalty, but SCP
+takes only a percentage until #716 lets it take stated points. A series
+code, *SOP: adds 2 points*, makes it one choice from a menu with nothing to
+type, under a name that says what it was for. SCP with stated points and
+the DPI label stay for one-off penalties.
 
 ---
 
@@ -275,7 +285,9 @@ RRS lists it under the results:
   TLE  Time limit expired: finished outside the 10-minute window (SI 16.1).
        Points for the place after the last boat to finish in her fleet,
        never more than a DNF.
-  SCP  Scoring penalty: 2 points added (RRS: 20% of the DNF score).
+  SOP  Failed to sign out (SI 19.1). 2 points added; other boats’ scores
+       are unchanged.
+  BFD  Black flag disqualification. Not discardable (RRS: discardable).
 ```
 
 Only codes used on that page are listed, and only codes that differ from
