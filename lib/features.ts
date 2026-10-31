@@ -253,6 +253,16 @@ export const FEATURES = {
     label: 'Prizes',
     helpSectionIds: ['prizes', 'prize-giving-sheet'],
   },
+  'custom-scoring-codes': {
+    // The escape hatch from the RRS scoring codes (#717): a series may change
+    // how DNC to BFD score and ZFP's percentage, and add codes of its own
+    // (TLE, tally penalties), from the Scoring card's Scoring codes dialog.
+    // Self-service: the defaults stay the RRS, and only a scorer whose
+    // sailing instructions say otherwise needs it. Only the editing is gated —
+    // a series that carries codes scores and publishes them regardless.
+    label: 'Custom scoring codes',
+    helpSectionIds: ['custom-scoring-codes'],
+  },
   'page-notes': {
     // Explanatory notes on published pages (#511): the note editor in the
     // preview and publish dialogs, and the note block those pages render.

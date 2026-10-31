@@ -19,6 +19,7 @@ import { useUpdateSeries } from '@/hooks/use-series';
 import { useSaveSplitFleetConfig } from '@/hooks/use-split-fleets';
 import type { DnfScoring, SeriesScoringCode } from '@/lib/types';
 import { dncScoredAsDnf } from '@/lib/scoring-codes';
+import { ScoringCodesLine } from '@/components/series-settings/scoring-codes-line';
 import { SENTENCES_BY_SETTING, type SplitFleetSentenceId } from '@/lib/split-fleets-si';
 import {
   directSeatsPerFleet,
@@ -318,10 +319,12 @@ function a53Rule(
 function NonFinishersControl({
   seriesId,
   dnfScoring,
+  scoringCodes,
   canEdit,
 }: {
   seriesId: string;
   dnfScoring: DnfScoring;
+  scoringCodes?: readonly SeriesScoringCode[];
   canEdit: boolean;
 }) {
   const update = useUpdateSeries();
@@ -347,6 +350,7 @@ function NonFinishersControl({
         start where the sheet records it, and otherwise every boat on the sheet but a DNC.
       </p>
       {update.isError && <p className="text-destructive">{String(update.error)}</p>}
+      {canEdit && <ScoringCodesLine seriesId={seriesId} dnfScoring={dnfScoring} scoringCodes={scoringCodes} />}
     </>
   );
 }
@@ -673,7 +677,7 @@ export function OpeningSettings({
             <DiscardsControl config={config} canEdit={canEdit} patch={patch} />
           </Row>
           <Row settings={['nonFinishers']} label="Non-finishers" htmlFor="sf-non-finishers">
-            <NonFinishersControl seriesId={seriesId} dnfScoring={dnfScoring} canEdit={canEdit} />
+            <NonFinishersControl seriesId={seriesId} dnfScoring={dnfScoring} scoringCodes={scoringCodes} canEdit={canEdit} />
           </Row>
           {error && <p className="text-destructive">{error}</p>}
         </>

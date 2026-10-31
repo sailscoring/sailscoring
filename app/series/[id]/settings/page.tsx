@@ -138,6 +138,7 @@ export default function SettingsPage({
       {!sfConfig && (
         <ScoringCard
           value={series}
+          seriesId={seriesId}
           onChange={async (patch) => {
             await updateSeries.mutateAsync({
               id: seriesId,

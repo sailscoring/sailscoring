@@ -13,9 +13,11 @@ import {
 } from '@/lib/discard-rules';
 import { useFeatures } from '@/components/features-provider';
 import { AutosaveNote } from '@/components/series-settings/autosave-note';
+import { ScoringCodesLine } from '@/components/series-settings/scoring-codes-line';
+import { codesSummary, codesSummaryText } from '@/lib/scoring-codes-text';
 import { useSettingsAutosave } from '@/hooks/use-settings-autosave';
 
-export type ScoringValues = Pick<Series, 'discardThresholds' | 'proportionalDiscard' | 'dnfScoring' | 'excludeDncOnlyCompetitors'>;
+export type ScoringValues = Pick<Series, 'discardThresholds' | 'proportionalDiscard' | 'dnfScoring' | 'excludeDncOnlyCompetitors' | 'scoringCodes'>;
 
 /** What a scorer gets on switching to a proportional rule: one discard per
  *  three races sailed, the commonest wording found in club sailing
@@ -31,11 +33,14 @@ function orderThresholds(rows: DiscardThreshold[]): DiscardThreshold[] {
 
 export type ScoringCardProps = {
   value: ScoringValues;
+  /** The series, on its settings page: where the scoring codes are changed.
+   *  Absent in the setup wizard, which leaves codes to the settings page. */
+  seriesId?: string;
   onChange: (patch: Partial<ScoringValues>) => void | Promise<void>;
   mode?: 'settings' | 'wizard';
 };
 
-export function ScoringCard({ value, onChange, mode = 'settings' }: ScoringCardProps) {
+export function ScoringCard({ value, onChange, seriesId, mode = 'settings' }: ScoringCardProps) {
   const isWizard = mode === 'wizard';
   const { has } = useFeatures();
   const proportionalAllowed = has('proportional-discards');
@@ -334,9 +339,11 @@ export function ScoringCard({ value, onChange, mode = 'settings' }: ScoringCardP
   const discardSummary = value.proportionalDiscard
     ? summarizeProportionalDiscard(value.proportionalDiscard)
     : summarizeDiscardRules(value.discardThresholds ?? []);
+  const codesText = codesSummaryText(codesSummary(dnfMode, value.scoringCodes));
   const summary =
     `${discardSummary} · ${dnfLabel}` +
-    (value.excludeDncOnlyCompetitors ? ' · Rank only boats that took part' : '');
+    (value.excludeDncOnlyCompetitors ? ' · Rank only boats that took part' : '') +
+    (codesText ? ` · Codes: ${codesText}` : '');
 
   return (
     <div className="bg-card border rounded-lg p-5 space-y-4">
@@ -354,6 +361,9 @@ export function ScoringCard({ value, onChange, mode = 'settings' }: ScoringCardP
         <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
           {thresholdTable}
           {dnfRadios}
+          {seriesId && (
+            <ScoringCodesLine seriesId={seriesId} dnfScoring={dnfMode} scoringCodes={value.scoringCodes} />
+          )}
           <div className="flex items-center gap-3">
             <Button
               type="button"
