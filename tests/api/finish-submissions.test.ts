@@ -154,7 +154,7 @@ describe.skipIf(!DATABASE_URL)('finish submission handlers', () => {
     expect(submitFinishesSchema.safeParse({
       revision: 1, finishes: [{ id: 'a', sailNumber: '1', finishTime: '12:00:00', elapsedSecs: 60 }],
     }).success).toBe(false);
-    expect(submitFinishesSchema.safeParse({ revision: 1, finishes: [{ id: 'a', sailNumber: '1', resultCode: 'RDG' }] }).success).toBe(false);
+    expect(submitFinishesSchema.safeParse({ revision: 1, finishes: [{ id: 'a', sailNumber: '1', resultCode: 'R D G' }] }).success).toBe(false);
     expect(submitFinishesSchema.safeParse({ revision: 1, finishes: [], extra: true }).success).toBe(false);
   });
 

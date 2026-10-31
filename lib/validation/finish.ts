@@ -2,23 +2,19 @@ import { z } from 'zod';
 
 import type { Finish, FinishTrackData, ResultCode, PenaltyCode } from '@/lib/types';
 
+import { SERIES_CODE_PATTERN } from '@/lib/scoring-codes';
+
 import { uuidSchema, versionSchema, wallClockSchema } from './common';
 
-export const resultCodeSchema = z.enum([
-  'DNC',
-  'DNS',
-  'OCS',
-  'NSC',
-  'DNF',
-  'RET',
-  'DSQ',
-  'DNE',
-  'UFD',
-  'BFD',
-  'RDG',
-]);
+/** A result code: an RRS code or one of the series' own. Only the shape is
+ *  checked here; whether the series has the code, and whether it replaces the
+ *  result, is checked against the series' code table where finishes are
+ *  written (`assertSeriesCodes`). */
+export const resultCodeSchema = z.string().regex(SERIES_CODE_PATTERN);
 
-export const penaltyCodeSchema = z.enum(['ZFP', 'SCP', 'DPI']);
+/** An additive penalty code: an RRS code or one of the series' own, checked
+ *  against the series' table like a result code. */
+export const penaltyCodeSchema = z.string().regex(SERIES_CODE_PATTERN);
 
 export const redressMethodSchema = z.enum(['all_races', 'all_races_excl_dnc', 'races_before', 'stated']);
 

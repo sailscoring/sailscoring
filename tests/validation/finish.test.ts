@@ -72,16 +72,17 @@ describe('finishSchema', () => {
     ).not.toThrow();
   });
 
-  test('rejects unknown resultCode', () => {
-    expect(() =>
-      finishSchema.parse({ ...FINISH_BASE, resultCode: 'XYZ' }),
-    ).toThrow();
+  // Whether the series has a code, and in which slot, is checked against its
+  // table where finishes are written; the schema checks only a code's shape.
+  test('rejects a malformed resultCode, and accepts a series’ own', () => {
+    expect(() => finishSchema.parse({ ...FINISH_BASE, resultCode: 'T L E' })).toThrow();
+    expect(() => finishSchema.parse({ ...FINISH_BASE, resultCode: 'TOOLONGX' })).toThrow();
+    expect(finishSchema.parse({ ...FINISH_BASE, resultCode: 'TLE' }).resultCode).toBe('TLE');
   });
 
-  test('rejects unknown penaltyCode', () => {
-    expect(() =>
-      finishSchema.parse({ ...FINISH_BASE, penaltyCode: 'WHO' }),
-    ).toThrow();
+  test('rejects a malformed penaltyCode, and accepts a series’ own', () => {
+    expect(() => finishSchema.parse({ ...FINISH_BASE, penaltyCode: 'S-O-P' })).toThrow();
+    expect(finishSchema.parse({ ...FINISH_BASE, penaltyCode: 'SOP' }).penaltyCode).toBe('SOP');
   });
 
   test('rejects unknown redressMethod', () => {
@@ -107,7 +108,7 @@ describe('finishesBulkInputSchema', () => {
   test('rejects when a finish is malformed', () => {
     expect(() =>
       finishesBulkInputSchema.parse({
-        finishes: [{ ...FINISH_BASE, resultCode: 'XYZ' }],
+        finishes: [{ ...FINISH_BASE, resultCode: 'X Y Z' }],
       }),
     ).toThrow();
   });

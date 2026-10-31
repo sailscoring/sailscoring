@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { SERIES_CODE_PATTERN } from '@/lib/scoring-codes';
+
 /**
  * A finish sheet submission upload (#671): the whole recording of one race's
  * finishes, at one revision. The same body whether it comes from the Record
@@ -10,10 +12,6 @@ const wallClock = z
   .string()
   .regex(/^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/)
   .describe('A local time of day, `HH:MM:SS` (or `HH:MM`).');
-
-/** The codes a recorder records for a boat that didn't finish normally.
- *  Redress and scoring penalties are the scorer's and the jury's. */
-export const SUBMITTABLE_CODES = ['DNC', 'DNS', 'OCS', 'NSC', 'DNF', 'RET', 'DSQ', 'DNE', 'UFD', 'BFD'] as const;
 
 export const submittedStartSchema = z
   .object({
@@ -30,7 +28,14 @@ export const submittedFinishSchema = z
     finishTime: wallClock.nullable().optional().describe('The time of day the boat finished.'),
     elapsedSecs: z.number().nonnegative().finite().nullable().optional().describe('The boat\'s elapsed time, for a sheet kept on a stopwatch; instead of `finishTime`.'),
     laps: z.number().int().positive().nullable().optional().describe('Laps of the course the boat sailed, where slower boats were sent round fewer times than the rest. Omit for the full course. A boat on fewer laps than the most any boat in its fleet sailed is corrected on the full course.'),
-    resultCode: z.enum(SUBMITTABLE_CODES).nullable().optional().describe('For a boat that didn\'t finish normally.'),
+    resultCode: z
+      .string()
+      .regex(SERIES_CODE_PATTERN)
+      .nullable()
+      .optional()
+      .describe(
+        'For a boat that didn\'t finish normally: an RRS code (`DNS`, `OCS`, `DNF`, `RET`, `DSQ`, `UFD`, `BFD`, `DNC`, …), or one of the series\' own codes that replaces the result, such as `TLE`. Not redress or a penalty.',
+      ),
   })
   .strict()
   .refine((f) => f.competitorId || f.sailNumber, { message: 'Name the boat: competitorId or sailNumber.', path: ['sailNumber'] })

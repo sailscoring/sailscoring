@@ -1146,7 +1146,12 @@ export interface RaceSenseLink {
  */
 export type RaceDiscardPolicy = 'normal' | 'mustCount' | 'discardFirst';
 
-export type ResultCode =
+/** A result code: one of the RRS codes below, or one of the series' own
+ *  codes that replaces the result (`Series.scoringCodes`). */
+export type ResultCode = BuiltInResultCode | (string & {});
+
+/** The RRS Appendix A result codes. */
+export type BuiltInResultCode =
   // Position-replacing codes (replace finish; boat receives penalty score)
   | 'DNC'   // Did Not Come to start area — always entries+1
   | 'DNS'   // Did Not Start
@@ -1161,7 +1166,12 @@ export type ResultCode =
   // Redress (replaces score with A9 average; Phase 3)
   | 'RDG';  // Redress Given — score replaced by A9 average
 
-export type PenaltyCode =
+/** An additive penalty code: one of the RRS codes below, or one of the
+ *  series' own codes that adds to the finishing place. */
+export type PenaltyCode = BuiltInPenaltyCode | (string & {});
+
+/** The RRS additive penalty codes. */
+export type BuiltInPenaltyCode =
   // Additive penalty codes (applied on top of finish; A6.2: other scores unchanged)
   | 'ZFP'   // Z Flag Penalty (rule 30.2) — adds 20% of DNF score (formula per 44.3(c))
   | 'SCP'   // Scoring Penalty — adds specified % of DNF score (default 20%)

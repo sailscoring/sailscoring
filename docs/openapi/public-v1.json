@@ -5726,22 +5726,11 @@
                   ]
                 },
                 "resultCode": {
-                  "description": "For a boat that didn't finish normally.",
+                  "description": "For a boat that didn't finish normally: an RRS code (`DNS`, `OCS`, `DNF`, `RET`, `DSQ`, `UFD`, `BFD`, `DNC`, …), or one of the series' own codes that replaces the result, such as `TLE`. Not redress or a penalty.",
                   "anyOf": [
                     {
                       "type": "string",
-                      "enum": [
-                        "DNC",
-                        "DNS",
-                        "OCS",
-                        "NSC",
-                        "DNF",
-                        "RET",
-                        "DSQ",
-                        "DNE",
-                        "UFD",
-                        "BFD"
-                      ]
+                      "pattern": "^[A-Za-z0-9]{1,6}$"
                     },
                     {
                       "type": "null"

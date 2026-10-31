@@ -1,7 +1,7 @@
 import 'server-only';
 import { eq } from 'drizzle-orm';
 
-import { NotFoundError } from '@/app/api/v1/_lib/handler';
+import { BadRequestError, NotFoundError } from '@/app/api/v1/_lib/handler';
 import { recordActivity } from '@/lib/activity-log';
 import { trackChange } from '@/lib/revision-log';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
@@ -14,6 +14,7 @@ import {
 } from '@/lib/api-handlers/series-access';
 import { finishInputSchema, finishesBulkInputSchema } from '@/lib/validation/finish';
 import type { Finish } from '@/lib/types';
+import { finishCodeProblem, isBuiltInCodeFor, seriesCodeTable } from '@/lib/scoring-codes';
 
 async function assertRaceInWorkspace(
   workspace: WorkspaceContext,
@@ -46,6 +47,32 @@ export async function listSeriesFinishes(
   return repos.finishes.listBySeries(seriesId);
 }
 
+/**
+ * Refuse a finish whose code the series doesn't have, or one used as the
+ * wrong kind (a penalty as a result). The RRS codes are told apart without
+ * the series; it is read only when a finish carries one of its own codes.
+ */
+async function assertSeriesCodes(
+  repos: ReturnType<typeof createRepos>,
+  raceId: string,
+  finishes: readonly Pick<Finish, 'resultCode' | 'penaltyCode'>[],
+): Promise<void> {
+  const ownCodes = finishes.some(
+    (f) => (f.resultCode && !isBuiltInCodeFor('result', f.resultCode))
+      || (f.penaltyCode && !isBuiltInCodeFor('penalty', f.penaltyCode)),
+  );
+  if (!ownCodes) return;
+  const race = await repos.races.get(raceId);
+  const series = race ? await repos.series.get(race.seriesId) : undefined;
+  if (!series) throw new NotFoundError('race');
+  const codes = seriesCodeTable(series);
+  const problems = finishes.flatMap((f, i) => {
+    const message = finishCodeProblem(f, codes);
+    return message ? [{ path: ['finishes', i], message }] : [];
+  });
+  if (problems.length > 0) throw new BadRequestError(problems[0].message, problems);
+}
+
 export async function putFinish(
   workspace: WorkspaceContext,
   raceId: string,
@@ -59,6 +86,7 @@ export async function putFinish(
   if (id !== pathFinishId) throw new NotFoundError('finish id mismatch');
   if (input.raceId !== raceId) throw new NotFoundError('finish race mismatch');
   const repos = createRepos({ workspaceId: workspace.workspaceId });
+  await assertSeriesCodes(repos, raceId, [input]);
   const saved = await repos.finishes.save(
     { ...input, id },
     { expectedVersion: opts?.expectedVersion, updatedBy: workspace.userId },
@@ -182,6 +210,7 @@ export async function bulkPutFinishes(
     id: f.id ?? crypto.randomUUID(),
   }));
   const repos = createRepos({ workspaceId: workspace.workspaceId });
+  await assertSeriesCodes(repos, raceId, finishes);
   await repos.finishes.saveMany(finishes, { updatedBy: workspace.userId });
   const race = await repos.races.get(raceId);
   const n = finishes.length;

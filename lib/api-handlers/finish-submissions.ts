@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { BadRequestError, NotFoundError, WouldReplaceError } from '@/app/api/v1/_lib/handler';
+import { finishCodeProblem, seriesCodeTable } from '@/lib/scoring-codes';
 import { recordActivity } from '@/lib/activity-log';
 import { assertRaceWritable } from '@/lib/api-handlers/series-access';
 import { ForbiddenError, requireFeature, type WorkspaceContext } from '@/lib/auth/require-workspace';
@@ -128,6 +129,8 @@ export async function submitFinishes(
     seenStarts.add(s.startId);
   });
   const entered = new Set((await repos.competitors.listBySeries(race.seriesId)).map((c) => c.id));
+  const series = await repos.series.get(race.seriesId);
+  const codes = seriesCodeTable(series ?? {});
   const seenRows = new Set<string>();
   input.finishes.forEach((f, i) => {
     if (seenRows.has(f.id)) problems.push({ path: ['finishes', i, 'id'], message: 'Each row\'s id is its own.' });
@@ -135,6 +138,8 @@ export async function submitFinishes(
     if (f.competitorId && !entered.has(f.competitorId)) {
       problems.push({ path: ['finishes', i, 'competitorId'], message: 'No such boat entered in the series.' });
     }
+    const codeProblem = finishCodeProblem({ resultCode: f.resultCode }, codes, { recorded: true });
+    if (codeProblem) problems.push({ path: ['finishes', i, 'resultCode'], message: codeProblem });
   });
   if (problems.length > 0) throw new BadRequestError('The submission names something the race doesn’t have.', problems);
 

@@ -487,3 +487,37 @@ export function dncScoredAsDnf(codes: readonly SeriesScoringCode[] | undefined):
   const dnc = codes?.find((c) => c.code === 'DNC');
   return dnc?.rule.type === 'sameAs' && dnc.rule.code === 'DNF';
 }
+
+/** Codes a finish can carry when the series' own codes are left out of it:
+ *  whether a code is a built-in of the right kind can be told without the
+ *  series. */
+export function isBuiltInCodeFor(slot: 'result' | 'penalty', code: string): boolean {
+  const def = BUILT_IN_MAP.get(code);
+  if (!def) return false;
+  return slot === 'penalty' ? def.kind === 'add' : def.kind !== 'add';
+}
+
+/**
+ * Why a finish's codes can't be stored in a series, or null when they can: a
+ * result code must be one of the series' codes that replaces the result (or
+ * RDG, unless `recorded` — a recorder on the water records no redress), and
+ * a penalty code one that adds to the finishing place.
+ */
+export function finishCodeProblem(
+  finish: { resultCode?: string | null; penaltyCode?: string | null },
+  codes: ScoringCodeTable,
+  opts?: { recorded?: boolean },
+): string | null {
+  if (finish.resultCode) {
+    const def = codes.definition(finish.resultCode);
+    if (!def) return `${finish.resultCode} isn’t a code in this series.`;
+    if (def.kind === 'add') return `${finish.resultCode} adds to a finishing place: give it as a penalty, not a result.`;
+    if (opts?.recorded && def.kind === 'redress') return 'Redress is the protest committee’s, not the finish line’s.';
+  }
+  if (finish.penaltyCode) {
+    const def = codes.definition(finish.penaltyCode);
+    if (!def) return `${finish.penaltyCode} isn’t a code in this series.`;
+    if (def.kind !== 'add') return `${finish.penaltyCode} replaces a result: it can’t be a penalty.`;
+  }
+  return null;
+}
