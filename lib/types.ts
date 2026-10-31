@@ -218,6 +218,38 @@ export interface RrsOrgPushConfig {
  *    scored from the boats that came to the start (came + 1). */
 export type DnfScoring = 'seriesEntries' | 'startingArea' | 'startingAreaInclDnc';
 
+/** What a "place after … + N" scoring-code rule counts, per race and fleet:
+ *  the boats entered, those that came to the starting area, or those that
+ *  finished. */
+export type PlaceBase = 'entries' | 'startingArea' | 'finishers';
+
+/** How a series' own scoring code, or its change to a built-in, scores. */
+export type SeriesCodeRule =
+  | { type: 'placeAfter'; base: PlaceBase; plus: number }
+  | { type: 'sameAs'; code: string }
+  | { type: 'fixedPoints'; points: number }
+  | { type: 'addPoints'; points: number }
+  | { type: 'addPercent'; percent: number };
+
+/**
+ * A scoring code as a series writes it (custom scoring codes): a change to a
+ * built-in RRS code — same `code`, same kind — or a code of the series' own.
+ * The engine merges these over the built-ins (`buildCodeTable`).
+ */
+export interface SeriesScoringCode {
+  code: string;
+  /** Printed under the results. Required for a series' own code; a changed
+   *  built-in keeps its RRS name. */
+  description?: string;
+  /** 'replace' scores in place of the boat's result; 'add' adds to her
+   *  finishing place, leaving other boats' scores unchanged (RRS A6.2). */
+  kind: 'replace' | 'add';
+  rule: SeriesCodeRule;
+  /** A replacing code's points are never more than DNF's. */
+  capAtDnf?: boolean;
+  discardable: boolean;
+}
+
 /** The protest / request-for-redress time limit stated in the SIs, used to
  *  compute a concrete limit time from a race's last finisher. `basis` picks
  *  what the clock runs from: each race's own last finisher (the RRS 60.3(b)
@@ -347,6 +379,10 @@ export interface Series {
   // as excluded", HalSail's "exclude boats with only DNC"). Also the default a
   // new sub-series' own flag starts from. Sparse; absent means off.
   excludeDncOnlyCompetitors?: boolean;
+  // Custom scoring codes: the series' changes to the built-in RRS codes and
+  // its own codes (see SeriesScoringCode). Sparse — absent/empty is the
+  // common case, scoring every code as RRS Appendix A sets out.
+  scoringCodes?: SeriesScoringCode[];
   // Per-fleet race exclusions applied to the whole-series standings (see
   // RaceFleetExclusion). Sparse — present only for the rare heat struck for one
   // fleet (e.g. a single-boat race). A struck race scores nothing for that

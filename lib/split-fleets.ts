@@ -4,10 +4,10 @@
 // top; RDG average points per RRS A9(a)/(b); SCP/DPI/ZFP penalties; A8.1+A8.2
 // tie-breaking; the end-of-qualifying validity gate.
 
-import type { Competitor, DnfScoring, Finish, Fleet, Race, RaceStart } from './types';
+import type { Competitor, DnfScoring, Finish, Fleet, Race, RaceStart, SeriesScoringCode } from './types';
 import { compareSailNumbersIgnoringPrefix } from './sail-number-sort';
 import { applyAdditivePenalty, resolveEntrants, startingAreaCount } from './scoring';
-import { codeTableOf, type RaceCounts, type ScoringCodeTable } from './scoring-codes';
+import { seriesCodeTable, type RaceCounts, type ScoringCodeTable } from './scoring-codes';
 import { weightedRacePoints } from './race-scoring-options';
 
 /**
@@ -894,6 +894,9 @@ export interface SplitFleetData {
    *  `scorePhysicalRace`); the A5.3 settings score from the boats that came
    *  to the starting area. */
   dnfScoring?: DnfScoring;
+  /** The series' custom scoring codes (`Series.scoringCodes`), scored over
+   *  each stage race's own counts. */
+  scoringCodes?: SeriesScoringCode[];
 }
 
 /** Enumerate the physical races — one ref per (race, start, fleet) for every
@@ -1002,6 +1005,7 @@ export function assembleSplitFleetData(input: {
   raceStarts: RaceStart[];
   finishes: Finish[];
   dnfScoring?: DnfScoring;
+  scoringCodes?: SeriesScoringCode[];
 }): SplitFleetData {
   return dropNonEntrants({
     config: input.config,
@@ -1017,6 +1021,7 @@ export function assembleSplitFleetData(input: {
     raceStarts: input.raceStarts,
     finishes: input.finishes,
     ...(input.dnfScoring ? { dnfScoring: input.dnfScoring } : {}),
+    ...(input.scoringCodes?.length ? { scoringCodes: input.scoringCodes } : {}),
   });
 }
 
@@ -1382,7 +1387,7 @@ export function splitFleetStandings(
   // the replacement score is counted from, so scoring a list that still holds
   // non-entrants is wrong for every boat in the fleet, not just for them.
   const data = dropNonEntrants(input);
-  const codes = codeTableOf(data.dnfScoring);
+  const codes = seriesCodeTable(data);
   const { config, rounds, competitors } = data;
 
   const qRaces = logicalRaces(data, 'qualifying');
@@ -1903,7 +1908,7 @@ export function repechageStandings(input: SplitFleetData): RepechageTable[] {
       if (!ref) continue;
       const counts = physicalRaceCompleted(ref, data.competitors, data.finishes);
       const scores = scorePhysicalRace(ref, members, data.finishes, members.length + 1, 1, {
-        codes: codeTableOf(data.dnfScoring),
+        codes: seriesCodeTable(data),
         entries: data.competitors.length,
       });
       for (const [competitorId, sc] of scores) {

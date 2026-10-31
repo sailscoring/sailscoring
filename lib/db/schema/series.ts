@@ -31,6 +31,7 @@ import type {
   MultiPersonFieldKey,
   DiscardThreshold,
   ProportionalDiscard,
+  SeriesScoringCode,
   NhcProfile,
   IrcCertRecord,
   OrcCertData,
@@ -181,6 +182,13 @@ export const series = pgTable(
     // The automatic all-DNC rule for the whole series; see
     // Series.excludeDncOnlyCompetitors.
     excludeDncOnlyCompetitors: boolean('exclude_dnc_only_competitors').notNull().default(false),
+    // Custom scoring codes: the series' changes to the built-in RRS codes and
+    // its own codes (Series.scoringCodes). JSONB like discard_thresholds —
+    // read whole with the series, never queried by content.
+    scoringCodes: jsonb('scoring_codes')
+      .$type<SeriesScoringCode[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
     // Per-fleet race exclusions for the whole-series standings: {raceId,
     // fleetId} pairs, each striking one race from one fleet's scoring (a
     // single-boat heat). JSONB — sparse and never queried by content, like

@@ -13,10 +13,9 @@
  * merges the two into the table the engine scores a series with.
  */
 
-import type { DnfScoring } from './types';
+import type { DnfScoring, PlaceBase, SeriesCodeRule, SeriesScoringCode } from './types';
 
-/** What a "place after … + N" rule counts, per race and per fleet. */
-export type PlaceBase = 'entries' | 'startingArea' | 'finishers';
+export type { PlaceBase, SeriesCodeRule, SeriesScoringCode };
 
 export type PointsMethod =
   // Position-replacing: the place `plus` beyond a count of boats. DNF's own
@@ -166,31 +165,6 @@ const BUILT_IN_MAP = new Map(BUILT_IN_CODES.map((d) => [d.code, d]));
 export const CHANGEABLE_BUILT_IN_CODES: readonly string[] = [
   'DNC', 'DNS', 'OCS', 'NSC', 'DNF', 'RET', 'DSQ', 'DNE', 'UFD', 'BFD', 'ZFP',
 ];
-
-/**
- * A code as a series writes it: a change to a built-in code (same `code`),
- * or a code of its own. Stored on the series; `buildCodeTable` turns it into
- * a definition.
- */
-export interface SeriesScoringCode {
-  code: string;
-  /** Printed under the results. Required for a series' own code; a changed
-   *  built-in keeps its RRS name. */
-  description?: string;
-  /** 'replace' or 'add'; a changed built-in keeps its own kind. */
-  kind: 'replace' | 'add';
-  rule: SeriesCodeRule;
-  /** A replacing code's points are never more than DNF's. */
-  capAtDnf?: boolean;
-  discardable: boolean;
-}
-
-export type SeriesCodeRule =
-  | { type: 'placeAfter'; base: PlaceBase; plus: number }
-  | { type: 'sameAs'; code: string }
-  | { type: 'fixedPoints'; points: number }
-  | { type: 'addPoints'; points: number }
-  | { type: 'addPercent'; percent: number };
 
 function methodOf(rule: SeriesCodeRule): PointsMethod {
   switch (rule.type) {
@@ -383,4 +357,129 @@ export function penaltyAmountText(
   return penaltyIsStatedPoints({ penaltyCode: code, penaltyInPoints: inPoints })
     ? `${override}pts`
     : `${override}%`;
+}
+
+/** The table a series scores with: its A5 rule and its own codes. */
+export function seriesCodeTable(series: {
+  dnfScoring?: DnfScoring;
+  scoringCodes?: readonly SeriesScoringCode[];
+}): ScoringCodeTable {
+  return buildCodeTable(series.dnfScoring ?? 'seriesEntries', series.scoringCodes ?? []);
+}
+
+/** A problem with a series' scoring codes, worded for the scorer. `code` is
+ *  the code it concerns. */
+export interface SeriesCodeProblem {
+  code: string;
+  message: string;
+}
+
+/** Letters and digits, up to six: Sailwave's codes (`DPI1`, `RDGa`) fit. */
+export const SERIES_CODE_PATTERN = /^[A-Za-z0-9]{1,6}$/;
+
+const REPLACE_RULES: ReadonlySet<SeriesCodeRule['type']> = new Set(['placeAfter', 'sameAs', 'fixedPoints']);
+const ADD_RULES: ReadonlySet<SeriesCodeRule['type']> = new Set(['addPoints', 'addPercent']);
+
+/**
+ * Everything wrong with a series' scoring codes, in the words the Scoring
+ * codes dialog uses. Empty when the codes can be saved. Checked wherever
+ * codes are written — the API, file and export import — so a stored table
+ * always builds a well-formed `ScoringCodeTable`.
+ */
+export function seriesCodeProblems(codes: readonly SeriesScoringCode[]): SeriesCodeProblem[] {
+  const problems: SeriesCodeProblem[] = [];
+  const say = (code: string, message: string) => problems.push({ code, message });
+  const builtInByFolded = new Map(BUILT_IN_CODES.map((d) => [d.code.toUpperCase(), d.code]));
+  const seen = new Map<string, string>();
+  const replacing = new Set<string>(BUILT_IN_CODES.filter((d) => d.kind === 'replace').map((d) => d.code));
+
+  for (const sc of codes) {
+    const { code } = sc;
+    if (!code) {
+      say(code, 'Code is required.');
+      continue;
+    }
+    if (!SERIES_CODE_PATTERN.test(code)) {
+      say(code, 'Enter a code of up to 6 letters or digits, e.g. TLE.');
+      continue;
+    }
+    const folded = code.toUpperCase();
+    const prior = seen.get(folded);
+    if (prior !== undefined) {
+      say(code, `This series already has a code ${prior}. Codes can’t differ only by case.`);
+      continue;
+    }
+    seen.set(folded, code);
+
+    const builtIn = BUILT_IN_MAP.get(code);
+    const builtInFolded = builtInByFolded.get(folded);
+    if (!builtIn && builtInFolded) {
+      say(code, `${code} differs from the RRS code ${builtInFolded} only by case. Choose another code.`);
+      continue;
+    }
+    if (builtIn) {
+      if (!CHANGEABLE_BUILT_IN_CODES.includes(code)) {
+        say(code, `${code} can’t be changed: its amount is decided for each boat when it is applied.`);
+        continue;
+      }
+      if (sc.kind !== builtIn.kind) {
+        say(code, `${code} ${builtIn.kind === 'add' ? 'adds to' : 'replaces'} the boat’s result; that can’t be changed.`);
+        continue;
+      }
+      if (code === 'ZFP' && sc.rule.type !== 'addPercent') {
+        say(code, 'ZFP’s penalty is a percentage of DNF.');
+        continue;
+      }
+    } else if (!sc.description?.trim()) {
+      say(code, 'Description is required.');
+    }
+
+    const rules = sc.kind === 'replace' ? REPLACE_RULES : ADD_RULES;
+    if (!rules.has(sc.rule.type)) {
+      say(code, `A code that ${sc.kind === 'replace' ? 'replaces the result' : 'adds points'} can’t use that rule.`);
+      continue;
+    }
+    const r = sc.rule;
+    if (r.type === 'placeAfter' && !(Number.isInteger(r.plus) && r.plus >= 1)) {
+      say(code, 'Enter the places to add as a whole number, 1 or more.');
+    } else if (r.type === 'fixedPoints' && !(Number.isFinite(r.points) && r.points >= 0)) {
+      say(code, 'Enter the points as a number, e.g. 5.');
+    } else if (r.type === 'addPoints' && !(Number.isFinite(r.points) && r.points > 0)) {
+      say(code, 'Enter the points to add as a number above 0, e.g. 2.');
+    } else if (r.type === 'addPercent' && !(Number.isFinite(r.percent) && r.percent > 0 && r.percent <= 100)) {
+      say(code, 'Enter the percentage as a number from 1 to 100, e.g. 20.');
+    }
+    if (sc.kind === 'replace') replacing.add(code);
+  }
+  if (problems.length > 0) return problems;
+
+  // "The same as" must name a code that replaces the result, and must not
+  // come back round to itself.
+  const byCode = new Map<string, SeriesCodeRule>(BUILT_IN_CODES.map((d) => [d.code, d.pointsMethod.type === 'same_as' ? { type: 'sameAs', code: d.pointsMethod.code } : { type: 'fixedPoints', points: 0 }]));
+  for (const sc of codes) byCode.set(sc.code, sc.rule);
+  for (const sc of codes) {
+    if (sc.rule.type !== 'sameAs') continue;
+    if (!replacing.has(sc.rule.code)) {
+      say(sc.code, `${sc.code} can’t score the same as ${sc.rule.code || 'nothing'}: choose a code that replaces the result.`);
+      continue;
+    }
+    // Follow "the same as" from here. A loop through this code is reported
+    // against it; a loop further on is reported against the codes in it.
+    const path = [sc.code];
+    let next: string | null = sc.rule.code;
+    while (next !== null && !path.includes(next)) {
+      path.push(next);
+      const rule = byCode.get(next);
+      next = rule?.type === 'sameAs' ? rule.code : null;
+    }
+    if (next === sc.code) {
+      say(
+        sc.code,
+        path.length === 1
+          ? `${sc.code} can’t score the same as itself.`
+          : `${sc.code} can’t score the same as ${path[1]}, which ${path.length === 2 ? 'scores the same as' : 'leads back to'} ${sc.code}.`,
+      );
+    }
+  }
+  return problems;
 }

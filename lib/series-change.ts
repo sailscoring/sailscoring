@@ -92,6 +92,12 @@ const FACETS: readonly Facet[] = [
     summary: () => 'Changed how a boat that did not finish is scored',
   },
   {
+    key: 'scoring-codes',
+    fields: ['scoringCodes'],
+    action: 'series.scoring-updated',
+    summary: () => 'Changed the scoring codes',
+  },
+  {
     key: 'dnc-only',
     fields: ['excludeDncOnlyCompetitors'],
     action: 'series.scoring-updated',

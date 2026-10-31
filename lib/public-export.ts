@@ -5,6 +5,7 @@ import type {
   DiscardThreshold,
   ProportionalDiscard,
   DnfScoring,
+  SeriesScoringCode,
   CompetitorFieldKey,
   MultiPersonFieldKey,
   PrimaryPersonLabel,
@@ -43,6 +44,7 @@ import {
   tidyOfficials,
 } from './race-officials';
 import { calculateFleetStandings, calculateRaceScores, buildRaceFleetExclusionMap, startKeyResolver } from './scoring';
+import { seriesCodeTable } from './scoring-codes';
 import { loadSeriesSnapshot, type SeriesSnapshot } from './series-snapshot';
 import type { SeriesFileSplitRound } from './series-file';
 import { RefusedSettingError } from './refused-setting-error';
@@ -191,9 +193,10 @@ export interface PublicSeriesExport {
    *  library — top-level `marks` and `courses`, and a start course's
    *  `course` and `waypoints` (ADR-013, `lib/course-library-upgrade.ts`),
    *  which an export from v2 on could carry; v12 adds a finish's `laps`;
-   *  v13 adds `penaltyInPoints`, an SCP stated in points. Readers accept
+   *  v13 adds `penaltyInPoints`, an SCP stated in points; v14 adds the
+   *  series' custom scoring codes (`series.scoringCodes`). Readers accept
    *  them all, bringing an older export's courses forward as they read it. */
-  version: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13;
+  version: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14;
   /** Where the format, and what a reader may rely on, is documented. Written
    *  into every export so a reader handed only the file can find the
    *  contract. Optional: exports written before it was added lack it. */
@@ -227,6 +230,11 @@ export interface PublicSeriesExport {
      *  the series is not an entrant. Sparse — omitted when off. A reader
      *  re-scoring the export needs it for the entry count. */
     excludeDncOnlyCompetitors?: boolean;
+    /** Custom scoring codes: the series' changes to the built-in RRS codes
+     *  and its own codes, each with the rule it scores by. Sparse — omitted
+     *  when the series scores the RRS codes. A reader re-scoring the export
+     *  needs them for every changed or added code (v14+). */
+    scoringCodes?: SeriesScoringCode[];
     /** Whole-series per-fleet race exclusions — a race struck from one fleet's
      *  scoring. Keyed by the export's portable identity (race number + fleet
      *  name), like the sub-series `raceExclusions`. Sparse — omitted when empty.
@@ -1056,7 +1064,7 @@ export function buildPublicExportFromSnapshot(
         races,
         allFinishes,
         series.discardThresholds,
-        series.dnfScoring,
+        seriesCodeTable(series),
         allRaceStarts,
         allRatingOverrides,
         undefined,
@@ -1204,7 +1212,7 @@ export function buildPublicExportFromSnapshot(
     const raceScores = calculateRaceScores(
       finishesForRace,
       competitors,
-      series.dnfScoring,
+      seriesCodeTable(series),
       undefined,
       startKeyResolver(competitors, allRaceStarts.filter((rs) => rs.raceId === race.id)),
     );
@@ -1312,6 +1320,7 @@ export function buildPublicExportFromSnapshot(
                 raceStarts: allRaceStarts,
                 finishes: allFinishes,
                 dnfScoring: series.dnfScoring,
+                scoringCodes: series.scoringCodes,
               }),
             ),
             races,
@@ -1352,7 +1361,7 @@ export function buildPublicExportFromSnapshot(
     : undefined;
 
   return {
-    version: 13 as const,
+    version: 14 as const,
     formatDoc: PUBLIC_EXPORT_FORMAT_DOC,
     exportedAt: (opts?.exportedAt ?? new Date()).toISOString(),
     timeZone: instanceTimeZone(),
@@ -1370,6 +1379,7 @@ export function buildPublicExportFromSnapshot(
       ...(series.proportionalDiscard ? { proportionalDiscard: series.proportionalDiscard } : {}),
       dnfScoring: series.dnfScoring,
       ...(series.excludeDncOnlyCompetitors ? { excludeDncOnlyCompetitors: true } : {}),
+      ...(series.scoringCodes && series.scoringCodes.length > 0 ? { scoringCodes: series.scoringCodes } : {}),
       ...(() => {
         // Whole-series exclusions, re-keyed to the export's portable identity
         // (race number + fleet name), like the sub-series `raceExclusions`.
@@ -1627,7 +1637,7 @@ function importExportPrizes(
 /** Export format versions this build can read. A file written by a newer
  *  build is refused rather than half-read: the version is what says which
  *  fields mean what. Mirrors `SUPPORTED_FORMAT_VERSIONS` on the file side. */
-const SUPPORTED_EXPORT_VERSIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
+const SUPPORTED_EXPORT_VERSIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14];
 
 /**
  * Parse the text of a published `.sailscoring.json` data file.
@@ -1849,6 +1859,7 @@ export async function importPublicExport(
     ...(data.series.proportionalDiscard ? { proportionalDiscard: data.series.proportionalDiscard } : {}),
     dnfScoring: data.series.dnfScoring,
     ...(data.series.excludeDncOnlyCompetitors ? { excludeDncOnlyCompetitors: true } : {}),
+    ...(data.series.scoringCodes?.length ? { scoringCodes: data.series.scoringCodes } : {}),
     ...(importedRaceFleetExclusions.length ? { raceFleetExclusions: importedRaceFleetExclusions } : {}),
     ftpHost: '',
     ftpPath: '',

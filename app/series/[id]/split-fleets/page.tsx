@@ -366,6 +366,7 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
     raceStarts,
     finishes: allFinishes,
     dnfScoring: data.series.dnfScoring,
+    scoringCodes: data.series.scoringCodes,
   });
 
   const fleetMeta = buildFleetMeta(sfData, fleets);

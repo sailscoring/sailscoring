@@ -10,9 +10,11 @@ import type {
   PublishingGroup,
   RrsOrgPushConfig,
   ProtestTimeLimit,
+  SeriesScoringCode,
 } from '@/lib/types';
 
 import { SUBDIVISION_LABEL_MAX_LENGTH } from '@/lib/competitor-fields';
+import { seriesCodeProblems } from '@/lib/scoring-codes';
 import { PAGE_NOTE_MAX_LENGTH } from '@/lib/page-note';
 import { PUBLISHING_GROUP_NAME_MAX_LENGTH } from '@/lib/publishing-groups';
 import {
@@ -110,6 +112,38 @@ export const protestTimeLimitSchema = z.object({
 
 /** rrs.org competitor-push settings remembered on the series. The event UUID
  *  is rrs.org's, not one of ours, but it is UUID-shaped all the same. */
+/** The most codes a series' table holds: every changeable built-in and a
+ *  generous number of its own. */
+export const SERIES_SCORING_CODES_MAX = 64;
+export const SERIES_CODE_DESCRIPTION_MAX_LENGTH = 300;
+
+export const seriesScoringCodeSchema = z.object({
+  code: z.string().max(6),
+  description: z.string().max(SERIES_CODE_DESCRIPTION_MAX_LENGTH).optional(),
+  kind: z.enum(['replace', 'add']),
+  rule: z.discriminatedUnion('type', [
+    z.object({ type: z.literal('placeAfter'), base: z.enum(['entries', 'startingArea', 'finishers']), plus: z.number() }),
+    z.object({ type: z.literal('sameAs'), code: z.string().max(6) }),
+    z.object({ type: z.literal('fixedPoints'), points: z.number() }),
+    z.object({ type: z.literal('addPoints'), points: z.number() }),
+    z.object({ type: z.literal('addPercent'), percent: z.number() }),
+  ]),
+  capAtDnf: z.boolean().optional(),
+  discardable: z.boolean(),
+});
+
+/** A series' scoring codes, checked as a table: well-formed codes, no two
+ *  differing only by case, no change to a code decided per boat, and no
+ *  "the same as" loop. */
+export const seriesScoringCodesSchema = z
+  .array(seriesScoringCodeSchema)
+  .max(SERIES_SCORING_CODES_MAX)
+  .superRefine((codes, ctx) => {
+    for (const p of seriesCodeProblems(codes)) {
+      ctx.addIssue({ code: 'custom', message: `${p.code}: ${p.message}` });
+    }
+  });
+
 export const rrsOrgPushConfigSchema = z.object({
   eventUuid: uuidSchema,
   divisionSource: z.enum(['none', 'fleet', 'axis']),
@@ -168,6 +202,8 @@ export const seriesSchema = z.object({
   proportionalDiscard: proportionalDiscardSchema.optional(),
   dnfScoring: z.enum(['seriesEntries', 'startingArea', 'startingAreaInclDnc']),
   excludeDncOnlyCompetitors: z.boolean().optional(),
+  // Custom scoring codes. Optional on the wire; absent = the RRS codes.
+  scoringCodes: seriesScoringCodesSchema.optional(),
   // Whole-series per-fleet race exclusions. Optional on the wire so sparse
   // creation and older clients round-trip cleanly.
   raceFleetExclusions: z.array(raceFleetExclusionSchema).optional(),
@@ -352,6 +388,11 @@ const _discardFromZod: DiscardThreshold = undefined as unknown as z.infer<typeof
 const _discardFromTs: z.infer<typeof discardThresholdSchema> = undefined as unknown as DiscardThreshold;
 void _discardFromZod;
 void _discardFromTs;
+
+const _scoringCodeFromZod: SeriesScoringCode = undefined as unknown as z.infer<typeof seriesScoringCodeSchema>;
+const _scoringCodeFromTs: z.infer<typeof seriesScoringCodeSchema> = undefined as unknown as SeriesScoringCode;
+void _scoringCodeFromZod;
+void _scoringCodeFromTs;
 
 const _proportionalFromZod: ProportionalDiscard = undefined as unknown as z.infer<typeof proportionalDiscardSchema>;
 const _proportionalFromTs: z.infer<typeof proportionalDiscardSchema> = undefined as unknown as ProportionalDiscard;

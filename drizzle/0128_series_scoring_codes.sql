@@ -1,0 +1,1 @@
+ALTER TABLE "series" ADD COLUMN "scoring_codes" jsonb DEFAULT '[]'::jsonb NOT NULL;

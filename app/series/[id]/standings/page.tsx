@@ -15,6 +15,7 @@ import {
   type EntryResolutionOptions,
   type EntryStatus,
 } from '@/lib/scoring';
+import { seriesCodeTable } from '@/lib/scoring-codes';
 import { displayCompetitorLabel, subdivisionAxes } from '@/lib/competitor-fields';
 import { SeriesTabFallback } from '@/components/series-tab-fallback';
 import { Button } from '@/components/ui/button';
@@ -119,6 +120,7 @@ export default function StandingsPage({
       raceStarts: allRaceStarts,
       finishes: allFinishes,
       dnfScoring: series.dnfScoring,
+      scoringCodes: series.scoringCodes,
     });
     return (
       <div className="space-y-4">
@@ -199,7 +201,7 @@ export default function StandingsPage({
       races,
       allFinishes,
       discardThresholds,
-      series.dnfScoring ?? 'seriesEntries',
+      seriesCodeTable(series),
       allRaceStarts,
       undefined,
       series.excludeDncOnlyCompetitors ?? false,
@@ -272,7 +274,7 @@ export default function StandingsPage({
       races,
       allFinishes,
       discardThresholds,
-      series.dnfScoring ?? 'seriesEntries',
+      seriesCodeTable(series),
       allRaceStarts,
       undefined,
       undefined,

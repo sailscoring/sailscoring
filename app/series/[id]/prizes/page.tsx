@@ -10,6 +10,7 @@ import {
   calculateFleetStandings,
   buildRaceFleetExclusionMap,
 } from '@/lib/scoring';
+import { seriesCodeTable } from '@/lib/scoring-codes';
 import { formatPrimaryNames, subdivisionAxes, subdivisionAxisLabel } from '@/lib/competitor-fields';
 import { ordinal } from '@/lib/ordinal';
 import {
@@ -143,7 +144,7 @@ export default function PrizesPage({
     races,
     data.finishes ?? [],
     series.discardThresholds ?? [],
-    series.dnfScoring ?? 'seriesEntries',
+    seriesCodeTable(series),
     data.raceStarts ?? [],
     undefined,
     undefined,

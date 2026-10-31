@@ -911,6 +911,8 @@ export async function createFollowOnSeries(
       proportionalDiscard: source.proportionalDiscard ?? null,
       dnfScoring: source.dnfScoring,
       excludeDncOnlyCompetitors: source.excludeDncOnlyCompetitors ?? false,
+      // Same SIs, next series of the season: the codes roll over.
+      scoringCodes: source.scoringCodes ?? [],
       // Race-level, and no races come along.
       raceFleetExclusions: undefined,
       // Publishing destinations stay behind, as on a copy: two series must

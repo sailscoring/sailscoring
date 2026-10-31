@@ -32,6 +32,7 @@ import {
   buildRaceFleetExclusionMap,
   calculateFleetStandings,
 } from './scoring';
+import { seriesCodeTable } from './scoring-codes';
 import { loadSeriesSnapshot } from './series-snapshot';
 
 /**
@@ -197,7 +198,7 @@ export async function computeRankingStandings(
       snap.races,
       snap.finishes,
       snap.series.discardThresholds ?? [],
-      snap.series.dnfScoring ?? 'seriesEntries',
+      seriesCodeTable(snap.series),
       snap.raceStarts,
       snap.ratingOverrides,
       undefined,

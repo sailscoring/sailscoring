@@ -4,6 +4,7 @@ import { NotFoundError } from '@/app/api/v1/_lib/handler';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
 import { seriesFileReposFor } from '@/lib/postgres-repository';
 import { calculateFleetStandings, calculateSubSeriesFleetStandings, buildRaceFleetExclusionMap } from '@/lib/scoring';
+import { seriesCodeTable } from '@/lib/scoring-codes';
 import { loadSeriesSnapshot } from '@/lib/series-snapshot';
 import type { TcfRecord } from '@/lib/types';
 
@@ -38,7 +39,7 @@ export async function listTcfHistory(
   if (races.length === 0 || competitors.length === 0) return [];
 
   const discardThresholds = series.discardThresholds ?? [];
-  const dnfScoring = series.dnfScoring ?? 'seriesEntries';
+  const dnfScoring = seriesCodeTable(series);
 
   if (subSeries.length > 0) {
     const blocks = calculateSubSeriesFleetStandings(

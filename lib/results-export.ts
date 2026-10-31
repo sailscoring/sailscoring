@@ -12,6 +12,7 @@ import {
   startKeyResolver,
   type TodCorrectionContext,
 } from './scoring';
+import { seriesCodeTable } from './scoring-codes';
 import {
   renderSeriesHtml,
   renderCombinedSeriesHtml,
@@ -802,6 +803,7 @@ export async function buildFleetHtmlFiles(
       raceStarts: snapshot.raceStarts,
       finishes: snapshot.finishes,
       dnfScoring: snapshot.series.dnfScoring,
+      scoringCodes: snapshot.series.scoringCodes,
       enabledCompetitorFields,
       ...(opts?.includeTrackData && snapshot.series.publishTrackData
         ? { showTrackData: true }
@@ -917,7 +919,7 @@ export async function buildFleetHtmlFiles(
     races,
     allFinishes,
     series.discardThresholds ?? [],
-    series.dnfScoring ?? 'seriesEntries',
+    seriesCodeTable(series),
     allRaceStarts,
     allRatingOverrides,
     undefined,
@@ -1230,12 +1232,12 @@ export async function buildFleetHtmlFiles(
               ]),
             );
           }
-          scores = calculateHandicapRaceScores(finishesForRace, ratedFleetCompetitors, raceStart, tcfMap, series.dnfScoring ?? 'seriesEntries', todContext).scores;
+          scores = calculateHandicapRaceScores(finishesForRace, ratedFleetCompetitors, raceStart, tcfMap, seriesCodeTable(series), todContext).scores;
         } else {
           scores = calculateRaceScores(
             finishesForRace,
             fleetCompetitors,
-            series.dnfScoring ?? 'seriesEntries',
+            seriesCodeTable(series),
             fleet.id,
             startKeyResolver(fleetCompetitors, allRaceStarts.filter((rs) => rs.raceId === race.id)),
           );
@@ -1551,7 +1553,7 @@ export async function buildFleetHtmlFiles(
       races,
       allFinishes,
       series.discardThresholds ?? [],
-      series.dnfScoring ?? 'seriesEntries',
+      seriesCodeTable(series),
       allRaceStarts,
       allRatingOverrides,
       series.excludeDncOnlyCompetitors ?? false,

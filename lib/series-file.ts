@@ -6,6 +6,7 @@ import type {
   DiscardThreshold,
   ProportionalDiscard,
   DnfScoring,
+  SeriesScoringCode,
   Finish,
   FinishTrackData,
   CompetitorFieldKey,
@@ -52,6 +53,7 @@ import {
   upgradeSplitFleetCarry,
 } from './split-fleet-config-upgrade';
 import { calculateFleetStandings, buildRaceFleetExclusionMap } from './scoring';
+import { seriesCodeTable } from './scoring-codes';
 import { loadSeriesSnapshot } from './series-snapshot';
 import { disambiguateSeriesName, seriesSlug } from './series-name';
 import { isSeriesReadOnly } from './series-read-only';
@@ -626,9 +628,14 @@ export interface SeriesFileRepos {
  *  or sailing instructions state, rule 44.3(c)'s main form, rather than a
  *  percentage of the DNF score. Sparse — absent is a percentage — but a
  *  scoring input: an older build reading a v73 file would take a 2-point SCP
- *  as 2% of DNF. Hence a bump rather than a ride-along. */
-export const FORMAT_VERSION = 73;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73];
+ *  as 2% of DNF. Hence a bump rather than a ride-along.
+ *
+ *  v74 adds `series.scoringCodes`, the series' custom scoring codes: its
+ *  changes to the built-in RRS codes and its own codes. Sparse — absent is
+ *  the RRS codes — but a scoring input, so an older build reading a v74 file
+ *  would score every changed or added code as it never was. Hence a bump. */
+export const FORMAT_VERSION = 74;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -704,6 +711,7 @@ interface SeriesFileSeries {
   proportionalDiscard?: ProportionalDiscard;  // v26+; replaces the thresholds when set
   dnfScoring: DnfScoring;
   excludeDncOnlyCompetitors?: boolean;  // v44+; all-DNC boats are non-entrants (absent = off)
+  scoringCodes?: SeriesScoringCode[];  // v74+; custom scoring codes (absent = the RRS codes)
   raceFleetExclusions?: RaceFleetExclusion[];  // v14+; whole-series per-fleet race strikes
   ftpServerId?: string;  // additive; the workspace FTP server row this series uploads to. Workspace-local, so a file opened elsewhere falls back to matching ftpHost
   ftpHost: string;
@@ -979,7 +987,7 @@ export async function buildSeriesFile(
     races,
     allFinishes,
     series.discardThresholds ?? [],
-    series.dnfScoring ?? 'seriesEntries',
+    seriesCodeTable(series),
     allRaceStarts,
     allRatingOverrides,
     undefined,
@@ -1087,6 +1095,7 @@ export async function buildSeriesFile(
       ...(series.proportionalDiscard ? { proportionalDiscard: series.proportionalDiscard } : {}),
       dnfScoring: series.dnfScoring,
       ...(series.excludeDncOnlyCompetitors ? { excludeDncOnlyCompetitors: true } : {}),
+      ...(series.scoringCodes && series.scoringCodes.length > 0 ? { scoringCodes: series.scoringCodes } : {}),
       ...(series.raceFleetExclusions && series.raceFleetExclusions.length > 0
         ? { raceFleetExclusions: series.raceFleetExclusions }
         : {}),
@@ -1702,6 +1711,7 @@ export async function openSeriesFromFile(
     proportionalDiscard: file.series.proportionalDiscard,
     dnfScoring: file.series.dnfScoring,
     excludeDncOnlyCompetitors: file.series.excludeDncOnlyCompetitors ?? false,
+    scoringCodes: file.series.scoringCodes ?? [],
     raceFleetExclusions: remapRaceFleetExclusions(file.series.raceFleetExclusions, raceIdMap, fleetIdMap),
     ftpServerId: file.series.ftpServerId,
     ftpHost: file.series.ftpHost,
@@ -1815,6 +1825,7 @@ export async function restoreSeriesFromFile(
     proportionalDiscard: file.series.proportionalDiscard,
     dnfScoring: file.series.dnfScoring,
     excludeDncOnlyCompetitors: file.series.excludeDncOnlyCompetitors ?? false,
+    scoringCodes: file.series.scoringCodes ?? [],
     raceFleetExclusions: remapRaceFleetExclusions(file.series.raceFleetExclusions, raceIdMap, fleetIdMap),
     ftpServerId: file.series.ftpServerId,
     ftpHost: file.series.ftpHost,
@@ -1925,6 +1936,7 @@ async function updateSeriesFromFileInner(
     proportionalDiscard: file.series.proportionalDiscard,
     dnfScoring: file.series.dnfScoring,
     excludeDncOnlyCompetitors: file.series.excludeDncOnlyCompetitors ?? false,
+    scoringCodes: file.series.scoringCodes ?? [],
     raceFleetExclusions: remapRaceFleetExclusions(file.series.raceFleetExclusions, raceIdMap, fleetIdMap),
     ftpServerId: file.series.ftpServerId,
     ftpHost: file.series.ftpHost,
@@ -2116,6 +2128,7 @@ async function updateSeriesFromSailwaveInner(
     proportionalDiscard: file.series.proportionalDiscard,
     dnfScoring: file.series.dnfScoring,
     excludeDncOnlyCompetitors: file.series.excludeDncOnlyCompetitors ?? false,
+    scoringCodes: file.series.scoringCodes ?? [],
     raceFleetExclusions: remapRaceFleetExclusions(file.series.raceFleetExclusions, raceIdMap, fleetIdMap),
     defaultStartSequence: undefined,
     ftpPaths,

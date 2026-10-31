@@ -149,6 +149,24 @@ describe.skipIf(skip)('postgres repositories', () => {
     await repos.series.delete(s.id);
   });
 
+  test('SeriesRepository.save sets and clears the series’ scoring codes', async () => {
+    const repos = createRepos({ db, workspaceId: workspaceA });
+    const codes = [
+      { code: 'TLE', description: 'Time limit expired', kind: 'replace' as const, rule: { type: 'placeAfter' as const, base: 'finishers' as const, plus: 1 }, capAtDnf: true, discardable: true },
+      { code: 'DNC', kind: 'replace' as const, rule: { type: 'sameAs' as const, code: 'DNF' }, discardable: true },
+    ];
+    const s = { ...makeSeries(), scoringCodes: codes };
+
+    await repos.series.save(s);
+    expect((await repos.series.get(s.id))?.scoringCodes).toEqual(codes);
+
+    // An empty table reads back as absent, like every sparse series field.
+    await repos.series.save({ ...s, scoringCodes: undefined });
+    expect((await repos.series.get(s.id))?.scoringCodes).toBeUndefined();
+
+    await repos.series.delete(s.id);
+  });
+
   test('SeriesRepository.save sets and clears the venue position', async () => {
     const repos = createRepos({ db, workspaceId: workspaceA });
     const s = { ...makeSeries(), venuePosition: { lat: 51.8, lng: -8.3 } };
