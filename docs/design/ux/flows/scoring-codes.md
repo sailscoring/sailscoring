@@ -218,6 +218,8 @@ to return. A series code:
 
 - Code empty: "Code is required."
 - Bad code: "Enter a code of up to 6 letters or digits, e.g. TLE."
+- Clash by case: "This series already has a code TLE. Codes can’t differ
+  only by case."
 - Clash with a built-in: "DNF is an RRS code. To change how it scores, open
   it from the list."
 - Clash in the series: "This series already has a code TLE."
@@ -294,7 +296,8 @@ RRS lists it under the results:
 ```
 
 Only codes used on that page are listed, and only codes that differ from
-the RRS. A standard series' pages are unchanged. The published results API
+the RRS. A split-fleet championship lists them once, on its Scoring notes
+page, instead of on every page. A standard series' pages are unchanged. The published results API
 carries the same list as data.
 
 ---
@@ -370,16 +373,19 @@ on, so its scorers can see and edit the change.
 
 ## Open questions
 
-Settled: the A5.2/A5.3 radios stay on the Scoring card as the common
-choice, and the table follows them. DBSC's third option becomes a changed
-DNC (see *Use cases*).
+Settled:
 
-1. **Rescoring preview.** Is it worth showing the points that will change
-   ("R5 Murphy 13 → 21") before saving a code in use, or is the count
-   enough?
-2. **Code spelling.** Sailwave allows mixed case (`RDGa`). Should codes be
-   uppercase only?
-3. **Where the list publishes** for split-fleet championships, which
-   already have a Scoring notes page: on every page, there, or both?
-4. **Finish-sheet submissions** through the public API (ADR-016) accept the
-   RRS codes. Should they accept series codes too?
+- **The A5.2/A5.3 radios** stay on the Scoring card as the common choice,
+  and the table follows them. DBSC's third option becomes a changed DNC
+  (see *Use cases*).
+- **Rescoring**: the count of results a change affects is enough. There is
+  no preview of the points that will change.
+- **Code spelling**: lower case is allowed (`RDGa`, as Sailwave allows). A
+  code keeps the case it was written in, but two codes in a series can't
+  differ only by case, and a series code can't match an RRS code in any
+  case. Typed and imported codes match exactly, or else the one code that
+  matches ignoring case.
+- **Split-fleet championships** list their changed codes on the Scoring
+  notes page they already publish, not on every page.
+- **Finish-sheet submissions** through the public API (ADR-016) accept the
+  series' own codes as well as the RRS codes.
