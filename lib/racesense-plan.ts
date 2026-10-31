@@ -612,6 +612,7 @@ interface DiffFinish {
   tiedWithPrevious: boolean;
   penaltyCode: string | null;
   penaltyOverride: number | null;
+  penaltyInPoints: boolean;
   redressMethod: string | null;
   redressPoints: number | null;
   elapsedSecs: number | null;
@@ -619,7 +620,9 @@ interface DiffFinish {
 }
 
 function penaltyText(f: DiffFinish): string {
-  if (f.penaltyCode === 'SCP' && f.penaltyOverride !== null) return `SCP ${f.penaltyOverride}%`;
+  if (f.penaltyCode === 'SCP' && f.penaltyOverride !== null) {
+    return f.penaltyInPoints ? `SCP +${f.penaltyOverride}` : `SCP ${f.penaltyOverride}%`;
+  }
   if (f.penaltyCode === 'DPI' && f.penaltyOverride !== null) return `DPI +${f.penaltyOverride}`;
   return f.penaltyCode ?? '';
 }
@@ -684,6 +687,7 @@ function side(finishes: readonly {
   tiedWithPrevious: boolean;
   penaltyCode: string | null;
   penaltyOverride: number | null;
+  penaltyInPoints?: boolean;
   redressMethod: string | null;
   redressPoints: number | null;
   elapsedSecs?: number | null;
@@ -699,6 +703,7 @@ function side(finishes: readonly {
       tiedWithPrevious: f.tiedWithPrevious,
       penaltyCode: f.penaltyCode,
       penaltyOverride: f.penaltyOverride,
+      penaltyInPoints: !!f.penaltyInPoints,
       redressMethod: f.redressMethod,
       redressPoints: f.redressPoints,
       elapsedSecs: f.elapsedSecs ?? null,

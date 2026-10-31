@@ -446,6 +446,7 @@ function resultsSectionParts(
               score.isDiscard,
               score.isRedress,
               score.penaltyLabel,
+              score.penaltyInPoints,
             ),
       })),
       total: placeholder ? null : s.totalPoints,

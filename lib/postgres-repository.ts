@@ -305,6 +305,7 @@ function finishRowToType(row: FinishRow): Finish {
     penaltyCode: row.penaltyCode as PenaltyCode | null,
     penaltyOverride: row.penaltyOverride,
     ...(row.penaltyOverrideByFleet != null ? { penaltyOverrideByFleet: row.penaltyOverrideByFleet } : {}),
+    ...(row.penaltyInPoints ? { penaltyInPoints: true } : {}),
     ...(row.penaltyLabel ? { penaltyLabel: row.penaltyLabel } : {}),
     redressMethod: row.redressMethod as Finish['redressMethod'],
     redressExcludeRaceIds: row.redressExcludeRaceIds,
@@ -2097,6 +2098,7 @@ function finishToRow(f: Finish) {
     penaltyOverride: f.penaltyOverride,
     penaltyLabel: f.penaltyLabel ?? null,
     penaltyOverrideByFleet: f.penaltyOverrideByFleet ?? null,
+    penaltyInPoints: f.penaltyInPoints ?? false,
     redressMethod: f.redressMethod,
     redressExcludeRaceIds: f.redressExcludeRaceIds,
     redressIncludeRaceIds: f.redressIncludeRaceIds,
@@ -2109,7 +2111,7 @@ function finishToRow(f: Finish) {
 const finishUpdateColumns = [
   'competitorId', 'unknownSailNumber', 'matchedOn', 'enteredSailNumber', 'sortOrder', 'tiedWithPrevious',
   'finishTime', 'elapsedSecs', 'laps', 'trackData', 'resultCode', 'startPresent', 'penaltyCode', 'penaltyOverride',
-  'penaltyLabel', 'penaltyOverrideByFleet', 'redressMethod', 'redressExcludeRaceIds', 'redressIncludeRaceIds',
+  'penaltyLabel', 'penaltyOverrideByFleet', 'penaltyInPoints', 'redressMethod', 'redressExcludeRaceIds', 'redressIncludeRaceIds',
   'redressIncludeAllLater', 'redressPoints', 'redressPointsByFleet',
 ] as const satisfies readonly (keyof ReturnType<typeof finishToRow>)[];
 

@@ -605,7 +605,11 @@ function writeResult(
     }
     if (f.penaltyCode) {
       const pct = f.penaltyOverride;
-      if (f.penaltyCode === 'DPI') {
+      if (f.penaltyCode === 'SCP' && f.penaltyInPoints) {
+        const points = f.penaltyOverrideByFleet?.[rec.fleet.id] ?? pct;
+        w.row('rcod', 'SCP', ch, rh);
+        warn('scp-points', `${raceLabel}: ${boat}'s scoring penalty of ${points} points goes across as Sailwave's 20% SCP.`);
+      } else if (f.penaltyCode === 'DPI') {
         const points = f.penaltyOverrideByFleet?.[rec.fleet.id] ?? pct ?? 1;
         w.row('rcod', 'DPI1', ch, rh);
         if (points !== 1) {

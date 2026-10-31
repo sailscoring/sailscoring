@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useRef, useState, type Ref } from 'react';
+import { penaltyAmountText } from '@/lib/scoring-codes';
 import { X, Activity, AlertTriangle, Ban, ChevronDown, ChevronRight, Flag, Scale, MoreHorizontal, PanelRightClose, PanelRightOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -1253,7 +1254,7 @@ export function FinishTab(props: FinishTabProps) {
                     onClick={readOnly || !setEditingPenaltyEntryId ? undefined : () => setEditingPenaltyEntryId(entry.competitorId)}
                   >
                     {penalty.code}
-                    {penalty.override != null ? ` (${penalty.override}${penalty.code === 'DPI' ? 'pts' : '%'})` : ''}
+                    {penalty.override != null ? ` (${penaltyAmountText(penalty.code, penalty.override, penalty.inPoints)})` : ''}
                   </Badge>
                 )}
                 {hasRedress && (

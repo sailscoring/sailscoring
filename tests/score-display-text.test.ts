@@ -18,6 +18,11 @@ describe('scoreDisplayText', () => {
     expect(scoreDisplayText(5, null, 'DPI', 2, false, false, 'TPO')).toBe('5.0 TPO(2pts)');
   });
 
+  it('gives an SCP stated in points its points, not a percentage', () => {
+    expect(scoreDisplayText(3, null, 'SCP', 2, false, false, undefined, true)).toBe('3.0 SCP(2pts)');
+    expect(raceResultPointsText({ points: 3, resultCode: null, penaltyCode: 'SCP', penaltyOverride: 2, penaltyInPoints: true })).toBe('3.0 SCP(2pts)');
+  });
+
   it('leaves the text unescaped: it is not HTML', () => {
     expect(scoreDisplayText(5, null, 'DPI', 2, false, false, 'A&B')).toBe('5.0 A&B(2pts)');
   });

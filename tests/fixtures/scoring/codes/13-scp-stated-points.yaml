@@ -1,0 +1,74 @@
+description: "SCP (Scoring Penalty) — a stated number of points"
+rrs_notes: >
+  RRS 44.3(c): the boat's score is made worse by the number of points stated
+  in the notice of race or sailing instructions; 20% of the DNF score is only
+  the fallback when no number is stated. The penalty still never makes the
+  score worse than DNF, and other boats are not re-ranked.
+  5 competitors, N=5, DNF score=6.
+  Alice finishes 1st + SCP of 2 points → 1 + 2 = 3.
+  Carol finishes 2nd → 2.
+  Dave finishes 3rd + SCP of 0.5 points → 3 + 0.5 = 3.5.
+  Bob finishes 4th + SCP of 3 points → 4 + 3 = 7, capped at DNF → 6.
+  Eve finishes 5th → 5.
+
+series:
+  discardThresholds: []
+
+competitors:
+  - { sailNumber: "1", name: "Alice" }
+  - { sailNumber: "2", name: "Bob" }
+  - { sailNumber: "3", name: "Carol" }
+  - { sailNumber: "4", name: "Dave" }
+  - { sailNumber: "5", name: "Eve" }
+
+races:
+  - number: 1
+    finishes:
+      - { sailor: "1", position: 1, penaltyCode: SCP, penaltyOverride: 2, penaltyInPoints: true }
+      - { sailor: "3", position: 2 }
+      - { sailor: "4", position: 3, penaltyCode: SCP, penaltyOverride: 0.5, penaltyInPoints: true }
+      - { sailor: "2", position: 4, penaltyCode: SCP, penaltyOverride: 3, penaltyInPoints: true }
+      - { sailor: "5", position: 5 }
+
+expected:
+  standings:
+    - rank: 1
+      sailor: "3"
+      racePoints: [2]
+      raceCodes: [null]
+      racePenaltyCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 2
+      netPoints: 2
+    - rank: 2
+      sailor: "1"
+      racePoints: [3]
+      raceCodes: [null]
+      racePenaltyCodes: [SCP]
+      raceDiscards: [false]
+      totalPoints: 3
+      netPoints: 3
+    - rank: 3
+      sailor: "4"
+      racePoints: [3.5]
+      raceCodes: [null]
+      racePenaltyCodes: [SCP]
+      raceDiscards: [false]
+      totalPoints: 3.5
+      netPoints: 3.5
+    - rank: 4
+      sailor: "5"
+      racePoints: [5]
+      raceCodes: [null]
+      racePenaltyCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 5
+      netPoints: 5
+    - rank: 5
+      sailor: "2"
+      racePoints: [6]
+      raceCodes: [null]
+      racePenaltyCodes: [SCP]
+      raceDiscards: [false]
+      totalPoints: 6
+      netPoints: 6

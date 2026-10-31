@@ -288,14 +288,14 @@ describe('the series file and the public export, written now', () => {
   it('carry a course as its name, legs, anchor and wind', async () => {
     const file = await buildSeriesFile('s1', makeRecordingRepos(snapshot).repos);
     expect(file.formatVersion).toBe(FORMAT_VERSION);
-    expect(FORMAT_VERSION).toBe(72);
+    expect(FORMAT_VERSION).toBe(73);
     expect(file).not.toHaveProperty('marks');
     expect(file).not.toHaveProperty('courses');
     expect(file.races[0].starts[0].course).toEqual(imported.course);
     expect(file.races[0].starts[0].courseLegs).toEqual(imported.courseLegs);
 
     const data = buildPublicExportFromSnapshot(snapshot)!;
-    expect(data.version).toBe(12);
+    expect(data.version).toBe(13);
     expect(data).not.toHaveProperty('marks');
     expect(data).not.toHaveProperty('courses');
     expect(data.races[0].starts[0].course).toEqual(imported.course);

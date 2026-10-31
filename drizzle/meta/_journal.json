@@ -890,6 +890,13 @@
       "when": 1793357754880,
       "tag": "0126_drop_course_library",
       "breakpoints": true
+    },
+    {
+      "idx": 127,
+      "version": "7",
+      "when": 1793469970082,
+      "tag": "0127_finish_penalty_in_points",
+      "breakpoints": true
     }
   ]
 }

@@ -903,6 +903,44 @@ describe('calculateRaceScores — additive penalties (ZFP/SCP/DPI)', () => {
     expect(scores.get('A')?.points).toBe(3.8); // 2 + 1.8
   });
 
+  it('SCP stated in points adds the points, not a percentage (44.3(c))', () => {
+    // HYC Frostbites SI 19.1: "a Scoring Penalty of 2 points".
+    const finishes = [
+      { ...makeFinish('r1', 'A', 1, null, 'SCP', 2), penaltyInPoints: true },  // 1 + 2 = 3
+      makeFinish('r1', 'B', 2),
+      makeFinish('r1', 'C', 3),
+      makeFinish('r1', 'D', 4),
+      makeFinish('r1', 'E', 5),
+    ];
+    const scores = calculateRaceScores(finishes, competitors);
+    expect(scores.get('A')?.points).toBe(3);
+    expect(scores.get('B')?.points).toBe(2);  // A6.2: others unchanged
+  });
+
+  it('SCP stated in points is capped at DNF score', () => {
+    const finishes = [
+      makeFinish('r1', 'A', 1),
+      makeFinish('r1', 'B', 2),
+      makeFinish('r1', 'C', 3),
+      { ...makeFinish('r1', 'D', 4, null, 'SCP', 3), penaltyInPoints: true },  // min(4+3, 6)=6
+      makeFinish('r1', 'E', 5),
+    ];
+    const scores = calculateRaceScores(finishes, competitors);
+    expect(scores.get('D')?.points).toBe(dnfScore);
+  });
+
+  it('ZFP ignores penaltyInPoints: its 20% is fixed by rule 30.2', () => {
+    const finishes = [
+      { ...makeFinish('r1', 'A', 1, null, 'ZFP'), penaltyInPoints: true },
+      makeFinish('r1', 'B', 2),
+      makeFinish('r1', 'C', 3),
+      makeFinish('r1', 'D', 4),
+      makeFinish('r1', 'E', 5),
+    ];
+    const scores = calculateRaceScores(finishes, competitors);
+    expect(scores.get('A')?.points).toBe(2.2);
+  });
+
   it('DPI adds stated points from penaltyOverride', () => {
     const finishes = [
       makeFinish('r1', 'A', 1, null, 'DPI', 3),  // 1+3=4
@@ -1430,6 +1468,20 @@ describe('per-fleet stated RDG / DPI points', () => {
     ];
     const result = calculateFleetStandings(fleets, competitors, races, finishes);
     expect(pointsFor(result, 'f-irc', 'T')).toBe(4);   // 1 + 3
+    expect(pointsFor(result, 'f-echo', 'T')).toBe(1);  // gap → no penalty
+    expect(rejectionsFor(result, 'f-irc')).toHaveLength(0);
+    expect(rejectionsFor(result, 'f-echo')).toEqual([{ competitorId: 'T', reason: 'dpi_missing_fleet_points' }]);
+  });
+
+  it('applies a different SCP stated in points in each fleet, and flags a gap', () => {
+    const races = [makeRace('r1', 1)];
+    const finishes = [
+      finish('r1', 'T', { sortOrder: 1, penaltyCode: 'SCP', penaltyInPoints: true, penaltyOverrideByFleet: { 'f-irc': 2 } }),
+      makeFinish('r1', 'A', 2), makeFinish('r1', 'B', 3), makeFinish('r1', 'C', 4), makeFinish('r1', 'D', 5),
+      makeFinish('r1', 'E', 2), makeFinish('r1', 'F', 3), makeFinish('r1', 'G', 4), makeFinish('r1', 'H', 5),
+    ];
+    const result = calculateFleetStandings(fleets, competitors, races, finishes);
+    expect(pointsFor(result, 'f-irc', 'T')).toBe(3);   // 1 + 2 points
     expect(pointsFor(result, 'f-echo', 'T')).toBe(1);  // gap → no penalty
     expect(rejectionsFor(result, 'f-irc')).toHaveLength(0);
     expect(rejectionsFor(result, 'f-echo')).toEqual([{ competitorId: 'T', reason: 'dpi_missing_fleet_points' }]);

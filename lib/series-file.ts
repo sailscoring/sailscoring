@@ -619,9 +619,16 @@ export interface SeriesFileRepos {
  *  course — but a scoring input: a boat on fewer laps has its elapsed time
  *  scaled up to the full course before correction, so an older build reading
  *  a v72 file would correct it over the laps it sailed and rank it far ahead
- *  of where it finished. Hence a bump rather than a ride-along. */
-export const FORMAT_VERSION = 72;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72];
+ *  of where it finished. Hence a bump rather than a ride-along.
+ *
+ *  v73 adds `finishes[*].penaltyInPoints`: an SCP whose `penaltyOverride`
+ *  (and `penaltyOverrideByFleet`) is the number of points the notice of race
+ *  or sailing instructions state, rule 44.3(c)'s main form, rather than a
+ *  percentage of the DNF score. Sparse — absent is a percentage — but a
+ *  scoring input: an older build reading a v73 file would take a 2-point SCP
+ *  as 2% of DNF. Hence a bump rather than a ride-along. */
+export const FORMAT_VERSION = 73;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -817,6 +824,7 @@ interface SeriesFileFinish {
   penaltyOverride: number | null;
   penaltyOverrideByFleet?: Record<string, number>;
   penaltyLabel?: string;  // v37+; scorer's label for a DPI
+  penaltyInPoints?: boolean;  // v73+; SCP override is stated points, not a %
   redressMethod?: 'all_races' | 'all_races_excl_dnc' | 'races_before' | 'stated';
   redressExcludeRaces?: number[];
   redressIncludeRaces?: number[];
@@ -1013,6 +1021,7 @@ export async function buildSeriesFile(
       penaltyOverride: f.penaltyOverride ?? null,
       ...(f.penaltyOverrideByFleet && Object.keys(f.penaltyOverrideByFleet).length ? { penaltyOverrideByFleet: f.penaltyOverrideByFleet } : {}),
       ...(f.penaltyLabel ? { penaltyLabel: f.penaltyLabel } : {}),
+      ...(f.penaltyInPoints ? { penaltyInPoints: true } : {}),
       ...(f.redressMethod ? { redressMethod: f.redressMethod } : {}),
       ...(excludeNumbers.length ? { redressExcludeRaces: excludeNumbers } : {}),
       ...(includeNumbers.length ? { redressIncludeRaces: includeNumbers } : {}),
@@ -2331,6 +2340,7 @@ async function writeFleetsCompetitorsRaces(
           penaltyCode: f.penaltyCode,
           penaltyOverride: f.penaltyOverride,
           ...(f.penaltyLabel ? { penaltyLabel: f.penaltyLabel } : {}),
+          ...(f.penaltyInPoints ? { penaltyInPoints: true } : {}),
           ...(() => {
             const m = remapPerFleetPoints(f.penaltyOverrideByFleet, fleetIdMap);
             return m ? { penaltyOverrideByFleet: m } : {};

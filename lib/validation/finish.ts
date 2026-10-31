@@ -53,6 +53,8 @@ export const finishSchema = z.object({
   penaltyCode: penaltyCodeSchema.nullable(),
   penaltyOverride: z.number().nullable(),
   penaltyOverrideByFleet: z.record(z.string(), z.number()).optional(),
+  // SCP only: the override is stated points, not a percentage of DNF.
+  penaltyInPoints: z.boolean().optional(),
   // Free text, capped so a published race cell stays a cell. DPI only; the
   // engine never reads it.
   penaltyLabel: z.string().max(24).optional(),

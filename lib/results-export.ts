@@ -622,6 +622,7 @@ function standingOverRaces(s: Standing, indices: readonly number[]): Standing {
     racePenaltyCodes: pick(s.racePenaltyCodes),
     racePenaltyOverrides: pick(s.racePenaltyOverrides),
     ...(s.racePenaltyLabels ? { racePenaltyLabels: pick(s.racePenaltyLabels) } : {}),
+    ...(s.racePenaltyInPoints ? { racePenaltyInPoints: pick(s.racePenaltyInPoints) } : {}),
     raceDiscards: pick(s.raceDiscards),
     raceNonDiscardable: pick(s.raceNonDiscardable),
     raceRedressFlags: pick(s.raceRedressFlags),
@@ -1040,6 +1041,7 @@ export async function buildFleetHtmlFiles(
       resultCode: ResultCode | null;
       penaltyCode: PenaltyCode | null;
       penaltyOverride: number | null;
+      penaltyInPoints?: boolean;
       penaltyLabel?: string;
       finishTime: string | null;
       elapsedSecs?: number | null;
@@ -1093,6 +1095,7 @@ export async function buildFleetHtmlFiles(
                   resultCode: s.resultCode,
                   penaltyCode: finishByCompetitorId.get(id)?.penaltyCode ?? null,
                   penaltyOverride: finishByCompetitorId.get(id)?.penaltyOverride ?? null,
+                  ...(finishByCompetitorId.get(id)?.penaltyInPoints ? { penaltyInPoints: true } : {}),
                   ...(finishByCompetitorId.get(id)?.penaltyLabel
                     ? { penaltyLabel: finishByCompetitorId.get(id)!.penaltyLabel }
                     : {}),
@@ -1124,6 +1127,7 @@ export async function buildFleetHtmlFiles(
                   resultCode: s.resultCode,
                   penaltyCode: finishByCompetitorId.get(id)?.penaltyCode ?? null,
                   penaltyOverride: finishByCompetitorId.get(id)?.penaltyOverride ?? null,
+                  ...(finishByCompetitorId.get(id)?.penaltyInPoints ? { penaltyInPoints: true } : {}),
                   ...(finishByCompetitorId.get(id)?.penaltyLabel
                     ? { penaltyLabel: finishByCompetitorId.get(id)!.penaltyLabel }
                     : {}),
@@ -1248,6 +1252,7 @@ export async function buildFleetHtmlFiles(
                 resultCode: s.resultCode,
                 penaltyCode: finishByCompetitorId.get(id)?.penaltyCode ?? null,
                 penaltyOverride: finishByCompetitorId.get(id)?.penaltyOverride ?? null,
+                ...(finishByCompetitorId.get(id)?.penaltyInPoints ? { penaltyInPoints: true } : {}),
                 ...(finishByCompetitorId.get(id)?.penaltyLabel
                   ? { penaltyLabel: finishByCompetitorId.get(id)!.penaltyLabel }
                   : {}),

@@ -19,7 +19,8 @@ export type PointsMethod =
   | { type: 'fixed_penalty'; penaltyBase: 'entries' | 'starters' }
   // Additive penalty (applied on top of finish place; A6.2: other scores unchanged).
   // Formula (rule 44.3(c)): min(place + round(pct/100 × dnfScore), dnfScore)
-  // penaltyOverride on Finish overrides defaultPct for SCP.
+  // penaltyOverride on Finish overrides defaultPct for SCP — unless the SCP is
+  // stated in points (Finish.penaltyInPoints), which scores as additive_stated.
   | { type: 'additive_percentage'; defaultPct: number }
   // Discretionary Points Increase: min(place + override, dnfScore)
   // Finish.penaltyOverride is the stated points to add.
@@ -143,7 +144,9 @@ export const BUILT_IN_CODES: readonly ScoringCodeDefinition[] = [
     code: 'SCP',
     name: 'Scoring Penalty',
     builtIn: true,
-    // PC-imposed scoring penalty; default 20% but Finish.penaltyOverride can specify a different %.
+    // Rule 44.3(c): the points stated in the NoR or SIs, else 20% of DNF.
+    // Finish.penaltyOverride can specify a different %, or — with
+    // Finish.penaltyInPoints — the stated points (see penaltyPointsMethod).
     pointsMethod: { type: 'additive_percentage', defaultPct: 20 },
     discardable: true,
     otherScoresUnchanged: true,
@@ -184,4 +187,41 @@ export function getCodeDefinition(
     if (def.code === code) return def;
   }
   return BUILT_IN_MAP.get(code);
+}
+
+/**
+ * The points method a finish's additive penalty is scored by. An SCP stated
+ * in points — rule 44.3(c)'s main form, "made worse by the number of points
+ * stated in the notice of race or sailing instructions" — adds those points
+ * as a DPI does; the percentage of DNF is only the fallback. Every other
+ * penalty, ZFP included (its 20% is fixed by rule 30.2), is scored by its
+ * code's own method.
+ */
+export function penaltyPointsMethod(
+  finish: { penaltyCode: string | null; penaltyInPoints?: boolean },
+  customCodes: readonly ScoringCodeDefinition[] = [],
+): PointsMethod | undefined {
+  if (!finish.penaltyCode) return undefined;
+  if (finish.penaltyCode === 'SCP' && finish.penaltyInPoints) return { type: 'additive_stated' };
+  return getCodeDefinition(finish.penaltyCode, customCodes)?.pointsMethod;
+}
+
+/** Whether a finish's penalty is a stated number of points (a DPI, or an SCP
+ *  stated in points) rather than a percentage of the DNF score. */
+export function penaltyIsStatedPoints(
+  finish: { penaltyCode: string | null; penaltyInPoints?: boolean },
+): boolean {
+  return penaltyPointsMethod(finish)?.type === 'additive_stated';
+}
+
+/** A penalty's stated amount with its unit: `2pts` for a DPI or an SCP stated
+ *  in points, `30%` for an SCP percentage of the DNF score. */
+export function penaltyAmountText(
+  code: string,
+  override: number,
+  inPoints?: boolean,
+): string {
+  return penaltyIsStatedPoints({ penaltyCode: code, penaltyInPoints: inPoints })
+    ? `${override}pts`
+    : `${override}%`;
 }

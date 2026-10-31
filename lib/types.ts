@@ -1194,18 +1194,26 @@ export interface Finish {
   resultCode: ResultCode | null;  // null if sortOrder is set (RDG may coexist with sortOrder)
   startPresent: boolean | null;   // true if observed in starting area; null if not recorded
   penaltyCode: PenaltyCode | null;    // additive penalty (ZFP/SCP/DPI); only for finishers
-  penaltyOverride: number | null;     // SCP: explicit %; DPI: explicit points; null = use default
+  penaltyOverride: number | null;     // SCP: explicit % (or points, see below); DPI: explicit points; null = use default
+  // SCP only: `penaltyOverride` (and `penaltyOverrideByFleet`) is a stated
+  // number of points rather than a percentage of the DNF score. RRS 44.3(c)
+  // makes the points the NoR or SIs state the main form ("a Scoring Penalty
+  // of 2 points") and 20% of DNF the fallback when none is stated. Still
+  // capped at the DNF score. Absent means a percentage.
+  penaltyInPoints?: boolean;
   // What a DPI was given for, in the scorer's own words ("TPO", "Safety
   // briefing"). Published in place of the code, with a legend beneath the
   // table saying it is a discretionary points penalty. Purely a label: the
   // points come from penaltyOverride and nothing here reaches the engine.
   // DPI only — ZFP and SCP are RRS codes whose meaning is already fixed.
   penaltyLabel?: string;
-  // Per-fleet DPI points for a boat scored in more than one fleet. When present
-  // (non-empty) the boat is in per-fleet mode: each key is a fleetId → added
-  // points for that fleet, and a fleet absent from the map is a gap (no penalty
-  // applied, surfaced via a scoring rejection). `penaltyOverride` is the uniform
-  // value used when this map is absent (and the SCP percentage either way).
+  // Per-fleet points for a DPI, or an SCP stated in points, on a boat scored in
+  // more than one fleet. When present (non-empty) the boat is in per-fleet
+  // mode: each key is a fleetId → added points for that fleet, and a fleet
+  // absent from the map is a gap (no penalty applied, surfaced via a scoring
+  // rejection). `penaltyOverride` is the uniform value used when this map is
+  // absent (and an SCP percentage either way — a percentage of DNF is already
+  // per-fleet).
   penaltyOverrideByFleet?: Record<string, number>;
   // Redress (RDG) — all null unless resultCode === 'RDG'.
   //   all_races          — RRS A9(a): mean of all other races (incl. DNC etc.)
@@ -1693,7 +1701,10 @@ export interface Standing {
   raceRanks: (number | null)[];          // within-fleet finish rank per race (1/2/3… for clean finishers); null for coded/penalty/redress/excluded/not-yet-sailed
   raceCodes: (ResultCode | null)[];      // result code per race (null = normal finish)
   racePenaltyCodes: (PenaltyCode | null)[];        // additive penalty per race (null = no penalty)
-  racePenaltyOverrides: (number | null)[];          // override value per race (SCP %  or DPI pts; null = no override / no penalty)
+  racePenaltyOverrides: (number | null)[];          // override value per race (SCP % or pts, DPI pts; null = no override / no penalty)
+  // true in a slot whose SCP override is stated in points, not a percentage
+  // (`Finish.penaltyInPoints`). Optional, like the labels below.
+  racePenaltyInPoints?: boolean[];
   // Scorer's label for a DPI per race (null in a slot with none, or a
   // non-DPI penalty). Optional: sparse, and a Standing built outside the
   // engine has nothing to say about labels.
@@ -1718,8 +1729,8 @@ export type ScoringRejectionReason =
   // A multi-fleet boat has per-fleet stated redress points but none set for
   // this fleet — scored as the A9(a) average until the scorer enters one.
   | 'rdg_missing_fleet_points'
-  // A multi-fleet boat has a per-fleet DPI penalty but none set for this fleet
-  // — no penalty applied until the scorer enters one.
+  // A multi-fleet boat has per-fleet DPI (or SCP) points but none set for
+  // this fleet — no penalty applied until the scorer enters one.
   | 'dpi_missing_fleet_points';
 
 export interface ScoringRejection {

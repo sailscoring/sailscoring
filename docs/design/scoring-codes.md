@@ -140,7 +140,7 @@ of other boats are not changed** — so two boats can share the same score.
 | Code | Full name | Scoring | Notes |
 |------|-----------|---------|-------|
 | ZFP  | Z Flag Penalty | Base points + 20% of DNF score | Per rule 30.2; can be stacked if identified on a re-start |
-| SCP  | Scoring Penalty | Base points + stated % (or 20% default) | Per rule 44.3; explicitly as decided by the protest committee |
+| SCP  | Scoring Penalty | Base points + stated points, or stated % (20% default) | Per rule 44.3; points when the NoR/SIs state a number, a % when they state one or none |
 | DPI  | Discretionary Penalty Imposed | Base points + stated points | Points value determined by the protest committee |
 
 The additive penalty calculation (per 44.3(c)):

@@ -734,6 +734,16 @@ describe.skipIf(skip)('postgres repositories', () => {
     expect(afterLaps[0].laps).toBe(1);
     expect('laps' in byRace[0]).toBe(false);
 
+    // An SCP stated in points: the flag decides whether 2 means 2 points or
+    // 2% of DNF, so it is a scoring input too. Absent reads back absent.
+    expect('penaltyInPoints' in afterLaps[0]).toBe(false);
+    await repos.finishes.save({
+      ...named, laps: 1, penaltyCode: 'SCP', penaltyOverride: 2, penaltyInPoints: true, penaltyLabel: undefined,
+      version: afterLaps[0].version,
+    });
+    const afterScp = await repos.finishes.listByRace(race.id);
+    expect(afterScp[0]).toMatchObject({ penaltyCode: 'SCP', penaltyOverride: 2, penaltyInPoints: true });
+
     // An unknown-sail crossing (null competitorId) must come back from the
     // whole-series read alongside the resolved finish.
     const unknown: Finish = {

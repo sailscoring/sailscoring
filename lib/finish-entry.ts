@@ -30,6 +30,7 @@ export function makeFinish(
     penaltyOverride: overrides.penaltyOverride ?? null,
     ...(overrides.penaltyLabel != null ? { penaltyLabel: overrides.penaltyLabel } : {}),
     ...(overrides.penaltyOverrideByFleet != null ? { penaltyOverrideByFleet: overrides.penaltyOverrideByFleet } : {}),
+    ...(overrides.penaltyInPoints ? { penaltyInPoints: true } : {}),
     redressMethod: overrides.redressMethod ?? null,
     redressExcludeRaceIds: overrides.redressExcludeRaceIds ?? null,
     redressIncludeRaceIds: overrides.redressIncludeRaceIds ?? null,
@@ -114,6 +115,7 @@ export function carryAcrossImport(
       out.penaltyOverride = prior.penaltyOverride;
       if (prior.penaltyLabel) out.penaltyLabel = prior.penaltyLabel;
       if (prior.penaltyOverrideByFleet) out.penaltyOverrideByFleet = { ...prior.penaltyOverrideByFleet };
+      if (prior.penaltyInPoints) out.penaltyInPoints = true;
     }
     if (prior.resultCode === 'RDG') {
       out.resultCode = 'RDG';
@@ -303,7 +305,7 @@ export function deriveFinishState(savedFinishes: Finish[]): {
    *  `finishTimes`, and populated for the same rows. */
   elapsedSecs: Map<string, number>;
   tiedWithPrevious: Set<string>;
-  finisherPenalties: Map<string, { code: PenaltyCode; override: number | null; overrideByFleet: Record<string, number> | null; label?: string }>;
+  finisherPenalties: Map<string, { code: PenaltyCode; override: number | null; overrideByFleet: Record<string, number> | null; inPoints?: boolean; label?: string }>;
   redressEntries: Map<string, RedressEntry>;
   finishByEntryKey: Map<string, Finish>;
   finishByCompetitorId: Map<string, Finish>;
@@ -346,13 +348,14 @@ export function deriveFinishState(savedFinishes: Finish[]): {
     }
   }
 
-  const finisherPenalties = new Map<string, { code: PenaltyCode; override: number | null; overrideByFleet: Record<string, number> | null; label?: string }>();
+  const finisherPenalties = new Map<string, { code: PenaltyCode; override: number | null; overrideByFleet: Record<string, number> | null; inPoints?: boolean; label?: string }>();
   for (const finish of savedFinishes) {
     if (finish.penaltyCode && finish.competitorId && finishedIds.has(finish.competitorId)) {
       finisherPenalties.set(finish.competitorId, {
         code: finish.penaltyCode,
         override: finish.penaltyOverride ?? null,
         overrideByFleet: finish.penaltyOverrideByFleet ?? null,
+        ...(finish.penaltyInPoints ? { inPoints: true } : {}),
         ...(finish.penaltyLabel ? { label: finish.penaltyLabel } : {}),
       });
     }

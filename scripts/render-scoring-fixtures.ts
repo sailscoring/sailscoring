@@ -128,7 +128,7 @@ function generateScratchFixtureHtml(fixture: Fixture, yamlSource: string): strin
       );
       const raceScoresByRaceId = new Map<
         string,
-        Map<string, { points: number; place: number | null; rank: number | null; resultCode: ResultCode | null; penaltyCode: PenaltyCode | null; penaltyOverride: number | null }>
+        Map<string, { points: number; place: number | null; rank: number | null; resultCode: ResultCode | null; penaltyCode: PenaltyCode | null; penaltyOverride: number | null; penaltyInPoints?: boolean }>
       >();
       for (const race of races) {
         const raceFinishes = finishes.filter(
@@ -138,7 +138,7 @@ function generateScratchFixtureHtml(fixture: Fixture, yamlSource: string): strin
         const scores = calculateRaceScores(raceFinishes, competitors.filter((c) => fleetCompetitorIds.has(c.id)), dnfScoring);
         raceScoresByRaceId.set(race.id, new Map([...scores.entries()].map(([id, s]) => [
           id,
-          { points: s.points, place: s.place, rank: s.rank, resultCode: s.resultCode, penaltyCode: finishByCompetitorId.get(id)?.penaltyCode ?? null, penaltyOverride: finishByCompetitorId.get(id)?.penaltyOverride ?? null },
+          { points: s.points, place: s.place, rank: s.rank, resultCode: s.resultCode, penaltyCode: finishByCompetitorId.get(id)?.penaltyCode ?? null, penaltyOverride: finishByCompetitorId.get(id)?.penaltyOverride ?? null, penaltyInPoints: finishByCompetitorId.get(id)?.penaltyInPoints },
         ])));
       }
 
@@ -179,7 +179,7 @@ function generateScratchFixtureHtml(fixture: Fixture, yamlSource: string): strin
 
   const raceScoresByRaceId = new Map<
     string,
-    Map<string, { points: number; place: number | null; rank: number | null; resultCode: ResultCode | null; penaltyCode: PenaltyCode | null; penaltyOverride: number | null }>
+    Map<string, { points: number; place: number | null; rank: number | null; resultCode: ResultCode | null; penaltyCode: PenaltyCode | null; penaltyOverride: number | null; penaltyInPoints?: boolean }>
   >();
   for (const race of races) {
     const raceFinishes = finishes.filter((f) => f.raceId === race.id);
@@ -187,7 +187,7 @@ function generateScratchFixtureHtml(fixture: Fixture, yamlSource: string): strin
     const scores = calculateRaceScores(raceFinishes, competitors, dnfScoring);
     raceScoresByRaceId.set(race.id, new Map([...scores.entries()].map(([id, s]) => [
       id,
-      { points: s.points, place: s.place, rank: s.rank, resultCode: s.resultCode, penaltyCode: finishByCompetitorId.get(id)?.penaltyCode ?? null, penaltyOverride: finishByCompetitorId.get(id)?.penaltyOverride ?? null },
+      { points: s.points, place: s.place, rank: s.rank, resultCode: s.resultCode, penaltyCode: finishByCompetitorId.get(id)?.penaltyCode ?? null, penaltyOverride: finishByCompetitorId.get(id)?.penaltyOverride ?? null, penaltyInPoints: finishByCompetitorId.get(id)?.penaltyInPoints },
     ])));
   }
 

@@ -1,7 +1,7 @@
 import type { Competitor, Fleet, Race, Finish, RaceScore, HandicapRaceScore, RaceStart, RaceRatingOverride, Standing, ResultCode, PenaltyCode, DiscardThreshold, ProportionalDiscard, DnfScoring, ScoringRejection, RaceScoringGap, NhcRaceCalc, NhcRaceAggregates, EchoRaceCalc, EchoRaceAggregates, OrcProfile, OrcRaceCalc, TcfRecord, NhcProfile, ProgressiveHandicapConfig, ProgressiveRaceCalc, ProgressiveRaceAggregates, SubSeries, RaceFleetExclusion, CompetitorEntryOverride } from './types';
 import { elapsedSecondsOf, roundToPrecision, timingPrecisionOf, type TimingPrecision } from './elapsed-time';
 import { courseLapsOf, fullCourseElapsed, lapsDiffer } from './laps';
-import { getCodeDefinition } from './scoring-codes';
+import { getCodeDefinition, penaltyIsStatedPoints, penaltyPointsMethod } from './scoring-codes';
 import { orcConstructedOption, orcCurveOption, orcFleetProfile, orcPcsRatable, orcProfileRating, orcRaceProfile, orcRecordedWindOption, orcTodRating, orcTotRating } from './orc-certificate';
 import { scorePcsRace, type PcsAllowances, type PcsCourse, type PcsCourseModel } from './orc-pcs';
 import { courseLength } from './course-precision';
@@ -116,12 +116,13 @@ function resolvePerFleetScalar(
 }
 
 /** Apply an additive scoring penalty (ZFP/SCP/DPI) to a finisher's points. Per
- *  RRS 44.3(c) a percentage penalty is the stated % (default 20%) of the DNF
- *  score, **rounded to the nearest tenth of a point (0.05 up)** — not the
- *  nearest whole number — and a boat is never scored worse than DNF (`cap`).
+ *  RRS 44.3(c) a penalty is the number of points stated (a DPI, or an SCP the
+ *  SIs state in points), or else the stated % (default 20%) of the DNF score,
+ *  **rounded to the nearest tenth of a point (0.05 up)** — not the nearest
+ *  whole number — and a boat is never scored worse than DNF (`cap`).
  *  No-op when the finish carries no penalty. Caller restricts this to
- *  finishers. `fleetId` selects the per-fleet DPI points for multi-fleet boats;
- *  a boat in per-fleet mode with no value for this fleet adds nothing (a
+ *  finishers. `fleetId` selects the per-fleet points for multi-fleet boats; a
+ *  boat in per-fleet mode with no value for this fleet adds nothing (a
  *  penalty is never fabricated — the gap is surfaced separately).
  *
  *  The cap only stops the *penalty* making her worse than DNF; it never
@@ -142,7 +143,7 @@ export function applyAdditivePenalty(
   fleetId?: string,
 ): number {
   if (!finish?.penaltyCode) return basePoints;
-  const method = getCodeDefinition(finish.penaltyCode)?.pointsMethod;
+  const method = penaltyPointsMethod(finish);
   if (method?.type === 'additive_percentage') {
     // SCP/ZFP are a percentage of the DNF score, which is already per-fleet —
     // so a single stored rate yields the correct per-fleet points; no per-fleet
@@ -1384,6 +1385,7 @@ interface PerCompetitorSeries {
   racePenaltyCodes: Map<string, (PenaltyCode | null)[]>;
   racePenaltyOverrides: Map<string, (number | null)[]>;
   racePenaltyLabels: Map<string, (string | null)[]>;
+  racePenaltyInPoints: Map<string, boolean[]>;
   raceRedressFlags: Map<string, boolean[]>;
 }
 
@@ -1395,6 +1397,7 @@ function initPerCompetitorSeries(competitors: Competitor[]): PerCompetitorSeries
     racePenaltyCodes: new Map(),
     racePenaltyOverrides: new Map(),
     racePenaltyLabels: new Map(),
+    racePenaltyInPoints: new Map(),
     raceRedressFlags: new Map(),
   };
   for (const c of competitors) {
@@ -1404,6 +1407,7 @@ function initPerCompetitorSeries(competitors: Competitor[]): PerCompetitorSeries
     per.racePenaltyCodes.set(c.id, []);
     per.racePenaltyOverrides.set(c.id, []);
     per.racePenaltyLabels.set(c.id, []);
+    per.racePenaltyInPoints.set(c.id, []);
     per.raceRedressFlags.set(c.id, []);
   }
   return per;
@@ -1430,6 +1434,7 @@ function emptyStandings(competitors: Competitor[]): Standing[] {
     racePenaltyCodes: [],
     racePenaltyOverrides: [],
     racePenaltyLabels: [],
+    racePenaltyInPoints: [],
     raceRedressFlags: [],
     totalPoints: 0,
     netPoints: 0,
@@ -1590,6 +1595,7 @@ function assembleStandings(
     const racePenaltyCodes = per.racePenaltyCodes.get(competitor.id)!;
     const racePenaltyOverrides = per.racePenaltyOverrides.get(competitor.id)!;
     const racePenaltyLabels = per.racePenaltyLabels.get(competitor.id)!;
+    const racePenaltyInPoints = per.racePenaltyInPoints.get(competitor.id)!;
     const raceRedressFlags = per.raceRedressFlags.get(competitor.id)!;
     // roundToTenth on the series totals: every per-race score is a multiple of
     // 0.1, so summing them is exact in principle but accumulates IEEE noise
@@ -1633,7 +1639,7 @@ function assembleStandings(
       0,
     ));
 
-    return { rank: 0, competitor, racePoints, raceRanks, raceCodes, racePenaltyCodes, racePenaltyOverrides, racePenaltyLabels, raceRedressFlags, totalPoints, netPoints, raceDiscards, raceNonDiscardable, raceExcluded: [...raceExcluded], ...(raceNotScored?.some(Boolean) ? { raceNotScored: [...raceNotScored] } : {}) };
+    return { rank: 0, competitor, racePoints, raceRanks, raceCodes, racePenaltyCodes, racePenaltyOverrides, racePenaltyLabels, racePenaltyInPoints, raceRedressFlags, totalPoints, netPoints, raceDiscards, raceNonDiscardable, raceExcluded: [...raceExcluded], ...(raceNotScored?.some(Boolean) ? { raceNotScored: [...raceNotScored] } : {}) };
   });
 }
 
@@ -1730,6 +1736,7 @@ export function calculateStandings(
       per.racePenaltyCodes.get(competitor.id)!.push(finish?.penaltyCode ?? null);
       per.racePenaltyOverrides.get(competitor.id)!.push(finish?.penaltyOverride ?? null);
       per.racePenaltyLabels.get(competitor.id)!.push(finish?.penaltyLabel ?? null);
+      per.racePenaltyInPoints.get(competitor.id)!.push(!!finish?.penaltyInPoints);
       per.raceRedressFlags.get(competitor.id)!.push(false);
     }
   }
@@ -2233,6 +2240,7 @@ function calculateHandicapStandings(
       per.racePenaltyCodes.get(competitor.id)!.push(isFinisher ? (finish?.penaltyCode ?? null) : null);
       per.racePenaltyOverrides.get(competitor.id)!.push(isFinisher ? (finish?.penaltyOverride ?? null) : null);
       per.racePenaltyLabels.get(competitor.id)!.push(isFinisher ? (finish?.penaltyLabel ?? null) : null);
+      per.racePenaltyInPoints.get(competitor.id)!.push(isFinisher && !!finish?.penaltyInPoints);
       per.raceRedressFlags.get(competitor.id)!.push(false);
     }
   }
@@ -2327,7 +2335,7 @@ function detectPerFleetGaps(
     }
     const dpiByFleet = f.penaltyOverrideByFleet;
     if (
-      f.penaltyCode === 'DPI' &&
+      penaltyIsStatedPoints(f) &&
       f.sortOrder !== null &&
       dpiByFleet &&
       Object.keys(dpiByFleet).length > 0 &&

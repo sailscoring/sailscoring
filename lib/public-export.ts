@@ -190,9 +190,10 @@ export interface PublicSeriesExport {
    *  true; v10 adds the `not-awarded` prize clause; v11 removes the course
    *  library — top-level `marks` and `courses`, and a start course's
    *  `course` and `waypoints` (ADR-013, `lib/course-library-upgrade.ts`),
-   *  which an export from v2 on could carry. Readers accept them all,
-   *  bringing an older export's courses forward as they read it. */
-  version: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;
+   *  which an export from v2 on could carry; v12 adds a finish's `laps`;
+   *  v13 adds `penaltyInPoints`, an SCP stated in points. Readers accept
+   *  them all, bringing an older export's courses forward as they read it. */
+  version: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13;
   /** Where the format, and what a reader may rely on, is documented. Written
    *  into every export so a reader handed only the file can find the
    *  contract. Optional: exports written before it was added lack it. */
@@ -532,10 +533,17 @@ export interface PublicSeriesExport {
       startPresent: boolean | null;
       /** Additive penalty applied on top of the finish (ZFP/SCP/DPI). */
       penaltyCode?: PenaltyCode | null;
-      /** SCP %, DPI points, or null to use code default. */
+      /** SCP % (or points, see `penaltyInPoints`), DPI points, or null to
+       *  use code default. */
       penaltyOverride?: number | null;
-      /** Per-fleet DPI points (fleetId → points) for multi-fleet boats. */
+      /** Per-fleet DPI (or points SCP) points (fleetId → points) for
+       *  multi-fleet boats. */
       penaltyOverrideByFleet?: Record<string, number>;
+      /** An SCP stated in points (v13+): `penaltyOverride` and
+       *  `penaltyOverrideByFleet` are the points the notice of race or
+       *  sailing instructions state (rule 44.3(c)), not a percentage of the
+       *  DNF score. Absent is a percentage. */
+      penaltyInPoints?: boolean;
       /** What a DPI was given for, in the scorer's words. */
       penaltyLabel?: string;
       /** Redress (RDG) configuration — all fields together reproduce
@@ -583,6 +591,9 @@ export interface PublicSeriesExport {
       raceDiscards: boolean[];
       racePenaltyCodes: (PenaltyCode | null)[];
       racePenaltyOverrides: (number | null)[];
+      /** Where an SCP's override is points rather than a percentage (v13+).
+       *  Sparse: present only when some race's is. */
+      racePenaltyInPoints?: boolean[];
       raceNonDiscardable: boolean[];
       raceRedressFlags: boolean[];
       /** This race is out of the boat's score: 0 points, no discard. */
@@ -915,6 +926,7 @@ function championshipStandingRows(
     const raceDiscards: boolean[] = [];
     const racePenaltyCodes: (PenaltyCode | null)[] = [];
     const racePenaltyOverrides: (number | null)[] = [];
+    const racePenaltyInPoints: boolean[] = [];
     const raceNonDiscardable: boolean[] = [];
     const raceRedressFlags: boolean[] = [];
     const raceExcluded: boolean[] = [];
@@ -927,9 +939,9 @@ function championshipStandingRows(
       raceCodes.push(penalty ? null : (code as ResultCode | null));
       raceDiscards.push(counts && cell.discarded);
       racePenaltyCodes.push(penalty);
-      racePenaltyOverrides.push(
-        finishByRaceAndBoat.get(finishKey(race.id, row.competitor.id))?.penaltyOverride ?? null,
-      );
+      const finish = finishByRaceAndBoat.get(finishKey(race.id, row.competitor.id));
+      racePenaltyOverrides.push(finish?.penaltyOverride ?? null);
+      racePenaltyInPoints.push(!!penalty && !!finish?.penaltyInPoints);
       raceNonDiscardable.push(!!cell && !cell.discardable);
       raceRedressFlags.push(code === 'RDG');
       raceExcluded.push(!counts);
@@ -944,6 +956,7 @@ function championshipStandingRows(
       raceDiscards,
       racePenaltyCodes,
       racePenaltyOverrides,
+      ...(racePenaltyInPoints.some(Boolean) ? { racePenaltyInPoints } : {}),
       raceNonDiscardable,
       raceRedressFlags,
       raceExcluded,
@@ -1227,6 +1240,7 @@ export function buildPublicExportFromSnapshot(
           ...(finish?.penaltyOverride != null ? { penaltyOverride: finish.penaltyOverride } : {}),
           ...(finish?.penaltyOverrideByFleet && Object.keys(finish.penaltyOverrideByFleet).length ? { penaltyOverrideByFleet: perFleetByName(finish.penaltyOverrideByFleet) } : {}),
           ...(finish?.penaltyLabel ? { penaltyLabel: finish.penaltyLabel } : {}),
+          ...(finish?.penaltyInPoints ? { penaltyInPoints: true } : {}),
           ...(finish?.resultCode === 'RDG' ? {
             redressMethod: finish.redressMethod,
             ...(finish.redressExcludeRaceIds?.length ? { redressExcludeRaces: toRaceNumbers(finish.redressExcludeRaceIds) } : {}),
@@ -1316,6 +1330,7 @@ export function buildPublicExportFromSnapshot(
           raceDiscards: s.raceDiscards,
           racePenaltyCodes: s.racePenaltyCodes,
           racePenaltyOverrides: s.racePenaltyOverrides,
+          ...(s.racePenaltyInPoints?.some(Boolean) ? { racePenaltyInPoints: s.racePenaltyInPoints } : {}),
           raceNonDiscardable: s.raceNonDiscardable,
           raceRedressFlags: s.raceRedressFlags,
           raceExcluded: s.raceExcluded,
@@ -1337,7 +1352,7 @@ export function buildPublicExportFromSnapshot(
     : undefined;
 
   return {
-    version: 12 as const,
+    version: 13 as const,
     formatDoc: PUBLIC_EXPORT_FORMAT_DOC,
     exportedAt: (opts?.exportedAt ?? new Date()).toISOString(),
     timeZone: instanceTimeZone(),
@@ -1612,7 +1627,7 @@ function importExportPrizes(
 /** Export format versions this build can read. A file written by a newer
  *  build is refused rather than half-read: the version is what says which
  *  fields mean what. Mirrors `SUPPORTED_FORMAT_VERSIONS` on the file side. */
-const SUPPORTED_EXPORT_VERSIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+const SUPPORTED_EXPORT_VERSIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
 
 /**
  * Parse the text of a published `.sailscoring.json` data file.
@@ -2066,6 +2081,7 @@ export async function importPublicExport(
         penaltyCode: finish.penaltyCode ?? null,
         penaltyOverride: finish.penaltyOverride ?? null,
         ...(finish.penaltyLabel ? { penaltyLabel: finish.penaltyLabel } : {}),
+        ...(finish.penaltyInPoints ? { penaltyInPoints: true } : {}),
         ...(finish.penaltyOverrideByFleet ? { penaltyOverrideByFleet: perFleetToNewIds(finish.penaltyOverrideByFleet) } : {}),
         redressMethod: finish.redressMethod ?? null,
         redressExcludeRaceIds: toRaceIds(finish.redressExcludeRaces),

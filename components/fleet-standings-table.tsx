@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, type ReactNode } from 'react';
+import { penaltyAmountText } from '@/lib/scoring-codes';
 import { ChevronDown } from 'lucide-react';
 import {
   Table,
@@ -515,9 +516,7 @@ function StandingRow({
           raceRank !== null && raceRank <= 3 && !isDiscard;
         const penaltyLabel = penaltyCode
           ? penaltyOverride !== null
-            ? penaltyCode === 'DPI'
-              ? `${penaltyCode}(${penaltyOverride}pts)`
-              : `${penaltyCode}(${penaltyOverride}%)`
+            ? `${penaltyCode}(${penaltyAmountText(penaltyCode, penaltyOverride, standing.racePenaltyInPoints?.[i])})`
             : penaltyCode
           : null;
         if (isExcluded) {

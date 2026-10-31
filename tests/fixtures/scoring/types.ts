@@ -68,6 +68,8 @@ export interface FixtureFinish {
   startPresent?: boolean;
   penaltyCode?: PenaltyCode;
   penaltyOverride?: number;
+  /** SCP only: `penaltyOverride` is stated points, not a percentage. */
+  penaltyInPoints?: boolean;
   redressMethod?: 'all_races' | 'all_races_excl_dnc' | 'races_before' | 'stated';
   redressExcludeRaces?: number[];
   redressIncludeRaces?: number[];
@@ -507,6 +509,7 @@ export function buildFixtureInputs(fixture: Fixture): FixtureInputs {
         startPresent: f.startPresent ?? null,
         penaltyCode: f.penaltyCode ?? null,
         penaltyOverride: f.penaltyOverride ?? null,
+        ...(f.penaltyInPoints ? { penaltyInPoints: true } : {}),
         redressMethod: f.redressMethod ?? null,
         redressExcludeRaceIds: redressToIds(f.redressExcludeRaces),
         redressIncludeRaceIds: redressToIds(f.redressIncludeRaces),
