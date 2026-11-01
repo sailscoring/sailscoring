@@ -107,19 +107,33 @@ scorer mid-task.
 - **The page never scrolls sideways.** A table wider than the screen
   scrolls inside its own box.
 - **Tapping a field doesn't zoom the page.** iOS zooms on a field whose
-  text is under 16px, so form controls are `text-base` on a phone
-  (`text-base md:text-sm`, as `components/ui/input.tsx` does).
+  text is under 16px. `app/globals.css` lifts every text field to 16px
+  below the `md` breakpoint, so `text-sm` on a form control is fine.
 - **Every action works by touch.** Nothing is reachable only on hover or
   only by keyboard shortcut.
 - **Heights use `dvh`, not `vh`.** On a phone `vh` measures the screen as if
   the address bar were hidden, so `50vh` is more than half of what's
-  visible.
+  visible. Lint refuses `vh` and `h-screen` classes.
+- **Rows wrap rather than squeeze.** A row of a label, a field and buttons
+  that fits a laptop doesn't fit a phone: let it `flex-wrap`, and give the
+  part that must stay readable a `basis-*` so the rest drops to a second
+  line. Without one, a `truncate` label shrinks to nothing and the words
+  are simply gone. A button whose label won't fit takes `wrap`.
+
+A dialog with more than a screenful puts everything between its header
+and footer in a `DialogBody`, which scrolls while the title and buttons
+stay put. Every dialog is capped at the screen's height regardless, so
+one without a body scrolls as a whole.
 
 Screens used often, such as finish entry and the imports, should also be
 comfortable on a phone, not just usable; the rest only has to meet the
 list above. Checking the list belongs to the build, not to whoever next
-scores from a phone: #722 runs the e2e suite at phone width and fails any
-test that breaks it.
+scores from a phone: `pnpm test:e2e:mobile` runs the e2e suite at phone
+size, and fails any test that opens a dialog that doesn't fit, lets the
+page scroll sideways, focuses a field that would zoom, or squeezes a label
+out of sight. `pnpm phone-sheet` captures every page and dialog the suite
+reaches at phone size into one page, for what the checks can't judge. CI runs it on
+every push.
 
 ## Not yet surveyed
 

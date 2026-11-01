@@ -1,9 +1,11 @@
 import { signedInTest as test, expect } from './fixtures';
 import {
   addCompetitor,
+  closeSailingInstructionsOnPhone,
   createSeriesQuick,
   createSplitFleetSeries,
   enableFeatures,
+  onPhone,
   openSeriesActionsMenu,
   showSailingInstructions,
   showStageSettings,
@@ -204,11 +206,14 @@ test('split fleets: seed → race → reassign → split → medal', async ({ pa
   // translation of the whole championship opens in a drawer beside them.
   const si = await showSailingInstructions(page);
   await expect(si).toContainText('will count for total points in the Qualification series');
+  await closeSailingInstructionsOnPhone(page);
   await showStageSettings(page, 'Qualification series');
   await showStageSettings(page, 'Final series');
 
   // Reaching a setting marks the sentences it writes, so which clause a field
-  // governs doesn't have to be found by flipping it.
+  // governs doesn't have to be found by flipping it. That is reading the
+  // drawer beside the settings, which a phone has no room for.
+  if (!onPhone()) {
   await page.getByText('Also where the provisional cut line is drawn').hover();
   await expect(si.locator('[data-sentence="medal"]')).toHaveAttribute('data-marked', 'true');
   await expect(si.locator('[data-sentence="discards"]')).not.toHaveAttribute('data-marked', 'true');
@@ -226,6 +231,7 @@ test('split fleets: seed → race → reassign → split → medal', async ({ pa
     .getByRole('radio', { name: 'The last race alone' })
     .focus();
   await expect(si.locator('[data-sentence="medal-tie-break"]')).toHaveAttribute('data-marked', 'true');
+  }
 
   // ── Medal fleet ───────────────────────────────────────────────────────────
   await page.getByRole('button', { name: 'Select Final series fleet…' }).click();
@@ -732,6 +738,7 @@ test('split fleets: dividing after racing relabels the races on every surface', 
     'races in the Preliminary series will be numbered QP1, QP2 and so on; races in the ' +
       'Elimination series, QE1, QE2 and so on',
   );
+  await closeSailingInstructionsOnPhone(page);
   await gotoRaces(page);
   await expect(page.getByTestId('race-row').first()).toContainText('QP1');
 });
@@ -816,16 +823,19 @@ test('split fleets: a halved score into the Elimination series, and no Final ser
   await expect(si.locator('[data-sentence="final-tie-break"]')).toContainText('the last race');
   // No longer one continuous series, so no sentence says it is.
   await expect(si.locator('[data-sentence="totals"]')).toHaveCount(0);
+  await closeSailingInstructionsOnPhone(page);
 
   // Nobody is cut to a Final series: the Melges 15 Sprint Championships end
   // with their Gold and Silver fleets.
   await showStageSettings(page, 'Final series');
   await Promise.all([saved(), page.getByRole('button', { name: 'No Final series' }).click()]);
   await expect(page.getByRole('button', { name: 'Add Final series' })).toBeVisible();
+  if (onPhone()) await showSailingInstructions(page);
   await expect(si.locator('[data-sentence="medal"]')).toHaveCount(0);
   await expect(si.locator('[data-sentence="fleet-ranking"]')).toContainText(
     'will be ranked in that order',
   );
+  await closeSailingInstructionsOnPhone(page);
 
   // It is stored, not just shown.
   await page.reload();

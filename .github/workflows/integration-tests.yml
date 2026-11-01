@@ -12,6 +12,17 @@ jobs:
   integration:
     runs-on: ubuntu-latest
 
+    # The e2e suite twice, side by side: at desktop size, and again at phone
+    # size with the phone checks on (e2e/phone-checks.ts). The server-side
+    # Vitest suites don't depend on the screen, so only the desktop job runs
+    # them.
+    strategy:
+      fail-fast: false
+      matrix:
+        screen: [desktop, mobile]
+
+    name: integration (${{ matrix.screen }})
+
     services:
       postgres:
         image: postgres:17
@@ -62,10 +73,11 @@ jobs:
         run: pnpm db:migrate
 
       - name: Run server-side Vitest suites (schema, repos, auth, api)
+        if: matrix.screen == 'desktop'
         run: pnpm test:unit tests/db tests/postgres-repository.test.ts tests/auth tests/api
 
       - name: Install Playwright browsers
         run: pnpm exec playwright install chromium --with-deps
 
       - name: Run e2e tests
-        run: pnpm run test:e2e
+        run: pnpm run ${{ matrix.screen == 'mobile' && 'test:e2e:mobile' || 'test:e2e' }}

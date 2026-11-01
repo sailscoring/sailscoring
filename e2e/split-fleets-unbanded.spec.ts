@@ -2,6 +2,7 @@ import { signedInTest as test, expect } from './fixtures';
 import {
   createSplitFleetSeries,
   enableFeatures,
+  closeSailingInstructionsOnPhone,
   showSailingInstructions,
   showStageSettings,
 } from './helpers';
@@ -75,6 +76,7 @@ test('one fleet, no split, then a deciding race', async ({ page, signedInEmail }
   await expect(si).toContainText(
     'the boats that do not qualify for it will have no score for the medal race',
   );
+  await closeSailingInstructionsOnPhone(page);
 
   // ── Race it ───────────────────────────────────────────────────────────────
   await page.getByRole('button', { name: `Add ${DEMO_COUNT} demo competitors` }).click();

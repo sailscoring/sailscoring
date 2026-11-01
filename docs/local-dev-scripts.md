@@ -20,6 +20,8 @@ from?", start here.
 | `pnpm test:watch`        | Vitest watch mode                                    | No              |
 | `pnpm e2e:install`       | Download the Chromium build Playwright runs against; needed once per machine, and again after a Playwright version bump | No |
 | `pnpm test:e2e`          | Playwright, full-stack build (`retries: 2`, so flaky-but-passed exits 0) | Yes — run `pnpm db:up` first   |
+| `pnpm test:e2e:mobile`   | `test:e2e` at phone size (390×664), failing any test whose page breaks *On a phone* in `docs/design/ux/conventions.md`. CI runs it on every push beside the desktop run | Yes — run `pnpm db:up` first   |
+| `pnpm phone-sheet`       | `test:e2e:mobile` capturing each page and dialog it reaches into `screenshots/phone/index.html` | Yes — run `pnpm db:up` first   |
 | `pnpm test:e2e:triage`   | `test:e2e` then file each flaky test as a `flake` GitHub issue (pre-push run) | Yes — run `pnpm db:up` first   |
 | `pnpm test:e2e:stress`   | `test:e2e` with CPU burners on half the cores (flake stress test; no triage — read results as an aggregate signal) | Yes — run `pnpm db:up` first   |
 | `pnpm flake:triage`      | Triage the last run's `test-results/report.json` into `flake` issues; `--dry-run` to preview, `--ignore-environmental` to file suspend / network-change ones anyway | No (needs `gh` auth) |
@@ -176,6 +178,34 @@ stays responsive. Separately, `playwright.config.ts` pins `workers: 4`
 locally rather than accepting the default of half the cores, which on a
 12-core machine meant six workers and a load average near 27. Override
 the worker count for one run with `pnpm test:e2e --workers=N`.
+
+### `pnpm test:e2e:mobile`
+
+The same suite in a second Playwright project, `mobile`: a Pixel 7 (touch,
+honours the viewport meta) at 390×664, the part of a phone screen a page
+actually gets once the browser's bars are drawn. It sets `E2E_MOBILE=1`,
+which `playwright.config.ts` reads to pick the project; each run has
+exactly one project, so `pnpm test:e2e` stays desktop-only and the
+pre-push run doesn't double.
+
+At phone size the fixture (`e2e/fixtures.ts`) adds the checks in
+`e2e/phone-checks.ts` to every test, the way it already fails any test
+that logs a console error: a dialog that doesn't fit the screen, a page
+that scrolls sideways, a text field under 16px (which iOS zooms in on
+when tapped), or a `truncate` label squeezed to nothing fails the test,
+naming the dialog or element. A step that is desktop behaviour by design
+(a drawer read beside the page, a hover tint) checks `onPhone()` from
+`e2e/helpers.ts`.
+
+`pnpm phone-sheet` runs it with screenshot capture on and builds
+`screenshots/phone/index.html`: one shot of each page and dialog the suite
+reached, for looking over by eye. A spec whose
+subject the checks would misread can opt out with
+`test.use({ phoneChecks: false })`, with a comment saying why.
+
+CI runs it in parallel with the desktop suite; locally, run it when a
+change touches layout, or a spec alone (`pnpm test:e2e:mobile
+e2e/foo.spec.ts`) to see a CI phone failure.
 
 ### `pnpm test:e2e:triage` and the suspend guard
 

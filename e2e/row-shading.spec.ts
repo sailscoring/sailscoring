@@ -1,6 +1,6 @@
 import type { Locator } from '@playwright/test';
 import { signedInTest as test, expect } from './fixtures';
-import { createSeriesQuick } from './helpers';
+import { createSeriesQuick, onPhone } from './helpers';
 
 /**
  * Alternate-row shading on the lists a scorer checks row by row: the finishing
@@ -30,6 +30,9 @@ async function expectStriped(rows: Locator) {
   expect(shaded).not.toBe('rgba(0, 0, 0, 0)');
   expect(await background(third)).toBe(shaded);
 
+  // A touch screen has no hover, and Tailwind's hover: styles apply only
+  // where the device can hover, so there is no hover tint to check there.
+  if (onPhone()) return;
   await second.hover();
   await expect.poll(() => background(second)).not.toBe('rgba(0, 0, 0, 0)');
   // The hover colour is a fixed endpoint once the transition settles; it must

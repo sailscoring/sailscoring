@@ -1,6 +1,10 @@
 import { test as base } from '@playwright/test';
 
 import { hardenNavigation, signInFreshUser } from './helpers';
+import { installPhoneChecks } from './phone-checks';
+
+/** The Playwright project that runs the suite at phone size. */
+export const MOBILE_PROJECT = 'mobile';
 
 /**
  * Console errors triggered by in-flight fetches being aborted when the
@@ -34,7 +38,7 @@ function isAbortedFetchNoise(text: string): boolean {
  * included, so an otherwise healthy `goto` or `reload` dies with
  * net::ERR_NETWORK_CHANGED and the test lands in the report as load-sensitive.
  */
-export const test = base.extend<{ allowedConsoleErrors: RegExp[] }>({
+export const test = base.extend<{ allowedConsoleErrors: RegExp[]; phoneChecks: boolean }>({
   /**
    * Patterns a spec expects to see logged, via `test.use(...)`. For the one
    * case where a console error is the subject rather than the symptom: a spec
@@ -44,9 +48,20 @@ export const test = base.extend<{ allowedConsoleErrors: RegExp[] }>({
    */
   allowedConsoleErrors: [[], { option: true }],
 
-  page: async ({ page, allowedConsoleErrors }, use) => {
+  /**
+   * Whether the `mobile` project's phone checks (`e2e/phone-checks.ts`) run
+   * for this spec. Off only for a spec whose subject is something the checks
+   * would misread, with a comment saying why.
+   */
+  phoneChecks: [true, { option: true }],
+
+  page: async ({ page, allowedConsoleErrors, phoneChecks }, use, testInfo) => {
     hardenNavigation(page);
     const errors: string[] = [];
+    const phoneFindings: string[] = [];
+    if (phoneChecks && testInfo.project.name === MOBILE_PROJECT) {
+      await installPhoneChecks(page, (finding) => phoneFindings.push(finding), testInfo.titlePath.join(' › '));
+    }
     const expected = (text: string): boolean =>
       allowedConsoleErrors.some((rx) => rx.test(text));
 
@@ -64,9 +79,13 @@ export const test = base.extend<{ allowedConsoleErrors: RegExp[] }>({
 
     await use(page);
 
-
     if (errors.length > 0) {
       throw new Error(`Browser errors detected:\n${errors.join('\n')}`);
+    }
+    if (phoneFindings.length > 0) {
+      throw new Error(
+        `Not usable on a phone (docs/design/ux/conventions.md, "On a phone"):\n${phoneFindings.join('\n')}`,
+      );
     }
   },
 });

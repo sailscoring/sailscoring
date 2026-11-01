@@ -1,7 +1,13 @@
 import type { Page } from '@playwright/test';
 
 import { signedInTest as test, expect } from './fixtures';
-import { createSplitFleetSeries, enableFeatures, showSailingInstructions, showStageSettings } from './helpers';
+import {
+  closeSailingInstructionsOnPhone,
+  createSplitFleetSeries,
+  enableFeatures,
+  showSailingInstructions,
+  showStageSettings,
+} from './helpers';
 
 /**
  * Supplied boats, drawn for each fleet: the Irish Sailing Champions' Cup
@@ -41,6 +47,7 @@ test('split fleets: boats drawn for each fleet', async ({ page, signedInEmail })
   await expect(page.getByText('boats drawn per fleet')).toBeVisible();
   const si = await showSailingInstructions(page);
   await expect(si).toContainText('Boats will be supplied by the organising authority');
+  await closeSailingInstructionsOnPhone(page);
 
   await page.getByRole('button', { name: `Add ${DEMO_COUNT} demo competitors` }).click();
   await expect(page.getByRole('button', { name: `Add ${DEMO_COUNT} demo competitors` })).toBeHidden();

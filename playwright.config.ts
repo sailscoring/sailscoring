@@ -76,12 +76,16 @@ export default defineConfig({
     // the action that actually hung.
     actionTimeout: 20_000,
   },
-  projects: [
-    {
-      name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
-    },
-  ],
+  // One project per run: the desktop one (`pnpm test:e2e`), or the whole
+  // suite again at phone size (`pnpm test:e2e:mobile`, which sets
+  // E2E_MOBILE), where the fixture adds the phone checks
+  // (e2e/phone-checks.ts). The phone is a Pixel 7, which honours the page's
+  // viewport meta and reports touch, at the height a phone actually shows
+  // once the browser's own bars are drawn rather than its full screen. Kept
+  // apart so the local pre-push run doesn't double; CI runs both.
+  projects: process.env.E2E_MOBILE === '1'
+    ? [{ name: 'mobile', use: { ...devices['Pixel 7'], viewport: { width: 390, height: 664 } } }]
+    : [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: {
     command: 'pnpm start:test',
     url: `http://localhost:${appPort}`,

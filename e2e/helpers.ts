@@ -2,7 +2,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 
 import type { Download, Locator, Page, Response } from '@playwright/test';
-import { expect } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import { and, desc, eq } from 'drizzle-orm';
 import postgres from 'postgres';
@@ -205,6 +205,26 @@ export async function showSailingInstructions(page: Page) {
   const si = page.getByTestId('sf-si-translation');
   await expect(si).toBeVisible();
   return si;
+}
+
+/**
+ * Whether this test is running at phone size (the `mobile` project). For the
+ * few steps that are desktop behaviour by design, such as a drawer read side
+ * by side with the page it describes: on a phone it covers the page.
+ */
+export function onPhone(): boolean {
+  return test.info().project.name === 'mobile';
+}
+
+/**
+ * Close the sailing-instructions drawer when on a phone, where it covers the
+ * page rather than sitting beside it: a scorer reads it, then closes it to
+ * carry on. On the desktop it stays open, as a scorer would leave it.
+ */
+export async function closeSailingInstructionsOnPhone(page: Page): Promise<void> {
+  if (!onPhone()) return;
+  await page.getByRole('button', { name: 'Close sailing instructions' }).click();
+  await expect(page.getByRole('complementary', { name: 'Sailing instructions' })).toHaveCount(0);
 }
 
 /**

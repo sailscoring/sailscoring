@@ -1,6 +1,6 @@
 import { signedInTest as test, expect } from './fixtures';
 
-import { createSeriesQuick } from './helpers';
+import { createSeriesQuick, onPhone } from './helpers';
 
 /**
  * The help panel reads chapters beside the working screen instead of
@@ -8,6 +8,9 @@ import { createSeriesQuick } from './helpers';
  * working screen is still there, still on its own URL, while help is open.
  */
 test('help opens beside the working screen and minimises back to it', async ({ page }) => {
+  // Below the lg breakpoint the panel covers the page rather than sitting
+  // beside it, so there is no working screen to keep using alongside it.
+  test.skip(onPhone(), 'The panel docks beside the page only on a wide screen');
   await createSeriesQuick(page, { name: 'Panel Test Series' });
   const workingUrl = page.url();
   const panel = page.getByTestId('help-panel');
@@ -82,6 +85,7 @@ test('the panel keeps help links inside itself, and offers the page for a tab', 
 });
 
 test('the docked panel can be widened, and the page keeps its room', async ({ page }) => {
+  test.skip(onPhone(), 'The panel docks, and can be widened, only on a wide screen');
   await page.goto('/');
   await page.getByRole('button', { name: 'Help' }).click();
   const panel = page.getByTestId('help-panel');
