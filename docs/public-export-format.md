@@ -188,7 +188,10 @@ removed, renamed or reshaped, or a new field or value that changes what
 existing ones mean. A purely additive optional field may not. Either kind
 can reach readers without notice (see [Stability](#stability)). `formatDoc`
 and `timeZone` are two such additions: both appear in version-9 files from
-2026-10-23 on. The
+2026-10-23 on. So are `series.customFields` with `competitors[].customFields`
+(text fields the scorer named, carried only when published as columns) and
+`series.resultsColumns` (the series' own results columns, a display hint),
+in version-14 files from 2026-11-01 on. The
 authoritative field-by-field shape is `PublicSeriesExport` in
 [`lib/public-export.ts`](../lib/public-export.ts), whose doc comments
 are written to be read as the format's reference.

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { Competitor } from '@/lib/types';
 
 import { epochMsSchema, uuidSchema, versionSchema } from './common';
+import { CUSTOM_FIELD_VALUE_MAX_LENGTH } from '@/lib/results-columns';
 
 export const genderSchema = z.enum(['M', 'F', '']);
 
@@ -66,6 +67,7 @@ export const competitorSchema = z.object({
   gender: genderSchema,
   age: z.number().int().nullable(),
   subdivisions: z.record(z.string(), z.string()).optional(),
+  customFields: z.record(z.string(), z.string().max(CUSTOM_FIELD_VALUE_MAX_LENGTH)).optional(),
   createdAt: epochMsSchema,
   ircTcc: z.number().optional(),
   vprsTcc: z.number().optional(),

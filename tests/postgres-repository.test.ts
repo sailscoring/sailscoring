@@ -149,6 +149,26 @@ describe.skipIf(skip)('postgres repositories', () => {
     await repos.series.delete(s.id);
   });
 
+  test('SeriesRepository.save sets and clears custom fields and results columns', async () => {
+    const repos = createRepos({ db, workspaceId: workspaceA });
+    const customFields = [{ id: 'f-rig', label: 'Rig' }];
+    const resultsColumns = [{ key: 'sailNumber', title: 'Bib Number' }, { key: 'primary' }, { key: 'field:f-rig', tables: ['standings' as const] }];
+    const s = { ...makeSeries(), customFields, resultsColumns };
+
+    await repos.series.save(s);
+    const read = await repos.series.get(s.id);
+    expect(read?.customFields).toEqual(customFields);
+    expect(read?.resultsColumns).toEqual(resultsColumns);
+
+    // Back to automatic columns, and no fields: both read back as absent.
+    await repos.series.save({ ...s, customFields: undefined, resultsColumns: undefined });
+    const cleared = await repos.series.get(s.id);
+    expect(cleared?.customFields).toBeUndefined();
+    expect(cleared?.resultsColumns).toBeUndefined();
+
+    await repos.series.delete(s.id);
+  });
+
   test('SeriesRepository.save sets and clears the series’ scoring codes', async () => {
     const repos = createRepos({ db, workspaceId: workspaceA });
     const codes = [
@@ -377,6 +397,7 @@ describe.skipIf(skip)('postgres repositories', () => {
       boatName: 'Big', boatClass: 'Half-Tonner',
       names: ['Helm'], owners: ['Owner'], helms: ['Helm'],
       crewNames: ['Crew'], clubs: ['HYC'], nationality: 'IRL', gender: 'M', age: 42,
+      customFields: { 'f-rig': '8.2' },
       createdAt: Date.now(),
       ircTcc: 0.972, pyNumber: 1034,
       nhcStartingTcf: 0.95, echoStartingTcf: 0.97,
@@ -398,6 +419,7 @@ describe.skipIf(skip)('postgres repositories', () => {
       boatName: 'Big', boatClass: 'Half-Tonner',
       names: ['Helm'], owners: ['Owner'], helms: ['Helm'],
       crewNames: ['Crew'], clubs: ['HYC'], nationality: 'IRL', gender: 'M', age: 42,
+      customFields: { 'f-rig': '8.2' },
       ircTcc: 0.972, pyNumber: 1034,
       nhcStartingTcf: 0.95, echoStartingTcf: 0.97,
     });
@@ -406,6 +428,7 @@ describe.skipIf(skip)('postgres repositories', () => {
     expect(c2Read.boatName).toBeUndefined();
     expect(c2Read.ircTcc).toBeUndefined();
     expect(c2Read.nationality).toBeUndefined();
+    expect(c2Read.customFields).toBeUndefined();
     // Sparse: an entered boat carries no `excluded` key at all.
     expect(c2Read.excluded).toBeUndefined();
 

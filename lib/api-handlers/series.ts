@@ -861,6 +861,7 @@ export async function createFollowOnSeries(
       gender: c.gender,
       age: c.age,
       subdivisions: c.subdivisions ?? null,
+      customFields: c.customFields && Object.keys(c.customFields).length > 0 ? c.customFields : null,
       createdAt: new Date(c.createdAt),
       ircTcc: c.ircTcc ?? null,
       vprsTcc: c.vprsTcc ?? null,
@@ -961,6 +962,9 @@ export async function createFollowOnSeries(
       multiPersonFields: source.multiPersonFields?.length ? source.multiPersonFields : null,
       primaryPersonLabel: source.primaryPersonLabel,
       subdivisionAxes: source.subdivisionAxes,
+      // The same club's next series keeps its fields and its columns.
+      customFields: source.customFields ?? [],
+      resultsColumns: source.resultsColumns ?? null,
       categoryId: source.categoryId ?? null,
       archived: false,
       asPublished: false,

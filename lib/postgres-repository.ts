@@ -140,6 +140,8 @@ function seriesRowToType(row: SeriesRow): Series {
     ...(row.multiPersonFields?.length ? { multiPersonFields: row.multiPersonFields } : {}),
     primaryPersonLabel: row.primaryPersonLabel,
     subdivisionAxes: row.subdivisionAxes,
+    ...(row.customFields.length > 0 ? { customFields: row.customFields } : {}),
+    ...(row.resultsColumns ? { resultsColumns: row.resultsColumns } : {}),
     categoryId: row.categoryId,
     archived: row.archived,
     ...(row.asPublished ? { asPublished: true } : {}),
@@ -199,6 +201,9 @@ function competitorRowToType(row: CompetitorRow): Competitor {
     age: row.age,
     ...(row.subdivisions && Object.keys(row.subdivisions).length > 0
       ? { subdivisions: row.subdivisions }
+      : {}),
+    ...(row.customFields && Object.keys(row.customFields).length > 0
+      ? { customFields: row.customFields }
       : {}),
     createdAt: row.createdAt.getTime(),
     ...(row.ircTcc != null ? { ircTcc: row.ircTcc } : {}),
@@ -650,6 +655,8 @@ function seriesToRow(s: Series, workspaceId: string) {
     multiPersonFields: s.multiPersonFields?.length ? s.multiPersonFields : null,
     primaryPersonLabel: s.primaryPersonLabel,
     subdivisionAxes: s.subdivisionAxes ?? [],
+    customFields: s.customFields ?? [],
+    resultsColumns: s.resultsColumns ?? null,
     categoryId: s.categoryId ?? null,
     archived: s.archived ?? false,
     source: s.source ?? null,
@@ -674,6 +681,7 @@ const seriesUpdateColumns = [
   'resultsStatus', 'finalisedAt', 'protestTimeLimit', 'officials', 'publishOfficials', 'publishTrackData',
   'orcScoringOptions',
   'enabledCompetitorFields', 'multiPersonFields', 'primaryPersonLabel', 'subdivisionAxes',
+  'customFields', 'resultsColumns',
   'categoryId', 'archived', 'source',
 ] as const satisfies readonly (keyof ReturnType<typeof seriesToRow>)[];
 
@@ -1150,6 +1158,7 @@ function competitorToRow(c: Competitor, workspaceId: string) {
     gender: c.gender,
     age: c.age,
     subdivisions: c.subdivisions ?? null,
+    customFields: c.customFields && Object.keys(c.customFields).length > 0 ? c.customFields : null,
     createdAt: new Date(c.createdAt),
     ircTcc: c.ircTcc ?? null,
     vprsTcc: c.vprsTcc ?? null,
@@ -1167,7 +1176,7 @@ const competitorUpdateColumns = [
   'fleetIds', 'sailNumber', 'bowNumber', 'alternativeSailNumbers', 'fleetSailNumbers', 'entryNumber', 'tallyNumber', 'seed', 'initialFleet', 'worldSailingId',
   'boatName', 'boatClass', 'names',
   'owners', 'helms', 'crewNames', 'clubs', 'nationality',
-  'gender', 'age', 'subdivisions',
+  'gender', 'age', 'subdivisions', 'customFields',
   'ircTcc', 'vprsTcc', 'fixedTcf', 'pyNumber', 'nhcStartingTcf', 'echoStartingTcf', 'orcCert', 'ircCert',
   'excluded',
 ] as const satisfies readonly (keyof ReturnType<typeof competitorToRow>)[];

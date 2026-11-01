@@ -13,6 +13,8 @@ import type {
   FinishTrackData,
   Fleet,
   SubdivisionAxis,
+  CustomField,
+  ResultsColumn,
   LogoDefaults,
   Series,
   Prize,
@@ -46,6 +48,7 @@ import {
 } from './race-officials';
 import { calculateFleetStandings, calculateRaceScores, buildRaceFleetExclusionMap, startKeyResolver } from './scoring';
 import { seriesCodeTable } from './scoring-codes';
+import { customFieldValues, publishedCustomFields } from './results-columns';
 import { loadSeriesSnapshot, type SeriesSnapshot } from './series-snapshot';
 import type { SeriesFileSplitRound } from './series-file';
 import { RefusedSettingError } from './refused-setting-error';
@@ -256,6 +259,16 @@ export interface PublicSeriesExport {
      *  axis. Each `competitors[].subdivisions` entry is keyed by an axis id here.
      *  Absent in exports from older builds (importers default to none). */
     subdivisionAxes?: SubdivisionAxis[];
+    /** Custom fields: text fields the scorer added and named ("Rig"). Each
+     *  `competitors[].customFields` entry is keyed by a field id here. Only
+     *  the fields the series publishes as columns are carried. Sparse. */
+    customFields?: CustomField[];
+    /** The series' own results columns, in order (display hint). Absent when
+     *  the series uses automatic columns. Each is a `key` (`sailNumber`,
+     *  `club`, `subdivision:<axisId>`, `field:<customFieldId>`, `total`, …)
+     *  with an optional `title`, the `tables` it appears on, and whether it is
+     *  `hidden`. */
+    resultsColumns?: ResultsColumn[];
     scoringMode: 'scratch' | 'handicap';
     /** NHC publish-rating-calculations toggle (display hint). */
     publishRatingCalculations?: boolean;
@@ -397,6 +410,8 @@ export interface PublicSeriesExport {
     /** Per-axis subdivision values (e.g. {<divisionAxisId>: "Silver"}), keyed by
      *  `series.subdivisionAxes[].id`. */
     subdivisions?: Record<string, string>;
+    /** Custom field values, keyed by `series.customFields[].id`. */
+    customFields?: Record<string, string>;
     fleetNames: string[];
     ircTcc?: number;
     /** VPRS Time Correction Coefficient. */
@@ -1034,6 +1049,8 @@ export function buildPublicExportFromSnapshot(
   const carryGender = carry('gender') || prizeClauseKinds.has('gender');
   const carryNationality = carry('nationality') || prizeClauseKinds.has('nationality');
   const carrySubdivisions = carry('subdivision') || prizeClauseKinds.has('axis');
+  // A custom field leaves the app only as a column.
+  const publishedFields = publishedCustomFields(series);
   const carrySeed = carry('seed') || splitFleet;
   const carryInitialFleet = carry('initialFleet') || splitFleet;
   const competitorById = new Map(competitors.map((c) => [c.id, c]));
@@ -1398,6 +1415,8 @@ export function buildPublicExportFromSnapshot(
       ...(series.multiPersonFields?.length ? { multiPersonFields: series.multiPersonFields } : {}),
       primaryPersonLabel: series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
       ...(series.subdivisionAxes?.length ? { subdivisionAxes: series.subdivisionAxes } : {}),
+      ...(publishedFields.length ? { customFields: publishedFields } : {}),
+      ...(series.resultsColumns ? { resultsColumns: series.resultsColumns } : {}),
       scoringMode: series.scoringMode ?? 'scratch',
       ...(series.publishRatingCalculations != null ? { publishRatingCalculations: series.publishRatingCalculations } : {}),
       ...(series.showPerRaceRatingsInSummary != null ? { showPerRaceRatingsInSummary: series.showPerRaceRatingsInSummary } : {}),
@@ -1498,6 +1517,10 @@ export function buildPublicExportFromSnapshot(
       ...(carrySubdivisions && c.subdivisions && Object.keys(c.subdivisions).length > 0
         ? { subdivisions: c.subdivisions }
         : {}),
+      ...((): { customFields?: Record<string, string> } => {
+        const values = customFieldValues(c.customFields, publishedFields);
+        return values ? { customFields: values } : {};
+      })(),
       fleetNames: exportedFleetNames(c.fleetIds),
       ...(c.ircTcc != null ? { ircTcc: c.ircTcc } : {}),
       ...(c.vprsTcc != null ? { vprsTcc: c.vprsTcc } : {}),
@@ -1899,6 +1922,8 @@ export async function importPublicExport(
     // Axis ids are series-local opaque keys; carried verbatim so the imported
     // competitors' `subdivisions` maps still resolve.
     subdivisionAxes: data.series.subdivisionAxes ?? [],
+    ...(data.series.customFields?.length ? { customFields: data.series.customFields } : {}),
+    ...(data.series.resultsColumns ? { resultsColumns: data.series.resultsColumns } : {}),
     prizes: importExportPrizes(data.series.prizes ?? [], fleetIdByName, newId),
   };
   await repos.seriesRepo.save(newSeries);
@@ -1986,6 +2011,9 @@ export async function importPublicExport(
         age: c.age ?? null,
         ...(c.subdivisions && Object.keys(c.subdivisions).length > 0
           ? { subdivisions: c.subdivisions }
+          : {}),
+        ...(c.customFields && Object.keys(c.customFields).length > 0
+          ? { customFields: c.customFields }
           : {}),
         createdAt: now,
         ...(c.ircTcc != null ? { ircTcc: c.ircTcc } : {}),

@@ -134,6 +134,18 @@ const FACETS: readonly Facet[] = [
     summary: () => 'Changed the subdivision axes',
   },
   {
+    key: 'custom-fields',
+    fields: ['customFields'],
+    action: 'series.updated',
+    summary: () => 'Changed the custom fields',
+  },
+  {
+    key: 'results-columns',
+    fields: ['resultsColumns'],
+    action: 'series.updated',
+    summary: () => 'Changed the results columns',
+  },
+  {
     key: 'dates',
     fields: ['startDate', 'endDate'],
     action: 'series.updated',

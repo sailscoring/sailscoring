@@ -15,6 +15,13 @@ import type {
 
 import { SUBDIVISION_LABEL_MAX_LENGTH } from '@/lib/competitor-fields';
 import { seriesCodeProblems } from '@/lib/scoring-codes';
+import {
+  COLUMN_TITLE_MAX_LENGTH,
+  COLUMN_TITLE_MAX_LINES,
+  CUSTOM_FIELD_LABEL_MAX_LENGTH,
+  customFieldsProblems,
+  resultsColumnsProblems,
+} from '@/lib/results-columns';
 import { PAGE_NOTE_MAX_LENGTH } from '@/lib/page-note';
 import { PUBLISHING_GROUP_NAME_MAX_LENGTH } from '@/lib/publishing-groups';
 import {
@@ -142,6 +149,32 @@ export const seriesScoringCodesSchema = z
     for (const p of seriesCodeProblems(codes)) {
       ctx.addIssue({ code: 'custom', message: `${p.code}: ${p.message}` });
     }
+  });
+
+/** Custom fields: a series' own named text fields. */
+export const customFieldsSchema = z
+  .array(z.object({ id: z.string().min(1).max(64), label: z.string().max(CUSTOM_FIELD_LABEL_MAX_LENGTH) }))
+  .max(50)
+  .superRefine((fields, ctx) => {
+    for (const message of customFieldsProblems(fields)) ctx.addIssue({ code: 'custom', message });
+  });
+
+/** A series' own results columns. */
+export const resultsColumnsSchema = z
+  .array(
+    z.object({
+      key: z.string().min(1).max(80),
+      title: z.string().max((COLUMN_TITLE_MAX_LENGTH + 1) * COLUMN_TITLE_MAX_LINES).optional(),
+      tables: z.array(z.enum(['standings', 'races', 'entries'])).optional(),
+      hidden: z.boolean().optional(),
+      showWhenEmpty: z.boolean().optional(),
+      joinNames: z.boolean().optional(),
+      inPrimary: z.boolean().optional(),
+    }),
+  )
+  .max(200)
+  .superRefine((columns, ctx) => {
+    for (const message of resultsColumnsProblems(columns)) ctx.addIssue({ code: 'custom', message });
   });
 
 export const rrsOrgPushConfigSchema = z.object({
@@ -286,6 +319,10 @@ export const seriesSchema = z.object({
   subdivisionAxes: z.array(
     z.object({ id: z.string(), label: z.string().max(SUBDIVISION_LABEL_MAX_LENGTH) }),
   ),
+  // Custom fields and the series' own results columns. Optional on the wire;
+  // absent = none, and automatic columns.
+  customFields: customFieldsSchema.optional(),
+  resultsColumns: resultsColumnsSchema.optional(),
   // Series-list organisation (#154). Workspace-local; optional on the wire so
   // sparse new-series creation and older clients round-trip cleanly.
   categoryId: uuidSchema.nullable().optional(),

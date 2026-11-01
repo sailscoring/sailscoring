@@ -911,6 +911,13 @@
       "when": 1793473975005,
       "tag": "0129_dnc_rule_upgrade",
       "breakpoints": true
+    },
+    {
+      "idx": 130,
+      "version": "7",
+      "when": 1793521262766,
+      "tag": "0130_results_columns",
+      "breakpoints": true
     }
   ]
 }

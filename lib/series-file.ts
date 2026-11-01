@@ -21,6 +21,8 @@ import type {
   FleetRatingVariant,
   TcfRecord,
   SubdivisionAxis,
+  CustomField,
+  ResultsColumn,
   RaceConditions,
   RaceDiscardPolicy,
   RaceFleetExclusion,
@@ -634,9 +636,16 @@ export interface SeriesFileRepos {
  *  v74 adds `series.scoringCodes`, the series' custom scoring codes: its
  *  changes to the built-in RRS codes and its own codes. Sparse — absent is
  *  the RRS codes — but a scoring input, so an older build reading a v74 file
- *  would score every changed or added code as it never was. Hence a bump. */
-export const FORMAT_VERSION = 74;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74];
+ *  would score every changed or added code as it never was. Hence a bump.
+ *
+ *  v75 adds `series.customFields` (text fields the scorer adds and names) with
+ *  `competitors[*].customFields` (their values, keyed by field id), and
+ *  `series.resultsColumns` (the series' own results columns, absent for
+ *  automatic ones). All sparse. An older build reading a v75 file drops the
+ *  fields' values and republishes the series with automatic columns, which is
+ *  why this is a bump rather than a ride-along. */
+export const FORMAT_VERSION = 75;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -729,6 +738,8 @@ interface SeriesFileSeries {
   multiPersonFields?: MultiPersonFieldKey[];  // v22+; person fields opened to multiple names (sparse)
   primaryPersonLabel?: PrimaryPersonLabel;  // v2+; absent in v1 files, defaults to 'competitor'
   subdivisionAxes?: SubdivisionAxis[];  // v13+; named subdivision axes
+  customFields?: CustomField[];  // v75+; the series' custom fields (absent = none)
+  resultsColumns?: ResultsColumn[];  // v75+; the series' own results columns (absent = automatic)
   subdivisionLabel?: string;  // v6–v12 (read-only legacy): single axis label, upgraded to subdivisionAxes on load
   scoringMode: 'scratch' | 'handicap';
   defaultStartSequence?: StartGroup[];
@@ -779,6 +790,7 @@ interface SeriesFileCompetitor {
   gender: 'M' | 'F' | '';
   age: number | null;
   subdivisions?: Record<string, string>;  // v13+; per-axis values keyed by SubdivisionAxis.id
+  customFields?: Record<string, string>;  // v75+; custom field values keyed by CustomField.id
   subdivision?: string;  // v6–v12 (read-only legacy): single subdivision value, upgraded into subdivisions on load
   ircTcc?: number;
   vprsTcc?: number;
@@ -1117,6 +1129,8 @@ export async function buildSeriesFile(
       ...(series.multiPersonFields?.length ? { multiPersonFields: series.multiPersonFields } : {}),
       primaryPersonLabel: series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
       subdivisionAxes: series.subdivisionAxes ?? [],
+      ...(series.customFields?.length ? { customFields: series.customFields } : {}),
+      ...(series.resultsColumns ? { resultsColumns: series.resultsColumns } : {}),
       scoringMode: series.scoringMode ?? 'scratch',
       ...(series.defaultStartSequence?.length ? { defaultStartSequence: series.defaultStartSequence } : {}),
       ...(series.publishRatingCalculations != null ? { publishRatingCalculations: series.publishRatingCalculations } : {}),
@@ -1169,6 +1183,9 @@ export async function buildSeriesFile(
       age: c.age,
       ...(c.subdivisions && Object.keys(c.subdivisions).length > 0
         ? { subdivisions: c.subdivisions }
+        : {}),
+      ...(c.customFields && Object.keys(c.customFields).length > 0
+        ? { customFields: c.customFields }
         : {}),
       ...(c.ircTcc != null ? { ircTcc: c.ircTcc } : {}),
       ...(c.vprsTcc != null ? { vprsTcc: c.vprsTcc } : {}),
@@ -1744,6 +1761,8 @@ export async function openSeriesFromFile(
     ...(file.series.multiPersonFields?.length ? { multiPersonFields: file.series.multiPersonFields } : {}),
     primaryPersonLabel: file.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
     subdivisionAxes: subdivisions.axes,
+    ...(file.series.customFields?.length ? { customFields: file.series.customFields } : {}),
+    ...(file.series.resultsColumns ? { resultsColumns: file.series.resultsColumns } : {}),
     categoryId: opts?.categoryId ?? null,
     // Provenance is caller-supplied, not carried in the file: the Sailwave
     // wizard passes 'sailwave'; a .sailscoring open leaves it unset.
@@ -1860,6 +1879,8 @@ export async function restoreSeriesFromFile(
     ...(file.series.multiPersonFields?.length ? { multiPersonFields: file.series.multiPersonFields } : {}),
     primaryPersonLabel: file.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
     subdivisionAxes: subdivisions.axes,
+    ...(file.series.customFields?.length ? { customFields: file.series.customFields } : {}),
+    ...(file.series.resultsColumns ? { resultsColumns: file.series.resultsColumns } : {}),
     categoryId: null,
     archived: true,
   });
@@ -1971,6 +1992,8 @@ async function updateSeriesFromFileInner(
     ...(file.series.multiPersonFields?.length ? { multiPersonFields: file.series.multiPersonFields } : {}),
     primaryPersonLabel: file.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
     subdivisionAxes: subdivisions.axes,
+    ...(file.series.customFields?.length ? { customFields: file.series.customFields } : {}),
+    ...(file.series.resultsColumns ? { resultsColumns: file.series.resultsColumns } : {}),
   });
 
   await writeFleetsCompetitorsRaces(repos, file, seriesId, now, fleetIdMap, competitorIdMap, raceIdMap, subdivisions.legacyAxisId, true);
@@ -2248,6 +2271,7 @@ async function writeFleetsCompetitorsRaces(
           const subs = competitorSubdivisionsForWrite(c, legacyAxisId);
           return subs ? { subdivisions: subs } : {};
         })(),
+        ...(c.customFields && Object.keys(c.customFields).length > 0 ? { customFields: c.customFields } : {}),
         createdAt: now,
         ...(c.ircTcc != null ? { ircTcc: c.ircTcc } : {}),
         ...(c.vprsTcc != null ? { vprsTcc: c.vprsTcc } : {}),

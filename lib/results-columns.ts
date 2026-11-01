@@ -21,13 +21,15 @@ import {
 } from './competitor-fields';
 import type {
   CompetitorFieldKey,
+  CustomField,
   MultiPersonFieldKey,
   PrimaryPersonLabel,
+  ResultsColumn,
+  ResultsTable,
   SubdivisionAxis,
 } from './types';
 
-/** The three kinds of table a competitor column can appear on. */
-export type ResultsTable = 'standings' | 'races' | 'entries';
+export type { ResultsTable } from './types';
 
 export const RESULTS_TABLES: readonly ResultsTable[] = ['standings', 'races', 'entries'];
 
@@ -56,7 +58,160 @@ export type CompetitorColumnKey =
   | 'worldSailingId'
   | 'age'
   | 'gender'
-  | `subdivision:${string}`;
+  | 'country'
+  | `subdivision:${string}`
+  | `field:${string}`;
+
+/** The competitor columns that are a fixed field, as opposed to a
+ *  subdivision axis or a custom field. */
+export const FIXED_COMPETITOR_COLUMNS: readonly CompetitorColumnKey[] = [
+  'rank', 'fleet', 'sailNumber', 'bowNumber', 'entryNumber', 'tallyNumber',
+  'boatName', 'boatClass', 'primary', 'helm', 'owner', 'crewName', 'club',
+  'nationality', 'country', 'worldSailingId', 'age', 'gender',
+];
+
+/** Competitor columns every table keeps: every row has to say whose it is. */
+export const REQUIRED_COLUMNS: readonly CompetitorColumnKey[] = ['sailNumber', 'primary'];
+
+/**
+ * The standings table's scoring columns, after its competitor columns and
+ * races, in their fixed order. `perRaceRatings` is the progressive-handicap
+ * seed-rating column with each race's applied rating beneath its score.
+ */
+export const STANDINGS_SCORING_COLUMNS = ['perRaceRatings', 'total', 'nett'] as const;
+
+/**
+ * A race table's scoring columns, after its competitor columns, in their
+ * fixed order: the elapsed → rating → corrected arithmetic reads left to
+ * right. `ratingCalculations` is the NHC and ECHO working (Q, S, α, Z,
+ * Adjustment; 1/T_E, PI, Adjustment), shown and hidden together. The
+ * `track:` columns are RaceSense track data, on tables only while the series
+ * publishes it.
+ */
+export const RACE_SCORING_COLUMNS = [
+  'laps',
+  'finish',
+  'elapsed',
+  'rating',
+  'corrected',
+  'delta',
+  'impliedWind',
+  'newRating',
+  'ratingCalculations',
+  'points',
+  'track:finishTime',
+  'track:elapsed',
+  'track:distance',
+  'track:avgSpeed',
+  'track:maxSpeed',
+  'track:dtl',
+] as const;
+
+export type StandingsScoringColumnKey = (typeof STANDINGS_SCORING_COLUMNS)[number];
+export type RaceScoringColumnKey = (typeof RACE_SCORING_COLUMNS)[number];
+
+/** Scoring columns that can be retitled but not hidden: a race table is its
+ *  points. */
+export const UNHIDEABLE_SCORING_COLUMNS: readonly string[] = ['points'];
+
+/** Longest a column title's line may run. */
+export const COLUMN_TITLE_MAX_LENGTH = 40;
+/** Lines a column title may run to — two, for a title in two languages. */
+export const COLUMN_TITLE_MAX_LINES = 2;
+/** Longest a custom field's name may run. */
+export const CUSTOM_FIELD_LABEL_MAX_LENGTH = 40;
+
+/** The custom field a `field:<id>` key names, if it is one. */
+export function customFieldId(key: string): string | null {
+  return key.startsWith('field:') ? key.slice('field:'.length) : null;
+}
+
+/** Whether a key is a competitor column (as opposed to a scoring column). */
+export function isCompetitorColumnKey(key: string): key is CompetitorColumnKey {
+  return (
+    (FIXED_COMPETITOR_COLUMNS as readonly string[]).includes(key) ||
+    subdivisionAxisId(key) != null ||
+    customFieldId(key) != null
+  );
+}
+
+/** Whether a key is a scoring column of either table. */
+export function isScoringColumnKey(key: string): boolean {
+  return (
+    (STANDINGS_SCORING_COLUMNS as readonly string[]).includes(key) ||
+    (RACE_SCORING_COLUMNS as readonly string[]).includes(key)
+  );
+}
+
+/** The lines of a column title as the scorer wrote it, blank lines dropped. */
+export function titleLines(title: string): string[] {
+  return title.split('\n').map((l) => l.trim()).filter((l) => l.length > 0);
+}
+
+/**
+ * What is wrong with a series' own columns, worded as the Results columns
+ * dialog words it; empty when nothing is. One validator, used wherever the
+ * list is written. With `series`, a column naming a subdivision axis or
+ * custom field the series doesn't have is a problem too; without it (the
+ * API boundary, which validates the list on its own), such a column is left
+ * for the renderer to skip, as it skips any column whose field is gone.
+ */
+export function resultsColumnsProblems(
+  columns: readonly ResultsColumn[],
+  series?: { subdivisionAxes?: readonly SubdivisionAxis[]; customFields?: readonly CustomField[] },
+): string[] {
+  const problems: string[] = [];
+  const seen = new Set<string>();
+  for (const column of columns) {
+    const { key } = column;
+    if (seen.has(key)) {
+      problems.push(`The column ${key} is listed twice.`);
+      continue;
+    }
+    seen.add(key);
+    const competitor = isCompetitorColumnKey(key);
+    if (!competitor && !isScoringColumnKey(key)) {
+      problems.push(`There is no column ${key}.`);
+      continue;
+    }
+    const axisId = subdivisionAxisId(key);
+    if (series && axisId != null && !series.subdivisionAxes?.some((a) => a.id === axisId)) {
+      problems.push('A column shows a subdivision this series doesn’t have.');
+    }
+    const fieldId = customFieldId(key);
+    if (series && fieldId != null && !series.customFields?.some((f) => f.id === fieldId)) {
+      problems.push('A column shows a custom field this series doesn’t have.');
+    }
+    if (column.title != null) {
+      const lines = column.title.split('\n');
+      if (lines.length > COLUMN_TITLE_MAX_LINES) problems.push('A title can have at most two lines.');
+      if (lines.some((l) => l.trim().length > COLUMN_TITLE_MAX_LENGTH)) {
+        problems.push(`Keep the title to ${COLUMN_TITLE_MAX_LENGTH} characters or fewer.`);
+      }
+    }
+    if (competitor) {
+      if (column.hidden) problems.push('A competitor column is removed, not hidden.');
+      if (column.tables != null) {
+        if (column.tables.length === 0) problems.push('Tick at least one table, or remove the column.');
+        if (new Set(column.tables).size !== column.tables.length) problems.push(`The column ${key} names a table twice.`);
+      }
+    } else {
+      if (column.tables != null || column.showWhenEmpty || column.joinNames || column.inPrimary) {
+        problems.push(`The scoring column ${key} can only be hidden or retitled.`);
+      }
+      if (column.hidden && UNHIDEABLE_SCORING_COLUMNS.includes(key)) {
+        problems.push('The Points column can’t be hidden.');
+      }
+    }
+    if (column.inPrimary && key !== 'crewName') problems.push('Only the crew can share the primary column.');
+  }
+  for (const key of REQUIRED_COLUMNS) {
+    if (!seen.has(key)) {
+      problems.push(key === 'sailNumber' ? 'The sail number column can’t be removed.' : 'The primary name column can’t be removed.');
+    }
+  }
+  return problems;
+}
 
 /** What a series says about its competitor fields: the inputs every column
  *  decision reads. */
@@ -276,4 +431,75 @@ export function automaticColumns(
  *  under the wrong person, so they take a column of their own instead. */
 function crewLayout(showCrew: boolean, showHelm: boolean): { pairCrew: boolean; showCrewColumn: boolean } {
   return { pairCrew: showCrew && !showHelm, showCrewColumn: showCrew && showHelm };
+}
+
+/** The labels the built-in competitor fields go by, which a custom field
+ *  can't take: a scorer looking for Class finds one Class. */
+const BUILT_IN_FIELD_NAMES = [
+  'sail number', 'sail no', 'bow', 'bow number', 'entry', 'entry number', 'tally', 'tally number',
+  'boat', 'boat name', 'class', 'helm', 'owner', 'crew', 'club', 'nationality', 'nat', 'country',
+  'world sailing id', 'age', 'gender', 'rank', 'fleet',
+];
+
+/** Longest a custom field's value may run. */
+export const CUSTOM_FIELD_VALUE_MAX_LENGTH = 200;
+
+/** What is wrong with a series' custom fields, worded as the Competitor
+ *  fields card words it; empty when nothing is. */
+export function customFieldsProblems(fields: readonly CustomField[]): string[] {
+  const problems: string[] = [];
+  const names = new Set<string>();
+  const ids = new Set<string>();
+  for (const field of fields) {
+    const label = field.label.trim();
+    if (!field.id) problems.push('A custom field has no id.');
+    else if (ids.has(field.id)) problems.push('Two custom fields share an id.');
+    ids.add(field.id);
+    if (!label) {
+      problems.push('Name is required.');
+      continue;
+    }
+    if (label.length > CUSTOM_FIELD_LABEL_MAX_LENGTH) {
+      problems.push(`Keep the name to ${CUSTOM_FIELD_LABEL_MAX_LENGTH} characters or fewer.`);
+    }
+    const key = label.toLowerCase();
+    if (BUILT_IN_FIELD_NAMES.includes(key)) {
+      problems.push(`${label} is already a field. To publish it under another title, retitle its column.`);
+    } else if (names.has(key)) {
+      problems.push(`This series already has a field called ${label}.`);
+    }
+    names.add(key);
+  }
+  return problems;
+}
+
+/**
+ * The custom fields a series publishes: every one under automatic columns,
+ * which show them all, and under the series' own columns only those that are
+ * a column. A custom field leaves the app only as a column, so this is the
+ * set the public export and the published results API may carry.
+ */
+export function publishedCustomFields(series: {
+  customFields?: readonly CustomField[];
+  resultsColumns?: readonly ResultsColumn[];
+}): CustomField[] {
+  const fields = [...(series.customFields ?? [])];
+  if (!series.resultsColumns) return fields;
+  const keys = new Set(series.resultsColumns.map((c) => c.key));
+  return fields.filter((f) => keys.has(`field:${f.id}`));
+}
+
+/** A competitor's values for the given fields, or undefined when it has none
+ *  (sparse, as stored). */
+export function customFieldValues(
+  values: Record<string, string> | undefined,
+  fields: readonly CustomField[],
+): Record<string, string> | undefined {
+  if (!values) return undefined;
+  const out: Record<string, string> = {};
+  for (const f of fields) {
+    const v = values[f.id]?.trim();
+    if (v) out[f.id] = v;
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
 }

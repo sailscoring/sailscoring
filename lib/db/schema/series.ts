@@ -28,6 +28,7 @@ import { organization } from './auth';
 import type {
   CompetitorEntryOverride,
   CompetitorFieldKey,
+  CustomField,
   MultiPersonFieldKey,
   DiscardThreshold,
   ProportionalDiscard,
@@ -43,6 +44,7 @@ import type {
   PrimaryPersonLabel,
   PublishingGroup,
   ProtestTimeLimit,
+  ResultsColumn,
   RaceConditions,
   RaceDiscardPolicy,
   RaceFleetExclusion,
@@ -311,6 +313,16 @@ export const series = pgTable(
       .$type<SubdivisionAxis[]>()
       .notNull()
       .default(sql`'[]'::jsonb`),
+    // Custom fields: the series' own named text fields (Series.customFields).
+    // Each `Competitor.customFields` entry is keyed by a field id here.
+    customFields: jsonb('custom_fields')
+      .$type<CustomField[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    // The series' own results columns (Series.resultsColumns). NULL is
+    // automatic columns — distinct from any list, which is the whole layout.
+    // Read whole with the series, never queried by content.
+    resultsColumns: jsonb('results_columns').$type<ResultsColumn[]>(),
     // Series-list organisation (#154). Both are workspace-local: deliberately
     // excluded from the .sailscoring file format and public JSON export, and
     // reset by copySeries (a copy lands active and uncategorised in its target
@@ -515,6 +527,9 @@ export const competitors = pgTable(
     // Per-axis subdivision values, keyed by Series.subdivisionAxes[].id.
     // Nullable/sparse: absent for competitors with no axis values.
     subdivisions: jsonb('subdivisions').$type<Record<string, string>>(),
+    // Custom field values, keyed by Series.customFields[].id. Nullable/sparse
+    // like subdivisions.
+    customFields: jsonb('custom_fields').$type<Record<string, string>>(),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),

@@ -75,6 +75,49 @@ export interface SubdivisionAxis {
 }
 
 /**
+ * A custom field: a text field the scorer adds to a series and names ("Rig",
+ * "Sponsor"), holding one value per competitor in `Competitor.customFields`.
+ * It is not used for scoring, prizes or grouping — subdivision axes do that —
+ * and is published only as a results column.
+ */
+export interface CustomField {
+  id: string;
+  label: string;  // bounded by CUSTOM_FIELD_LABEL_MAX_LENGTH
+}
+
+/** The three kinds of table a competitor column can appear on. */
+export type ResultsTable = 'standings' | 'races' | 'entries';
+
+/**
+ * One column of a series' own results columns (`Series.resultsColumns`).
+ *
+ * A competitor column (`sailNumber`, `club`, `subdivision:<axisId>`,
+ * `field:<customFieldId>`, `rank` …) appears in list order on the tables it
+ * names. A scoring column (`total`, `nett`, `perRaceRatings` in the
+ * standings; `finish`, `elapsed`, `rating`, `corrected` … in race results)
+ * keeps its place in the table and may only be hidden or retitled. See
+ * lib/results-columns.ts for the keys.
+ */
+export interface ResultsColumn {
+  key: string;
+  /** The column's own title, plain text, up to two lines (split on "\n").
+   *  Absent = the default title. */
+  title?: string;
+  /** Competitor columns: the tables it appears on. Absent = all three. */
+  tables?: ResultsTable[];
+  /** Scoring columns: left off every table. */
+  hidden?: boolean;
+  /** Competitor columns: printed even on a table where no boat has a value. */
+  showWhenEmpty?: boolean;
+  /** Person columns: several names on one line, joined with " & ", rather
+   *  than one per line. */
+  joinNames?: boolean;
+  /** The crew column: in the primary column, after the primary name
+   *  ("Helm / Crew"), rather than in a column of its own. */
+  inPrimary?: boolean;
+}
+
+/**
  * Scorer-defined series category (#154). Per-workspace, scorer-editable.
  * Workspace scope is implicit in the API surface, so it isn't carried here.
  * The synthetic "Uncategorized" bucket is *not* a Category — it's
@@ -487,6 +530,14 @@ export interface Series {
   multiPersonFields?: MultiPersonFieldKey[];  // person fields opened to multiple names per entry (gated by the multi-person-fields feature); sparse — absent = all single
   primaryPersonLabel: PrimaryPersonLabel;  // label for Competitor.name (display only)
   subdivisionAxes: SubdivisionAxis[];  // independent subdivision/category axes; each labels a Competitor.subdivisions entry. Empty = no axes configured. Shown only when 'subdivision' is in enabledCompetitorFields.
+  // Custom fields: text fields the scorer adds and names, each holding one
+  // value per competitor (Competitor.customFields). Sparse; absent = none.
+  customFields?: CustomField[];
+  // The series' own results columns, in order. Absent = automatic columns,
+  // chosen from the fields switched on. When set it is the whole list — it
+  // replaces the automatic choice rather than adjusting it, so a column the
+  // app adds later is not added here (see docs/design/results-columns.md).
+  resultsColumns?: ResultsColumn[];
   // Series-list organisation (#154). Workspace-local: excluded from the
   // .sailscoring file format and public JSON export, and reset by copySeries.
   categoryId?: string | null;  // category assignment; null/absent = synthetic "Uncategorized" bucket
@@ -866,6 +917,7 @@ export interface Competitor {
   gender: 'M' | 'F' | '';
   age: number | null;
   subdivisions?: Record<string, string>;  // subdivision/category values for prize-giving/filtering, not scoring (e.g. {<divisionAxisId>: "Silver", <categoryAxisId>: "Master"}). Keyed by Series.subdivisionAxes[].id; sparse
+  customFields?: Record<string, string>;  // custom field values, keyed by Series.customFields[].id (e.g. {<rigFieldId>: "7.7"}); sparse, never scored
   createdAt: number;
   ircTcc?: number;    // IRC Time Correction Coefficient, e.g. 0.972
   // A handicap the club assigns and holds for the series, applied time-on-time
