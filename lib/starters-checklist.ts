@@ -42,15 +42,24 @@ export interface ChecklistTable {
   boats: ChecklistBoat[];
 }
 
-interface FleetLike {
+export interface FleetLike {
   id: string;
   name: string;
   displayOrder: number;
   splitRoundId?: string;
 }
 
-interface CompetitorLike extends ChecklistBoat {
+/** Whatever a sheet lists, so long as it has a sail number to sort by and the
+ *  fleets it is entered in to group by. */
+export interface FleetEntry {
+  sailNumber: string;
   fleetIds: string[];
+}
+
+/** One table of a sheet grouped by {@link groupEntriesByStart}. */
+export interface EntryGroup<T> {
+  heading: string | null;
+  entries: T[];
 }
 
 /**
@@ -60,7 +69,7 @@ interface CompetitorLike extends ChecklistBoat {
  * so a boat two rounds in holds both rounds' fleets). The same rule the
  * published competitor list applies to its Fleet column.
  */
-function displayFleetIds(boat: CompetitorLike, fleetById: Map<string, FleetLike>): string[] {
+function displayFleetIds(boat: FleetEntry, fleetById: Map<string, FleetLike>): string[] {
   const own = boat.fleetIds
     .map((id) => fleetById.get(id))
     .filter((f): f is FleetLike => !!f && !isSyntheticFleetName(f.name));
@@ -103,9 +112,29 @@ export function checklistHeading(names: string[]): string {
  */
 export function buildStartersChecklist(input: {
   fleets: FleetLike[];
-  competitors: CompetitorLike[];
+  competitors: (ChecklistBoat & { fleetIds: string[] })[];
   startGroups?: StartGroup[];
 }): ChecklistTable[] {
+  const boatOf = ({ sailNumber, boatName, boatClass }: ChecklistBoat): ChecklistBoat => ({
+    sailNumber,
+    ...(boatName ? { boatName } : {}),
+    ...(boatClass ? { boatClass } : {}),
+  });
+  return groupEntriesByStart(input).map(({ heading, entries }) => ({ heading, boats: entries.map(boatOf) }));
+}
+
+/**
+ * The grouping behind the starters checklist, for any sheet that lists each
+ * boat once under the start it belongs to: one table per start group when
+ * `startGroups` is given, otherwise one per set of fleets that share a boat.
+ * Each table is in sail-number order, ignoring national prefixes. Boats in no
+ * displayed fleet make a last, unheaded table.
+ */
+export function groupEntriesByStart<T extends FleetEntry>(input: {
+  fleets: FleetLike[];
+  competitors: T[];
+  startGroups?: StartGroup[];
+}): EntryGroup<T>[] {
   const fleets = [...input.fleets].sort((a, b) => a.displayOrder - b.displayOrder);
   const fleetById = new Map(fleets.map((f) => [f.id, f]));
   const membership = input.competitors.map((c) => ({ boat: c, fleetIds: displayFleetIds(c, fleetById) }));
@@ -154,29 +183,24 @@ export function buildStartersChecklist(input: {
     for (const ids of components.values()) join(ids);
   }
 
-  const byBoat = (a: ChecklistBoat, b: ChecklistBoat) =>
+  const byBoat = (a: FleetEntry, b: FleetEntry) =>
     compareSailNumbersIgnoringPrefix(a.sailNumber, b.sailNumber);
-  const boatOf = ({ sailNumber, boatName, boatClass }: ChecklistBoat): ChecklistBoat => ({
-    sailNumber,
-    ...(boatName ? { boatName } : {}),
-    ...(boatClass ? { boatClass } : {}),
-  });
 
-  const tables: ChecklistTable[] = groupOrder.map((rep) => {
+  const tables: EntryGroup<T>[] = groupOrder.map((rep) => {
     const fleetIds = populated.filter((f) => groupOf.get(f.id) === rep).map((f) => f.id);
     const names = fleetIds.map((id) => fleetById.get(id)!.name);
-    const boats = membership
+    const entries = membership
       .filter((m) => m.fleetIds.some((id) => groupOf.get(id) === rep))
-      .map((m) => boatOf(m.boat))
+      .map((m) => m.boat)
       .sort(byBoat);
-    return { heading: checklistHeading(names), boats };
+    return { heading: checklistHeading(names), entries };
   });
 
   // Boats in no fleet at all: every boat on a single-fleet series (its only
   // fleet is `Default`), or the odd unassigned boat on a multi-fleet one. One
   // table, unheaded; alone on a single-fleet series, last otherwise.
-  const unassigned = membership.filter((m) => m.fleetIds.length === 0).map((m) => boatOf(m.boat)).sort(byBoat);
-  if (unassigned.length > 0) tables.push({ heading: null, boats: unassigned });
+  const unassigned = membership.filter((m) => m.fleetIds.length === 0).map((m) => m.boat).sort(byBoat);
+  if (unassigned.length > 0) tables.push({ heading: null, entries: unassigned });
 
   return tables;
 }
