@@ -1,7 +1,8 @@
 # Results Columns Flow
 
 How a scorer sets the columns of a series' results tables. By default the
-app chooses them from the fields the series records, as now. When the
+app chooses them from the competitor fields switched on in the series'
+settings, as now. When the
 organisers expect a layout of their own, the scorer can set the series'
 columns: which ones, in what order, under what titles. That is the escape
 hatch, and the design treats it as one, as the
@@ -28,8 +29,9 @@ gate (`custom-columns`). This flow may change the design there.
    behind it, apart from leaving a column off a table where it means
    nothing.
 4. **The detail stays in its own dialog.** The Competitor fields card keeps
-   saying what the series records. Column order and titles are not added to
-   the settings page.
+   saying which fields are switched on, so which ones the competitor dialog
+   and the importers ask for. Column order and titles are not added to the
+   settings page.
 5. **The arithmetic still reads left to right.** Competitor columns go
    where the organisers want them. The scoring columns keep their order.
 6. **Race day doesn't change.** Finish entry, check-in and the competitors
@@ -39,9 +41,13 @@ gate (`custom-columns`). This flow may change the design there.
 
 ## Where it starts
 
-The Competitor fields card already decides what the results show: its
-optional fields are "displayed in the competitor list, standings, and
-exported results". Expanded, it ends with one line:
+The Competitor fields card already decides what the results show.
+Switching an optional field on there does two things today: the competitor
+dialog, the competitors table and the importers ask for it, and the results
+get a column for it. With automatic columns that stays true. Once a series
+has its own columns, only the first part does: a field switched on is one
+the series can show, and the list decides whether and where it does.
+Expanded, the card ends with one line:
 
 ```
 │  ☑ Club                                                              │
@@ -82,8 +88,8 @@ The first time, the dialog opens on a screen that says what this is for:
 ```
 ┌─ Results columns ────────────────────────────────────────────────────┐
 │                                                                      │
-│  Sail Scoring chooses this series’ columns from the fields it        │
-│  records, and leaves out a column no boat has a value in. When you   │
+│  Sail Scoring chooses this series’ columns from the fields switched  │
+│  on, and leaves out a column no boat has a value in. When you        │
 │  turn a field on or a fleet changes, the columns follow.             │
 │                                                                      │
 │  Set your own when the organisers expect a particular layout:        │
@@ -189,8 +195,8 @@ columns** to return:
   default for every column it applies to. Turned off, the column is printed
   even when it is empty: an organiser's page template, kept the same from
   day one.
-- **Remove column** takes it off the list. The field is still recorded, and
-  *Add a column* offers it again.
+- **Remove column** takes it off the list. The field stays switched on,
+  its values are kept, and *Add a column* offers it again.
 
 A person column has one more block (see *Person columns*). A scoring row's
 editor has only Title and a single *Shown* tick.
@@ -222,14 +228,14 @@ doesn't:
 │  └────────────────────────────────────────────┘                  │
 ```
 
-- **Fields the series records** come first: any optional field switched on
-  in the Competitor fields card whose column isn't in the list.
+- **Fields switched on** come first: any optional field switched on in the
+  Competitor fields card whose column isn't in the list.
 - **A field can have more than one column** where it can be shown more than
   one way. *Country* shows the nationality as the country's name, from the
   national-letters dataset. The WASZP Games 2025 publishes both. Every
   other field has one column.
-- **A field the series doesn't record** isn't offered. To add one, the
-  scorer switches it on in the Competitor fields card. Switching a field on
+- **A field that is switched off** isn't offered. To show one, the scorer
+  switches it on in the Competitor fields card. Switching a field on
   while the series has its own columns adds its column to the end of the
   competitor columns, on every table. Switching one off removes its column.
   Without this, turning a field on would appear to do nothing.
@@ -327,8 +333,8 @@ CrewName field scorers fill with "A, B, C".
   Fields of the series' own appear as data under their names. It doesn't
   describe the columns' order or titles.
 - **Not the competitors table, finish entry or check-in.** The competitors
-  table is where the data is edited, so it shows every field the series
-  records. A finish-sheet row's label is built for the finish line, not for
+  table is where the data is edited, so it shows every field switched on.
+  A finish-sheet row's label is built for the finish line, not for
   the results.
 - **Not the prize-giving sheet or the starters checklist.** They are working
   documents with their own short layouts.

@@ -1,8 +1,8 @@
 # Results Columns
 
 Which columns a series' results tables show, in what order, and under what
-titles. By default the app chooses them from the fields the series records,
-as it does now. A series whose organisers expect a particular layout can set
+titles. By default the app chooses them from the competitor fields switched
+on in the series' settings, as it does now. A series whose organisers expect a particular layout can set
 its own columns. The UX is in
 [`ux/flows/results-columns.md`](ux/flows/results-columns.md), and it may
 change what follows.
@@ -29,7 +29,7 @@ except for the primary person's label, the subdivision axes' labels and the
 plurals of multi-person fields. A few publishing toggles decide whether
 handicap columns are shown (`publishRatingCalculations`,
 `showPerRaceRatingsInSummary`, `publishTrackData`). Columns no boat has a
-value in are left out. A series can't record a field of its own, except
+value in are left out. A series can't add a field of its own, except
 through subdivision axes, which carry meaning for prizes and filtering.
 
 ## Decided
@@ -60,7 +60,7 @@ Scoped October 2026.
   scratch fleet's table, and a column that hides when empty stays off a
   table where no boat has a value. That decides which tables a column
   appears on. It doesn't change the list.
-- **Fields of a series' own.** A series can record text fields it names
+- **Fields of a series' own.** A series can add text fields it names
   itself ("Rig", "Sponsor"), one value per competitor. They aren't used for
   scoring, prizes or grouping (subdivision axes do that). They are published
   only when they are columns.
