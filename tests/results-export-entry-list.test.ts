@@ -176,6 +176,27 @@ describe('buildFleetHtmlFiles — the competitor list', () => {
     expect(html.match(/<div class="startersrule"><\/div>/g)).toHaveLength(4);
   });
 
+  it('puts the class on the checklist when the series records it', async () => {
+    const competitors = [
+      { ...competitor('c1', '101', ['f-blue']), boatClass: 'Finn' },
+      { ...competitor('c3', '102', ['f-blue']), boatClass: 'RS 600' },
+      competitor('c2', '201', ['f-red']),
+    ];
+    const html = async (enabledCompetitorFields: Series['enabledCompetitorFields']) => {
+      const repos = {
+        ...makeRepos([], []),
+        seriesRepo: { get: async () => ({ ...SERIES, enabledCompetitorFields }) },
+        competitorRepo: { listBySeries: async () => competitors },
+      } as unknown as ExportRepos;
+      const files = await buildFleetFiles(repos, 's1', undefined, { includeEntryList: true });
+      return files!.find((f) => f.isEntryList)!.html;
+    };
+    const sheet = (h: string) => h.slice(h.indexOf('<div class="starterslist'));
+    expect(sheet(await html(['boatClass']))).toContain('<b class="boatclass">RS 600</b>');
+    // A class the series does not record stays off the sheet.
+    expect(sheet(await html([]))).not.toContain('boatclass');
+  });
+
   it('heads the checklist with the series and blanks to fill', async () => {
     const files = await buildFleetFiles(makeRepos([], []), 's1', undefined, {
       includeEntryList: true,

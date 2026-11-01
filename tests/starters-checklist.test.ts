@@ -141,6 +141,22 @@ describe('buildStartersChecklist', () => {
     expect(tables[1].boats.map((b) => b.sailNumber)).toEqual(['201122', '218456']);
   });
 
+  it('carries each boat\'s class onto the sheet', () => {
+    const tables = buildStartersChecklist({
+      fleets: [fleet('default', 'Default', 0), fleet('py', 'PY Fleet', 1)],
+      competitors: [
+        { ...boat('798', ['default', 'py']), boatClass: 'RS 600' },
+        { ...boat('6', ['default', 'py']), boatClass: 'Finn' },
+        boat('38', ['default', 'py']),
+      ],
+    });
+    expect(tables[0].boats).toEqual([
+      { sailNumber: '6', boatClass: 'Finn' },
+      { sailNumber: '38' },
+      { sailNumber: '798', boatClass: 'RS 600' },
+    ]);
+  });
+
   it('orders by the number on the sail, not the national prefix', () => {
     const tables = buildStartersChecklist({
       fleets: [fleet('default', 'Default', 0)],

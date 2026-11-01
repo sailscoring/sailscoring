@@ -2434,6 +2434,32 @@ describe('renderCompetitorListHtml', () => {
       expect(html).toContain('table.starterstable.noboat td.write { width: auto; }');
     });
 
+    it('carries the class on a table of mixed boats, and only there', () => {
+      // HYC's Frostbite: the PY Fleet is Finns, IDRA 14s and an RS 600 among
+      // others; the ILCA 7s are all ILCA 7s.
+      const html = renderCompetitorListHtml(chrome, flat(rows), {
+        enabledCompetitorFields: [],
+        multiFleet: true,
+        checklist: [
+          { heading: 'ILCA 7', boats: [{ sailNumber: '181204', boatClass: 'ILCA 7' }, { sailNumber: '183109', boatClass: 'ILCA 7' }] },
+          {
+            heading: 'PY Fleet',
+            boats: [
+              { sailNumber: '6', boatClass: 'Finn' },
+              { sailNumber: '38', boatClass: 'IDRA 14', boatName: 'Wasp' },
+              { sailNumber: '798', boatClass: 'RS 600' },
+            ],
+          },
+        ],
+      });
+      expect(html).toContain('<td class="tick"></td><td class="sail">181204</td><td class="write"></td>');
+      expect(html).toContain('<th class="startershead" colspan="3">ILCA 7</th>');
+      expect(html).toContain('<td class="sail">6</td><td class="boat"><span><b class="boatclass">Finn</b></span></td>');
+      // The class and the name share the one cell, class first.
+      expect(html).toContain('<td class="sail">38</td><td class="boat"><span><b class="boatclass">IDRA 14</b> · Wasp</span></td>');
+      expect(html).toContain('<th class="startershead" colspan="4">PY Fleet</th>');
+    });
+
     it('heads no table on a series with a single start', () => {
       const html = renderCompetitorListHtml(chrome, flat(rows), {
         enabledCompetitorFields: [],

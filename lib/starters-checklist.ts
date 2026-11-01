@@ -29,6 +29,9 @@ import type { StartGroup } from './types';
 export interface ChecklistBoat {
   sailNumber: string;
   boatName?: string;
+  /** What the recorder sees first, long before the number can be read; on a
+   *  handicap fleet of mixed boats, how one boat is told from another. */
+  boatClass?: string;
 }
 
 export interface ChecklistTable {
@@ -153,8 +156,11 @@ export function buildStartersChecklist(input: {
 
   const byBoat = (a: ChecklistBoat, b: ChecklistBoat) =>
     compareSailNumbersIgnoringPrefix(a.sailNumber, b.sailNumber);
-  const boatOf = ({ sailNumber, boatName }: ChecklistBoat): ChecklistBoat =>
-    boatName ? { sailNumber, boatName } : { sailNumber };
+  const boatOf = ({ sailNumber, boatName, boatClass }: ChecklistBoat): ChecklistBoat => ({
+    sailNumber,
+    ...(boatName ? { boatName } : {}),
+    ...(boatClass ? { boatClass } : {}),
+  });
 
   const tables: ChecklistTable[] = groupOrder.map((rep) => {
     const fleetIds = populated.filter((f) => groupOf.get(f.id) === rep).map((f) => f.id);

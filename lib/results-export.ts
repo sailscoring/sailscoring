@@ -391,14 +391,15 @@ async function buildCompetitorListFile(
   const ordered = [...competitors].sort((a, b) => firstFleetOrder(a) - firstFleetOrder(b));
 
   // The starters checklist rides on the page, printable from it: one table
-  // per start, each boat once. The boat name goes on it only when the series
-  // records one, like every other optional column here.
+  // per start, each boat once. The boat name and class go on it only when
+  // the series records them, like every other optional column here.
   const checklist = buildStartersChecklist({
     fleets,
     competitors: competitors.map((c) => ({
       sailNumber: c.sailNumber,
       fleetIds: c.fleetIds,
       ...(enabledCompetitorFields.includes('boatName') && c.boatName ? { boatName: c.boatName } : {}),
+      ...(enabledCompetitorFields.includes('boatClass') && c.boatClass ? { boatClass: c.boatClass } : {}),
     })),
     startGroups: series.defaultStartSequence,
   });

@@ -622,7 +622,10 @@ export default function Publishing() {
           </p>
           <p>
             Each row is a box to tick, the sail number, the boat name if your series records one,
-            and blank ruled space to write in. The boxes stand in one column down the left edge to
+            and blank ruled space to write in. If your series records each boat’s class, a table
+            of mixed boats — a PY or handicap fleet — shows it beside the number, since the class
+            is what the recorder can see long before the number can be read; a one-design table
+            leaves it off, as its heading already says it. The boxes stand in one column down the left edge to
             tick down, and the number is set against the boat’s name rather than against the box,
             so the two read as one thing. There is one table per <em>start</em>,
             not per fleet: a class scored under IRC and ECHO at once is one table, with every boat

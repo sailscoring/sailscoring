@@ -24,6 +24,7 @@ import {
 } from './track-data';
 import {
   PRIMARY_PERSON_LABEL_TEXT,
+  boatClassDistinguishes,
   formatClubs,
   formatPrimaryNames,
   DEFAULT_PRIMARY_PERSON_LABEL,
@@ -58,7 +59,7 @@ import {
   scoringOptionsLegend,
 } from './race-scoring-options';
 import { CHECKLIST_DENSITIES, CHECKLIST_PAGE, planChecklistSheet } from './starters-checklist';
-import type { ChecklistPiece, ChecklistTable } from './starters-checklist';
+import type { ChecklistBoat, ChecklistPiece, ChecklistTable } from './starters-checklist';
 
 // ---- Input types ----
 
@@ -1642,7 +1643,17 @@ function renderStartersChecklist(tables: ChecklistTable[], series: { name: strin
 
   const piece = ({ table, from, to }: ChecklistPiece): string => {
     const t = populated[table];
-    const showBoat = t.boats.some((b) => !!b.boatName);
+    // The class only on a table of mixed boats, where it tells one from
+    // another: on a one-design start it repeats the heading down the page,
+    // in the width a changed sail number is written into.
+    const showClass = boatClassDistinguishes(t.boats.map((b) => b.boatClass));
+    const showName = t.boats.some((b) => !!b.boatName);
+    const showBoat = showClass || showName;
+    const boatCell = (b: ChecklistBoat) => {
+      const cls = showClass && b.boatClass ? `<b class="boatclass">${esc(b.boatClass)}</b>` : '';
+      const name = showName && b.boatName ? esc(b.boatName) : '';
+      return `<td class="boat"><span>${cls}${cls && name ? ' · ' : ''}${name}</span></td>`;
+    };
     const rows: string[] = [];
     for (let r = from; r < to; r++) {
       const b = t.boats[r];
@@ -1652,7 +1663,7 @@ function renderStartersChecklist(tables: ChecklistTable[], series: { name: strin
       // than written in the margin.
       rows.push(
         b
-          ? `<tr><td class="tick"></td><td class="sail">${esc(b.sailNumber)}</td>${showBoat ? `<td class="boat"><span>${esc(b.boatName ?? '')}</span></td>` : ''}<td class="write"></td></tr>`
+          ? `<tr><td class="tick"></td><td class="sail">${esc(b.sailNumber)}</td>${showBoat ? boatCell(b) : ''}<td class="write"></td></tr>`
           : `<tr class="spare"><td class="tick"></td><td></td>${showBoat ? '<td></td>' : ''}<td></td></tr>`,
       );
     }
@@ -1756,6 +1767,7 @@ table.starterstable td { box-sizing: border-box; border: 0; border-bottom: 0.3mm
 table.starterstable td.sail { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; width: 1%; }
 table.starterstable td.boat { font-size: 9pt; color: #333; width: 38%; padding-left: 2mm; }
 table.starterstable td.boat span { display: block; width: 0; min-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+table.starterstable td.boat b.boatclass { font-weight: 600; color: #1a1a1a; }
 table.starterstable td.write { width: 26%; }
 table.starterstable.noboat td.write { width: auto; }
 table.starterstable td.tick { padding: 0 1mm 0 0; box-sizing: content-box; }
