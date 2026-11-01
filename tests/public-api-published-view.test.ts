@@ -171,6 +171,24 @@ describe('the published view', () => {
     expect(publication.resources.competitors).toBeUndefined();
   });
 
+  it('names custom fields by their names, and only the fields a series’ own columns show', () => {
+    const data = fleetData();
+    data.customFields = [{ id: 'rig', label: 'Rig' }, { id: 'sponsor', label: 'Sponsor' }];
+    data.standings[0].customFields = { rig: '8.2', sponsor: 'Acme' };
+    data.resultsColumns = [{ key: 'rank' }, { key: 'sailNumber' }, { key: 'primary' }, { key: 'field:rig' }, { key: 'club' }];
+    const state = applyPublish(null, [{ pageKey: 'cruisers', view: resultsPage(data) }], new Set(['cruisers']), Date.UTC(2026, 9, 24), ctx);
+    const standings = standingsSchema.parse(resources(state).get('standings'));
+    // Boat name is switched on but not a column, so it isn't named; Sponsor
+    // isn't a column either.
+    expect(standings.tables[0].rows[0].competitor).toEqual({
+      id: 'pub-a',
+      sailNumber: 'IRL 1',
+      names: ['Ann'],
+      clubs: ['GBSC'],
+      fields: { Rig: '8.2' },
+    });
+  });
+
   it('leaves a part alone when its page is not ticked', () => {
     const first = applyPublish(
       null,

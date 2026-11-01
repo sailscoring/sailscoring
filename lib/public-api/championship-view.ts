@@ -26,6 +26,7 @@ function displayOf(input: SplitFleetRenderInput, primaryPersonLabel?: PrimaryPer
   return {
     enabledCompetitorFields: input.enabledCompetitorFields ?? [],
     ...(primaryPersonLabel ? { primaryPersonLabel } : {}),
+    ...(input.resultsColumns ? { resultsColumns: input.resultsColumns } : {}),
   };
 }
 

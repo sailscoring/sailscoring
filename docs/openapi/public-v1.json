@@ -4113,6 +4113,16 @@
               "type": "string"
             }
           },
+          "fields": {
+            "description": "The series' custom fields, keyed by their names (\"Rig\": \"8.2\").",
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
           "gender": {
             "type": "string",
             "enum": [

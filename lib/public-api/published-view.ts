@@ -35,10 +35,13 @@ import { formatElapsedInput } from '../time-parse';
 import type { ScheduleRace } from '../schedule';
 import type {
   CompetitorFieldKey,
+  CustomField,
   MultiPersonFieldKey,
   PrimaryPersonLabel,
+  ResultsColumn,
   SubdivisionAxis,
 } from '../types';
+import { publishedCustomFields } from '../results-columns';
 import type {
   PublicApiCompetitor,
   PublicApiCompetitors,
@@ -60,6 +63,9 @@ export interface CompetitorDisplay {
   primaryPersonLabel?: PrimaryPersonLabel;
   multiPersonFields?: readonly MultiPersonFieldKey[];
   subdivisionAxes?: readonly SubdivisionAxis[];
+  customFields?: readonly CustomField[];
+  /** The series' own columns; a field is named only while it is one. */
+  resultsColumns?: readonly ResultsColumn[];
 }
 
 /** One fleet's section of a results page: the data the page rendered. */
@@ -121,6 +127,7 @@ export interface CompetitorFields {
   nationality?: string;
   worldSailingId?: string;
   subdivisions?: Record<string, string>;
+  customFields?: Record<string, string>;
   gender?: 'M' | 'F' | '';
   age?: number | null;
 }
@@ -298,7 +305,9 @@ function namesLabelOf(display: CompetitorDisplay): string {
  * A competitor as the API names them: the fields the series displays and
  * nothing else. A field is included when the series has it switched on and
  * the competitor has a value, which is the page's own rule less the column it
- * prints blank.
+ * prints blank. A series that sets its own columns displays only the fields
+ * its list has a column for. Custom fields are named by the series' own
+ * names for them.
  */
 function competitorOf(
   fields: CompetitorFields,
@@ -306,12 +315,23 @@ function competitorOf(
   display: CompetitorDisplay,
   ctx: ViewContext,
 ): PublicApiCompetitor {
-  const on = new Set(display.enabledCompetitorFields);
+  const columns = display.resultsColumns ? new Set(display.resultsColumns.map((c) => c.key)) : null;
+  const on = new Set(
+    display.enabledCompetitorFields.filter(
+      (f) => !columns || f === 'subdivision' || columns.has(f) || (f === 'nationality' && columns.has('country')),
+    ),
+  );
   const primary = display.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL;
+  const custom: Record<string, string> = {};
+  for (const field of publishedCustomFields(display)) {
+    const value = fields.customFields?.[field.id]?.trim();
+    if (value) custom[field.label] = value;
+  }
   const list = (v: string[] | undefined) => (v && v.length > 0 ? v : undefined);
   const subdivisions: Record<string, string> = {};
   if (on.has('subdivision')) {
     for (const axis of display.subdivisionAxes ?? []) {
+      if (columns && !columns.has(`subdivision:${axis.id}`)) continue;
       const value = fields.subdivisions?.[axis.id];
       if (value) subdivisions[axisLabel(axis)] = value;
     }
@@ -336,6 +356,7 @@ function competitorOf(
     ...(on.has('nationality') && fields.nationality ? { nationality: fields.nationality } : {}),
     ...(on.has('worldSailingId') && fields.worldSailingId ? { worldSailingId: fields.worldSailingId } : {}),
     ...(Object.keys(subdivisions).length > 0 ? { subdivisions } : {}),
+    ...(Object.keys(custom).length > 0 ? { fields: custom } : {}),
     ...(on.has('gender') && (fields.gender === 'M' || fields.gender === 'F') ? { gender: fields.gender } : {}),
     ...(on.has('age') && fields.age != null ? { age: fields.age } : {}),
   };
@@ -359,6 +380,7 @@ function fieldsOfRow(row: StandingRowData | RaceResultData): CompetitorFields {
     ...(row.nationality ? { nationality: row.nationality } : {}),
     ...(row.worldSailingId ? { worldSailingId: row.worldSailingId } : {}),
     ...(row.subdivisions ? { subdivisions: row.subdivisions } : {}),
+    ...(row.customFields ? { customFields: row.customFields } : {}),
     ...(row.gender ? { gender: row.gender } : {}),
     ...(row.age != null ? { age: row.age } : {}),
   };
@@ -370,6 +392,8 @@ function displayOfData(data: SeriesResultsData): CompetitorDisplay {
     ...(data.primaryPersonLabel ? { primaryPersonLabel: data.primaryPersonLabel } : {}),
     ...(data.multiPersonFields ? { multiPersonFields: data.multiPersonFields } : {}),
     ...(data.subdivisionAxes ? { subdivisionAxes: data.subdivisionAxes } : {}),
+    ...(data.customFields ? { customFields: data.customFields } : {}),
+    ...(data.resultsColumns ? { resultsColumns: data.resultsColumns } : {}),
   };
 }
 

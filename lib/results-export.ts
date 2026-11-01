@@ -533,6 +533,8 @@ async function buildCompetitorListFile(
         primaryPersonLabel: series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
         ...(series.multiPersonFields ? { multiPersonFields: series.multiPersonFields } : {}),
         subdivisionAxes: series.subdivisionAxes ?? [],
+        ...(series.customFields?.length ? { customFields: series.customFields } : {}),
+        ...(series.resultsColumns ? { resultsColumns: series.resultsColumns } : {}),
       },
     },
     html: renderCompetitorListHtml(

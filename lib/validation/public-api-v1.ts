@@ -77,6 +77,10 @@ export const competitorSchema = named(
       .record(z.string(), z.string())
       .optional()
       .describe('Prize-giving subdivisions, keyed by the column heading ("Division": "Silver").'),
+    fields: z
+      .record(z.string(), z.string())
+      .optional()
+      .describe('The series\' custom fields, keyed by their names ("Rig": "8.2").'),
     gender: z.enum(['M', 'F']).optional(),
     age: z.number().int().optional(),
     details: z
