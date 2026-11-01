@@ -854,6 +854,25 @@ const SHOTS: Shot[] = [
     },
   },
   {
+    // Inventory: Sign in/out sheet — the published competitor list as the
+    // office prints it for helms to sign: one table, the column headings
+    // across the top, a heading row per fleet, and Out / In boxes to tick.
+    slug: 'sign-in-out-sheet',
+    group: 'Publishing',
+    async capture({ page, anon, seriesId, shot }) {
+      await ensureFeature(page, 'entry-list');
+      const entriesHref = await publishEntriesPage(page, await seriesId());
+
+      const pub = await anon.newPage();
+      await pub.goto(`${new URL(entriesHref, BASE).toString()}#sign-in-out`);
+      await settle(pub);
+      await pub.emulateMedia({ media: 'print' });
+      await settle(pub);
+      await shot('sign-in-out-sheet.png', { page: pub });
+      await pub.close();
+    },
+  },
+  {
     // Inventory: Published race schedule — the Schedule page (ADR-014,
     // Decision 4): the sample league's races by date, grouped by month, each
     // start's gun and fleets, and a link to the results of every race sailed.

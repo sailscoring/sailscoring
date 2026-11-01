@@ -672,6 +672,43 @@ export default function Publishing() {
           </p>
         </Section>
       )}
+      {has('entry-list') && (
+        <Section id="sign-in-out-sheet" title="The sign in/out sheet">
+          <HelpShot
+            src="/help/shots/sign-in-out-sheet.webp"
+            alt="A printed sign in/out sheet: Out and In boxes beside the date at the top, then one table of sail number, class, helm and a signature column, with a heading row for each fleet."
+            caption="The sign in/out sheet as it prints: the column headings across the top, a heading for each fleet, and room for each helm to sign."
+          />
+          <p>
+            Many clubs require each helm to sign out before launching, and some to sign back in
+            afterwards, and print a fresh register every race day. The published competitor list
+            carries that register as the{' '}
+            <strong className="text-foreground">sign in/out sheet</strong>: open the Entries page
+            and follow <strong className="text-foreground">Sign in/out sheet</strong> in the
+            footer. Like the starters checklist it is a view of the page with an address of its
+            own, printed with your browser’s ordinary Print, and anyone with the link can print
+            it — the club office needs no account.
+          </p>
+          <p>
+            Each row is the sail number, the boat’s class, who is to sign, and a wide column for
+            the signature. The column headings run across the top of the page, and each fleet has
+            a heading of its own above its boats, in fleet order with sail numbers in number order
+            within each. A boat scored in two fleets at once is listed once, under the fleets
+            together. The class column appears when your series records classes (Settings →
+            Competitor fields); the person column lists helms where the series records them, and
+            otherwise the competitor’s name.
+          </p>
+          <p>
+            The same sheet serves both halves of the register. Its top line has an{' '}
+            <strong className="text-foreground">Out</strong> box and an{' '}
+            <strong className="text-foreground">In</strong> box beside a blank for the{' '}
+            <strong className="text-foreground">Date</strong>: print it twice and tick one on
+            each, so the two copies can be told apart on the desk and in the file. To print one
+            without publishing, open <strong className="text-foreground">Preview</strong>, pick
+            Entries, and follow the same link there.
+          </p>
+        </Section>
+      )}
       {has('schedule-page') && (
         <Section id="race-schedule" title="Publishing the race schedule">
           <p>
