@@ -234,6 +234,27 @@ describe('finisher code derivation', () => {
   });
 });
 
+describe('recorded times on the sheet', () => {
+  it('carries an unknown boat’s time under her row’s entry key', () => {
+    const finishes = [
+      makeFinish('r1', { id: 'x1', competitorId: 'c1', sortOrder: 1, finishTime: '14:02:10' }),
+      makeFinish('r1', { id: 'u1', competitorId: null, unknownSailNumber: '9999', sortOrder: 2, finishTime: '14:03:05' }),
+      makeFinish('r1', { id: 'u2', competitorId: null, unknownSailNumber: '8888', sortOrder: 3, elapsedSecs: 3725 }),
+      makeFinish('r1', { id: 'u3', competitorId: null, unknownSailNumber: '7777', sortOrder: 4 }),
+    ];
+    const derived = deriveFinishState(finishes);
+    expect([...derived.finishTimes]).toEqual([['c1', '14:02:10'], ['u1', '14:03:05']]);
+    expect([...derived.elapsedSecs]).toEqual([['u2', 3725]]);
+  });
+
+  it('leaves out an unknown row that is off the sheet', () => {
+    const finishes = [
+      makeFinish('r1', { id: 'u1', competitorId: null, unknownSailNumber: '9999', finishTime: '14:03:05' }),
+    ];
+    expect(deriveFinishState(finishes).finishTimes.size).toBe(0);
+  });
+});
+
 describe('resolveSailEntry', () => {
   const competitor = (id: string, sailNumber: string, bowNumber?: string): Competitor => ({
     id,

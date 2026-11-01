@@ -26,6 +26,11 @@ type RecordedFinish =
   | { finishTime: string; elapsedSecs?: undefined }
   | { elapsedSecs: number; finishTime?: undefined };
 
+/** The entry waiting on its time: a boat, or a sail number not on the list. */
+export type PendingTimeEntry =
+  | { kind: 'known'; competitor: Competitor; matchedOn: MatchTier; entered: string }
+  | { kind: 'unknown'; sailNumber: string };
+
 /** Read what the scorer typed into the form this race is recorded in. */
 function readRecordedFinish(raw: string, byElapsed: boolean): RecordedFinish | null {
   if (byElapsed) {
@@ -109,7 +114,10 @@ export function useFinishInput(args: UseFinishInputArgs) {
   // Pending time entry: competitor confirmed, waiting for finish time.
   // `matchedOn` is carried through so a bow-number match is still recorded on
   // the finish after the time step, not just on the immediate-commit path.
-  const [pendingTimeEntry, setPendingTimeEntry] = useState<{ competitor: Competitor; matchedOn: MatchTier; entered: string } | null>(null);
+  // An unknown sail number takes the same step on a sheet that records times,
+  // with the time optional: whether the boat needed one isn't known until
+  // she's resolved.
+  const [pendingTimeEntry, setPendingTimeEntry] = useState<PendingTimeEntry | null>(null);
   // The last boat recorded, as an entry key rather than a rendered label:
   // transcribing a sheet is a two-handed job and the confirmation has to sit
   // where the eye already is, but a row's position moves when a later timed
@@ -385,7 +393,7 @@ export function useFinishInput(args: UseFinishInputArgs) {
       setInputError('');
       setInputNotice('');
       setHighlightedIndex(-1);
-      setPendingTimeEntry({ competitor, matchedOn, entered: entered ?? competitor.sailNumber });
+      setPendingTimeEntry({ kind: 'known', competitor, matchedOn, entered: entered ?? competitor.sailNumber });
       setPendingTimeValue(stamp?.() ?? '');
       setPendingTimeError('');
     } else {
@@ -410,6 +418,11 @@ export function useFinishInput(args: UseFinishInputArgs) {
 
   function confirmPendingTime() {
     if (!pendingTimeEntry) return;
+    if (pendingTimeEntry.kind === 'unknown' && !pendingTimeValue.trim()) {
+      addUnknownFinisher(pendingTimeEntry.sailNumber);
+      clearPendingTime();
+      return;
+    }
     if (!pendingTimeValue.trim()) {
       setPendingTimeError(byElapsed ? 'Elapsed time is required.' : 'Finish time is required.');
       return;
@@ -421,41 +434,92 @@ export function useFinishInput(args: UseFinishInputArgs) {
         : 'Enter a valid time, e.g. 14:32:10 or 143210.');
       return;
     }
-    addKnownFinisher(
-      pendingTimeEntry.competitor,
-      recorded,
-      pendingTimeEntry.matchedOn,
-      pendingTimeEntry.entered,
-    );
+    if (pendingTimeEntry.kind === 'unknown') {
+      addUnknownFinisher(pendingTimeEntry.sailNumber, recorded);
+    } else {
+      addKnownFinisher(
+        pendingTimeEntry.competitor,
+        recorded,
+        pendingTimeEntry.matchedOn,
+        pendingTimeEntry.entered,
+      );
+    }
+    clearPendingTime();
+  }
+
+  function clearPendingTime() {
     setPendingTimeEntry(null);
     setPendingTimeValue('');
     setPendingTimeError('');
   }
 
   function cancelPendingTime() {
-    setPendingTimeEntry(null);
-    setPendingTimeValue('');
-    setPendingTimeError('');
+    clearPendingTime();
     inputRef.current?.focus();
   }
 
+  // Whether this sheet records times at all: some boat in the race needs one.
+  // Race-wide rather than per finisher, so the time column doesn't come and
+  // go as boats are added.
+  const sheetTakesTimes = competitors.some((c) => needsFinishTime(c.id));
+
+  /** Record a sail number that isn't on the entry list. Where the sheet
+   *  records times, it goes through the time step first, the time optional:
+   *  a boat in a timed fleet needs one, a boat in a fleet scored on position
+   *  doesn't, and which fleet she's in isn't known until she's resolved. */
   function recordAsUnknown(sail: string) {
+    if (!sheetTakesTimes) {
+      addUnknownFinisher(sail);
+      return;
+    }
+    setSailInput('');
+    setInputError('');
+    setInputNotice('');
+    setHighlightedIndex(-1);
+    setPendingUnknownSail(null);
+    setPendingTimeEntry({ kind: 'unknown', sailNumber: sail });
+    setPendingTimeValue(stamp?.() ?? '');
+    setPendingTimeError('');
+  }
+
+  function addUnknownFinisher(sail: string, recorded?: RecordedFinish) {
+    // A time of day is the crossing order, so the row slots in among the
+    // timed rows the way a timed boat does. An elapsed time is comparable
+    // only within a start, and an unknown boat has none until she's resolved,
+    // so she goes to the end of the sheet.
+    let insertAt = finishingOrder.length;
+    if (recorded?.finishTime !== undefined) {
+      const at = finishingOrder.findIndex((other) => {
+        const existing = finishTimes.get(entryKey(other));
+        return existing !== undefined && existing > recorded.finishTime!;
+      });
+      if (at >= 0) insertAt = at;
+    }
     const finishId = crypto.randomUUID();
     const newRow = makeFinish(raceId, {
       id: finishId,
       competitorId: null,
       unknownSailNumber: sail,
-      sortOrder: finishingOrder.length + 1,
+      sortOrder: insertAt + 1,
+      ...recorded,
     });
+    const newEntry: FinishEntry = { kind: 'unknown', finishId, sailNumber: sail };
     patchCache((rows) => [...rows, newRow]);
     saveFinish.mutate(newRow);
     setLastEntryKey(finishId);
+    if (insertAt < finishingOrder.length) {
+      flashRow(finishId);
+      commitOrderChange(
+        [...finishingOrder.slice(0, insertAt), newEntry, ...finishingOrder.slice(insertAt)],
+        tiedWithPrevious,
+      );
+    }
     setPendingUnknownSail(null);
     setSailInput('');
     setInputError('');
     setInputNotice('');
     inputRef.current?.focus();
-    log('result-entry', 'recorded unknown finisher', { sail });
+    log('result-entry', 'recorded unknown finisher', { sail, timed: recorded !== undefined });
   }
 
   // Whether the current input could be recorded as an unknown boat: non-empty
@@ -582,6 +646,9 @@ export function useFinishInput(args: UseFinishInputArgs) {
      *  no exact sail match) — gates the dropdown row and Shift+Enter path. */
     canRecordUnknown,
     needsFinishTime,
+    /** True when some boat in the race needs a time — the sheet has a time
+     *  column, and an unknown boat is offered one. */
+    sheetTakesTimes,
     addFinisher,
     commitCompetitor,
     recordAsUnknown,

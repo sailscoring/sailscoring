@@ -70,6 +70,19 @@ export default function EnteringResults() {
           Unresolved unknown finishes are excluded from standings until resolved.
         </p>
         <p>
+          On a sheet that records times — some fleet in the race has a start and is scored on
+          time — recording an unknown boat asks for her finish time as a known boat’s would,
+          but the time is optional. Until she is resolved there is no telling whether she
+          needed one: write the time for a boat you know sailed in a handicap fleet, and press{' '}
+          <strong className="text-foreground">Enter</strong> on the empty box for one scored on
+          position, an ILCA in a frostbite race say. A time places the row among the timed
+          rows, and the time box on an unknown row can be filled in or cleared later. The time
+          is kept when the row is resolved: the start it is measured from is the one her fleet
+          sails in, so it doesn’t have to be known when she is recorded. Resolved to a boat
+          scored on position, she keeps her place in the order, and the time is kept but
+          not used.
+        </p>
+        <p>
           If you’ve enabled the <em>Bow number</em> competitor field, finish
           entry matches on the bow number as well as the sail number. This helps
           when a boat’s bow number differs from its registered sail number and

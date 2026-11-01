@@ -173,6 +173,9 @@ export function useFinishRowOps(args: UseFinishRowOpsArgs) {
     for (let i = 0; i < without.length; i++) {
       const otherId = entryKey(without[i]);
       if (otherId === eid) continue;
+      // An unknown boat's elapsed time has no start to be measured within
+      // until she's resolved, so it places nothing.
+      if (byElapsed && without[i].kind === 'unknown') continue;
       const other = byElapsed ? elapsedSecs.get(otherId) : finishTimes.get(otherId);
       if (other === undefined) continue;
       if (byElapsed

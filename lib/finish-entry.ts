@@ -379,12 +379,17 @@ export function deriveFinishState(savedFinishes: Finish[]): {
     }
   }
 
+  // Keyed by entry key: a boat's competitorId, or an unknown row's finish id.
+  // An unknown boat may carry a time — optional, since whether she needed one
+  // isn't known until she is resolved — and it sorts among the timed rows.
+  // An unknown row off the sheet (no sortOrder) has no entry key to carry it.
   const finishTimes = new Map<string, string>();
   const elapsedSecs = new Map<string, number>();
   for (const finish of savedFinishes) {
-    if (!finish.competitorId) continue;
-    if (finish.finishTime) finishTimes.set(finish.competitorId, finish.finishTime);
-    if (finish.elapsedSecs != null) elapsedSecs.set(finish.competitorId, finish.elapsedSecs);
+    const key = finish.competitorId ?? (finish.sortOrder !== null ? finish.id : null);
+    if (key === null) continue;
+    if (finish.finishTime) finishTimes.set(key, finish.finishTime);
+    if (finish.elapsedSecs != null) elapsedSecs.set(key, finish.elapsedSecs);
   }
 
   const tiedWithPrevious = new Set<string>();

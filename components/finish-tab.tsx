@@ -280,6 +280,47 @@ export function FinishTab(props: FinishTabProps) {
     };
   })();
 
+  // An unknown boat's time of day places her row the way a timed boat's does,
+  // so it isn't dragged. An elapsed time doesn't: it is comparable only within
+  // a start, and she has none until she's resolved.
+  const isTimedUnknown = (eid: string) => !byElapsed && finishTimes.has(eid);
+
+  /** Save what was typed into an unknown row's time box. The time is
+   *  optional, so clearing the box takes it off — the row can be dragged
+   *  again — where a boat that needs a time keeps hers. */
+  function saveUnknownTime(eid: string, raw: string) {
+    const finish = derived.finishByEntryKey.get(eid);
+    if (!finish) return;
+    let change: Partial<Finish>;
+    if (!raw.trim()) {
+      if (finish.finishTime == null && finish.elapsedSecs == null) return;
+      change = { finishTime: undefined, elapsedSecs: undefined };
+    } else {
+      const next = readRecorded(raw);
+      if (!next) return;
+      if ('elapsedSecs' in next
+        ? next.elapsedSecs === finish.elapsedSecs
+        : next.finishTime === finish.finishTime) return;
+      change = next;
+    }
+    saveRecordedChange(finish.id, change);
+    if (change.finishTime) reslotTimedRow(eid, { finishTime: change.finishTime });
+  }
+
+  /** Write a recorded-time change onto the row as the cache now holds it.
+   *  The render's snapshot may predate a queued save landing — the reslot
+   *  after the previous edit, say — and writing the snapshot back would put
+   *  its older version in the cache for that save to send, and be refused. */
+  function saveRecordedChange(finishId: string, change: Partial<Finish>) {
+    let updated: Finish | undefined;
+    patchCache((rows) => rows.map((r) => {
+      if (r.id !== finishId) return r;
+      updated = { ...r, ...change };
+      return updated;
+    }));
+    if (updated) saveFinish.mutate(updated);
+  }
+
   // Rows whose recorded time of day equals the row above's: the engine reads a
   // tie off those and averages the points (RRS A7), so the sheet has to say so
   // — the tie checkbox is suppressed on a timed row, and without this the
@@ -518,7 +559,7 @@ export function FinishTab(props: FinishTabProps) {
   // is pure dead width, so drop it entirely and give the room to the name. This
   // is race-level (every competitor, not just current finishers) so the column
   // doesn't flicker in and out as boats are added.
-  const showFinishTimeColumn = competitors.some((c) => needsFinishTime(c.id));
+  const showFinishTimeColumn = finishInput.sheetTakesTimes;
   // Switching mode can't convert what's already written down — an elapsed
   // time and a time of day are different measurements — so the choice locks
   // once the sheet carries either. Clearing the rows unlocks it.
@@ -686,16 +727,28 @@ export function FinishTab(props: FinishTabProps) {
         <div className="relative">
           {readOnly ? null : pendingTimeEntry ? (
             <div className="flex items-center gap-2 rounded-lg border border-primary/40 bg-primary/5 px-3 py-2">
-              <span className="font-mono font-medium text-sm shrink-0">{pendingTimeEntry.competitor.sailNumber}</span>
-              {showFleetBadge && (
-                <FleetBadges
-                  fleetIds={pendingTimeEntry.competitor.fleetIds}
-                  raceFleetIds={raceFleetIds}
-                  fleetById={fleetById}
-                  variant="secondary"
-                />
+              {pendingTimeEntry.kind === 'unknown' ? (
+                <>
+                  <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
+                  <span className="font-mono font-medium text-sm shrink-0">{pendingTimeEntry.sailNumber}</span>
+                  {/* Optional: a boat in a fleet scored on position needs no
+                      time, and which fleet she's in waits on resolving her. */}
+                  <span className="text-sm text-muted-foreground truncate">Unknown boat — time optional</span>
+                </>
+              ) : (
+                <>
+                  <span className="font-mono font-medium text-sm shrink-0">{pendingTimeEntry.competitor.sailNumber}</span>
+                  {showFleetBadge && (
+                    <FleetBadges
+                      fleetIds={pendingTimeEntry.competitor.fleetIds}
+                      raceFleetIds={raceFleetIds}
+                      fleetById={fleetById}
+                      variant="secondary"
+                    />
+                  )}
+                  <span className="text-sm text-muted-foreground truncate">{displayCompetitorLabel(pendingTimeEntry.competitor, { enabledCompetitorFields, showCrew })}</span>
+                </>
               )}
-              <span className="text-sm text-muted-foreground truncate">{displayCompetitorLabel(pendingTimeEntry.competitor, { enabledCompetitorFields, showCrew })}</span>
               <input
                 ref={pendingTimeInputRef}
                 type="text"
@@ -984,7 +1037,9 @@ export function FinishTab(props: FinishTabProps) {
           <SortableList
             items={finishingOrder.map((entry, index) => ({ id: entryKey(entry), entry, index }))}
             isDisabled={(it) =>
-              readOnly || (it.entry.kind === 'known' && needsFinishTime(it.entry.competitorId))
+              readOnly
+              || (it.entry.kind === 'known' && needsFinishTime(it.entry.competitorId))
+              || isTimedUnknown(entryKey(it.entry))
             }
             onReorder={(_, { fromIndex, toIndex }) => moveRowTo(fromIndex, toIndex)}
           >
@@ -1008,15 +1063,51 @@ export function FinishTab(props: FinishTabProps) {
                   <span className="w-6 text-right text-sm font-mono text-muted-foreground shrink-0">
                     {rowNumber}
                   </span>
-                  {readOnly
+                  {readOnly || isTimedUnknown(eid)
+                    // A time of day places the row, as it does a timed boat's.
                     ? <div className="w-4 shrink-0" aria-hidden />
                     : <DragHandle {...handleProps} data-testid={`drag-handle-${entry.sailNumber}`} />}
                   <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
                   <span className="font-mono font-medium">{entry.sailNumber}</span>
                   <span className="text-sm text-muted-foreground flex-1">Unknown — not registered</span>
-                  {showFinishTimeColumn && (
-                    <span className="w-24 text-center text-sm font-mono text-muted-foreground shrink-0">—</span>
-                  )}
+                  {showFinishTimeColumn && (readOnly ? (
+                    <span
+                      className="w-24 text-center text-sm font-mono text-muted-foreground shrink-0"
+                      data-testid={`finish-time-unknown-${entry.sailNumber}`}
+                    >
+                      {recordedText(eid) || '—'}
+                    </span>
+                  ) : (
+                    <input
+                      type="text"
+                      value={editingTimes.get(eid) ?? recordedText(eid)}
+                      onChange={(e) =>
+                        setEditingTimes((prev) => new Map(prev).set(eid, e.target.value))
+                      }
+                      onBlur={(e) => {
+                        setEditingTimes((prev) => {
+                          const nextMap = new Map(prev);
+                          nextMap.delete(eid);
+                          return nextMap;
+                        });
+                        saveUnknownTime(eid, e.target.value);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          e.currentTarget.blur();
+                        } else if (e.key === 'Escape') {
+                          e.preventDefault();
+                          e.currentTarget.value = recordedText(eid);
+                          e.currentTarget.blur();
+                        }
+                      }}
+                      placeholder={byElapsed ? 'H:MM:SS' : 'HH:MM:SS'}
+                      aria-label={`${byElapsed ? 'Elapsed' : 'Finish'} time for unknown ${entry.sailNumber}`}
+                      data-testid={`finish-time-unknown-${entry.sailNumber}`}
+                      className="w-24 shrink-0 font-mono text-sm text-center rounded px-2 py-0.5 border border-input bg-background focus:outline-none focus:ring-1 focus:ring-ring"
+                    />
+                  ))}
                   {showLapsColumn && <span className="w-16 shrink-0" aria-hidden />}
                   {!readOnly && (
                     <>
@@ -1133,9 +1224,7 @@ export function FinishTab(props: FinishTabProps) {
                         : next.finishTime === finishTimes.get(competitorId)) return;
                       const finish = finishByCompetitorId.get(competitorId);
                       if (!finish) return;
-                      const updated: Finish = { ...finish, ...next };
-                      patchCache((rows) => rows.map((r) => (r.id === finish.id ? updated : r)));
-                      saveFinish.mutate(updated);
+                      saveRecordedChange(finish.id, next);
                       reslotTimedRow(competitorId, next);
                     }}
                     onKeyDown={(e) => {
