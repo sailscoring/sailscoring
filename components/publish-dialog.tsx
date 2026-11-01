@@ -1126,7 +1126,7 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, unscored 
                     <span className="flex-1">{resolvedGroups.length > 0 ? 'Page' : 'Fleet'}</span>
                     <span>URL</span>
                   </label>
-                  <div className="space-y-1 max-h-[50vh] overflow-y-auto">
+                  <div className="space-y-1 max-h-[50dvh] overflow-y-auto">
                     {rows.map((row) => {
                       const checked = selected.has(row.name);
                       const segment = segmentFor(row);
@@ -1139,7 +1139,9 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, unscored 
                       return (
                         <div key={row.name} className="space-y-1">
                         <div
-                          className={`flex items-center gap-2 ${dim ? 'opacity-50' : ''}`}
+                          // Wraps on a phone: the URL keeps a usable width
+                          // and the buttons drop beneath it.
+                          className={`flex flex-wrap items-center gap-x-2 gap-y-1 ${dim ? 'opacity-50' : ''}`}
                         >
                           <input
                             type="checkbox"
@@ -1149,7 +1151,7 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, unscored 
                             aria-label={`Publish ${row.name}`}
                           />
                           <span
-                            className="w-36 shrink-0 truncate text-sm"
+                            className="w-24 sm:w-36 shrink-0 truncate text-sm"
                             title={row.name}
                           >
                             {row.name}
@@ -1163,7 +1165,7 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, unscored 
                             </span>
                           )}
                           {hasBlocks ? (
-                            <span className="flex-1 min-w-0 truncate text-xs text-muted-foreground">
+                            <span className="flex-1 basis-40 min-w-0 truncate text-xs text-muted-foreground">
                               one page per sub-series
                             </span>
                           ) : row.frozen ? (
@@ -1173,7 +1175,7 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, unscored 
                               rel="noreferrer"
                               title={row.publishedUrl ?? url}
                               aria-label={row.publishedUrl ?? url}
-                              className="flex-1 min-w-0 truncate text-xs font-mono hover:underline"
+                              className="flex-1 basis-40 min-w-0 truncate text-xs font-mono hover:underline"
                             >
                               {segment}
                             </a>
@@ -1188,7 +1190,7 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, unscored 
                               disabled={!checked}
                               placeholder={defaultSubPath(row.name)}
                               aria-label={`URL for ${row.name}`}
-                              className="flex-1 min-w-0 h-7 text-xs font-mono"
+                              className="flex-1 basis-40 min-w-0 h-7 text-xs font-mono"
                             />
                           )}
                           {noteButton({ fleetName: row.name })}
@@ -1232,18 +1234,18 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, unscored 
                       return (
                         <div
                           key={`suppressed-${row.name}`}
-                          className="flex items-center gap-2 opacity-50"
+                          className="flex flex-wrap items-center gap-x-2 gap-y-1 opacity-50"
                           data-testid={`suppressed-fleet-${row.name}`}
                         >
                           <span className="h-4 w-4 shrink-0" aria-hidden="true" />
                           <span
-                            className="w-36 shrink-0 truncate text-sm"
+                            className="w-24 sm:w-36 shrink-0 truncate text-sm"
                             title={row.name}
                           >
                             {row.name}
                           </span>
                           <span
-                            className="flex-1 min-w-0 truncate text-xs text-muted-foreground"
+                            className="flex-1 basis-40 min-w-0 truncate text-xs text-muted-foreground"
                             title={note}
                           >
                             {note}
@@ -1262,7 +1264,7 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, unscored 
               <div className="space-y-1.5">
                 {(publishedResultPages ?? (singlePreview ? [singlePreview] : [])).map((p) => (
                   <div key={p.url} className="space-y-1">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                     {/* Re-publishing is per page here as much as anywhere: a
                         live page left unticked stays up untouched rather than
                         being rebuilt. Only the lone default page can be
@@ -1279,11 +1281,11 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, unscored 
                       title={publishedResultPages ? undefined : 'Untick to leave this page as it is'}
                     />
                     {publishedResultPages && (
-                      <span className="w-36 shrink-0 truncate text-sm" title={p.fleetName}>
+                      <span className="w-24 sm:w-36 shrink-0 truncate text-sm" title={p.fleetName}>
                         {p.fleetName}
                       </span>
                     )}
-                    <div className="flex-1 min-w-0 overflow-hidden">
+                    <div className="flex-1 basis-40 min-w-0 overflow-hidden">
                       {/* direction: rtl makes the ellipsis clip the (shared) start of
                           the URL and keep the distinguishing end visible; text-align:
                           left keeps it left-aligned when it fits. The URL is a single
@@ -1323,7 +1325,7 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, unscored 
                     it later. */}
                 {!publishedResultPages && !singlePreview && (
                   <div className="space-y-1">
-                  <div className={`flex items-center gap-2 ${loneSelected ? '' : 'opacity-50'}`}>
+                  <div className={`flex flex-wrap items-center gap-x-2 gap-y-1 ${loneSelected ? '' : 'opacity-50'}`}>
                     <input
                       type="checkbox"
                       checked={loneSelected}
@@ -1331,13 +1333,13 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, unscored 
                       className="h-4 w-4 shrink-0"
                       aria-label={`Publish ${lonePageLabel}`}
                     />
-                    <span className="w-36 shrink-0 truncate text-sm">{lonePageLabel}</span>
+                    <span className="w-24 sm:w-36 shrink-0 truncate text-sm">{lonePageLabel}</span>
                     <Input
                       value={singlePath}
                       onChange={(e) => { setSinglePath(sanitizeSlug(e.target.value)); setError(null); }}
                       placeholder={defaultPageSlug(raceResults)}
                       aria-label="Page URL"
-                      className="flex-1 min-w-0 h-7 text-xs font-mono"
+                      className="flex-1 basis-40 min-w-0 h-7 text-xs font-mono"
                     />
                     {noteButton(lonePageRef)}
                   </div>
@@ -1361,7 +1363,7 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, unscored 
                     /p/{workspaceSlug}/{effectiveSlug || '…'}/{folder || '…'}/
                   </span>
                 </p>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                   <input
                     type="checkbox"
                     checked={loneSelected}
@@ -1369,7 +1371,7 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, unscored 
                     className="h-4 w-4 shrink-0"
                     aria-label={`Publish ${lonePageLabel}`}
                   />
-                  <span className="w-36 shrink-0 truncate text-sm">{lonePageLabel}</span>
+                  <span className="w-24 sm:w-36 shrink-0 truncate text-sm">{lonePageLabel}</span>
                   <Input
                     value={singlePath}
                     onChange={(e) => {
@@ -1378,7 +1380,7 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, unscored 
                     }}
                     placeholder={defaultPageSlug(raceResults)}
                     aria-label="Page URL"
-                    className="flex-1 min-w-0 h-7 text-xs font-mono"
+                    className="flex-1 basis-40 min-w-0 h-7 text-xs font-mono"
                   />
                   {noteButton(lonePageRef)}
                 </div>
@@ -1399,7 +1401,7 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, unscored 
               return (
                 <div key={name} className="space-y-1">
                 <div
-                  className={`flex items-center gap-2 ${!checked && !frozen ? 'opacity-50' : ''}`}
+                  className={`flex flex-wrap items-center gap-x-2 gap-y-1 ${!checked && !frozen ? 'opacity-50' : ''}`}
                 >
                   <input
                     type="checkbox"
@@ -1408,7 +1410,7 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, unscored 
                     className="h-4 w-4 shrink-0"
                     aria-label={`Publish ${name}`}
                   />
-                  <span className="w-36 shrink-0 truncate text-sm" title={name}>
+                  <span className="w-24 sm:w-36 shrink-0 truncate text-sm" title={name}>
                     {name}
                   </span>
                   {caption && (
@@ -1428,7 +1430,7 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, unscored 
                       target="_blank"
                       rel="noreferrer"
                       title={url}
-                      className="flex-1 min-w-0 truncate text-xs font-mono hover:underline"
+                      className="flex-1 basis-40 min-w-0 truncate text-xs font-mono hover:underline"
                       style={{ direction: 'rtl', textAlign: 'left' }}
                     >
                       {url}
@@ -1474,12 +1476,12 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, unscored 
                 note left behind by a page the series no longer builds. */}
             {canNote && (
               <div className="space-y-1 border-t pt-2">
-                <div className="flex items-center gap-2">
-                  <span className="w-36 shrink-0 truncate text-sm text-muted-foreground">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <span className="w-24 sm:w-36 shrink-0 truncate text-sm text-muted-foreground">
                     Every page
                   </span>
                   <span
-                    className="flex-1 min-w-0 truncate text-xs text-muted-foreground"
+                    className="flex-1 basis-40 min-w-0 truncate text-xs text-muted-foreground"
                     title={series.seriesNote || undefined}
                   >
                     {series.seriesNote?.trim()
@@ -1510,11 +1512,11 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, unscored 
                   />
                 )}
                 {orphanNotes.map((note) => (
-                  <div key={note.page} className="flex items-center gap-2 opacity-60">
-                    <span className="w-36 shrink-0 truncate text-xs text-muted-foreground">
+                  <div key={note.page} className="flex flex-wrap items-center gap-x-2 gap-y-1 opacity-60">
+                    <span className="w-24 sm:w-36 shrink-0 truncate text-xs text-muted-foreground">
                       {describePageNoteKey(note.page)}
                     </span>
-                    <span className="flex-1 min-w-0 truncate text-xs text-muted-foreground" title={note.text}>
+                    <span className="flex-1 basis-40 min-w-0 truncate text-xs text-muted-foreground" title={note.text}>
                       no such page any more — {note.text}
                     </span>
                     <Button

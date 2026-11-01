@@ -129,7 +129,7 @@ export function SiTranslation({
         fill
           ? 'flex h-full min-h-0 flex-col'
           : `rounded-md border bg-muted/30 p-3${
-              sticky ? ' lg:sticky lg:top-4 lg:flex lg:max-h-[calc(100vh-2rem)] lg:flex-col lg:self-start' : ''
+              sticky ? ' lg:sticky lg:top-4 lg:flex lg:max-h-[calc(100dvh-2rem)] lg:flex-col lg:self-start' : ''
             }`
       }
       data-testid="sf-si-translation"

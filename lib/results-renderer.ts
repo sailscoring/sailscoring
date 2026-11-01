@@ -1724,10 +1724,10 @@ body.starters .caption, body.starters .tablewrap, body.starters h3.grouptitle, b
 .startersback { display: none; }
 body.starters .startersback { display: inline; }
 body.starters .starterslink { display: none; }
-.startersident { display: flex; justify-content: space-between; align-items: baseline; gap: 6mm; margin: 0 0 4mm 0; font-size: 10pt; }
+.startersident { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 2mm 6mm; margin: 0 0 4mm 0; font-size: 10pt; }
 .startersident .startersfor { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.startersident .startersblanks { flex: none; white-space: nowrap; color: #333; }
-.startersident .startersblank { margin-left: 4mm; }
+.startersident .startersblanks { flex: none; color: #333; }
+.startersident .startersblank { margin-left: 4mm; white-space: nowrap; display: inline-block; }
 .startersident .startersblank i { display: inline-block; width: 18mm; border-bottom: 0.3mm solid #666; }
 .startersstart { margin: 0 0 6mm 0; }
 table.starterstable th.startershead { background: none; color: #1a1a1a; font-size: 12pt; font-weight: 700; text-align: left; border: 0; padding: 3mm 0 1.2mm 0; }

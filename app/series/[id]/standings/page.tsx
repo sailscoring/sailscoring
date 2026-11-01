@@ -434,7 +434,7 @@ export default function StandingsPage({
           </TabsList>
         </Tabs>
       )}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <p className="text-sm text-muted-foreground">{summary}</p>
           {showResultsStatus && (
@@ -455,7 +455,7 @@ export default function StandingsPage({
             </span>
           )}
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {showResultsStatus && canScore && !isFinal && (
             <Button
               size="sm"
@@ -540,9 +540,9 @@ export default function StandingsPage({
             {notShown.map((c) => {
               const st = entryStatuses.get(c.id)!;
               return (
-                <li key={c.id} data-testid={`not-shown-${c.sailNumber}`} className="flex items-center gap-3">
+                <li key={c.id} data-testid={`not-shown-${c.sailNumber}`} className="flex flex-wrap items-center gap-x-3 gap-y-1">
                   <span className="w-20 shrink-0 font-mono">{c.sailNumber}</span>
-                  <span className="min-w-0 flex-1 truncate">
+                  <span className="min-w-0 flex-1 basis-32 truncate">
                     {displayCompetitorLabel(c, { enabledCompetitorFields: enabledFields, showCrew })}
                   </span>
                   <span className="text-xs text-muted-foreground">{notShownReason(st)}</span>

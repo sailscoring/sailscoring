@@ -1177,7 +1177,7 @@ function CeremonyDialog({
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
-        <div className="max-h-[50vh] space-y-3 overflow-y-auto">{children}</div>
+        <div className="max-h-[50dvh] space-y-3 overflow-y-auto">{children}</div>
         {error && <p className="text-sm text-destructive">{error}</p>}
         <DialogFooter>
           {blockedReason && (
@@ -2515,7 +2515,7 @@ function RepechageSection({
               )}
             </>
           )}
-          <Button onClick={() => setDialog('promote')} data-testid="sf-promote-open">
+          <Button wrap onClick={() => setDialog('promote')} data-testid="sf-promote-open">
             {round ? `Promote from the ${REPECHAGE_WORDS.name}…` : `Promote from the ${cutFromName(data)} ranking…`}
           </Button>
           {round && !promotedFromIt && (

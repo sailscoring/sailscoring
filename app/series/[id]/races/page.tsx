@@ -962,13 +962,13 @@ export default function RacesPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-muted-foreground">
           {races === undefined
             ? 'Loading…'
             : `${races.length} race${races.length === 1 ? '' : 's'}`}
         </p>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {subSeriesEnabled && canManageBlocks && races !== undefined && races.length > 0 && (
             <Button variant="outline" onClick={openCreateSubSeries}>
               New sub-series
@@ -1172,7 +1172,7 @@ export default function RacesPage({
               rename, or drop any single date afterwards like an ordinary race.
             </DialogDescription>
           </DialogHeader>
-          <div className="max-h-[60vh] space-y-4 overflow-y-auto pr-1">
+          <div className="max-h-[60dvh] space-y-4 overflow-y-auto pr-1">
             <div className="space-y-1.5">
               <Label htmlFor="genStartDate">First race date</Label>
               <Input
@@ -1323,7 +1323,7 @@ export default function RacesPage({
               own standings, discards, and (for NHC/ECHO) its own handicaps.
             </DialogDescription>
           </DialogHeader>
-          <div className="max-h-[60vh] space-y-4 overflow-y-auto pr-1">
+          <div className="max-h-[60dvh] space-y-4 overflow-y-auto pr-1">
             <div className="space-y-1.5">
               <Label htmlFor="subSeriesName">Name</Label>
               <Input

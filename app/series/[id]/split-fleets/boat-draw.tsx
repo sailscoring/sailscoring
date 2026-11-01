@@ -253,7 +253,7 @@ function FleetBoatsDialog({
             boats; within this one, each boat once.
           </DialogDescription>
         </DialogHeader>
-        <div className="max-h-[50vh] overflow-y-auto">
+        <div className="max-h-[50dvh] overflow-y-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-xs text-muted-foreground">

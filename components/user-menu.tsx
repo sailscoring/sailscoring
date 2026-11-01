@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, CircleUserRound } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { authClient } from '@/lib/auth-client';
@@ -56,8 +56,11 @@ export function UserMenu({
             signingOut && 'opacity-50',
           )}
           data-testid="user-menu"
+          aria-label={email}
         >
-          <span className="max-w-[16rem] truncate">{email}</span>
+          {/* A phone's header has no room for an email address. */}
+          <CircleUserRound className="h-5 w-5 sm:hidden" aria-hidden />
+          <span className="hidden max-w-[16rem] truncate sm:inline">{email}</span>
           <ChevronDown className="h-3.5 w-3.5" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-[14rem]">

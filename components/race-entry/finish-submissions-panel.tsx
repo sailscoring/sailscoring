@@ -241,7 +241,7 @@ function ReviewDialog({
             {!submission.complete && ' — still recording, so more may follow'}.
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4 max-h-[60vh] overflow-y-auto">
+        <div className="space-y-4 max-h-[60dvh] overflow-y-auto">
           <FinishSheetPreviewSummary
             kind="review"
             result={read}

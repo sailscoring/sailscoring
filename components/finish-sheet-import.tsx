@@ -238,7 +238,9 @@ export const FinishSheetImport = forwardRef<FinishSheetImportHandle, {
           </DialogHeader>
           {mapping && (
             <div className="overflow-y-auto max-h-96">
-              <Table className="table-fixed">
+              {/* A minimum width so "Map to" keeps room for its choice on a
+                  phone, where the table scrolls sideways in its own box. */}
+              <Table className="table-fixed min-w-[32rem]">
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-1/4">Column</TableHead>

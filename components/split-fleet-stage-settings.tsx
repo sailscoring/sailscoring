@@ -166,7 +166,7 @@ export function SailingInstructionsDrawer({
   );
 }
 
-const rowClass = 'grid gap-1.5 sm:grid-cols-[11rem_1fr] sm:items-baseline sm:gap-3';
+const rowClass = 'grid grid-cols-1 gap-1.5 sm:grid-cols-[11rem_minmax(0,1fr)] sm:items-baseline sm:gap-3';
 const hint = 'text-xs text-muted-foreground';
 const selectClass = 'rounded-md border bg-background px-2 py-1 text-sm';
 
@@ -272,7 +272,7 @@ function ReadAlongside() {
   const { siOpen, setSiOpen } = useContext(MarkContext);
   if (siOpen) return null;
   return (
-    <Button variant="ghost" size="sm" onClick={() => setSiOpen(true)}>
+    <Button variant="ghost" size="sm" wrap onClick={() => setSiOpen(true)}>
       <ScrollText className="h-4 w-4" />
       Read alongside the sailing instructions
     </Button>
@@ -696,6 +696,7 @@ export function OpeningSettings({
             <Button
               variant="outline"
               size="sm"
+              wrap
               onClick={() =>
                 patch({ split: { kind: 'equal-blocks' }, finalFleets: FINAL_FLEET_SET.slice(0, 2) })
               }

@@ -84,7 +84,8 @@ function FleetBadges({
   return (
     <span data-testid={testId} className="flex items-center gap-1 min-w-0">
       {labels.map((name, i) => (
-        <Badge key={`${name}-${i}`} variant={variant} className="text-xs shrink" title={name}>
+        // Shrinks to an ellipsis, never to nothing: "PY" or "Cl…" still reads.
+        <Badge key={`${name}-${i}`} variant={variant} className="text-xs shrink min-w-10" title={name}>
           <span className="truncate">{name}</span>
         </Badge>
       ))}
@@ -455,7 +456,9 @@ export function FinishTab(props: FinishTabProps) {
       key={competitor.id}
       data-testid={`non-finisher-${competitor.sailNumber}`}
       className={cn(
-        'flex items-center gap-3 border rounded-lg px-4 py-2 transition-colors',
+        // Wraps on a phone only: on the desktop this row sits in a narrow
+        // side panel where the squeeze below is the intended behaviour.
+        'flex flex-wrap sm:flex-nowrap items-center gap-x-3 gap-y-1.5 border rounded-lg px-3 sm:px-4 py-2 transition-colors',
         code === 'RDG'
           ? 'border-amber-300 bg-amber-50 dark:bg-amber-950 dark:border-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900'
           : stripedRowClass(index),
@@ -471,7 +474,7 @@ export function FinishTab(props: FinishTabProps) {
           squeezed to nothing, leaving the fleet badge to overflow the row on
           its own. Sized from its content, name and badge share the squeeze and
           both ellipsize. */}
-      <span className="text-sm flex-auto truncate">{displayCompetitorLabel(competitor, { enabledCompetitorFields, showCrew })}</span>
+      <span className="text-sm flex-auto basis-24 sm:basis-auto min-w-0 truncate">{displayCompetitorLabel(competitor, { enabledCompetitorFields, showCrew })}</span>
       {code === 'RDG' && !readOnly && openRedressDialog && (
         <button
           type="button"
@@ -614,9 +617,9 @@ export function FinishTab(props: FinishTabProps) {
           fraction instead of growing to its content's min size (which would
           push the panel out of the card). */}
       <div className="space-y-4 min-w-0">
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="font-medium">Finishing order</h3>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
           {hasNonFinishers && nonFinishersCollapsed && (
             <Button
               variant="outline"
@@ -1056,7 +1059,9 @@ export function FinishTab(props: FinishTabProps) {
                   style={style}
                   data-entry-key={eid}
                   className={cn(
-                    'flex items-center gap-3 border border-amber-400 rounded-lg px-4 py-2.5 bg-amber-50 dark:bg-amber-950 transition-colors hover:bg-amber-100 dark:hover:bg-amber-900',
+                    // Wraps on a phone: the time, Resolve and × drop to a
+                    // second line rather than off the edge of the screen.
+                    'flex flex-wrap items-center gap-x-2 gap-y-1.5 sm:gap-x-3 border border-amber-400 rounded-lg px-3 sm:px-4 py-2.5 bg-amber-50 dark:bg-amber-950 transition-colors hover:bg-amber-100 dark:hover:bg-amber-900',
                     isFlashed && 'ring-2 ring-primary',
                   )}
                 >
@@ -1069,7 +1074,7 @@ export function FinishTab(props: FinishTabProps) {
                     : <DragHandle {...handleProps} data-testid={`drag-handle-${entry.sailNumber}`} />}
                   <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
                   <span className="font-mono font-medium">{entry.sailNumber}</span>
-                  <span className="text-sm text-muted-foreground flex-1">Unknown — not registered</span>
+                  <span className="text-sm text-muted-foreground min-w-0 flex-1 basis-32">Unknown — not registered</span>
                   {showFinishTimeColumn && (readOnly ? (
                     <span
                       className="w-24 text-center text-sm font-mono text-muted-foreground shrink-0"
@@ -1150,7 +1155,7 @@ export function FinishTab(props: FinishTabProps) {
                 style={style}
                 data-entry-key={eid}
                 className={cn(
-                  'border rounded-lg px-4 py-2.5 transition-colors',
+                  'border rounded-lg px-3 sm:px-4 py-2.5 transition-colors',
                   // Hover highlight anchors the eye across the now-wider row when
                   // scanning out to the finish time / actions.
                   hasRedress
@@ -1159,7 +1164,9 @@ export function FinishTab(props: FinishTabProps) {
                   isFlashed && 'ring-2 ring-primary',
                 )}
               >
-                <div className="flex items-center gap-3">
+                {/* Wraps on a phone: the name keeps a readable width and the
+                    time, laps and actions drop to a second line. */}
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 sm:gap-x-3">
                 <span className="w-6 text-right text-sm font-mono text-muted-foreground shrink-0">
                   {rowNumber}
                 </span>
@@ -1195,7 +1202,7 @@ export function FinishTab(props: FinishTabProps) {
                     testId={`fleet-badge-${competitor.sailNumber}`}
                   />
                 )}
-                <span className="text-sm truncate flex-auto">{displayCompetitorLabel(competitor, { enabledCompetitorFields, showCrew })}</span>
+                <span className="text-sm truncate min-w-0 flex-auto basis-32">{displayCompetitorLabel(competitor, { enabledCompetitorFields, showCrew })}</span>
                 {showFinishTimeColumn && (isTimed && readOnly ? (
                   <span
                     className="w-24 text-center text-sm font-mono shrink-0"
@@ -1565,13 +1572,13 @@ export function FinishTab(props: FinishTabProps) {
                   <div
                     key={competitor.id}
                     data-testid={`excluded-${competitor.sailNumber}`}
-                    className="flex items-center gap-3 rounded-lg border border-dashed px-4 py-2 text-muted-foreground"
+                    className="flex flex-wrap sm:flex-nowrap items-center gap-x-3 gap-y-1.5 rounded-lg border border-dashed px-3 sm:px-4 py-2 text-muted-foreground"
                   >
                     <span className="font-mono font-medium w-16 shrink-0">{competitor.sailNumber}</span>
                     {showFleetBadge && (
                       <FleetBadges fleetIds={competitor.fleetIds} raceFleetIds={raceFleetIds} fleetById={fleetById} variant="outline" />
                     )}
-                    <span className="text-sm flex-auto truncate">{displayCompetitorLabel(competitor, { enabledCompetitorFields, showCrew })}</span>
+                    <span className="text-sm flex-auto basis-24 sm:basis-auto min-w-0 truncate">{displayCompetitorLabel(competitor, { enabledCompetitorFields, showCrew })}</span>
                     {onIncludeCompetitor && !readOnly && (
                       <Button
                         size="sm"

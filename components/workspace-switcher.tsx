@@ -98,14 +98,14 @@ export function WorkspaceSwitcher({
       <DropdownMenuTrigger
         disabled={busy}
         className={cn(
-          'inline-flex items-center gap-1 text-sm text-muted-foreground',
+          'inline-flex min-w-0 items-center gap-1 text-sm text-muted-foreground',
           'hover:text-foreground focus:outline-none focus-visible:underline',
           busy && 'opacity-50',
         )}
         data-testid="workspace-switcher"
       >
         {active && <WsLogo url={active.logo} />}
-        <span>{active ? active.name : 'Select workspace…'}</span>
+        <span className="truncate">{active ? active.name : 'Select workspace…'}</span>
         <ChevronDown className="h-3.5 w-3.5" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="min-w-[14rem]">

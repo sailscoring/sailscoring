@@ -165,7 +165,7 @@ export function FtpSettingsPane({ series, pages, lonePageLabel, hasBlocks, onClo
           <span className="w-36 shrink-0">Page</span>
           <span>Path</span>
         </div>
-        <div className="space-y-1 max-h-[50vh] overflow-y-auto">
+        <div className="space-y-1 max-h-[50dvh] overflow-y-auto">
           {pages.map((page) => {
             const label = labelFor(page);
             return (

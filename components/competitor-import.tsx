@@ -716,8 +716,10 @@ const MappingTable = memo(function MappingTable({
   multiPersonFields: MultiPersonFieldKey[];
   onChange: (index: number, value: ColumnTarget) => void;
 }) {
+  // A minimum width so the columns keep a usable share on a phone, where
+  // the table scrolls sideways inside its own box instead.
   return (
-    <Table className="table-fixed">
+    <Table className="table-fixed min-w-[36rem]">
       <TableHeader>
         <TableRow>
           <TableHead className="w-1/5">Column</TableHead>
@@ -982,7 +984,7 @@ function MappingDialogBody({
   );
 
   return (
-    <div className="space-y-4 overflow-y-auto max-h-[60vh]">
+    <div className="space-y-4 overflow-y-auto max-h-[60dvh]">
       {/* Series-level proposals */}
       <div className="rounded-md border p-3 space-y-3 bg-muted/30">
         <div className="space-y-1">
@@ -1156,7 +1158,7 @@ function PushConfirmBody({
     [flow.competitors, flow.fleets, flow.config],
   );
   return (
-    <div className="space-y-4 overflow-y-auto max-h-[60vh]">
+    <div className="space-y-4 overflow-y-auto max-h-[60dvh]">
       <p className="text-sm">
         Event UUID <code className="text-xs">{flow.config.eventUuid}</code>
       </p>
@@ -2437,11 +2439,11 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
             </DialogDescription>
           </DialogHeader>
           {importFlow.step === 'renames' && (
-            <div className="max-h-[50vh] overflow-y-auto space-y-1">
+            <div className="max-h-[50dvh] overflow-y-auto space-y-1">
               {importFlow.candidates.map((c, i) => (
                 <label
                   key={c.rowIndex}
-                  className="flex items-center gap-3 rounded-md border p-2 text-sm cursor-pointer"
+                  className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border p-2 text-sm cursor-pointer"
                 >
                   <input
                     type="checkbox"
@@ -2457,7 +2459,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
                   <span className="font-mono whitespace-nowrap">
                     {c.oldSailNumber} → {c.newSailNumber}
                   </span>
-                  <span className="truncate min-w-0">
+                  <span className="truncate min-w-0 flex-1 basis-32">
                     {[c.boatName, c.personName].filter(Boolean).join(' — ')}
                   </span>
                   <span className="ml-auto shrink-0 text-xs text-muted-foreground">

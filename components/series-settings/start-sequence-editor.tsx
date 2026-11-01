@@ -87,9 +87,9 @@ export function StartSequenceEditor({ value, fleets, onSave }: StartSequenceEdit
         Defines how fleets are grouped at the start line and the time between starts. Used as the default when creating new races.
       </p>
       {groups.map((group, i) => (
-        <div key={i} className="flex items-center gap-2 text-sm border rounded-md px-3 py-2">
+        <div key={i} className="flex flex-wrap items-center gap-2 text-sm border rounded-md px-3 py-2">
           <span className="text-xs text-muted-foreground w-14 shrink-0">Start {i + 1}</span>
-          <div className="flex flex-wrap gap-1 flex-1">
+          <div className="flex flex-1 basis-40 flex-wrap gap-1">
             {group.fleetIds.map((id) => (
               <span key={id} className="inline-flex items-center gap-1 bg-muted px-2 py-0.5 rounded text-xs">
                 {fleetNameById.get(id) ?? id}

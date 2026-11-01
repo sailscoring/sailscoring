@@ -63,13 +63,52 @@ const noEntityAfterInlineElement = {
   },
 };
 
+/**
+ * On a phone, `vh` (and Tailwind's `h-screen`, which is `100vh`) measures the
+ * screen as if the browser's address bar were hidden, so a `max-h-[50vh]`
+ * region is more than half of what's actually visible and a `90vh` dialog
+ * runs off the bottom. `dvh` tracks the visible area. See *On a phone* in
+ * docs/design/ux/conventions.md.
+ */
+const VH_CLASS = /-\[[^\]\s]*\d(?:\.\d+)?vh\b[^\]\s]*\]|(?<![\w-])(?:min-|max-)?h-screen\b/;
+
+const noViewportVh = {
+  meta: {
+    type: 'problem',
+    docs: { description: 'Disallow vh-based Tailwind heights, which overshoot the visible area on a phone' },
+    schema: [],
+    messages: {
+      vh: '`{{found}}` measures the screen as if the address bar were hidden, so on a phone it overshoots what is visible. Use dvh instead (e.g. max-h-[50dvh], min-h-dvh).',
+    },
+  },
+  create(context) {
+    const check = (node, text) => {
+      const found = typeof text === 'string' ? text.match(VH_CLASS) : null;
+      if (found) context.report({ node, messageId: 'vh', data: { found: found[0].replace(/^-/, '') } });
+    };
+    return {
+      Literal(node) { check(node, node.value); },
+      TemplateElement(node) { check(node, node.value.cooked); },
+    };
+  },
+};
+
 const config = [
   ...next,
   {
     plugins: {
-      sailscoring: { rules: { 'no-entity-after-inline-element': noEntityAfterInlineElement } },
+      sailscoring: {
+        rules: {
+          'no-entity-after-inline-element': noEntityAfterInlineElement,
+          'no-viewport-vh': noViewportVh,
+        },
+      },
     },
     rules: { 'sailscoring/no-entity-after-inline-element': 'error' },
+  },
+  {
+    files: ['app/**/*.{ts,tsx}', 'components/**/*.{ts,tsx}', 'hooks/**/*.{ts,tsx}'],
+    rules: { 'sailscoring/no-viewport-vh': 'error' },
   },
   /**
    * Chrome suppresses native dialogs whenever the page isn't the active tab

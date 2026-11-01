@@ -125,6 +125,16 @@
 }
 
 @layer base {
+  /* A native field won't shrink below its default size (about 20
+     characters) in a flex row, and a select is as wide as its longest
+     option; either pushes a phone page sideways. In base, so a min-w-* or
+     max-w-* class still wins. */
+  input,
+  select,
+  textarea {
+    min-width: 0;
+    max-width: 100%;
+  }
   * {
     @apply border-border outline-ring/50;
     }
@@ -167,4 +177,17 @@ html[data-help-resizing] {
 
 html[data-help-resizing] .help-docked {
   transition: none;
+}
+
+/* On a phone, a text field's text is never under 16px: iOS zooms the whole
+   page in when a smaller field is tapped, and doesn't zoom back out. Desktop
+   forms keep their compact text-sm; this lifts every field on a narrow
+   screen at once, so a hand-rolled <select className="text-sm"> can't
+   reintroduce the zoom. Unlayered, so it outranks the utility classes. */
+@media (max-width: 767px) {
+  select,
+  textarea,
+  input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="button"], [type="submit"], [type="reset"], [type="color"], [type="hidden"]) {
+    font-size: max(16px, 1em);
+  }
 }

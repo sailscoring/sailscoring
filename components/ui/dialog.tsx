@@ -67,9 +67,10 @@ function DialogContent({
           // phone `vh` measures the screen as if the address bar were hidden.
           // A dialog with a DialogBody becomes a column whose body takes the
           // scroll, so its header and footer stay put; any other dialog
-          // scrolls as a whole.
+          // scrolls as a whole. The width keeps a margin either side on a
+          // phone even when a caller sets its own max-w-* for the desktop.
           "max-h-[calc(100dvh-2rem)] overflow-y-auto has-[>[data-slot=dialog-body]]:flex has-[>[data-slot=dialog-body]]:flex-col",
-          "fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border bg-background p-6 shadow-lg duration-200 outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 sm:max-w-lg",
+          "fixed top-[50%] left-[50%] z-50 grid grid-cols-1 w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border bg-background p-6 shadow-lg duration-200 outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 sm:max-w-lg",
           className
         )}
         {...props}

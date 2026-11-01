@@ -770,7 +770,7 @@ export default function CompetitorsPage({
       {series?.previousSeriesId && (
         <FollowOnProvenanceNote previousSeriesId={series.previousSeriesId} />
       )}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-muted-foreground">
           {competitors === undefined
             ? 'Loading…'
@@ -780,7 +780,7 @@ export default function CompetitorsPage({
               (excludedCount > 0 ? ` · ${excludedCount} excluded` : '')}
         </p>
         {!showAddForm && !readOnly && (
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             {hasHandicapFleet && (
               <Button
                 variant="outline"

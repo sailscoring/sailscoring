@@ -30,10 +30,17 @@ const buttonVariants = cva(
         "icon-sm": "size-8",
         "icon-lg": "size-10",
       },
+      // A label long enough to need two lines on a phone: the button grows
+      // to fit it instead of pushing the page sideways.
+      wrap: {
+        true: "h-auto max-w-full whitespace-normal py-1.5 text-left",
+        false: "",
+      },
     },
     defaultVariants: {
       variant: "default",
       size: "default",
+      wrap: false,
     },
   }
 )
@@ -42,6 +49,7 @@ function Button({
   className,
   variant = "default",
   size = "default",
+  wrap = false,
   asChild = false,
   ...props
 }: React.ComponentProps<"button"> &
@@ -55,7 +63,7 @@ function Button({
       data-slot="button"
       data-variant={variant}
       data-size={size}
-      className={cn(buttonVariants({ variant, size, className }))}
+      className={cn(buttonVariants({ variant, size, wrap, className }))}
       {...props}
     />
   )

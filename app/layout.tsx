@@ -160,11 +160,11 @@ export default async function RootLayout({
             <HelpPanelProvider>
             <HelpPanelFrame>
             <div className="h-[3px] bg-brand-red" />
-            <header className="border-b px-6 py-3 flex items-center gap-3">
+            <header className="border-b px-4 sm:px-6 py-3 flex items-center gap-2 sm:gap-3">
               <Link
                 href="/"
                 aria-label="Sail Scoring — home"
-                className="flex items-center"
+                className="flex shrink-0 items-center"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
@@ -179,7 +179,7 @@ export default async function RootLayout({
                   activeOrganizationId={header.activeOrganizationId}
                 />
               )}
-              <div className="ml-auto flex items-center gap-3">
+              <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
                 <HelpToggle />
                 <ThemeToggle />
                 {header && (
@@ -193,7 +193,7 @@ export default async function RootLayout({
             {header && header.memberships.length === 1 && (
               <PersonalWorkspaceBanner />
             )}
-            <main className="px-6 py-8 bg-muted min-h-[70vh]">{children}</main>
+            <main className="px-4 sm:px-6 py-6 sm:py-8 bg-muted min-h-[70dvh]">{children}</main>
             <Footer />
             </HelpPanelFrame>
             </HelpPanelProvider>

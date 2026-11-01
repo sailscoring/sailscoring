@@ -87,7 +87,7 @@ export function RaceSwitcher({
             <ChevronDown className="h-4 w-4 opacity-60" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="max-h-[60vh] overflow-y-auto">
+        <DropdownMenuContent align="start" className="max-h-[60dvh] overflow-y-auto">
           {groupByDate
             ? dates.map((date) => (
                 <DropdownMenuGroup key={date}>

@@ -173,7 +173,7 @@ export const WorldSailingCheck = forwardRef<WorldSailingCheckHandle, {
                   ` ${state.result.withoutId.length} competitor${state.result.withoutId.length === 1 ? ' has' : 's have'} no Sailor ID recorded.`}
               </DialogDescription>
             </DialogHeader>
-            <div className="max-h-[50vh] overflow-y-auto text-sm">
+            <div className="max-h-[50dvh] overflow-y-auto text-sm">
               <table className="w-full">
                 <thead>
                   <tr className="text-left text-muted-foreground">

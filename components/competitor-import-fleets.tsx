@@ -324,7 +324,7 @@ export function FleetsStepBody({
   const totalRows = rows.length;
 
   return (
-    <div className="space-y-4 overflow-y-auto max-h-[60vh]">
+    <div className="space-y-4 overflow-y-auto max-h-[60dvh]">
       {/* ── The two column decisions this step owns ─────────────────────── */}
       <div className="rounded-md border p-3 space-y-3 bg-muted/30">
         {splitFleetSeries ? (

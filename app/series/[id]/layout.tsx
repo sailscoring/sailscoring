@@ -190,8 +190,10 @@ export default function SeriesLayout({
             <span className="text-foreground">{series.name}</span>
           </nav>
         )}
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-semibold flex items-center gap-2">
+        {/* Wraps on a phone: a long series name takes the line and the
+            buttons drop beneath it. */}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <h1 className="min-w-0 text-2xl font-semibold flex flex-wrap items-center gap-2 break-words">
             {series.name}
             {series.asPublished && (
               <span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium text-muted-foreground align-middle">
