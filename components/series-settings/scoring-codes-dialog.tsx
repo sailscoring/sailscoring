@@ -114,7 +114,7 @@ export function ScoringCodesDialog({ open, onOpenChange, seriesId, dnfScoring, s
 
   return (
     <Dialog open={open} onOpenChange={close}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto" data-testid="scoring-codes-dialog">
+      <DialogContent className="sm:max-w-2xl" data-testid="scoring-codes-dialog">
         <DialogHeader>
           <DialogTitle>Scoring codes</DialogTitle>
           {editing === null && pastIntro && (

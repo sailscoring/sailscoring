@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -410,6 +411,7 @@ export const RaceSenseImport = forwardRef<RaceSenseImportHandle, {
             </DialogDescription>
           </DialogHeader>
 
+          <DialogBody className="space-y-4">
           <div className="flex flex-wrap items-end gap-4">
             {fleets.length > 0 && (
               <label className="text-sm space-y-1">
@@ -475,9 +477,9 @@ export const RaceSenseImport = forwardRef<RaceSenseImportHandle, {
             </div>
           )}
 
-          <div className="overflow-y-auto max-h-[50vh] rounded-md border">
+          <div className="overflow-x-auto rounded-md border">
             <table className="w-full text-sm">
-              <thead className="sticky top-0 bg-muted/60">
+              <thead className="bg-muted/60">
                 <tr className="text-left">
                   <th className="w-8 p-2" />
                   <th className="p-2 font-medium">Sheet</th>
@@ -594,6 +596,7 @@ export const RaceSenseImport = forwardRef<RaceSenseImportHandle, {
               </tbody>
             </table>
           </div>
+          </DialogBody>
 
           <DialogFooter>
             {flow.step === 'plan' && flow.source.kind === 'player' && (

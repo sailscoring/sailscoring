@@ -5,6 +5,7 @@ import { useId, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -273,10 +274,9 @@ export function CompetitorBulkEditDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      {/* Header, scrolling body, pinned footer — the field list and its value
-          editors grow with the series config, and Apply must stay reachable
-          on a laptop screen (#528). */}
-      <DialogContent className="max-h-[90vh] grid-rows-[auto_minmax(0,1fr)_auto]">
+      {/* The field list and its value editors grow with the series config,
+          so the body scrolls and Apply stays put. */}
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>Set a field on {noun}</DialogTitle>
           <DialogDescription>
@@ -285,7 +285,7 @@ export function CompetitorBulkEditDialog({
               : 'Writes one value to every selected competitor. Leave the value empty to clear the field instead.'}
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4 min-h-0 overflow-y-auto pr-1">
+        <DialogBody className="space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="bulk-edit-field">Field</Label>
             <Select
@@ -424,7 +424,7 @@ export function CompetitorBulkEditDialog({
             )}
           </div>
           )}
-        </div>
+        </DialogBody>
         <DialogFooter>
           <Button variant="outline" onClick={() => handleOpenChange(false)}>
             Cancel

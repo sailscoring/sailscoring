@@ -5,6 +5,7 @@ import { ChevronRight } from 'lucide-react';
 import type { Position } from '@sailscoring/course-cards';
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogHeader,
@@ -593,7 +594,7 @@ function RaceStartDialogInner({
 
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onCancel(); }}>
-      <DialogContent className={`${offerCourse ? 'max-w-lg' : offerOption ? 'max-w-md' : 'max-w-sm'} max-h-[90vh] grid-rows-[auto_minmax(0,1fr)_auto]`}>
+      <DialogContent className={`${offerCourse ? 'max-w-lg' : offerOption ? 'max-w-md' : 'max-w-sm'}`}>
         <DialogHeader>
           <DialogTitle>{mode.kind === 'edit' ? 'Edit start' : 'Add start'}</DialogTitle>
           <DialogDescription>
@@ -603,7 +604,7 @@ function RaceStartDialogInner({
         </DialogHeader>
         {/* The body scrolls: a constructed-course legs list can outgrow the
             viewport, and Save must stay reachable. */}
-        <div className="space-y-4 min-h-0 overflow-y-auto pr-1">
+        <DialogBody className="space-y-4">
           <div className="space-y-1.5">
             <label className="text-sm font-medium" htmlFor="start-gun-time">Gun time <span className="font-normal text-muted-foreground">(optional)</span></label>
             <input
@@ -862,7 +863,7 @@ function RaceStartDialogInner({
             </div>
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
-        </div>
+        </DialogBody>
         <div className="flex justify-end gap-2 mt-2">
           <Button variant="outline" onClick={onCancel}>Cancel</Button>
           <Button onClick={handleSave}>Save</Button>

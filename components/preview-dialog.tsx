@@ -233,7 +233,7 @@ export function PreviewDialog({ series, fleets, open, onClose, onPublish, canEdi
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogContent
         aria-describedby={undefined}
-        className="flex h-[90vh] max-h-[90vh] w-[calc(100%-2rem)] max-w-5xl flex-col sm:max-w-5xl"
+        className="flex h-[90dvh] w-[calc(100%-2rem)] max-w-5xl flex-col sm:max-w-5xl"
       >
         <DialogHeader>
           <DialogTitle>Preview results</DialogTitle>

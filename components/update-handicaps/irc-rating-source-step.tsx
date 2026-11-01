@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
+  DialogBody,
   DialogDescription,
   DialogHeader,
   DialogTitle,
@@ -165,7 +166,7 @@ export function IrcRatingSourceStep({
         </DialogDescription>
       </DialogHeader>
 
-      <div className="space-y-4 py-2 min-h-0 min-w-0 overflow-y-auto">
+      <DialogBody className="space-y-4 py-2">
         <FleetVariantSelector
           heading="IRC rating per fleet"
           fleets={choices.sourceFleets}
@@ -235,7 +236,7 @@ export function IrcRatingSourceStep({
             {errorMsg && <p className="text-sm text-destructive">{errorMsg}</p>}
           </>
         )}
-      </div>
+      </DialogBody>
 
       <StepFooter
         onCancel={onCancel}

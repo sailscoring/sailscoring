@@ -210,7 +210,7 @@ export function ResultsColumnsDialog({ open, onOpenChange, series }: ResultsColu
 
   return (
     <Dialog open={open} onOpenChange={close}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto" data-testid="results-columns-dialog">
+      <DialogContent className="sm:max-w-2xl" data-testid="results-columns-dialog">
         <DialogHeader>
           <DialogTitle>Results columns</DialogTitle>
           {editing === null && pastIntro && (

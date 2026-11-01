@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 import {
+  DialogBody,
   DialogDescription,
   DialogHeader,
   DialogTitle,
@@ -185,7 +186,7 @@ export function SeriesSourceStep({
         </DialogDescription>
       </DialogHeader>
 
-      <div className="space-y-4 py-2 min-h-0 min-w-0 overflow-y-auto">
+      <DialogBody className="space-y-4 py-2">
         <div className="space-y-1">
           <label className="text-sm font-medium">Source series</label>
           <Select
@@ -238,7 +239,7 @@ export function SeriesSourceStep({
             )}
           </>
         )}
-      </div>
+      </DialogBody>
 
       {split.appliedChangeRows.some((r) => FREEZABLE_SYSTEMS.has(r.system)) && (
         <label className="flex items-start gap-2 px-1 pt-1 cursor-pointer text-sm">

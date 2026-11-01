@@ -302,3 +302,26 @@ test('the import remembers where each race went, and counts on from there', asyn
   await expect(page.getByTestId('racesense-row-1')).toContainText('where it went last time');
   await expect(page.getByTestId('racesense-row-3')).not.toContainText('where it went last time');
 });
+
+test('on a phone, the plan fits the screen and Import stays in reach', async ({ page }) => {
+  await seriesForTheFixture(page, 'RaceSense On A Phone');
+
+  // A phone's visible area with the browser's own bars showing: the plan's
+  // controls, notes and race table together are far taller than this.
+  await page.setViewportSize({ width: 390, height: 664 });
+  await page.getByTestId('racesense-input').setInputFiles(FIXTURE);
+  const plan = page.getByTestId('racesense-plan');
+  await expect(plan).toBeVisible();
+
+  const box = await plan.boundingBox();
+  expect(box).not.toBeNull();
+  expect(box!.y).toBeGreaterThanOrEqual(0);
+  expect(box!.y + box!.height).toBeLessThanOrEqual(664);
+
+  // The title and the buttons stay put while the middle scrolls, so Import
+  // is on screen without scrolling to it.
+  await expect(plan.getByRole('heading', { name: 'Import from RaceSense' })).toBeInViewport();
+  await expect(page.getByTestId('racesense-confirm')).toBeInViewport();
+  await page.getByTestId('racesense-confirm').click();
+  await expect(plan).toBeHidden();
+});

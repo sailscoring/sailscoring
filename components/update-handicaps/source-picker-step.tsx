@@ -2,6 +2,7 @@
 
 import { Button } from '@/components/ui/button';
 import {
+  DialogBody,
   DialogDescription,
   DialogFooter,
   DialogHeader,
@@ -68,7 +69,7 @@ export function SourcePickerStep({
         </DialogDescription>
       </DialogHeader>
 
-      <div className="space-y-3 py-2 min-h-0 overflow-y-auto">
+      <DialogBody className="space-y-3 py-2">
         <SourceOption
           value="series"
           current={source}
@@ -121,7 +122,7 @@ export function SourcePickerStep({
             description="Set each class's PY number from the RYA's published list, and tidy class names to match. Matched by boat class, not sail number."
           />
         )}
-      </div>
+      </DialogBody>
 
       <DialogFooter>
         <Button variant="outline" onClick={onCancel}>Cancel</Button>

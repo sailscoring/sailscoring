@@ -3,7 +3,7 @@
 import { useState } from 'react';
 
 import { Button } from '@/components/ui/button';
-import { DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { DialogBody, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useCompetitorsBySeries, useUpdateHandicaps } from '@/hooks/use-competitors';
 import { useFleetsBySeries } from '@/hooks/use-fleets';
 import { useFeatures } from '@/components/features-provider';
@@ -22,12 +22,10 @@ import { SourcePickerStep } from './source-picker-step';
 import { SYSTEM_LABEL, type ApplyOutcome, type HandicapSource } from './shared';
 import { VprsSourceStep } from './vprs-source-step';
 
-/** Dialog sizing the flow expects of whatever `DialogContent` hosts it: a
- *  three-row grid (header / scrolling body / footer) wide enough for a
- *  preview table. Shared so the importer's ratings step matches the
- *  standalone dialog. */
-export const UPDATE_HANDICAPS_CONTENT_CLASS =
-  'grid-rows-[auto_minmax(0,1fr)_auto] max-h-[90vh] w-[95vw] max-w-5xl sm:max-w-5xl';
+/** Dialog sizing the flow expects of whatever `DialogContent` hosts it:
+ *  wide enough for a preview table. Shared so the importer's ratings step
+ *  matches the standalone dialog. */
+export const UPDATE_HANDICAPS_CONTENT_CLASS = 'w-[95vw] max-w-5xl sm:max-w-5xl';
 
 /**
  * The source that fills in each rating system, for a caller that knows which
@@ -234,7 +232,7 @@ export function UpdateHandicapsFlow({
           <DialogHeader>
             <DialogTitle>Handicaps updated</DialogTitle>
           </DialogHeader>
-          <div className="space-y-2 py-2 text-sm min-h-0 overflow-y-auto">
+          <DialogBody className="space-y-2 py-2 text-sm">
             <p>
               Updated <strong>{result.updatedCount}</strong> starting handicap
               {result.updatedCount === 1 ? '' : 's'}.
@@ -258,7 +256,7 @@ export function UpdateHandicapsFlow({
                 <li>{result.notFound} not found — left at their current value</li>
               )}
             </ul>
-          </div>
+          </DialogBody>
           <DialogFooter>
             <Button onClick={onFinish}>Done</Button>
           </DialogFooter>

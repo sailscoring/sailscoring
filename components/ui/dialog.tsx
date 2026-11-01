@@ -61,6 +61,14 @@ function DialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
+          // Never taller than the screen: a centred, fixed dialog that
+          // outgrows the viewport overflows top and bottom with nothing to
+          // scroll, stranding its buttons. `dvh`, not `vh`, because on a
+          // phone `vh` measures the screen as if the address bar were hidden.
+          // A dialog with a DialogBody becomes a column whose body takes the
+          // scroll, so its header and footer stay put; any other dialog
+          // scrolls as a whole.
+          "max-h-[calc(100dvh-2rem)] overflow-y-auto has-[>[data-slot=dialog-body]]:flex has-[>[data-slot=dialog-body]]:flex-col",
           "fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border bg-background p-6 shadow-lg duration-200 outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 sm:max-w-lg",
           className
         )}
@@ -86,6 +94,22 @@ function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="dialog-header"
       className={cn("flex flex-col gap-2 text-center sm:text-left", className)}
+      {...props}
+    />
+  )
+}
+
+/**
+ * The part of a dialog between its header and footer that scrolls when the
+ * dialog would otherwise be taller than the screen. Put everything between
+ * the two in one DialogBody. It runs to the dialog's side edges so the
+ * scrollbar sits at the edge and focus rings aren't clipped.
+ */
+function DialogBody({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="dialog-body"
+      className={cn("-mx-6 min-h-0 min-w-0 flex-1 overflow-y-auto px-6", className)}
       {...props}
     />
   )
@@ -146,6 +170,7 @@ function DialogDescription({
 
 export {
   Dialog,
+  DialogBody,
   DialogClose,
   DialogContent,
   DialogDescription,

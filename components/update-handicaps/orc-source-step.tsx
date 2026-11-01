@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
+  DialogBody,
   DialogDescription,
   DialogHeader,
   DialogTitle,
@@ -267,7 +268,7 @@ export function OrcSourceStep({
         </DialogDescription>
       </DialogHeader>
 
-      <div className="space-y-4 py-2 min-h-0 min-w-0 overflow-y-auto">
+      <DialogBody className="space-y-4 py-2">
         <div className="space-y-1">
           <label className="text-sm font-medium" htmlFor="orc-country">
             Issuing country
@@ -397,7 +398,7 @@ export function OrcSourceStep({
             {errorMsg && <p className="text-sm text-destructive">{errorMsg}</p>}
           </>
         )}
-      </div>
+      </DialogBody>
 
       <StepFooter
         onCancel={onCancel}
