@@ -29,8 +29,8 @@ except for the primary person's label, the subdivision axes' labels and the
 plurals of multi-person fields. A few publishing toggles decide whether
 handicap columns are shown (`publishRatingCalculations`,
 `showPerRaceRatingsInSummary`, `publishTrackData`). Columns no boat has a
-value in are left out. A series can't add a field of its own, except
-through subdivision axes, which carry meaning for prizes and filtering.
+value in are left out. There are no custom fields. Subdivision axes come
+closest, but they carry meaning for prizes and filtering.
 
 ## Decided
 
@@ -60,8 +60,8 @@ Scoped October 2026.
   scratch fleet's table, and a column that hides when empty stays off a
   table where no boat has a value. That decides which tables a column
   appears on. It doesn't change the list.
-- **Fields of a series' own.** A series can add text fields it names
-  itself ("Rig", "Sponsor"), one value per competitor. They aren't used for
+- **Custom fields.** A custom field is a text field the scorer adds to a
+  series and names ("Rig", "Sponsor"), holding one value per competitor. They aren't used for
   scoring, prizes or grouping (subdivision axes do that). They are published
   only when they are columns.
 - **Person columns choose how they show several names**: one per line, or
@@ -105,18 +105,17 @@ hidden, so a fleet added later still gets its handicap columns.
    values, carried through storage (a migration), validation, the
    `.sailscoring` file, the public export, `copySeries` and revision
    history.
-3. **Fields of a series' own**: the Competitor fields card, the competitor
+3. **Custom fields**: the Competitor fields card, the competitor
    dialog, CSV import, the competitors table and search.
 4. **The gate, the settings line and the Columns dialog.** The publishing
    toggles move into the dialog while a series has its own columns, and
    leave the Publishing card when the gate goes general.
-5. **Published pages and the API** follow the list. The API carries fields
-   of the series' own as data.
+5. **Published pages and the API** follow the list. The API carries custom
+   fields as data.
 6. **Sailwave import and export** carry a file's published columns, order
-   and titles. Sailwave fields we don't model become fields of the series'
-   own, except personal data (email, phone, address, medical).
+   and titles. Sailwave fields we don't model become custom fields, except personal data (email, phone, address, medical).
 7. Help, the feature inventory and screenshot, the gating docs, and a check
-   of the privacy policy: fields of a series' own may hold personal data.
+   of the privacy policy: custom fields may hold personal data.
 
 ## Settled since
 

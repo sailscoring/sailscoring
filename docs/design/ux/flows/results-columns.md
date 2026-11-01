@@ -11,7 +11,7 @@ hatch, and the design treats it as one, as the
 Context: [`results-columns.md`](../../results-columns.md), which records the
 scope decided in October 2026: one ordered list per series, no layout the
 scorer names or manages, a list that replaces the automatic choice rather
-than sitting on top of it, fields a series names itself, and a self-service
+than sitting on top of it, custom fields, and a self-service
 gate (`custom-columns`). This flow may change the design there.
 
 ---
@@ -122,7 +122,7 @@ straight on the list.
 │  ⠿ Helm Club        Club                      ✓        ✓        ✓        │
 │  ⠿ Helm                                       ✓        ✓        ✓        │
 │  ⠿ Crew             one per line              ✓        ✓        ✓        │
-│  ⠿ Rig              a field of this series    ✓                 ✓        │
+│  ⠿ Rig              custom field              ✓                 ✓        │
 │                                                                          │
 │  [ Add a column ▾ ]                                                      │
 │                                                                          │
@@ -162,7 +162,7 @@ straight on the list.
 - **Sail number and the primary name** can be moved and retitled but not
   removed. Every row has to say whose it is. Their editors have no *Remove*.
 - **Use automatic columns** lists what it will undo (order, titles, hidden
-  columns) and asks first. Fields of the series' own keep their values, and
+  columns) and asks first. Custom fields keep their values, and
   automatic columns show them after the others.
 
 ---
@@ -222,9 +222,9 @@ doesn't:
 │  │ Country           nationality, as a name   │                  │
 │  │ Bow number                                 │                  │
 │  │ ──────────────────────────────────────     │                  │
-│  │ Sponsor           a field of this series   │                  │
+│  │ Sponsor           custom field             │                  │
 │  │ ──────────────────────────────────────     │                  │
-│  │ A field of this series…                    │                  │
+│  │ A new custom field…                        │                  │
 │  └────────────────────────────────────────────┘                  │
 ```
 
@@ -238,8 +238,9 @@ doesn't:
   switches it on in the Competitor fields card. Switching a field on
   while the series has its own columns adds its column to the end of the
   competitor columns, on every table. Switching one off removes its column.
-  Without this, turning a field on would appear to do nothing.
-- **A field of this series…** asks for a name and adds the field and its
+  Without this, turning a field on would appear to do nothing. Custom
+  fields work the same way.
+- **A new custom field…** asks for a name and adds the field and its
   column in one step (see the next section).
 
 A column added to Sail Scoring after a series set its own columns isn't
@@ -247,17 +248,18 @@ added to that series. It appears in this menu.
 
 ---
 
-## Fields of a series' own
+## Custom fields
 
 Some organisers publish what no built-in field holds: a WASZP rig size, a
 sponsor, a hull colour. In Sailwave, scorers put these in a field meant for
-something else. Here the series names a field of its own.
+something else. Here the scorer adds a custom field: a text field they name
+themselves, which the series' competitors each have one value for.
 
 The Competitor fields card lists them after the optional fields, beside the
 subdivision axes, each with a name that can be changed:
 
 ```
-│  Fields of this series                                           │
+│  Custom fields                                                   │
 │  Rig          [ Rename ] [ Delete ]                              │
 │  Sponsor      [ Rename ] [ Delete ]                              │
 │  [ Add a field ]                                                 │
@@ -271,14 +273,15 @@ subdivision axes, each with a name that can be changed:
   each, and search covers them.
 - **Automatic columns show them** after the other competitor columns,
   left off a table where no boat has a value. A series doesn't need its
-  own columns to publish a field of its own.
-- **CSV import** offers *A new field of this series* for a spreadsheet
+  own columns to publish a custom field.
+- **CSV import** offers *A new custom field* for a spreadsheet
   column it can't map, named after the column's header. An entry list
-  with a Rig column becomes a series with a Rig field, in one step.
+  with a Rig column becomes a series with a custom field called Rig, in one
+  step.
 - **Deleting a field** that competitors hold values in says how many and
   asks first: "Rig holds values for 34 competitors. Deleting it removes
-  them." The revision history can restore them. Nothing scores on a field
-  of this series, so nothing is refused.
+  them." The revision history can restore them. Nothing scores on a custom
+  field, so nothing is refused.
 - **They are published only as columns.** The public JSON export and the
   published results API carry a field's values only while it is a column on
   the page they describe. The `.sailscoring` file carries everything.
@@ -330,7 +333,7 @@ CrewName field scorers fill with "A, B, C".
   combined pages, and the split-fleet championship pages.
 - **The published results API** names the competitor fields that are
   columns on the page it describes, as it now names the fields switched on.
-  Fields of the series' own appear as data under their names. It doesn't
+  Custom fields appear as data under their names. It doesn't
   describe the columns' order or titles.
 - **Not the competitors table, finish entry or check-in.** The competitors
   table is where the data is edited, so it shows every field switched on.
@@ -369,7 +372,7 @@ wizard says so:
 ```
   This file publishes its own columns. They’ll be the series’ columns:
     Class · Rank · SailNo · Helm Club (Club) · HelmName · CrewName ·
-    Rig (a new field of this series) · races · Total · Nett
+    Rig (a new custom field) · races · Total · Nett
   Not carried:
     Fleet — Sail Scoring publishes each fleet on its own page.
     HelmEmail — personal data isn’t published as a field of the series.
@@ -377,8 +380,8 @@ wizard says so:
 
 - **A published Sailwave field we model** becomes that field's column, with
   the file's title if it has one.
-- **A published field we don't model** that holds values becomes a field of
-  the series' own, named after the column's title. Personal data never does:
+- **A published field we don't model** that holds values becomes a custom
+  field, named after the column's title. Personal data never does:
   email, phone, address, medical details, notes and payments. The wizard
   lists them as not carried.
 - **Sailwave export** writes the series' columns back: order, published or
@@ -401,7 +404,7 @@ Nationality moves above the sail number, which is retitled "Bib Number".
 
 **WASZP Games 2025**: Nat and Country side by side, then Gender, Division and
 Rig. Nationality has two columns (the code with its flag, and *Country*).
-Division is a subdivision axis. Rig is a field of the series' own, from the
+Division is a subdivision axis. Rig is a custom field, from the
 entry list's spreadsheet.
 
 **ILCA 7 Worlds 2022**: HelmName before Sail, Nat retitled "MNA", the World
