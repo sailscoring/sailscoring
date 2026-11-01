@@ -255,6 +255,19 @@ describe('recorded times on the sheet', () => {
   });
 });
 
+describe('a boat stored with two rows', () => {
+  it('shows and edits her placed row, with that row’s time', () => {
+    const finishes = [
+      makeFinish('r1', { id: 'p', competitorId: 'c1', sortOrder: 1 }),
+      makeFinish('r1', { id: 'd', competitorId: 'c1', resultCode: 'DNF', finishTime: '12:31:10' }),
+    ];
+    const derived = deriveFinishState(finishes);
+    expect(derived.finishByCompetitorId.get('c1')!.id).toBe('p');
+    expect(derived.finishTimes.has('c1')).toBe(false);
+    expect(derived.nonFinisherCodes.has('c1')).toBe(false);
+  });
+});
+
 describe('resolveSailEntry', () => {
   const competitor = (id: string, sailNumber: string, bowNumber?: string): Competitor => ({
     id,

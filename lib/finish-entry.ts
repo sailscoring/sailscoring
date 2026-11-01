@@ -1,4 +1,5 @@
 import type { Competitor, Finish, PenaltyCode, ResultCode } from './types';
+import { oneFinishPerCompetitor } from './finish-rows';
 import {
   matchPlainEntry,
   matchSailEntry,
@@ -310,7 +311,10 @@ export function deriveFinishState(savedFinishes: Finish[]): {
   finishByEntryKey: Map<string, Finish>;
   finishByCompetitorId: Map<string, Finish>;
 } {
-  const positionedFinishes = savedFinishes
+  // One row per boat, so every map below reads the same row for her — the
+  // placed one when stored data holds a stray second row.
+  const rows = oneFinishPerCompetitor(savedFinishes);
+  const positionedFinishes = rows
     .filter((f) => f.sortOrder !== null)
     .sort((a, b) => a.sortOrder! - b.sortOrder!);
 
@@ -325,7 +329,7 @@ export function deriveFinishState(savedFinishes: Finish[]): {
   );
 
   const nonFinisherCodes = new Map<string, ResultCode>();
-  for (const finish of savedFinishes) {
+  for (const finish of rows) {
     if (
       finish.sortOrder === null &&
       finish.resultCode &&
@@ -337,7 +341,7 @@ export function deriveFinishState(savedFinishes: Finish[]): {
   }
 
   const finisherCodes = new Map<string, ResultCode>();
-  for (const finish of savedFinishes) {
+  for (const finish of rows) {
     if (
       finish.sortOrder !== null &&
       finish.resultCode &&
@@ -349,7 +353,7 @@ export function deriveFinishState(savedFinishes: Finish[]): {
   }
 
   const finisherPenalties = new Map<string, { code: PenaltyCode; override: number | null; overrideByFleet: Record<string, number> | null; inPoints?: boolean; label?: string }>();
-  for (const finish of savedFinishes) {
+  for (const finish of rows) {
     if (finish.penaltyCode && finish.competitorId && finishedIds.has(finish.competitorId)) {
       finisherPenalties.set(finish.competitorId, {
         code: finish.penaltyCode,
@@ -362,7 +366,7 @@ export function deriveFinishState(savedFinishes: Finish[]): {
   }
 
   const redressEntries = new Map<string, RedressEntry>();
-  for (const finish of savedFinishes) {
+  for (const finish of rows) {
     if (finish.resultCode === 'RDG' && finish.competitorId && finish.redressMethod) {
       const hasExclude = (finish.redressExcludeRaceIds?.length ?? 0) > 0;
       const hasInclude =
@@ -385,7 +389,7 @@ export function deriveFinishState(savedFinishes: Finish[]): {
   // An unknown row off the sheet (no sortOrder) has no entry key to carry it.
   const finishTimes = new Map<string, string>();
   const elapsedSecs = new Map<string, number>();
-  for (const finish of savedFinishes) {
+  for (const finish of rows) {
     const key = finish.competitorId ?? (finish.sortOrder !== null ? finish.id : null);
     if (key === null) continue;
     if (finish.finishTime) finishTimes.set(key, finish.finishTime);
@@ -404,7 +408,7 @@ export function deriveFinishState(savedFinishes: Finish[]): {
     finishByEntryKey.set(entryKey(finishingOrder[i]), positionedFinishes[i]);
   }
   const finishByCompetitorId = new Map<string, Finish>();
-  for (const f of savedFinishes) {
+  for (const f of rows) {
     if (f.competitorId) finishByCompetitorId.set(f.competitorId, f);
   }
 

@@ -1,4 +1,5 @@
 import type { Competitor, Fleet, Race, Finish, RaceScore, HandicapRaceScore, RaceStart, RaceRatingOverride, Standing, ResultCode, PenaltyCode, DiscardThreshold, ProportionalDiscard, ScoringRejection, RaceScoringGap, NhcRaceCalc, NhcRaceAggregates, EchoRaceCalc, EchoRaceAggregates, OrcProfile, OrcRaceCalc, TcfRecord, NhcProfile, ProgressiveHandicapConfig, ProgressiveRaceCalc, ProgressiveRaceAggregates, SubSeries, RaceFleetExclusion, CompetitorEntryOverride } from './types';
+import { oneFinishPerCompetitor } from './finish-rows';
 import { elapsedSecondsOf, roundToPrecision, timingPrecisionOf, type TimingPrecision } from './elapsed-time';
 import { courseLapsOf, fullCourseElapsed, lapsDiffer } from './laps';
 import { codeTableOf, penaltyIsStatedPoints, penaltyPointsMethod, type CodeScoring, type RaceCounts, type ScoringCodeTable } from './scoring-codes';
@@ -235,7 +236,7 @@ export function calculateRaceScores(
 
   // Boats from other fleets are scored separately; counting them as starters
   // here would inflate the A5.3 penalty. Mirrors calculateHandicapRaceScores.
-  const fleetFinishes = finishes.filter(
+  const fleetFinishes = oneFinishPerCompetitor(finishes).filter(
     (f) => f.competitorId !== null && competitorIds.has(f.competitorId),
   );
 
@@ -536,6 +537,7 @@ export function calculateHandicapRaceScores(
   dnfScoring: CodeScoring = 'seriesEntries',
   todContext?: TodCorrectionContext,
 ): { scores: Map<string, HandicapRaceScore> } {
+  finishes = oneFinishPerCompetitor(finishes);
   const startSeconds = parseHmsToSeconds(raceStart.startTime);
   const codes = codeTableOf(dnfScoring);
 
@@ -742,7 +744,7 @@ export function computeOrcCourseRace(
   }
 
   const finishByCompetitorId = new Map(
-    raceFinishes
+    oneFinishPerCompetitor(raceFinishes)
       .filter((f): f is Finish & { competitorId: string } => f.competitorId !== null)
       .map((f) => [f.competitorId, f]),
   );
@@ -1382,6 +1384,7 @@ function groupFinishesByRace(allFinishes: Finish[]): Map<string, Finish[]> {
     list.push(finish);
     byRace.set(finish.raceId, list);
   }
+  for (const [raceId, list] of byRace) byRace.set(raceId, oneFinishPerCompetitor(list));
   return byRace;
 }
 
