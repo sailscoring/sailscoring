@@ -292,7 +292,7 @@ export const FEATURES = {
     // only appears once a scorer has defined prizes, an ungated entry list
     // would add a page to every workspace's next publish unasked.
     label: 'Published competitor list',
-    helpSectionIds: ['competitor-list', 'starters-checklist'],
+    helpSectionIds: ['competitor-list', 'starters-checklist', 'sign-in-out-sheet'],
   },
   'schedule-page': {
     // The published Schedule page (ADR-014, Decision 4): the series' races by

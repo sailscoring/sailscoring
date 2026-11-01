@@ -123,6 +123,7 @@ export const HELP_GROUPS: HelpGroupDef[] = [
       { id: 'results-status', title: 'Provisional and final results', feature: 'results-status', keywords: ['provisional', 'final', 'finalise', 'protest time limit', 'lock'] },
       { id: 'competitor-list', title: 'Publishing the competitor list', feature: 'entry-list', keywords: ['entry list', 'entries page', 'who is coming', 'publish entries'] },
       { id: 'starters-checklist', title: 'The starters checklist', feature: 'entry-list', keywords: ['tally', 'check in sheet', 'starters', 'print', 'race team'] },
+      { id: 'sign-in-out-sheet', title: 'The sign in/out sheet', feature: 'entry-list', keywords: ['sign out', 'sign in', 'sign on', 'register', 'safety', 'signature', 'print', 'launching'] },
       { id: 'race-schedule', title: 'Publishing the race schedule', feature: 'schedule-page', keywords: ['schedule', 'calendar', 'fixtures', 'race dates', 'start times', 'season'] },
       { id: 'prizes', title: 'Prizes', feature: 'prizes', keywords: ['trophy', 'prize giving', 'winners', 'award', 'one prize per boat', 'not eligible'] },
       { id: 'prize-giving-sheet', title: 'The prize-giving sheet', feature: 'prizes', keywords: ['compere', 'prize giving', 'running order', 'print', 'pdf', 'trophy table'] },

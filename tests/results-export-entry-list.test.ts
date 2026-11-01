@@ -214,6 +214,20 @@ describe('buildFleetHtmlFiles — the competitor list', () => {
     expect(html).toContain('<style id="starters-page" media="not all"');
   });
 
+  it('carries the sign in/out sheet, one fleet to a heading', async () => {
+    const files = await buildFleetFiles(makeRepos([], []), 's1', undefined, {
+      includeEntryList: true,
+    });
+    const html = files!.find((f) => f.isEntryList)!.html;
+    expect(html).toContain('href="#sign-in-out">Sign in/out sheet</a>');
+    expect(html).toContain('<tr class="signfleet"><th colspan="3">Red</th></tr>');
+    expect(html).toContain('<tr class="signfleet"><th colspan="3">Blue</th></tr>');
+    // A helm-primary series signs the helm; no class is recorded, so the
+    // column is not there.
+    expect(html).toContain('<th class="signperson">Helm</th>');
+    expect(html).toContain('<td class="signsail">201</td><td class="signperson">Helm 201</td><td class="signsig"></td>');
+  });
+
   it('publishes the fleet assignments and the entry list for a split-fleet series with no races', async () => {
     // Before race one a championship's standings are tiered by a split that
     // has not happened, so nothing scored goes out — but the first round's
