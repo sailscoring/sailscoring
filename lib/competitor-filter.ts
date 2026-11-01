@@ -25,6 +25,7 @@ function haystack(c: Competitor): string {
     ...(c.owners ?? []),
     ...(c.crewNames ?? []),
     ...c.clubs,
+    ...Object.values(c.customFields ?? {}),
   ]
     .filter(Boolean)
     .join('\n')

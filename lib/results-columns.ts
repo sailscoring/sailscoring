@@ -647,3 +647,23 @@ export function customFieldValues(
   }
   return Object.keys(out).length > 0 ? out : undefined;
 }
+
+/**
+ * A series' own columns with a competitor column added at the end of the
+ * competitor columns, on every table — where a field switched on, or a
+ * custom field just added, appears while the series sets its own columns.
+ * Unchanged when the column is already listed.
+ */
+export function withCompetitorColumn(list: readonly ResultsColumn[], key: CompetitorColumnKey): ResultsColumn[] {
+  if (list.some((c) => c.key === key)) return [...list];
+  let at = -1;
+  list.forEach((c, i) => {
+    if (isCompetitorColumnKey(c.key)) at = i;
+  });
+  return [...list.slice(0, at + 1), { key }, ...list.slice(at + 1)];
+}
+
+/** A series' own columns without a column. */
+export function withoutColumn(list: readonly ResultsColumn[], key: string): ResultsColumn[] {
+  return list.filter((c) => c.key !== key);
+}

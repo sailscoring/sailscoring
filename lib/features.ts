@@ -263,6 +263,18 @@ export const FEATURES = {
     label: 'Custom scoring codes',
     helpSectionIds: ['custom-scoring-codes'],
   },
+  'custom-columns': {
+    // The escape hatch from automatic results columns: a series may set its
+    // own columns — order, titles, the tables each is on — from the
+    // Competitor fields card's Results columns dialog, and add custom fields
+    // (text fields it names, such as a WASZP rig size). Self-service: the
+    // automatic columns stay the default, and only a scorer whose organisers
+    // expect a particular layout needs it. Only the editing is gated — a
+    // series that carries its own columns or custom fields publishes them
+    // regardless.
+    label: 'Custom results columns',
+    helpSectionIds: ['custom-results-columns'],
+  },
   'page-notes': {
     // Explanatory notes on published pages (#511): the note editor in the
     // preview and publish dialogs, and the note block those pages render.

@@ -27,7 +27,8 @@ import { orcCertificatePageUrl } from '@/lib/orc-certificate';
 import { formatRelativeTime } from '@/lib/relative-time';
 import { isValidWorldSailingId, normalizeWorldSailingId } from '@/lib/world-sailing';
 import { describeWriteFailure } from '@/lib/write-failure';
-import type { CompetitorFieldKey, Fleet, MultiPersonFieldKey, OrcCertData, PrimaryPersonLabel, SubdivisionAxis } from '@/lib/types';
+import { CUSTOM_FIELD_VALUE_MAX_LENGTH } from '@/lib/results-columns';
+import type { CompetitorFieldKey, CustomField, Fleet, MultiPersonFieldKey, OrcCertData, PrimaryPersonLabel, SubdivisionAxis } from '@/lib/types';
 
 export interface CompetitorFormData {
   sailNumber: string;
@@ -50,6 +51,7 @@ export interface CompetitorFormData {
   gender: '' | 'M' | 'F';
   age: string;
   subdivisions: Record<string, string>;  // per-axis values keyed by SubdivisionAxis.id
+  customFields: Record<string, string>;  // custom field values keyed by CustomField.id
   excluded: boolean;    // on the list but not an entrant (Competitor.excluded)
   fleetIds: string[];   // IDs of existing fleets to assign the competitor to
   ircTcc: string;       // decimal string, e.g. "0.972"; empty if not set
@@ -80,6 +82,7 @@ export const emptyCompetitorForm: CompetitorFormData = {
   gender: '',
   age: '',
   subdivisions: {},
+  customFields: {},
   excluded: false,
   fleetIds: [],
   ircTcc: '',
@@ -192,6 +195,7 @@ export function CompetitorForm({
   enabledFields,
   primaryLabel,
   subdivisionAxes,
+  customFields = [],
   multiPersonFields,
   orcCert,
 }: {
@@ -204,6 +208,8 @@ export function CompetitorForm({
   enabledFields: CompetitorFieldKey[];
   primaryLabel: PrimaryPersonLabel;
   subdivisionAxes: SubdivisionAxis[];
+  /** The series' custom fields, one input each after the built-in fields. */
+  customFields?: CustomField[];
   /** Person fields opened to multiple names (#316); [] = all single. */
   multiPersonFields: MultiPersonFieldKey[];
   /** The boat's stored ORC certificate, shown read-only when editing — the
@@ -601,6 +607,19 @@ export function CompetitorForm({
               />
             </div>
           ))}
+        {customFields.map((field) => (
+          <div className="space-y-1.5" key={field.id}>
+            <Label htmlFor={`customfield-${field.id}`}>{field.label}</Label>
+            <Input
+              id={`customfield-${field.id}`}
+              value={data.customFields[field.id] ?? ''}
+              maxLength={CUSTOM_FIELD_VALUE_MAX_LENGTH}
+              onChange={(e) =>
+                set('customFields', { ...data.customFields, [field.id]: e.target.value })
+              }
+            />
+          </div>
+        ))}
         {availableFleets.length > 1 && (
           <div className="space-y-1.5 col-span-2">
             <Label>Fleet</Label>

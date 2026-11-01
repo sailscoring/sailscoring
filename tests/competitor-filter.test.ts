@@ -99,3 +99,11 @@ describe('competitorMatchesFilter over the other identifiers', () => {
     expect(competitorMatchesFilter(c, '77')).toBe(false);
   });
 });
+
+describe('competitorMatchesFilter on custom fields', () => {
+  test('matches a custom field value', () => {
+    const c = competitor({ customFields: { rig: 'Large 8.2' } });
+    expect(competitorMatchesFilter(c, '8.2')).toBe(true);
+    expect(competitorMatchesFilter(c, '6.9')).toBe(false);
+  });
+});

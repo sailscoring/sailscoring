@@ -163,6 +163,7 @@ export default function CompetitorsPage({
   const primaryLabel: PrimaryPersonLabel =
     series?.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL;
   const axes = series ? subdivisionAxes(series) : [];
+  const customFields = series?.customFields ?? [];
   // Person fields opened to multiple names (#316). The feature gate lives in
   // the settings card that writes this; the dialog only reads the result.
   const multiPersonFields = series?.multiPersonFields ?? [];
@@ -518,6 +519,10 @@ export default function CompetitorsPage({
         const subs = cleanSubdivisions(data.subdivisions);
         return subs ? { subdivisions: subs } : {};
       })(),
+      ...((): { customFields?: Record<string, string> } => {
+        const values = cleanSubdivisions(data.customFields);
+        return values ? { customFields: values } : {};
+      })(),
       createdAt: Date.now(),
       ...ratingFieldsFromForm(data),
     };
@@ -580,6 +585,10 @@ export default function CompetitorsPage({
         const subs = cleanSubdivisions(data.subdivisions);
         return subs ? { subdivisions: subs } : {};
       })(),
+      ...((): { customFields?: Record<string, string> } => {
+        const values = cleanSubdivisions(data.customFields);
+        return values ? { customFields: values } : {};
+      })(),
       ...ratingFieldsFromForm(data),
     };
     // Clear ratings no longer relevant
@@ -606,6 +615,7 @@ export default function CompetitorsPage({
     if (!cleanPersonNames(data.crewNames)) delete updated.crewNames;
     if (!data.nationality.trim()) delete updated.nationality;
     if (!cleanSubdivisions(data.subdivisions)) delete updated.subdivisions;
+    if (!cleanSubdivisions(data.customFields)) delete updated.customFields;
     log('competitors', 'updating', updated);
     await saveCompetitor.mutateAsync(updated);
     setEditingCompetitor(null);
@@ -720,6 +730,11 @@ export default function CompetitorsPage({
         compareText(a.subdivisions?.[axis.id], b.subdivisions?.[axis.id]),
       ),
     ),
+    ...customFields.map((field) =>
+      col(`field:${field.id}`, (a, b) =>
+        compareText(a.customFields?.[field.id], b.customFields?.[field.id]),
+      ),
+    ),
   ];
 
   const sortComparator = comparatorFor(sortKeys, sortColumns);
@@ -808,6 +823,7 @@ export default function CompetitorsPage({
             enabledFields={enabledFields}
             primaryLabel={primaryLabel}
             subdivisionAxes={axes}
+            customFields={customFields}
             multiPersonFields={multiPersonFields}
           />
         </div>
@@ -930,6 +946,9 @@ export default function CompetitorsPage({
               {visibleAxes.map((axis) => (
                 <SortableTableHead key={axis.id} columnId={`axis:${axis.id}`} sortKeys={sortKeys} onSort={handleSort} className="whitespace-normal break-words">{subdivisionAxisLabel(axis)}</SortableTableHead>
               ))}
+              {customFields.map((field) => (
+                <SortableTableHead key={field.id} columnId={`field:${field.id}`} sortKeys={sortKeys} onSort={handleSort} className="whitespace-normal break-words">{field.label}</SortableTableHead>
+              ))}
               <TableHead
                 className="w-20"
                 title="An excluded boat is on the list but not an entrant: not scored, not counted for DNC points, not published"
@@ -1039,6 +1058,9 @@ export default function CompetitorsPage({
                 {showAge && <TableCell>{c.age ?? ''}</TableCell>}
                 {visibleAxes.map((axis) => (
                   <TableCell key={axis.id} className="whitespace-normal break-words">{c.subdivisions?.[axis.id] ?? ''}</TableCell>
+                ))}
+                {customFields.map((field) => (
+                  <TableCell key={field.id} className="whitespace-normal break-words">{c.customFields?.[field.id] ?? ''}</TableCell>
                 ))}
                 <TableCell className="text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                   {readOnly ? (
@@ -1238,6 +1260,7 @@ export default function CompetitorsPage({
                 gender: editingCompetitor.gender,
                 age: editingCompetitor.age?.toString() ?? '',
                 subdivisions: editingCompetitor.subdivisions ?? {},
+                customFields: editingCompetitor.customFields ?? {},
                 excluded: editingCompetitor.excluded ?? false,
                 fleetIds: editingCompetitor.fleetIds,
                 ircTcc: editingCompetitor.ircTcc?.toString() ?? '',

@@ -51,6 +51,8 @@ export type ColumnTarget =
   | CompetitorField
   | `axis:${string}`
   | typeof NEW_AXIS_TARGET
+  | `field:${string}`
+  | typeof NEW_FIELD_TARGET
   | `relay:${RelayField}`;
 
 /** A column-index-keyed map of what each CSV column maps to. */
@@ -127,6 +129,19 @@ export function proposeMultiPersonFields(
 
 /** Sentinel target: create a fresh subdivision axis from this column's header. */
 export const NEW_AXIS_TARGET = 'newaxis';
+
+/** Sentinel target: create a custom field named after this column's header. */
+export const NEW_FIELD_TARGET = 'newfield';
+
+/** The dropdown value for an existing custom field. */
+export function customFieldColumnTarget(fieldId: string): ColumnTarget {
+  return `field:${fieldId}`;
+}
+
+/** The custom field a target points at, or null if it isn't one. */
+export function customFieldIdOfTarget(target: ColumnTarget): string | null {
+  return target.startsWith('field:') ? target.slice('field:'.length) : null;
+}
 
 /**
  * Split one person cell (crew, owner, helm, or primary) into individual

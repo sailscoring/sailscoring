@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { seriesRowMutationKey, useUpdateSeries } from '@/hooks/use-series';
+import { CustomFieldsEditor } from '@/components/series-settings/custom-fields-editor';
 import {
   ALL_COMPETITOR_FIELDS,
   COMPETITOR_FIELD_LABELS,
@@ -189,9 +190,12 @@ export function CompetitorFieldsCard({ seriesId, series }: { seriesId: string; s
         : 'Subdivisions';
   const fieldDisplayLabel = (f: CompetitorFieldKey) =>
     f === 'subdivision' ? subdivisionListLabel : COMPETITOR_FIELD_LABELS[f];
-  const shownLabels = ALL_COMPETITOR_FIELDS
-    .filter((f) => enabledSet.has(f) && !isFieldDisabledByPrimary(f, primaryLabel))
-    .map((f) => fieldDisplayLabel(f));
+  const shownLabels = [
+    ...ALL_COMPETITOR_FIELDS
+      .filter((f) => enabledSet.has(f) && !isFieldDisabledByPrimary(f, primaryLabel))
+      .map((f) => fieldDisplayLabel(f)),
+    ...(series.customFields ?? []).map((f) => f.label),
+  ];
   const summary = shownLabels.length === 0
     ? `Only sail number and ${primaryFieldLabel.toLowerCase()}`
     : `Sail, ${primaryFieldLabel}, ${shownLabels.join(', ')}`;
@@ -371,6 +375,7 @@ export function CompetitorFieldsCard({ seriesId, series }: { seriesId: string; s
               </div>
             )}
           </div>
+          <CustomFieldsEditor seriesId={seriesId} series={series} canEdit={has('custom-columns')} />
           <Button variant="outline" size="sm" onClick={() => setExpanded(false)}>
             Done
           </Button>

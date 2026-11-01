@@ -42,6 +42,9 @@ import {
   proposeMultiPersonFields,
   routeSeedingColumn,
   NEW_AXIS_TARGET,
+  NEW_FIELD_TARGET,
+  customFieldColumnTarget,
+  customFieldIdOfTarget,
   RELAY_FIELDS,
   type CompetitorField,
   type ColumnMap,
@@ -93,7 +96,8 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Upload } from 'lucide-react';
-import type { Competitor, Fleet, CompetitorFieldKey, MultiPersonFieldKey, PrimaryPersonLabel, SubdivisionAxis } from '@/lib/types';
+import type { Competitor, CustomField, Fleet, CompetitorFieldKey, MultiPersonFieldKey, PrimaryPersonLabel, SubdivisionAxis } from '@/lib/types';
+import { CUSTOM_FIELD_LABEL_MAX_LENGTH, withCompetitorColumn } from '@/lib/results-columns';
 import {
   ALL_COMPETITOR_FIELDS,
   COMPETITOR_FIELD_LABELS,
@@ -203,6 +207,8 @@ type ImportFlow =
       /** The series' configured subdivision axes, each offered as a distinct
        *  dropdown target for a subdivision column. */
       subdivisionAxes: SubdivisionAxis[];
+      /** The series' custom fields, each a dropdown target. */
+      customFields: CustomField[];
       /** Person fields currently opened to multiple names on the series. */
       currentMultiPersonFields: MultiPersonFieldKey[];
       /** Proposed person fields opened to multiple names, persisted on
@@ -331,6 +337,8 @@ function buildFieldLabels(
   primary: PrimaryPersonLabel,
   axes: SubdivisionAxis[],
   includeRelay = false,
+  customFields: CustomField[] = [],
+  canAddCustomField = false,
 ): Record<string, string> {
   const primaryText = PRIMARY_PERSON_LABEL_TEXT[primary];
   const labels: Record<string, string> = {
@@ -360,6 +368,10 @@ function buildFieldLabels(
     labels[axisColumnTarget(axis.id)] = axis.label.trim() || DEFAULT_SUBDIVISION_LABEL;
   }
   labels[NEW_AXIS_TARGET] = 'New subdivision axis';
+  for (const field of customFields) {
+    labels[customFieldColumnTarget(field.id)] = field.label;
+  }
+  if (canAddCustomField) labels[NEW_FIELD_TARGET] = 'New custom field';
   // The rating roles are deliberately absent: they are set on the Fleets
   // stage, which is what stops a plan the scorer approved being invalidated
   // by a remap a screen later. They are restated there read-only.
@@ -615,6 +627,13 @@ function newAxisOptionLabel(header: string): string {
   return trimmed ? `New axis: '${trimmed}'` : 'New subdivision axis';
 }
 
+/** Label for the "create a custom field" option, naming the field after the
+ *  column header. */
+function newFieldOptionLabel(header: string): string {
+  const trimmed = header.trim();
+  return trimmed ? `New custom field: '${trimmed}'` : 'New custom field';
+}
+
 /** One column-mapping row. Memoized so it re-renders only when its own
  *  column value, the sample text, or the (primary-dependent) field labels
  *  change — not for every unrelated wizard state change. */
@@ -661,7 +680,11 @@ const MappingRow = memo(function MappingRow({
           <SelectContent>
             {(Object.keys(fieldLabels) as ColumnTarget[]).map((field) => (
               <SelectItem key={field} value={field}>
-                {field === NEW_AXIS_TARGET ? newAxisOptionLabel(header) : fieldLabels[field]}
+                {field === NEW_AXIS_TARGET
+                  ? newAxisOptionLabel(header)
+                  : field === NEW_FIELD_TARGET
+                    ? newFieldOptionLabel(header)
+                    : fieldLabels[field]}
               </SelectItem>
             ))}
           </SelectContent>
@@ -854,8 +877,15 @@ function MappingDialogBody({
   const { has } = useFeatures();
   const multiPersonEnabled = has('multi-person-fields');
   const fieldLabels = useMemo(
-    () => buildFieldLabels(flow.proposedPrimary, flow.subdivisionAxes, flow.rrs !== null),
-    [flow.proposedPrimary, flow.subdivisionAxes, flow.rrs],
+    () =>
+      buildFieldLabels(
+        flow.proposedPrimary,
+        flow.subdivisionAxes,
+        flow.rrs !== null,
+        flow.customFields,
+        has('custom-columns'),
+      ),
+    [flow.proposedPrimary, flow.subdivisionAxes, flow.rrs, flow.customFields, has],
   );
   const { hasSail, hasPrimary, tooManySails, tooManyPrimaries } = mappingSlotState(
     flow.columnMap,
@@ -1407,7 +1437,14 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         }
       }
       const detected = autoDetectField(h);
-      if (detected === 'subdivision') {
+      // A header naming one of the series' custom fields goes to it, the way
+      // a repeat import of last week's entry list finds its Rig column again.
+      const customField = (series?.customFields ?? []).find(
+        (f) => f.label.trim().toLowerCase() === h.trim().toLowerCase(),
+      );
+      if (detected === 'ignore' && customField) {
+        initialMap[i] = customFieldColumnTarget(customField.id);
+      } else if (detected === 'subdivision') {
         const matchIdx = matchSubdivisionAxis(h, axisLabels);
         initialMap[i] = matchIdx != null ? axisColumnTarget(axes[matchIdx].id) : NEW_AXIS_TARGET;
       } else {
@@ -1510,6 +1547,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       currentFields,
       proposedFields,
       subdivisionAxes: axes,
+      customFields: series?.customFields ?? [],
       currentMultiPersonFields,
       multiPersonFields,
       seriesScoringMode,
@@ -1604,16 +1642,39 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       }
     }
 
+    // Custom fields likewise: an existing field, or one minted (once) from the
+    // column header for a `newfield` target.
+    const existingCustomFields = series?.customFields ?? [];
+    const newCustomFields: CustomField[] = [];
+    const customFieldIdByColumn = new Map<number, string>();
+    for (const [colStr, target] of Object.entries(columnMap)) {
+      const col = Number(colStr);
+      const existingId = customFieldIdOfTarget(target);
+      if (existingId) {
+        customFieldIdByColumn.set(col, existingId);
+      } else if (target === NEW_FIELD_TARGET) {
+        const taken = new Set([...existingCustomFields, ...newCustomFields].map((f) => f.label.toLowerCase()));
+        const base = (headers[col] ?? '').trim().slice(0, CUSTOM_FIELD_LABEL_MAX_LENGTH) || 'Custom field';
+        let label = base;
+        for (let n = 2; taken.has(label.toLowerCase()); n++) label = `${base} ${n}`;
+        const field: CustomField = { id: crypto.randomUUID(), label };
+        newCustomFields.push(field);
+        customFieldIdByColumn.set(col, field.id);
+      }
+    }
+
     const seriesPatch: {
       primaryPersonLabel?: PrimaryPersonLabel;
       scoringMode?: 'scratch' | 'handicap';
       subdivisionAxes?: SubdivisionAxis[];
+      customFields?: CustomField[];
       enabledCompetitorFields?: CompetitorFieldKey[];
       multiPersonFields?: MultiPersonFieldKey[];
       lastModifiedAt?: number;
     } = {};
     if (proposedPrimary !== currentPrimary) seriesPatch.primaryPersonLabel = proposedPrimary;
     if (newAxes.length > 0) seriesPatch.subdivisionAxes = [...existingAxes, ...newAxes];
+    if (newCustomFields.length > 0) seriesPatch.customFields = [...existingCustomFields, ...newCustomFields];
     // The wizard's field intent is the delta against the snapshot it opened
     // with; re-apply that delta to the row the save lands on, so a field
     // toggled elsewhere while the wizard was open isn't silently reverted.
@@ -1643,6 +1704,13 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
             const multi = new Set(current.multiPersonFields ?? []);
             for (const f of multiAdditions) multi.add(f);
             next.multiPersonFields = MULTI_PERSON_FIELD_KEYS.filter((f) => multi.has(f));
+          }
+          // A series that sets its own columns gets each new field's column
+          // at the end of its competitor columns.
+          if (newCustomFields.length > 0 && current.resultsColumns) {
+            let columns = current.resultsColumns;
+            for (const f of newCustomFields) columns = withCompetitorColumn(columns, `field:${f.id}`);
+            return { ...next, resultsColumns: columns };
           }
           return next;
         },
@@ -1771,6 +1839,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       let gender = '';
       let age = '';
       const subdivisionCells: Record<string, string> = {};
+      const customFieldCells: Record<string, string> = {};
       let tcc = '';
       let vprsTccStr = '';
       let fixedTcfStr = '';
@@ -1813,6 +1882,8 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
           } else {
             const axisId = axisIdByColumn.get(col);
             if (axisId && val) subdivisionCells[axisId] = val;
+            const customFieldId = customFieldIdByColumn.get(col);
+            if (customFieldId && val) customFieldCells[customFieldId] = val;
           }
         }
       });
@@ -1913,6 +1984,11 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         ...(existingCompetitor?.subdivisions ?? {}),
         ...subdivisionCells,
       });
+      // Custom field values the sheet doesn't carry are kept, as axis values are.
+      const resolvedCustomFields = cleanSubdivisions({
+        ...(existingCompetitor?.customFields ?? {}),
+        ...customFieldCells,
+      });
       const competitor: Competitor = {
         id: existingCompetitor?.id ?? crypto.randomUUID(),
         seriesId,
@@ -1949,6 +2025,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         gender: singlePrimary && (normGender === 'M' || normGender === 'F') ? normGender : (singlePrimary ? (existingCompetitor?.gender ?? '') : ''),
         age: singlePrimary ? (parsedAge !== null && !isNaN(parsedAge) ? parsedAge : (existingCompetitor?.age ?? null)) : null,
         ...(resolvedSubdivisions ? { subdivisions: resolvedSubdivisions } : {}),
+        ...(resolvedCustomFields ? { customFields: resolvedCustomFields } : {}),
         createdAt: existingCompetitor?.createdAt ?? Date.now(),
         ...(ircTcc != null ? { ircTcc } : {}),
         ...(vprsTcc != null ? { vprsTcc } : {}),
@@ -1988,6 +2065,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         existingCompetitor.gender === competitor.gender &&
         existingCompetitor.age === competitor.age &&
         subdivisionsEqual(existingCompetitor.subdivisions, competitor.subdivisions) &&
+        subdivisionsEqual(existingCompetitor.customFields, competitor.customFields) &&
         existingCompetitor.ircTcc === competitor.ircTcc &&
         existingCompetitor.vprsTcc === competitor.vprsTcc &&
         existingCompetitor.fixedTcf === competitor.fixedTcf &&
