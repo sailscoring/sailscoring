@@ -519,7 +519,7 @@ function resultsSectionParts(
             : {}),
         ...(r.correctedTimeSecs != null ? { corrected: formatElapsedInput(r.correctedTimeSecs) } : {}),
         ...(r.laps != null ? { laps: r.laps } : {}),
-        ...(r.tcc != null ? { rating: r.tcc } : {}),
+        ...(r.pyNumber != null ? { rating: r.pyNumber } : r.tcc != null ? { rating: r.tcc } : {}),
       })),
     };
     const k = raceFleetKey(n, subSeries, key);

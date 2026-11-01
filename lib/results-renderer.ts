@@ -47,6 +47,7 @@ import { formatConditions, hasConditions } from './race-conditions';
 import { formatOfficials, hasOfficials, namedOfficials, officialRoleLabel } from './race-officials';
 import { compareSailNumbers } from './sail-number-sort';
 import { roundCorrectedSecs } from './scoring';
+import { formatRatingValue } from './competitor-ratings';
 import { seriesSlug } from './series-name';
 import { worldSailingProfileUrl } from './world-sailing';
 import { ordinal } from './ordinal';
@@ -202,8 +203,9 @@ export interface RaceData {
    *  explainability columns (1/T_E, PI, Adjustment, New H) hidden under
    *  the ECHO viewer toggle. */
   isEcho?: boolean;
-  /** What the rating column is headed, when it isn't the system's own word:
-   *  a fixed-TCF fleet is scored on the number the club names ("HPH"). */
+  /** What the rating column is headed, when the fallback below doesn't say
+   *  it: a fixed-TCF fleet is scored on the number the club names ("HPH"), a
+   *  PY fleet on its Portsmouth Numbers ("PY"). */
   ratingColumnLabel?: string;
   /** True for an ORC race scored time-on-distance (the option resolves per
    *  race): the rating column holds allowances in s/NM (labelled "ToD",
@@ -390,6 +392,11 @@ export interface RaceResultData {
   penaltyLabel?: string;
   // Handicap fields — only set for IRC/PY fleets
   tcc?: number;              // Time Correction Factor (TCC for IRC, 1000/PY for PY, the club's number for a fixed TCF)
+  /** PY only: the Portsmouth Number the row was corrected on, override-aware
+   *  (`tcc` is 1000 ÷ this). The rating column prints it rather than the
+   *  decimal: a dinghy sailor knows their boat by its PY, and 1000/PY to three
+   *  places is IRC's presentation, not the PY system's. */
+  pyNumber?: number;
   tccOverride?: boolean;     // true when tcc is a per-race override (mid-series rating change)
   /** IRC only: the certificate the boat's TCC was read off (#615). Carried on
    *  the rating cell so a reader asking where a rating came from can answer
@@ -2629,8 +2636,9 @@ function renderRaceTable(
   };
   // ECHO uses "Starting H" per the IS guide; NHC uses "TCF"; static handicap
   // fleets use "TCC" — except ORC time-on-distance, whose rating is an
-  // allowance in seconds per nautical mile, and a fixed-TCF fleet, which is
-  // headed by whatever the club calls its handicap.
+  // allowance in seconds per nautical mile, a fixed-TCF fleet, which is
+  // headed by whatever the club calls its handicap, and PY, which prints the
+  // Portsmouth Number itself under "PY" (the assembler sets the label).
   const isOrcTod = race.isOrcTod === true;
   const isOrcTot = race.isOrcTot === true;
   const isOrcPcs = race.isOrcPcs === true;
@@ -2683,7 +2691,7 @@ function renderRaceTable(
           col: `<col class="${ratingColClass}" />`,
           th: head('rating', ratingLabel),
           cell: (r: RaceResultData) =>
-            `<td class="mono"${r.ircCertNumber ? ` title="IRC certificate ${esc(r.ircCertNumber)}"` : ''}>${r.tcc != null ? r.tcc.toFixed(isOrcTod ? 1 : isOrcTot ? 4 : 3) : ''}${r.tccOverride ? '<span class="override-marker" title="Per-race rating override">*</span>' : ''}</td>`,
+            `<td class="mono"${r.ircCertNumber ? ` title="IRC certificate ${esc(r.ircCertNumber)}"` : ''}>${r.pyNumber != null ? formatRatingValue(r.pyNumber, 'py') : r.tcc != null ? r.tcc.toFixed(isOrcTod ? 1 : isOrcTot ? 4 : 3) : ''}${r.tccOverride ? '<span class="override-marker" title="Per-race rating override">*</span>' : ''}</td>`,
         },
         {
           key: 'corrected' as const,
@@ -3895,6 +3903,9 @@ export function assembleSeriesResultsData(
         ...(score.penaltyInPoints ? { penaltyInPoints: true } : {}),
         ...(score.penaltyLabel ? { penaltyLabel: score.penaltyLabel } : {}),
         ...(tcc != null ? { tcc } : {}),
+        // Read back off the applied TCF so a per-race override shows the PY
+        // the scorer entered; rounding strips the float noise of 1000 ÷ 1000/PY.
+        ...(scoringSystem === 'py' && tcc != null ? { pyNumber: Math.round((1000 / tcc) * 1000) / 1000 } : {}),
         ...(score.tccOverride ? { tccOverride: true } : {}),
         // Only where the number on the page is the one the certificate gave:
         // a per-race override is the scorer's figure, not the certificate's,
@@ -3943,7 +3954,7 @@ export function assembleSeriesResultsData(
       ...(publishOfficials && hasOfficials(race.officials) ? { officials: race.officials } : {}),
       ...(startTime ? { startTime } : {}),
       ...(scoringSystem === 'nhc' ? { isNhc: true } : {}),
-      ...(ratingColumnLabel ? { ratingColumnLabel } : {}),
+      ...(ratingColumnLabel ? { ratingColumnLabel } : scoringSystem === 'py' ? { ratingColumnLabel: 'PY' } : {}),
       ...(scoringSystem === 'echo' ? { isEcho: true } : {}),
       // The scoring option resolves per race, so the ToD presentation (s/NM
       // rating column, engine corrected times) is a per-race property too,
