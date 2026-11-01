@@ -100,3 +100,32 @@ test('arrow keys move the resolve highlight', async ({ page }) => {
   await expect(dialog).not.toBeVisible();
   await expect(page.getByText('Cara Casey')).toBeVisible();
 });
+
+test('resolving onto a boat already coded folds the crossing into her row', async ({ page }) => {
+  // The scorer codes 1002 DNF while her crossing sits on the sheet as 9999,
+  // then works out that 9999 was her.
+  await openResolveDialog(page);
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).not.toBeVisible();
+  await page.getByTestId('non-finisher-1002').getByRole('combobox').click();
+  await page.getByRole('option', { name: 'DNF' }).click();
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+
+  await page.getByRole('button', { name: 'Resolve' }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByRole('button', { name: /1002/ }).click();
+  await expect(dialog).not.toBeVisible();
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+  await expect(page.getByTestId('non-finisher-1002')).toHaveCount(0);
+
+  // One row for her, in second place, still carrying the code for the scorer
+  // to clear — not a placed row beside a coded one.
+  const raceId = new URL(page.url()).pathname.split('/').pop()!;
+  await expect.poll(async () => {
+    const res = await page.request.get(`/api/v1/races/${raceId}/finishes`);
+    const rows = (await res.json()) as Array<{ competitorId: string | null; sortOrder: number | null; resultCode: string | null }>;
+    return rows
+      .map((r) => [r.competitorId === null ? 'unknown' : 'known', r.sortOrder, r.resultCode])
+      .sort((a, b) => (a[1] as number) - (b[1] as number));
+  }).toEqual([['known', 1, null], ['known', 2, 'DNF']]);
+});

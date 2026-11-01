@@ -6,7 +6,7 @@ import { ResolveUnknownDialog } from '@/components/resolve-unknown-dialog';
 import { useSaveCompetitor } from '@/hooks/use-competitors';
 import { useUpdateSeries } from '@/hooks/use-series';
 import { ALL_COMPETITOR_FIELDS, addAlternativeSailNumber } from '@/lib/competitor-fields';
-import type { FinishEntry, NonFinisherView } from '@/lib/finish-entry';
+import { linkUnknownFinish, type FinishEntry, type NonFinisherView } from '@/lib/finish-entry';
 import type { Competitor, CompetitorFieldKey, Finish, Fleet } from '@/lib/types';
 
 export interface ResolveUnknownHandle {
@@ -24,6 +24,8 @@ export const ResolveUnknownController = forwardRef<ResolveUnknownHandle, {
   /** The series' competitors as stored — what a save starts from. */
   storedCompetitors: Competitor[];
   finishByEntryKey: Map<string, Finish>;
+  /** Each boat's row in the race — where a linked crossing is folded in. */
+  finishByCompetitorId: Map<string, Finish>;
   nonFinishers: NonFinisherView[];
   fleets: Fleet[];
   primaryFieldLabel: string;
@@ -34,13 +36,14 @@ export const ResolveUnknownController = forwardRef<ResolveUnknownHandle, {
     mutate: (f: Finish) => unknown;
     mutateAsync: (f: Finish) => Promise<unknown>;
   };
+  deleteFinish: { mutate: (input: { id: string; raceId: string }) => unknown };
   /** Called after the dialog closes (resolve or cancel) — refocus the entry box. */
   onClosed: () => void;
 }>(function ResolveUnknownController(
   {
-    seriesId, storedCompetitors, finishByEntryKey, nonFinishers, fleets,
+    seriesId, storedCompetitors, finishByEntryKey, finishByCompetitorId, nonFinishers, fleets,
     primaryFieldLabel, showCrew, enabledCompetitorFields,
-    patchCache, saveFinish, onClosed,
+    patchCache, saveFinish, deleteFinish, onClosed,
   },
   ref,
 ) {
@@ -65,23 +68,23 @@ export const ResolveUnknownController = forwardRef<ResolveUnknownHandle, {
     const finish = finishByEntryKey.get(resolvingEntry.finishId);
     if (finish) {
       // Linking clears unknownSailNumber and the row starts displaying the
-      // registered number, so without this the number the boat actually
-      // showed would be lost — which is the whole reason a scorer typed it.
+      // registered number, so the number the boat actually showed is kept as
+      // provenance — which is the whole reason a scorer typed it. A boat
+      // already holding a row in the race (checked in, or coded) gets the
+      // crossing folded into that row rather than a second one.
       const registered =
         nonFinishers.find((v) => v.competitor.id === competitorId)?.competitor.sailNumber ?? '';
-      const sailed = resolvingEntry.sailNumber.trim();
-      const differs =
-        sailed !== '' && sailed.toUpperCase() !== registered.trim().toUpperCase();
-      const next: Finish = {
-        ...finish,
+      const { save, deleteId } = linkUnknownFinish(
+        finish,
         competitorId,
-        unknownSailNumber: undefined,
-        ...(differs
-          ? { matchedOn: 'alternative' as const, enteredSailNumber: sailed }
-          : { matchedOn: undefined, enteredSailNumber: undefined }),
-      };
-      patchCache((rows) => rows.map((r) => (r.id === finish.id ? next : r)));
-      saveFinish.mutate(next);
+        finishByCompetitorId.get(competitorId),
+        { sailed: resolvingEntry.sailNumber, registered },
+      );
+      patchCache((rows) => rows
+        .filter((r) => r.id !== deleteId)
+        .map((r) => (r.id === save.id ? save : r)));
+      saveFinish.mutate(save);
+      if (deleteId) deleteFinish.mutate({ id: deleteId, raceId: finish.raceId });
     }
     closeResolveDialog();
   }

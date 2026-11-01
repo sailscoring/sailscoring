@@ -9,6 +9,7 @@ import {
   deriveFinishState,
   deriveNonFinishers,
   finishedCompetitorIds,
+  linkUnknownFinish,
   makeFinish,
   matchIdentifierPrefix,
   partitionNonFinishers,
@@ -265,6 +266,59 @@ describe('a boat stored with two rows', () => {
     expect(derived.finishByCompetitorId.get('c1')!.id).toBe('p');
     expect(derived.finishTimes.has('c1')).toBe(false);
     expect(derived.nonFinisherCodes.has('c1')).toBe(false);
+  });
+});
+
+describe('linkUnknownFinish', () => {
+  const unknown = makeFinish('r1', {
+    id: 'u', competitorId: null, unknownSailNumber: '60', sortOrder: 18,
+    tiedWithPrevious: true, finishTime: '12:31:10', laps: 2,
+  });
+
+  it('turns the unknown row into the boat’s when she has no row yet', () => {
+    const { save, deleteId } = linkUnknownFinish(unknown, 'c1', undefined, { sailed: '60', registered: '61' });
+    expect(deleteId).toBeNull();
+    expect(save).toMatchObject({
+      id: 'u', competitorId: 'c1', sortOrder: 18, finishTime: '12:31:10',
+      matchedOn: 'alternative', enteredSailNumber: '60',
+    });
+    expect(save.unknownSailNumber).toBeUndefined();
+  });
+
+  it('records no provenance when the number sailed is her own', () => {
+    const { save } = linkUnknownFinish(unknown, 'c1', undefined, { sailed: ' irl 61 ', registered: 'IRL 61' });
+    expect(save.matchedOn).toBeUndefined();
+    expect(save.enteredSailNumber).toBeUndefined();
+  });
+
+  it('folds the crossing into a coded row the boat already has, and drops the unknown row', () => {
+    const coded = makeFinish('r1', {
+      id: 'd', competitorId: 'c1', resultCode: 'DNF', startPresent: true,
+      penaltyCode: 'SCP', penaltyOverride: 2, version: 4,
+    });
+    const { save, deleteId } = linkUnknownFinish(unknown, 'c1', coded, { sailed: '60', registered: '61' });
+    expect(deleteId).toBe('u');
+    expect(save).toMatchObject({
+      id: 'd', version: 4, competitorId: 'c1',
+      sortOrder: 18, tiedWithPrevious: true, finishTime: '12:31:10', laps: 2,
+      resultCode: 'DNF', startPresent: true, penaltyCode: 'SCP', penaltyOverride: 2,
+      matchedOn: 'alternative', enteredSailNumber: '60',
+    });
+    // One row for the boat, and the sheet places it where the unknown row was.
+    const derived = deriveFinishState([save]);
+    expect(derived.finishingOrder).toEqual([{ kind: 'known', competitorId: 'c1', finishId: 'd', version: 4 }]);
+    expect(derived.finishTimes.get('c1')).toBe('12:31:10');
+    expect(derived.finisherCodes.get('c1')).toBe('DNF');
+  });
+
+  it('folds the crossing into a start check-in', () => {
+    const checkIn = makeFinish('r1', { id: 'k', competitorId: 'c1', startPresent: true, finishTime: '11:00:00' });
+    const untimed = makeFinish('r1', { id: 'u2', competitorId: null, unknownSailNumber: '60', sortOrder: 6 });
+    const { save, deleteId } = linkUnknownFinish(untimed, 'c1', checkIn, { sailed: '60', registered: '61' });
+    expect(deleteId).toBe('u2');
+    expect(save).toMatchObject({ id: 'k', sortOrder: 6, startPresent: true, resultCode: null });
+    // The crossing carries no time, so a stale one on the check-in goes.
+    expect(save.finishTime).toBeUndefined();
   });
 });
 

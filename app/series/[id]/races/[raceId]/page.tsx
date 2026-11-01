@@ -579,6 +579,7 @@ export default function ResultEntryPage({
         seriesId={seriesId}
         storedCompetitors={storedCompetitors ?? []}
         finishByEntryKey={derived.finishByEntryKey}
+        finishByCompetitorId={finishByCompetitorId}
         nonFinishers={nonFinishers}
         fleets={fleets ?? []}
         primaryFieldLabel={primaryFieldLabel}
@@ -586,6 +587,7 @@ export default function ResultEntryPage({
         enabledCompetitorFields={enabledCompetitorFields}
         patchCache={patchCache}
         saveFinish={saveFinish}
+        deleteFinish={deleteFinish}
         onClosed={() => finishInput.input.ref.current?.focus()}
       />
 

@@ -263,6 +263,58 @@ export function entryKey(e: FinishEntry): string {
   return e.kind === 'known' ? e.competitorId : e.finishId;
 }
 
+/**
+ * Link an unknown-sail row on the sheet to a registered boat.
+ *
+ * The row is the boat's crossing: its place, tie, time and laps. If the boat
+ * already has a row in the race — a start check-in, or a code the scorer gave
+ * her while her crossing sat on the sheet under a number nobody recognised —
+ * the crossing is folded into that row, which keeps everything else it
+ * carries (check-in, code, penalty, redress), and the unknown row goes. Left
+ * as two rows, the boat would have two results, and whichever one a lookup
+ * happened to reach would count. A code kept this way shows on the placed
+ * row, as it does when the scorer types the number of a boat she has already
+ * coded.
+ *
+ * `sailed` is the number the boat showed and `registered` her own: when they
+ * differ the row records that it came in on the other number.
+ */
+export function linkUnknownFinish(
+  unknown: Finish,
+  competitorId: string,
+  existing: Finish | undefined,
+  numbers: { sailed: string; registered: string },
+): { save: Finish; deleteId: string | null } {
+  const sailed = numbers.sailed.trim();
+  const differs = sailed !== '' && sailed.toUpperCase() !== numbers.registered.trim().toUpperCase();
+  const provenance = differs
+    ? { matchedOn: 'alternative' as const, enteredSailNumber: sailed }
+    : { matchedOn: undefined, enteredSailNumber: undefined };
+
+  if (!existing || existing.id === unknown.id) {
+    return {
+      save: { ...unknown, competitorId, unknownSailNumber: undefined, ...provenance },
+      deleteId: null,
+    };
+  }
+
+  return {
+    save: {
+      ...existing,
+      unknownSailNumber: undefined,
+      sortOrder: unknown.sortOrder,
+      tiedWithPrevious: unknown.tiedWithPrevious,
+      finishTime: unknown.finishTime,
+      elapsedSecs: unknown.elapsedSecs,
+      laps: unknown.laps,
+      trackData: unknown.trackData,
+      startPresent: existing.startPresent ?? unknown.startPresent,
+      ...provenance,
+    },
+    deleteId: unknown.id,
+  };
+}
+
 /** Redress configuration carried alongside a competitor's Finish row.
  *  For the `stated` method the points may be a single uniform value
  *  (`statedPoints`) or differ per fleet (`statedPointsByFleet`, keyed by
