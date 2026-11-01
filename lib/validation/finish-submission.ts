@@ -13,6 +13,10 @@ const wallClock = z
   .regex(/^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/)
   .describe('A local time of day, `HH:MM:SS` (or `HH:MM`).');
 
+/** The RRS codes a recorder records for a boat that didn't finish normally.
+ *  Redress and scoring penalties are the scorer's and the jury's. */
+export const SUBMITTABLE_CODES = ['DNC', 'DNS', 'OCS', 'NSC', 'DNF', 'RET', 'DSQ', 'DNE', 'UFD', 'BFD'] as const;
+
 export const submittedStartSchema = z
   .object({
     startId: z.uuid().describe('One of the race\'s starts.'),
@@ -28,10 +32,12 @@ export const submittedFinishSchema = z
     finishTime: wallClock.nullable().optional().describe('The time of day the boat finished.'),
     elapsedSecs: z.number().nonnegative().finite().nullable().optional().describe('The boat\'s elapsed time, for a sheet kept on a stopwatch; instead of `finishTime`.'),
     laps: z.number().int().positive().nullable().optional().describe('Laps of the course the boat sailed, where slower boats were sent round fewer times than the rest. Omit for the full course. A boat on fewer laps than the most any boat in its fleet sailed is corrected on the full course.'),
+    // The RRS codes stay listed beside the shape of a series' own: the
+    // description keeps naming them, and widening the field by adding an
+    // alternative, rather than replacing the list with a pattern, reads as the
+    // addition it is to a compatibility check.
     resultCode: z
-      .string()
-      .regex(SERIES_CODE_PATTERN)
-      .nullable()
+      .union([z.enum(SUBMITTABLE_CODES), z.string().regex(SERIES_CODE_PATTERN), z.null()])
       .optional()
       .describe(
         'For a boat that didn\'t finish normally: an RRS code (`DNS`, `OCS`, `DNF`, `RET`, `DSQ`, `UFD`, `BFD`, `DNC`, …), or one of the series\' own codes that replaces the result, such as `TLE`. Not redress or a penalty.',

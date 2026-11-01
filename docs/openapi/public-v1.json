@@ -5769,6 +5769,21 @@
                   "anyOf": [
                     {
                       "type": "string",
+                      "enum": [
+                        "DNC",
+                        "DNS",
+                        "OCS",
+                        "NSC",
+                        "DNF",
+                        "RET",
+                        "DSQ",
+                        "DNE",
+                        "UFD",
+                        "BFD"
+                      ]
+                    },
+                    {
+                      "type": "string",
                       "pattern": "^[A-Za-z0-9]{1,6}$"
                     },
                     {
