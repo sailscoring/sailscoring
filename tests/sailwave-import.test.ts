@@ -16,6 +16,7 @@ import {
   inferBareNameSystem,
   SailwaveImportError,
   type SailwaveImportOptions,
+  planSailwaveColumns,
   type SailwaveRaw,
 } from '@/lib/sailwave-import';
 
@@ -1411,7 +1412,7 @@ describe('repurposed Class column → subdivision axis', () => {
 
 describe('Sailwave prize table import (#240)', () => {
   const COLUMNS = new Map([
-    ['Class', { fieldName: 'Class', title: 'Cat', visible: true, publish: true }],
+    ['Class', { fieldName: 'Class', title: 'Cat', visible: true, publish: true, position: 7 }],
   ]);
   const FLEETS = new Set(['ILCA 7', 'ILCA 6', 'ILCA 4']);
 
@@ -1502,5 +1503,78 @@ describe('buildSeriesFileFromSailwave: multi-crew compcrewname', () => {
     const bySail = new Map(file.competitors.map((c) => [c.sailNumber, c]));
     expect(bySail.get('635')?.crewNames).toEqual(['Alice Byrne', 'Bob Malone']);
     expect(bySail.get('1024')?.crewNames).toEqual(['Carol Doyle']);
+  });
+});
+
+describe('Sailwave published columns', () => {
+  const raw = {
+    globals: { serevent: 'WASZP Games' },
+    competitors: {
+      '1': { compsailno: '101', comphelmname: 'Alice', compnat: 'IRL', compfleet: 'WASZP', comprig: '8.2', comphelmemail: 'a@example.com' },
+      '2': { compsailno: '102', comphelmname: 'Bob', compnat: 'GBR', compfleet: 'WASZP', comprig: '6.9' },
+    },
+    races: {},
+    results: {},
+    'scoring-systems': {},
+    columns: {
+      '1': '1|Nett|9|Yes|Yes|43||',
+      '2': '1|Rank|1|Yes|Yes|40||',
+      '3': '1|Nat|2|Yes|Yes|40|Country|',
+      '4': '1|SailNo|3|Yes|Yes|35|Bib Number|',
+      '5': '1|HelmName|4|Yes|Yes|136|Barreur<br>Helm|',
+      '6': '1|Rig|5|Yes|Yes|40||',
+      '7': '1|HelmEmail|6|Yes|Yes|40||',
+      '8': '2||7|Yes|Yes|42||',
+      '9': '1|Fleet|8|Yes|Yes|40||',
+    },
+  } as unknown as SailwaveRaw;
+
+  it('reads the published columns in their published order, saying what isn’t carried', () => {
+    const plan = planSailwaveColumns(raw);
+    expect(plan.automatic).toBe(false);
+    expect(plan.columns.map((c) => c.kind === 'races' ? 'races' : c.kind === 'custom' ? `custom:${c.label}` : `${c.kind}:${'key' in c ? c.key : ''}`)).toEqual([
+      'field:rank', 'field:nationality', 'field:sailNumber', 'field:primary', 'custom:Rig', 'races', 'scoring:nett',
+    ]);
+    expect(plan.notCarried.map((n) => n.fieldName)).toEqual(['HelmEmail', 'Fleet']);
+  });
+
+  it('builds the series’ own columns and a custom field with each boat’s value', () => {
+    const file = buildSeriesFileFromSailwave(raw, {
+      name: 'WASZP Games',
+      venue: '',
+      primaryLabel: 'helm',
+      fleetScoringOverrides: new Map(),
+      includeScratchCompanions: true,
+      includeResults: false,
+      importColumns: true,
+    });
+    const [rig] = file.series.customFields ?? [];
+    expect(rig.label).toBe('Rig');
+    expect(file.series.resultsColumns).toEqual([
+      { key: 'rank' },
+      { key: 'nationality', title: 'Country' },
+      { key: 'sailNumber', title: 'Bib Number' },
+      { key: 'primary', title: 'Barreur\nHelm' },
+      { key: `field:${rig.id}` },
+      { key: 'total', hidden: true },
+      { key: 'nett' },
+    ]);
+    expect(file.competitors.find((c) => c.sailNumber === '101')?.customFields).toEqual({ [rig.id]: '8.2' });
+    // Never personal data.
+    expect(JSON.stringify(file)).not.toContain('a@example.com');
+  });
+
+  it('gives automatic columns to a file that publishes what Sailwave’s template does', () => {
+    const template = {
+      ...raw,
+      columns: Object.fromEntries(
+        ['Class', 'Club', 'Fleet', 'HelmName', 'Nett', 'Rank', 'SailNo', 'Total'].map((f, i) => [String(i), `1|${f}|${i}|Yes|Yes|40||`]),
+      ),
+    } as unknown as SailwaveRaw;
+    expect(planSailwaveColumns(template).automatic).toBe(true);
+    const file = buildSeriesFileFromSailwave(template, {
+      name: 'x', venue: '', primaryLabel: 'helm', fleetScoringOverrides: new Map(), includeScratchCompanions: false, includeResults: false, importColumns: true,
+    });
+    expect(file.series).not.toHaveProperty('resultsColumns');
   });
 });

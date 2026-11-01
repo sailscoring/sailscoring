@@ -26,10 +26,19 @@ import type {
   Prize,
   PrizeClause,
   DnfScoring,
+  CustomField,
   ResultCode,
+  ResultsColumn,
   SeriesScoringCode,
   SubdivisionAxis,
 } from './types';
+import {
+  CUSTOM_FIELD_LABEL_MAX_LENGTH,
+  COLUMN_TITLE_MAX_LENGTH,
+  defaultColumnHeader,
+  type ColumnSettings,
+  type CompetitorColumnKey,
+} from './results-columns';
 import {
   FORMAT_VERSION,
   type SeriesFile,
@@ -397,14 +406,16 @@ export function parseSailwaveBlw(bytes: ArrayBuffer): SailwaveRaw {
 
 // ---- Column definitions & subdivision detection ----
 
-/** A parsed Sailwave column definition. We only need the custom title; the
- *  visibility flags are kept for completeness / future use. */
+/** A parsed Sailwave column definition. */
 export interface SailwaveColumn {
   fieldName: string;
   /** Scorer-set custom title; empty string when the column uses its default. */
   title: string;
   visible: boolean;
   publish: boolean;
+  /** Where the column sits in the grid and on published pages. Sailwave
+   *  writes the definitions alphabetically; this is the order. */
+  position: number;
 }
 
 /** Parse the `columns` section into a map keyed by Sailwave field name. Each
@@ -420,7 +431,175 @@ export function parseSailwaveColumns(raw: SailwaveRaw): Map<string, SailwaveColu
       title: (parts[6] ?? '').trim(),
       visible: (parts[3] ?? '').trim().toLowerCase() === 'yes',
       publish: (parts[4] ?? '').trim().toLowerCase() === 'yes',
+      position: Number.parseInt(parts[2] ?? '', 10) || 0,
     });
+  }
+  return out;
+}
+
+// ---- Published columns ----
+
+/** The columns Sailwave's own template publishes. A file that publishes these,
+ *  untitled, made no layout choice, and imports with automatic columns. */
+const TEMPLATE_PUBLISHED = ['Class', 'Club', 'Fleet', 'HelmName', 'Nett', 'Rank', 'SailNo', 'Total'];
+
+/** Sailwave fields that are a column of ours. */
+const SAILWAVE_FIELD_COLUMNS: Record<string, CompetitorColumnKey> = {
+  Rank: 'rank',
+  SailNo: 'sailNumber',
+  BowNumber: 'bowNumber',
+  Tally: 'tallyNumber',
+  Boat: 'boatName',
+  Class: 'boatClass',
+  HelmName: 'primary',
+  CrewName: 'crewName',
+  Club: 'club',
+  Nat: 'nationality',
+  HelmId: 'worldSailingId',
+  HelmSex: 'gender',
+};
+
+/** Sailwave fields that are a subdivision axis of ours, by their source key. */
+const SAILWAVE_AXIS_FIELDS: Record<string, SubdivisionAxisSource['sourceKey']> = {
+  Division: 'compdivision',
+  HelmAgeGroup: 'comphelmagegroup',
+};
+
+/** Fields Sailwave works out or keeps for itself, which mean nothing as a
+ *  column here and go quietly. */
+const SAILWAVE_SYSTEM_FIELDS = new Set([
+  'Alias', 'Exclude', 'Status', 'CarriedFwd', 'Penalties', 'NewRating', 'Seeding', 'Flight',
+  'MedicalFlag', 'WindRats', 'Formula', 'AltSailNo',
+]);
+
+/** A Sailwave column title as one of ours: Sailwave's `<br>` (how a title in
+ *  two languages is written there) becomes a second line, other HTML goes,
+ *  and each line is held to our length. */
+function sailwaveTitle(raw: string): string {
+  return raw
+    .split(/<br\s*\/?>/i)
+    .map((line) => line.replace(/<[^>]*>/g, '').trim().slice(0, COLUMN_TITLE_MAX_LENGTH))
+    .filter(Boolean)
+    .slice(0, 2)
+    .join('\n');
+}
+
+/** Personal data: published or not, never a custom field of ours. */
+function isPersonalField(fieldName: string): boolean {
+  return /(Email|Phone|Address|Photo|MemberNo)$/.test(fieldName) ||
+    /^(Medical|Notes|PrivateNotes|Paid|Fee)$/.test(fieldName);
+}
+
+/** One column of a file's published layout, resolved against ours. */
+export type SailwaveColumnPlanEntry =
+  | { kind: 'field'; key: CompetitorColumnKey; title: string; source: string }
+  | { kind: 'axis'; sourceKey: SubdivisionAxisSource['sourceKey']; title: string; source: string }
+  | { kind: 'custom'; fieldName: string; label: string; source: string }
+  | { kind: 'scoring'; key: 'total' | 'nett'; title: string; source: string }
+  | { kind: 'races' };
+
+/** What a file's published columns become: automatic columns when it made no
+ *  layout choice, otherwise the series' own, with what can't come across. */
+export interface SailwaveColumnPlan {
+  automatic: boolean;
+  columns: SailwaveColumnPlanEntry[];
+  notCarried: Array<{ fieldName: string; reason: string }>;
+}
+
+/**
+ * Read a file's published columns — which fields it publishes, in the order
+ * it publishes them, under what titles — and say what each becomes here: one
+ * of our columns, a subdivision axis, or a custom field for a field we don't
+ * model that holds values. Personal data never becomes a custom field.
+ */
+export function planSailwaveColumns(raw: SailwaveRaw): SailwaveColumnPlan {
+  const comps = raw.competitors ?? {};
+  const defs = [...(raw.columns ? Object.values(raw.columns) : [])]
+    .map((d) => d.split('|'))
+    .filter((p) => (p[4] ?? '').trim().toLowerCase() === 'yes')
+    .map((p) => ({ fieldName: (p[1] ?? '').trim(), title: sailwaveTitle(p[6] ?? ''), position: Number.parseInt(p[2] ?? '', 10) || 0, kind: (p[0] ?? '').trim() }))
+    .sort((a, b) => a.position - b.position);
+  const named = defs.filter((d) => d.fieldName);
+  // No published columns at all is a file written without its column
+  // definitions, which made no layout choice either.
+  const automatic =
+    named.length === 0 ||
+    (named.length === TEMPLATE_PUBLISHED.length &&
+      named.every((d) => TEMPLATE_PUBLISHED.includes(d.fieldName) && !d.title));
+  const repurposedClass = classColumnRepurposed(parseSailwaveColumns(raw));
+  const hasValues = (fieldName: string) => {
+    const key = `comp${fieldName.toLowerCase()}`;
+    return Object.values(comps).some((c) => c.compexclude !== '1' && !!((c as Record<string, string | undefined>)[key] ?? '').trim());
+  };
+
+  const columns: SailwaveColumnPlanEntry[] = [];
+  const notCarried: SailwaveColumnPlan['notCarried'] = [];
+  for (const def of defs) {
+    const { fieldName, title } = def;
+    if (!fieldName) {
+      // The races block: Sailwave's `2|` definition.
+      if (def.kind === '2' && !columns.some((c) => c.kind === 'races')) columns.push({ kind: 'races' });
+      continue;
+    }
+    if (fieldName === 'Total' || fieldName === 'Nett') {
+      columns.push({ kind: 'scoring', key: fieldName === 'Total' ? 'total' : 'nett', title, source: fieldName });
+    } else if (fieldName === 'Class' && repurposedClass) {
+      columns.push({ kind: 'axis', sourceKey: 'compclass', title, source: fieldName });
+    } else if (SAILWAVE_FIELD_COLUMNS[fieldName]) {
+      columns.push({ kind: 'field', key: SAILWAVE_FIELD_COLUMNS[fieldName], title, source: fieldName });
+    } else if (SAILWAVE_AXIS_FIELDS[fieldName]) {
+      columns.push({ kind: 'axis', sourceKey: SAILWAVE_AXIS_FIELDS[fieldName], title, source: fieldName });
+    } else if (fieldName === 'Fleet') {
+      notCarried.push({ fieldName, reason: 'Sail Scoring publishes each fleet on its own page.' });
+    } else if (fieldName === 'Rating') {
+      notCarried.push({ fieldName, reason: 'each race’s results show the ratings.' });
+    } else if (isPersonalField(fieldName)) {
+      notCarried.push({ fieldName, reason: 'personal data isn’t published as a custom field.' });
+    } else if (SAILWAVE_SYSTEM_FIELDS.has(fieldName)) {
+      // Worked out by Sailwave; nothing to carry.
+    } else if (hasValues(fieldName)) {
+      const label = (title.replace(/\n/g, ' ') || fieldName).slice(0, CUSTOM_FIELD_LABEL_MAX_LENGTH);
+      columns.push({ kind: 'custom', fieldName, label, source: fieldName });
+    }
+  }
+  return { automatic, columns, notCarried };
+}
+
+/**
+ * Resolve a plan to the series' own columns, once the import has minted its
+ * subdivision axes and custom fields. Rank, sail number and the primary name
+ * are kept even where the file doesn't publish them, and a Total or Nett it
+ * doesn't publish is hidden. A title that only restates our own default is
+ * dropped.
+ */
+export function resultsColumnsFromPlan(
+  plan: SailwaveColumnPlan,
+  axisIdBySource: ReadonlyMap<string, string>,
+  customFieldIdByName: ReadonlyMap<string, string>,
+  settings: ColumnSettings,
+): ResultsColumn[] {
+  const out: ResultsColumn[] = [];
+  const titled = (key: CompetitorColumnKey | 'total' | 'nett', title: string): ResultsColumn => {
+    const fallback = key === 'total' ? 'Total' : key === 'nett' ? 'Nett' : defaultColumnHeader(key, settings);
+    return title && title.toLowerCase() !== fallback.toLowerCase() ? { key, title } : { key };
+  };
+  for (const c of plan.columns) {
+    if (c.kind === 'field') out.push(titled(c.key, c.title));
+    else if (c.kind === 'axis') {
+      const id = axisIdBySource.get(c.sourceKey);
+      if (id) out.push({ key: `subdivision:${id}` });
+    } else if (c.kind === 'custom') {
+      const id = customFieldIdByName.get(c.fieldName);
+      if (id) out.push({ key: `field:${id}` });
+    }
+  }
+  if (!out.some((c) => c.key === 'primary')) out.unshift({ key: 'primary' });
+  if (!out.some((c) => c.key === 'sailNumber')) out.unshift({ key: 'sailNumber' });
+  // A standings table without a rank is never what a file meant.
+  if (!out.some((c) => c.key === 'rank')) out.unshift({ key: 'rank' });
+  for (const key of ['total', 'nett'] as const) {
+    const scoring = plan.columns.find((c) => c.kind === 'scoring' && c.key === key);
+    out.push(scoring && scoring.kind === 'scoring' ? titled(key, scoring.title) : { key, hidden: true });
   }
   return out;
 }
@@ -644,11 +823,13 @@ export interface SailwavePreview {
   /** With `carryCodes`: the codes the import will give the series as its own
    *  scoring codes, for the wizard to list. */
   scoringCodes?: SeriesScoringCode[];
+  /** With `carryColumns`: what the file's published columns become. */
+  columnPlan?: SailwaveColumnPlan;
 }
 
 export function inspectSailwave(
   raw: SailwaveRaw,
-  opts?: { carryCodes?: boolean },
+  opts?: { carryCodes?: boolean; carryColumns?: boolean },
 ): SailwavePreview {
   const globals = raw.globals ?? {};
   const comps = raw.competitors ?? {};
@@ -716,6 +897,7 @@ export function inspectSailwave(
     prizeWarnings: prizeResolution.warnings,
     scoringWarnings: scoring.warnings,
     ...(scoring.scoringCodes ? { scoringCodes: scoring.scoringCodes } : {}),
+    ...(opts?.carryColumns ? { columnPlan: planSailwaveColumns(raw) } : {}),
   };
 }
 
@@ -1416,6 +1598,10 @@ export interface SailwaveImportOptions {
   /** Carry the file's scoring codes into the series' own (custom scoring
    *  codes): see `seriesCodesFromSailwave`. */
   importScoringCodes?: boolean;
+  /** Carry the file's published columns into the series' own results
+   *  columns, and its unmodelled fields into custom fields: see
+   *  `planSailwaveColumns`. */
+  importColumns?: boolean;
 }
 
 // ---- Build (the main conversion) ----
@@ -1522,6 +1708,34 @@ export function buildSeriesFileFromSailwave(
   const { competitors, compIdByHandle } = buildCompetitors(
     rawComps, fleetIdByName, fleetSystemByName, builtAxes,
   );
+
+  // The file's published columns, as the series' own, and its unmodelled
+  // published fields as custom fields with each competitor's value.
+  const columnPlan = opts.importColumns ? planSailwaveColumns(raw) : null;
+  const customFields: CustomField[] = [];
+  const customFieldIdByName = new Map<string, string>();
+  for (const c of columnPlan?.columns ?? []) {
+    if (c.kind !== 'custom') continue;
+    const taken = new Set(customFields.map((f) => f.label.toLowerCase()));
+    let label = c.label;
+    for (let n = 2; taken.has(label.toLowerCase()); n++) label = `${c.label} ${n}`;
+    const field = { id: cryptoUuid(), label };
+    customFields.push(field);
+    customFieldIdByName.set(c.fieldName, field.id);
+  }
+  const customValuesById = new Map<string, Record<string, string>>();
+  if (customFields.length > 0) {
+    for (const [handle, id] of compIdByHandle) {
+      const record = rawComps[handle] as Record<string, string | undefined> | undefined;
+      if (!record || customValuesById.has(id)) continue;
+      const values: Record<string, string> = {};
+      for (const [fieldName, fieldId] of customFieldIdByName) {
+        const v = (record[`comp${fieldName.toLowerCase()}`] ?? '').trim();
+        if (v) values[fieldId] = v;
+      }
+      if (Object.keys(values).length > 0) customValuesById.set(id, values);
+    }
+  }
 
   const sortedRaces = sortedRaceHandles(rawRaces);
   const resultsByRace = groupResultsByRace(rawResults, opts.includeResults);
@@ -1632,6 +1846,22 @@ export function buildSeriesFileFromSailwave(
       enabledCompetitorFields: enabledFields,
       primaryPersonLabel: opts.primaryLabel,
       subdivisionAxes: builtAxes.map((b) => b.axis),
+      ...(customFields.length > 0 ? { customFields } : {}),
+      ...(columnPlan && !columnPlan.automatic
+        ? {
+            resultsColumns: resultsColumnsFromPlan(
+              columnPlan,
+              new Map(builtAxes.map((b) => [b.sourceKey, b.axis.id])),
+              customFieldIdByName,
+              {
+                enabledCompetitorFields: enabledFields,
+                primaryPersonLabel: opts.primaryLabel,
+                subdivisionAxes: builtAxes.map((b) => b.axis),
+                customFields,
+              },
+            ),
+          }
+        : {}),
       scoringMode,
       ...(prizes.length > 0 ? { prizes } : {}),
     },
@@ -1661,6 +1891,7 @@ export function buildSeriesFileFromSailwave(
       ...(c.subdivisions && Object.keys(c.subdivisions).length > 0
         ? { subdivisions: c.subdivisions }
         : {}),
+      ...(customValuesById.has(c.id) ? { customFields: customValuesById.get(c.id) } : {}),
       ...(c.ircTcc != null ? { ircTcc: c.ircTcc } : {}),
       ...(c.pyNumber != null ? { pyNumber: c.pyNumber } : {}),
       ...(c.nhcStartingTcf != null ? { nhcStartingTcf: c.nhcStartingTcf } : {}),

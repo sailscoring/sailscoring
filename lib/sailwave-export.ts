@@ -19,7 +19,7 @@
  * `buildSeriesFile` produces.
  */
 import type { SeriesFile } from './series-file';
-import type { DiscardThreshold, ProportionalDiscard, ResultCode, SeriesScoringCode } from './types';
+import type { DiscardThreshold, ProportionalDiscard, ResultCode, ResultsColumn, SeriesScoringCode } from './types';
 import { getCodeDefinition } from './scoring-codes';
 import { rrsCode } from './scoring-codes-text';
 import { ruleToSailwave } from './sailwave-codes';
@@ -547,10 +547,78 @@ export function buildSailwaveBlw(file: SeriesFile): SailwaveExportResult {
   });
 
   // -- Column definitions --
-  for (const col of SAILWAVE_COLUMN_DEFAULTS) w.row('column', col);
+  const columns = file.series.resultsColumns;
+  if (columns?.some((c) => c.key.startsWith('field:'))) {
+    warn('custom-fields', 'Custom fields are not carried; Sailwave has no field of a series’ own.');
+  }
+  for (const col of sailwaveColumnDefinitions(columns)) w.row('column', col);
 
   return { blw: w.text(), warnings };
 }
+
+/** Our columns and the Sailwave fields that carry them, among those this
+ *  export writes a value for. */
+const SAILWAVE_FIELD_OF: Record<string, string> = {
+  rank: 'Rank',
+  sailNumber: 'SailNo',
+  bowNumber: 'BowNumber',
+  boatName: 'Boat',
+  boatClass: 'Class',
+  primary: 'HelmName',
+  crewName: 'CrewName',
+  club: 'Club',
+  nationality: 'Nat',
+  tallyNumber: 'Tally',
+  gender: 'HelmSex',
+};
+
+/**
+ * The column definitions to write: Sailwave's template, or, for a series that
+ * sets its own columns, the template with its published fields, order and
+ * titles. A column published on the standings is published; the races come
+ * after the competitor columns, then Total and Nett unless hidden. Fields we
+ * don't publish keep their template order behind ours. Each definition is
+ * `enabled|FieldName|position|showInGrid|publish|width|title|`.
+ */
+export function sailwaveColumnDefinitions(columns: readonly ResultsColumn[] | undefined): readonly string[] {
+  if (!columns) return SAILWAVE_COLUMN_DEFAULTS;
+  const published: string[] = [];
+  const titles = new Map<string, string>();
+  for (const c of columns) {
+    if (c.tables && !c.tables.includes('standings')) continue;
+    const field = SAILWAVE_FIELD_OF[c.key];
+    if (!field) continue;
+    published.push(field);
+    if (c.title) titles.set(field, c.title.split('\n').join('<br>'));
+  }
+  published.push(RACES_BLOCK);
+  for (const [key, field] of [['total', 'Total'], ['nett', 'Nett']] as const) {
+    const c = columns.find((x) => x.key === key);
+    if (c?.hidden) continue;
+    published.push(field);
+    if (c?.title) titles.set(field, c.title.split('\n').join('<br>'));
+  }
+  const defs = SAILWAVE_COLUMN_DEFAULTS.map((d) => d.split('|'));
+  const fieldOf = (p: string[]) => (p[0] === '2' ? RACES_BLOCK : p[1]);
+  const rest = defs
+    .filter((p) => p[0] !== '3' && !published.includes(fieldOf(p)))
+    .sort((a, b) => Number(a[2]) - Number(b[2]));
+  const position = new Map<string, number>();
+  [...published, ...rest.map(fieldOf)].forEach((f, i) => position.set(f, i + 1));
+  return defs.map((p) => {
+    if (p[0] === '3') return p.join('|');
+    const field = fieldOf(p);
+    const next = [...p];
+    next[2] = String(position.get(field) ?? p[2]);
+    next[4] = published.includes(field) ? 'Yes' : 'No';
+    if (published.includes(field)) next[3] = 'Yes';
+    next[6] = titles.get(field) ?? '';
+    return next.join('|');
+  });
+}
+
+/** The races block's stand-in name: Sailwave's `2|` definition has none. */
+const RACES_BLOCK = '#races';
 
 /** Whether the boat can be scored in the fleet: scratch needs nothing, ORC
  *  goes across unrated regardless (see the orc warning), the rest need the

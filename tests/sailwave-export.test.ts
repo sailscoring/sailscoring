@@ -4,13 +4,17 @@ import { join } from 'node:path';
 import {
   parseSailwaveBlw,
   buildSeriesFileFromSailwave,
+  planSailwaveColumns,
   type SailwaveImportOptions,
+  type SailwaveRaw,
 } from '@/lib/sailwave-import';
 import {
   buildSailwaveBlw,
   discardListFor,
   encodeWindows1252,
+  sailwaveColumnDefinitions,
 } from '@/lib/sailwave-export';
+import { SAILWAVE_COLUMN_DEFAULTS } from '@/lib/sailwave-export-template';
 import type { SeriesFile } from '@/lib/series-file';
 
 const HYC = 'tests/fixtures/sailwave/hyc-2026';
@@ -255,5 +259,33 @@ describe('encodeWindows1252', () => {
   it('maps Latin-1 and the cp1252 extras, and replaces the rest', () => {
     expect([...encodeWindows1252('Ó€a–')]).toEqual([0xd3, 0x80, 0x61, 0x96]);
     expect([...encodeWindows1252('☃')]).toEqual([0x3f]);
+  });
+});
+
+describe('Sailwave export of a series’ own columns', () => {
+  it('writes the template untouched for automatic columns', () => {
+    expect(sailwaveColumnDefinitions(undefined)).toBe(SAILWAVE_COLUMN_DEFAULTS);
+  });
+
+  it('publishes the series’ columns in its order, under its titles, and round-trips through import', () => {
+    const defs = sailwaveColumnDefinitions([
+      { key: 'boatClass' },
+      { key: 'rank' },
+      { key: 'sailNumber', title: 'Bib Number' },
+      { key: 'primary', title: 'Barreur\nHelm' },
+      { key: 'crewName', tables: ['races'] },
+      { key: 'total', hidden: true },
+      { key: 'nett' },
+    ]);
+    const published = defs
+      .map((d) => d.split('|'))
+      .filter((p) => p[4] === 'Yes')
+      .sort((a, b) => Number(a[2]) - Number(b[2]))
+      .map((p) => (p[0] === '2' ? 'races' : `${p[1]}${p[6] ? `[${p[6]}]` : ''}`));
+    expect(published).toEqual(['Class', 'Rank', 'SailNo[Bib Number]', 'HelmName[Barreur<br>Helm]', 'races', 'Nett']);
+    const plan = planSailwaveColumns({ columns: Object.fromEntries(defs.map((d, i) => [String(i + 1), d])) } as unknown as SailwaveRaw);
+    expect(plan.columns.filter((c) => c.kind === 'field').map((c) => c.kind === 'field' && c.key)).toEqual([
+      'boatClass', 'rank', 'sailNumber', 'primary',
+    ]);
   });
 });

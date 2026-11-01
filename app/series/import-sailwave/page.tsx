@@ -145,15 +145,20 @@ function Wizard({
   const isUpdate = updateSeriesId != null;
   // With custom scoring codes on, the file's codes come across as the
   // series' own instead of being warned about.
-  const carryCodes = useFeatures().has('custom-scoring-codes');
+  const features = useFeatures();
+  const carryCodes = features.has('custom-scoring-codes');
+  // With custom results columns on, a new series takes the file's published
+  // columns, and its unmodelled fields as custom fields. An update keeps the
+  // series' own settings, columns among them.
+  const carryColumns = features.has('custom-columns') && !isUpdate;
 
   const preview: SailwavePreview | null = useMemo(() => {
     try {
-      return inspectSailwave(raw, { carryCodes });
+      return inspectSailwave(raw, { carryCodes, carryColumns });
     } catch {
       return null;
     }
-  }, [raw, carryCodes]);
+  }, [raw, carryCodes, carryColumns]);
 
   // Form state
   const [name, setName] = useState(preview?.name ?? '');
@@ -223,6 +228,7 @@ function Wizard({
       includeResults: true,
       dnfScoring: dnfScoring === 'auto' ? undefined : dnfScoring,
       importScoringCodes: carryCodes,
+      importColumns: carryColumns,
     };
 
     setSubmitting(true);
@@ -384,6 +390,36 @@ function Wizard({
                   </li>
                 ))}
               </ul>
+            </div>
+          )}
+          {preview.columnPlan && !preview.columnPlan.automatic && (
+            <div className="rounded-md border p-3" data-testid="sailwave-columns">
+              <p className="font-medium">This file publishes its own columns. They&apos;ll be the series&apos; columns:</p>
+              <p className="mt-1">
+                {preview.columnPlan.columns
+                  .map((c) =>
+                    c.kind === 'races'
+                      ? 'races'
+                      : c.kind === 'custom'
+                        ? `${c.label} (a new custom field)`
+                        : c.title && c.title.replace(/\n/g, ' / ') !== c.source
+                          ? `${c.title.replace(/\n/g, ' / ')} (${c.source})`
+                          : c.source,
+                  )
+                  .join(' · ')}
+              </p>
+              {preview.columnPlan.notCarried.length > 0 && (
+                <>
+                  <p className="mt-1.5 font-medium">Not carried:</p>
+                  <ul className="pl-1">
+                    {preview.columnPlan.notCarried.map((n) => (
+                      <li key={n.fieldName}>
+                        {n.fieldName} — {n.reason}
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
             </div>
           )}
           {preview.scoringWarnings.length > 0 && (
