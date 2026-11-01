@@ -60,6 +60,7 @@ import {
 } from './race-scoring-options';
 import { CHECKLIST_DENSITIES, CHECKLIST_PAGE, planChecklistSheet } from './starters-checklist';
 import type { ChecklistBoat, ChecklistPiece, ChecklistTable } from './starters-checklist';
+import type { SignInOutSheet } from './sign-in-out-sheet';
 
 // ---- Input types ----
 
@@ -1409,6 +1410,8 @@ export function renderCompetitorListHtml(
     flagSvgByCode?: Readonly<Record<string, NationalFlag>>;
     /** The starters checklist's tables, when the page is to carry one. */
     checklist?: ChecklistTable[];
+    /** The sign in/out sheet, when the page is to carry one. */
+    signInOut?: SignInOutSheet;
   },
   options?: { fontPercent?: number },
 ): string {
@@ -1482,11 +1485,12 @@ ${body}
     : '';
 
   const starters = renderStartersChecklist(context.checklist ?? [], chrome.series);
+  const signInOut = context.signInOut ? renderSignInOutSheet(context.signInOut, chrome.series) : '';
 
   return renderHtmlDocument(
     { ...chrome, fleetName: 'Competitor List' },
-    `${content}${starters ? `\n${starters}` : ''}`,
-    { fontPercent, hasNhcDetail: false, hasEchoDetail: false, flagDefs, startersChecklist: starters !== '' },
+    `${content}${starters ? `\n${starters}` : ''}${signInOut ? `\n${signInOut}` : ''}`,
+    { fontPercent, hasNhcDetail: false, hasEchoDetail: false, flagDefs, startersChecklist: starters !== '', signInOutSheet: signInOut !== '' },
   );
 }
 
@@ -1824,15 +1828,128 @@ function renderSheetViewScript(view: { fragment: string; bodyClass: string; page
 var title=document.title;
 var h1=document.querySelector('h1');
 var pageCss=document.getElementById('${view.pageCssId}');
+var shown=false;
 function apply(){
   var on=location.hash==='#${view.fragment}';
   document.body.classList.toggle('${view.bodyClass}',on);
   if(pageCss)pageCss.media=on?'print':'not all';
-  document.title=on?('${view.title}'+(h1?' \\u2014 '+h1.textContent:'')):title;
+  if(on)document.title='${view.title}'+(h1?' \\u2014 '+h1.textContent:'');
+  else if(shown)document.title=title;
+  shown=on;
 }
 apply();
 window.addEventListener('hashchange',apply);
 })();</script>`;
+}
+
+/**
+ * The sign in/out sheet, rendered into the competitor-list page and shown as
+ * a view of it (the `signinout` body class, from the `#sign-in-out`
+ * fragment), as the starters checklist is. One row per boat — sail number,
+ * class, who signs, and room to sign — under a heading per fleet.
+ *
+ * It is one table rather than one per fleet. The column headings are printed
+ * once, across the top of the page, and again on each later page; the fleet
+ * names are rows of their own between the fleets. Each fleet is a body of the
+ * one table, so the columns line up all the way down.
+ *
+ * The office prints it once to sign out and, at clubs that keep both halves,
+ * again to sign back in. The two copies look the same on the desk, so the
+ * top line carries a box for each and the club ticks one, beside a blank for
+ * the date: the list is printed ahead of the day and filed afterwards.
+ */
+function renderSignInOutSheet(sheet: SignInOutSheet, series: { name: string; venue: string }): string {
+  const tables = sheet.tables.filter((t) => t.rows.length > 0);
+  if (tables.length === 0) return '';
+  const { showClass } = sheet;
+  const span = showClass ? 4 : 3;
+  const bodies = tables.map((t) => {
+    const head = t.heading !== null ? `<tr class="signfleet"><th colspan="${span}">${esc(t.heading)}</th></tr>\n` : '';
+    const rows = t.rows
+      .map((r) =>
+        `<tr><td class="signsail">${esc(r.sailNumber)}</td>${showClass ? `<td class="signclass">${esc(r.boatClass ?? '')}</td>` : ''}<td class="signperson">${esc(r.person)}</td><td class="signsig"></td></tr>`)
+      .join('\n');
+    // A short fleet stays on one page, so it is never split from its own
+    // heading; a long one may break, and the column headings repeat above it.
+    return `<tbody${t.rows.length <= SIGN_KEEP_WHOLE_ROWS ? ' class="keep"' : ''}>\n${head}${rows}\n</tbody>`;
+  });
+  return `<div class="signsheet">
+<div class="signident">
+<span class="signtitle">Sign in/out sheet</span>
+<span class="signfor">${esc(series.name)}${series.venue ? ` — ${esc(series.venue)}` : ''}</span>
+<span class="signblanks"><span class="signbox">Out</span><span class="signbox">In</span><span class="signdate">Date <i></i></span></span>
+</div>
+<table class="signtable" cellspacing="0" cellpadding="0" border="0">
+<thead>
+<tr><th class="signsail">Sail No</th>${showClass ? '<th class="signclass">Class</th>' : ''}<th class="signperson">${esc(sheet.personHeader)}</th><th class="signsig">Signature</th></tr>
+</thead>
+${bodies.join('\n')}
+</table>
+</div>`;
+}
+
+/** How short a fleet has to be to be kept off a page boundary. */
+const SIGN_KEEP_WHOLE_ROWS = 12;
+
+/** The stylesheet for the sign in/out sheet: a view of the page, like the
+ *  starters checklist, replacing the entry list and its header on screen and
+ *  on paper. Rows are tall enough to sign in, and the signature takes all
+ *  the width the other columns leave. */
+function renderSignInOutCss(): string {
+  return `.signsheet { display: none; }
+body.signinout .signsheet { display: block; text-align: left; max-width: 194mm; margin: 0 auto; }
+body.signinout .caption, body.signinout .tablewrap, body.signinout h3.grouptitle, body.signinout > h2, body.signinout h3.seriestitle, body.signinout .seriesofficials, body.signinout .pagenotes, body.signinout table.headertable { display: none; }
+.signback { display: none; }
+body.signinout .signback { display: inline; }
+body.signinout .signlink, body.signinout .startersnav, body.starters .signnav, body.prizegiving .signnav { display: none; }
+.signident { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2mm 4mm; margin: 0 0 3mm 0; font-size: 10pt; }
+.signident .signtitle { font-size: 15pt; font-weight: 700; }
+.signident .signfor { font-weight: 600; flex: 1 1 50mm; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.signident .signblanks { white-space: nowrap; color: #333; }
+.signident .signbox { margin-left: 3mm; }
+.signident .signbox::before { content: ""; display: inline-block; width: 4.5mm; height: 4.5mm; border: 0.4mm solid #1a1a1a; box-sizing: border-box; vertical-align: -0.8mm; margin-right: 1.5mm; }
+.signident .signdate { margin-left: 4mm; }
+.signident .signdate i { display: inline-block; width: 22mm; border-bottom: 0.3mm solid #666; }
+table.signtable { width: 100%; margin: 0; border: 0; border-collapse: collapse; table-layout: fixed; }
+table.signtable thead th { background: none; color: #555; font-size: 9pt; font-weight: 600; text-align: left; border: 0; border-bottom: 0.5mm solid #1a1a1a; padding: 1mm 2mm; }
+table.signtable tr.signfleet th { background: none; color: #1a1a1a; font-size: 12pt; font-weight: 700; text-align: left; border: 0; border-bottom: 0.3mm solid #999; padding: 2.5mm 0 1mm 0; }
+table.signtable td { border: 0; border-bottom: 0.3mm solid #999; height: 8.5mm; padding: 0 2mm; vertical-align: middle; font-size: 12pt; line-height: 1.1; }
+table.signtable .signsail { width: 22mm; text-align: right; }
+table.signtable td.signsail { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+table.signtable .signclass { width: 26mm; }
+table.signtable td.signclass { font-size: 10pt; color: #333; }
+table.signtable .signperson { width: 38%; }
+table.signtable td.signclass, table.signtable td.signperson { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+table.signtable td.signsig { border-left: 0.3mm solid #ccc; }
+table.signtable thead th { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* A phone: the paper's fixed widths leave the signature column no room, so
+   the columns share the width instead, in smaller type. */
+@media screen and (max-width: 640px) {
+  table.signtable td { font-size: 10pt; height: 9mm; padding: 0 1mm; }
+  table.signtable thead th { padding: 1mm; }
+  table.signtable .signsail { width: 18%; }
+  table.signtable .signclass { width: 20%; }
+  table.signtable .signperson { width: 32%; }
+  table.signtable td.signclass { font-size: 8pt; }
+}
+@media print {
+  body.signinout .credit, .signnav { display: none; }
+  table.signtable tbody.keep { break-inside: avoid; }
+  table.signtable tr.signfleet { break-after: avoid; }
+}
+`;
+}
+
+/** The sheet's page box, switched on with the view — see
+ *  {@link renderStartersPageCss}. */
+function renderSignInOutPageCss(): string {
+  return `<style id="signinout-page" media="not all" type="text/css">@page { size: A4 portrait; margin: 8mm; }</style>`;
+}
+
+/** The links between the entry list and the sheet, on a line of their own
+ *  beside the starters checklist's. */
+function renderSignInOutButton(): string {
+  return `<p class="signnav"><a class="signlink" href="#sign-in-out">Sign in/out sheet</a><a class="signback" href="#entries">Back to the entry list</a></p>\n`;
 }
 
 /** The full HTML document around already-rendered section content: styles,
@@ -1842,14 +1959,14 @@ window.addEventListener('hashchange',apply);
 export function renderHtmlDocument(
   chrome: DocumentChrome,
   content: string,
-  flags: { fontPercent: number; hasNhcDetail: boolean; hasEchoDetail: boolean; flagDefs: string; startersChecklist?: boolean; prizeGiving?: boolean },
+  flags: { fontPercent: number; hasNhcDetail: boolean; hasEchoDetail: boolean; flagDefs: string; startersChecklist?: boolean; signInOutSheet?: boolean; prizeGiving?: boolean },
 ): string {
   const { series, fleetName, leftLogoUrl, rightLogoUrl, leftUrl, rightUrl, generatedAt, resultsFinal, finalisedAt, seriesIndexUrl, openInAppUrl, dataFileUrl, officials, seriesNote, pageNote, ircRatingSource, scoringNotesUrl, hidePageHeading, omitFooterDataLinks } = chrome;
   const footerDataLinks = !omitFooterDataLinks && !scoringNotesUrl;
   const notesLink = scoringNotesUrl
     ? ` <span class="noteslink">&middot; <a href="${esc(scoringNotesUrl)}">Scoring notes</a></span>`
     : '';
-  const { fontPercent, hasNhcDetail, hasEchoDetail, flagDefs, startersChecklist, prizeGiving } = flags;
+  const { fontPercent, hasNhcDetail, hasEchoDetail, flagDefs, startersChecklist, signInOutSheet, prizeGiving } = flags;
   const titleSuffix = fleetName ? ` \u2014 ${esc(fleetName)}` : '';
   const title = `Results for ${series.name}${series.venue ? ' at ' + series.venue : ''}${
     fleetName ? ' \u2014 ' + fleetName : ''
@@ -2003,8 +2120,8 @@ th[aria-sort="descending"]::after { content: " ▼"; font-size: 0.75em; }
   .headerlogo { height: 64px; margin: 0 auto 10px auto; }
   .headerlogo-right { margin: 0 auto 10px auto; }
 }
-${startersChecklist ? renderStartersChecklistCss() : ''}${prizeGiving ? renderPrizeGivingCss() : ''}${hasNhcDetail ? 'body.hide-nhc-detail .nhc-detail { display: none; }\np.nhc-toggle { text-align: center; margin: 0 0 10px 0; font-size: 0.9em; }\ndiv.nhc-explainer { max-width: 640px; margin: 0 auto 16px auto; padding: 10px 14px; border: 1px #ccd solid; background: #f6f6fb; font-size: 0.9em; text-align: left; }\ndiv.nhc-explainer p { text-align: left; margin: 0 0 6px 0; }\ndiv.nhc-explainer p:last-child { margin-bottom: 0; }\ndiv.nhc-explainer .formula { font-family: monospace; }\ndiv.nhc-explainer dl { margin: 4px 0 0 0; }\ndiv.nhc-explainer dt { font-weight: bold; display: inline; }\ndiv.nhc-explainer dd { display: inline; margin: 0 0 0 4px; }\ndiv.nhc-explainer dd:after { content: ""; display: block; }\n' : ''}${hasEchoDetail ? 'body.hide-echo-detail .echo-detail { display: none; }\np.echo-toggle { text-align: center; margin: 0 0 10px 0; font-size: 0.9em; }\ndiv.echo-explainer { max-width: 640px; margin: 0 auto 16px auto; padding: 10px 14px; border: 1px #ccd solid; background: #f6f6fb; font-size: 0.9em; text-align: left; }\ndiv.echo-explainer p { text-align: left; margin: 0 0 6px 0; }\ndiv.echo-explainer p:last-child { margin-bottom: 0; }\ndiv.echo-explainer .formula { font-family: monospace; }\ndiv.echo-explainer dl { margin: 4px 0 0 0; }\ndiv.echo-explainer dt { font-weight: bold; display: inline; }\ndiv.echo-explainer dd { display: inline; margin: 0 0 0 4px; }\ndiv.echo-explainer dd:after { content: ""; display: block; }\n' : ''}</style>
-${startersChecklist ? renderStartersPageCss() : ''}${prizeGiving ? renderPrizeGivingPageCss() : ''}
+${startersChecklist ? renderStartersChecklistCss() : ''}${signInOutSheet ? renderSignInOutCss() : ''}${prizeGiving ? renderPrizeGivingCss() : ''}${hasNhcDetail ? 'body.hide-nhc-detail .nhc-detail { display: none; }\np.nhc-toggle { text-align: center; margin: 0 0 10px 0; font-size: 0.9em; }\ndiv.nhc-explainer { max-width: 640px; margin: 0 auto 16px auto; padding: 10px 14px; border: 1px #ccd solid; background: #f6f6fb; font-size: 0.9em; text-align: left; }\ndiv.nhc-explainer p { text-align: left; margin: 0 0 6px 0; }\ndiv.nhc-explainer p:last-child { margin-bottom: 0; }\ndiv.nhc-explainer .formula { font-family: monospace; }\ndiv.nhc-explainer dl { margin: 4px 0 0 0; }\ndiv.nhc-explainer dt { font-weight: bold; display: inline; }\ndiv.nhc-explainer dd { display: inline; margin: 0 0 0 4px; }\ndiv.nhc-explainer dd:after { content: ""; display: block; }\n' : ''}${hasEchoDetail ? 'body.hide-echo-detail .echo-detail { display: none; }\np.echo-toggle { text-align: center; margin: 0 0 10px 0; font-size: 0.9em; }\ndiv.echo-explainer { max-width: 640px; margin: 0 auto 16px auto; padding: 10px 14px; border: 1px #ccd solid; background: #f6f6fb; font-size: 0.9em; text-align: left; }\ndiv.echo-explainer p { text-align: left; margin: 0 0 6px 0; }\ndiv.echo-explainer p:last-child { margin-bottom: 0; }\ndiv.echo-explainer .formula { font-family: monospace; }\ndiv.echo-explainer dl { margin: 4px 0 0 0; }\ndiv.echo-explainer dt { font-weight: bold; display: inline; }\ndiv.echo-explainer dd { display: inline; margin: 0 0 0 4px; }\ndiv.echo-explainer dd:after { content: ""; display: block; }\n' : ''}</style>
+${startersChecklist ? renderStartersPageCss() : ''}${signInOutSheet ? renderSignInOutPageCss() : ''}${prizeGiving ? renderPrizeGivingPageCss() : ''}
 </head>
 <body${[hasNhcDetail ? 'hide-nhc-detail' : '', hasEchoDetail ? 'hide-echo-detail' : ''].filter(Boolean).length > 0 ? ` class="${[hasNhcDetail ? 'hide-nhc-detail' : '', hasEchoDetail ? 'hide-echo-detail' : ''].filter(Boolean).join(' ')}"` : ''}>
 ${seriesIndexUrl ? `<p class="breadcrumb"><a href="${esc(seriesIndexUrl)}" target="_top" rel="noopener">&larr; ${esc(series.name)}</a></p>\n` : ''}<table class="headertable" cellspacing="0" width="100%" cellpadding="0" border="0">
@@ -2028,11 +2145,11 @@ ${fleetName && !hidePageHeading ? `<h2>${esc(fleetName)}</h2>` : ''}
 ${renderPageNotes(seriesNote, pageNote)}${flagDefs}
 ${content}
 ${renderOfficialsDetails(officials)}${ircRatingSource ? `<p class="ratingsource">IRC ratings from the ${esc(ircRatingSource.source)}${ircRatingSource.updatedAt ? `, published ${esc(ircRatingSource.updatedAt)}` : ''}. Each boat's certificate number is on its rating cell.</p>
-` : ''}${startersChecklist ? renderStartersButton() : ''}${prizeGiving ? renderPrizeGivingButton() : ''}<p class="credit credit-inline"><a href="https://sailscoring.ie" target="_top" rel="noopener"><svg viewBox="205 205 840 840" width="15" height="15" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><path fill="#fb3a3b" d="M551,757.3c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-125.9,125.9c29.4-.8,58.5-.7,87.4.3l191.1-191.1c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-177.3,177.3c33.3,1.8,66.2,4.7,98.7,8.8l59.9-59.9c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-48.4,48.4c87.3,12.9,171.9,34.6,253.4,65.8-95.4-229.3-112.6-465-9.6-706L315.1,906.2c31.6-3.2,62.9-5.5,93.9-6.9l142.1-142Z"/></svg>Sail Scoring</a>${footerDataLinks && openInAppUrl ? ` &mdash; <a href="${esc(openInAppUrl)}" target="_top" rel="noopener">Open in Sail Scoring</a>` : ''}${footerDataLinks && dataFileUrl ? ` &mdash; <a href="${esc(dataFileUrl)}" target="_top" rel="noopener">Data (.sailscoring.json)</a>` : ''}</p>
+` : ''}${startersChecklist ? renderStartersButton() : ''}${signInOutSheet ? renderSignInOutButton() : ''}${prizeGiving ? renderPrizeGivingButton() : ''}<p class="credit credit-inline"><a href="https://sailscoring.ie" target="_top" rel="noopener"><svg viewBox="205 205 840 840" width="15" height="15" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><path fill="#fb3a3b" d="M551,757.3c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-125.9,125.9c29.4-.8,58.5-.7,87.4.3l191.1-191.1c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-177.3,177.3c33.3,1.8,66.2,4.7,98.7,8.8l59.9-59.9c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-48.4,48.4c87.3,12.9,171.9,34.6,253.4,65.8-95.4-229.3-112.6-465-9.6-706L315.1,906.2c31.6-3.2,62.9-5.5,93.9-6.9l142.1-142Z"/></svg>Sail Scoring</a>${footerDataLinks && openInAppUrl ? ` &mdash; <a href="${esc(openInAppUrl)}" target="_top" rel="noopener">Open in Sail Scoring</a>` : ''}${footerDataLinks && dataFileUrl ? ` &mdash; <a href="${esc(dataFileUrl)}" target="_top" rel="noopener">Data (.sailscoring.json)</a>` : ''}</p>
 ${hasNhcDetail ? renderNhcToggleScript() : ''}
 ${hasEchoDetail ? renderEchoToggleScript() : ''}
 ${renderSortScript()}
-${startersChecklist ? renderStartersScript() : ''}${prizeGiving ? renderSheetViewScript({ fragment: 'prize-giving', bodyClass: 'prizegiving', pageCssId: 'prizegiving-page', title: 'Prize-giving sheet' }) : ''}
+${startersChecklist ? renderStartersScript() : ''}${signInOutSheet ? renderSheetViewScript({ fragment: 'sign-in-out', bodyClass: 'signinout', pageCssId: 'signinout-page', title: 'Sign in/out sheet' }) : ''}${prizeGiving ? renderSheetViewScript({ fragment: 'prize-giving', bodyClass: 'prizegiving', pageCssId: 'prizegiving-page', title: 'Prize-giving sheet' }) : ''}
 </body>
 </html>`;
 }

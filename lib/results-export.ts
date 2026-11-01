@@ -77,6 +77,7 @@ import { pageNoteFor, type NotePageRef } from './page-note';
 import { isSyntheticFleetName } from './publishing';
 import { buildSchedule } from './schedule';
 import { buildStartersChecklist } from './starters-checklist';
+import { buildSignInOutSheet } from './sign-in-out-sheet';
 import { seriesSlug } from './series-name';
 import type { Competitor, FinishTrackData, Fleet, OrcRaceCalc, PublicationSummary, RaceStart, ResultCode, PenaltyCode, Series, Standing } from './types';
 import type { CourseBackground } from '@sailscoring/course-cards';
@@ -404,6 +405,15 @@ async function buildCompetitorListFile(
     startGroups: series.defaultStartSequence,
   });
 
+  // The sign in/out sheet rides on it too: the register the office prints
+  // for helms to sign before launching and, at some clubs, on coming back.
+  const signInOut = buildSignInOutSheet({
+    fleets,
+    competitors,
+    primaryPersonLabel: series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
+    enabledCompetitorFields,
+  });
+
   // The classes the page is tabled by, and which fleets each is scored under
   // (#534). Worked out from the fleets themselves — nothing on a fleet says
   // which class it belongs to — over the fleets the page actually displays,
@@ -565,6 +575,7 @@ async function buildCompetitorListFile(
         entryCount: competitors.length,
         ...(flagSvgByCode ? { flagSvgByCode } : {}),
         checklist,
+        signInOut,
       },
     ),
   };

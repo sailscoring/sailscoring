@@ -248,6 +248,81 @@ test('the competitor list carries a starters checklist, one table per start', as
 });
 
 /**
+ * The sign in/out sheet the office prints for helms to sign before launching
+ * (and, at some clubs, on coming back): one table, the column headings across
+ * the top, a heading row per fleet, and a box to tick for which half of the
+ * register this copy is.
+ */
+test('the competitor list carries a sign in/out sheet, a heading per fleet', async ({ page, signedInEmail }) => {
+  await enableFeatures(page, signedInEmail, ['entry-list']);
+  await createSeriesQuick(page, { name: 'Dinghy Frostbites', venue: 'Howth' });
+  await createFleets(page, ['ILCA 7', 'PY Fleet']);
+
+  // The class column is printed only when the series records classes.
+  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+  await page
+    .getByRole('heading', { name: 'Competitor fields' })
+    .locator('..')
+    .getByRole('button', { name: 'Edit ▸' })
+    .click();
+  await page.getByRole('checkbox', { name: 'Class', exact: true }).check();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  await page.getByRole('navigation').getByRole('link', { name: 'Competitors' }).click();
+  await addCompetitor(page, { sailNumber: '219127', name: 'Dan O’Connell', boatClass: 'ILCA 7', fleet: 'ILCA 7' });
+  await addCompetitor(page, { sailNumber: '43', name: 'Conor Murphy', boatClass: 'ILCA 7', fleet: 'ILCA 7' });
+  await addCompetitor(page, { sailNumber: '38', name: 'Alan Carr', boatClass: 'IDRA 14', fleet: 'PY Fleet' });
+
+  await page.getByRole('button', { name: 'Publish…' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Publish results' });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
+  const link = dialog.getByRole('link', { name: /\/entries$/ });
+  await expect(link).toBeVisible();
+  const entriesPath = new URL((await link.getAttribute('href')) ?? '').pathname;
+
+  await page.goto(entriesPath);
+  await expect(page.getByText('Entries: 3')).toBeVisible();
+  const sheet = page.locator('.signsheet');
+  await expect(sheet).toBeHidden();
+
+  await page.getByRole('link', { name: 'Sign in/out sheet' }).click();
+  await expect(page).toHaveURL(/#sign-in-out$/);
+  await expect(page.locator('body')).toHaveClass(/\bsigninout\b/);
+  await expect(sheet).toBeVisible();
+  await expect(page).toHaveTitle(/^Sign in\/out sheet —/);
+  await expect(page.locator('table.summarytable:visible')).toHaveCount(0);
+  await expect(page.locator('table.headertable')).toBeHidden();
+  // In the sheet's view the footer offers only the way back.
+  await expect(page.getByRole('link', { name: 'Starters checklist' })).toBeHidden();
+
+  // One table: the column headings once, the fleets as heading rows within it.
+  await expect(sheet.locator('table.signtable')).toHaveCount(1);
+  await expect(sheet.locator('thead th')).toHaveText(['Sail No', 'Class', 'Competitor', 'Signature']);
+  await expect(sheet.locator('tr.signfleet')).toHaveText(['ILCA 7', 'PY Fleet']);
+  // Sail numbers in number order within a fleet.
+  await expect(sheet.locator('td.signsail')).toHaveText(['43', '219127', '38']);
+  await expect(sheet.locator('tr', { hasText: '38' }).locator('td.signclass')).toHaveText('IDRA 14');
+  // Which half of the register this copy is, ticked by hand.
+  await expect(sheet.locator('.signbox')).toHaveText(['Out', 'In']);
+  await expect(sheet.getByText('Dinghy Frostbites — Howth')).toBeVisible();
+
+  await page.emulateMedia({ media: 'print' });
+  await expect(sheet).toBeVisible();
+  await expect(page.locator('.signnav')).toBeHidden();
+  await page.emulateMedia({ media: 'screen' });
+
+  // Usable on a phone: nothing pushes the page sideways.
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+
+  await page.getByRole('link', { name: 'Back to the entry list' }).click();
+  await expect(page.locator('body')).not.toHaveClass(/\bsigninout\b/);
+  await expect(sheet).toBeHidden();
+  await expect(page.getByRole('link', { name: 'Sign in/out sheet' })).toBeVisible();
+});
+
+/**
  * A class scored under a club handicap and IRC at once (#534). The entry list
  * is tabled by class, each table carrying a rating column per fleet the class
  * is scored under — so a boat is one row, and the ratings say which fleets it

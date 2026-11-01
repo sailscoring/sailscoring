@@ -14,6 +14,7 @@ import {
 } from '@/lib/results-renderer';
 import type { CompetitorFieldKey, ResultCode } from '@/lib/types';
 import type { PrizeAllocation } from '@/lib/prizes';
+import type { SignInOutSheet } from '@/lib/sign-in-out-sheet';
 
 // ---- Fixtures ----
 
@@ -2479,6 +2480,95 @@ describe('renderCompetitorListHtml', () => {
         });
         expect(html).not.toContain('starterslist');
         expect(html).not.toContain('#starters');
+      }
+    });
+  });
+
+  describe('the sign in/out sheet', () => {
+    const rows = [row(), row({ sailNumber: '43', names: ['Conor Murphy'] })];
+    const signInOut: SignInOutSheet = {
+      personHeader: 'Helm',
+      showClass: true,
+      tables: [
+        { heading: 'ILCA 7', rows: [{ sailNumber: '43', boatClass: 'ILCA 7', person: 'Conor Murphy' }] },
+        { heading: 'PY Fleet', rows: [{ sailNumber: '38', boatClass: 'IDRA 14', person: 'Alan Carr & Orla Connolly' }] },
+      ],
+    };
+    const render = (sheet: SignInOutSheet = signInOut) =>
+      renderCompetitorListHtml(chrome, flat(rows), { enabledCompetitorFields: [], multiFleet: true, signInOut: sheet });
+
+    it('is one table, the column headings once across the top and a heading row per fleet', () => {
+      const html = render();
+      expect(html).toContain('<div class="signsheet">');
+      expect(html.match(/<table class="signtable"/g)).toHaveLength(1);
+      expect(html).toContain(
+        '<thead>\n<tr><th class="signsail">Sail No</th><th class="signclass">Class</th><th class="signperson">Helm</th><th class="signsig">Signature</th></tr>\n</thead>',
+      );
+      expect(html.match(/<tbody class="keep">/g)).toHaveLength(2);
+      expect(html).toContain('<tr class="signfleet"><th colspan="4">ILCA 7</th></tr>');
+      expect(html).toContain('<tr class="signfleet"><th colspan="4">PY Fleet</th></tr>');
+      expect(html).toContain(
+        '<tr><td class="signsail">38</td><td class="signclass">IDRA 14</td><td class="signperson">Alan Carr &amp; Orla Connolly</td><td class="signsig"></td></tr>',
+      );
+    });
+
+    it('drops the class column, and heads no fleet, when there is nothing to put there', () => {
+      const html = render({
+        personHeader: 'Owner',
+        showClass: false,
+        tables: [{ heading: null, rows: [{ sailNumber: '43', person: 'An Owner' }] }],
+      });
+      expect(html).not.toContain('<th class="signclass">');
+      expect(html).not.toContain('<tr class="signfleet">');
+      expect(html).toContain('<th class="signperson">Owner</th>');
+      expect(html).toContain('<tr><td class="signsail">43</td><td class="signperson">An Owner</td><td class="signsig"></td></tr>');
+    });
+
+    it('lets a long fleet break across pages, and keeps a short one whole', () => {
+      const long = Array.from({ length: 13 }, (_, i) => ({ sailNumber: String(i + 1), person: `Helm ${i + 1}` }));
+      const html = render({ personHeader: 'Helm', showClass: false, tables: [{ heading: 'PY Fleet', rows: long }] });
+      expect(html).toContain('<tbody>\n<tr class="signfleet">');
+      expect(html).not.toContain('<tbody class="keep">');
+    });
+
+    it('carries a box to tick for out and for in, and a blank for the date', () => {
+      const html = render();
+      expect(html).toContain('<span class="signtitle">Sign in/out sheet</span>');
+      expect(html).toContain('<span class="signfor">Worlds — Dun Laoghaire</span>');
+      expect(html).toContain('<span class="signbox">Out</span><span class="signbox">In</span><span class="signdate">Date <i></i></span>');
+    });
+
+    it('is a view with its own address, reachable from the footer', () => {
+      const html = render();
+      expect(html).toContain('<p class="signnav"><a class="signlink" href="#sign-in-out">Sign in/out sheet</a><a class="signback" href="#entries">Back to the entry list</a></p>');
+      expect(html).not.toMatch(/<p class="credit[^"]*">(?:(?!<\/p>)[\s\S])*signlink/);
+      const script = html.slice(html.indexOf("var pageCss=document.getElementById('signinout-page')"));
+      expect(script).toContain("location.hash==='#sign-in-out'");
+      expect(script).toContain("document.body.classList.toggle('signinout',on)");
+      expect(html).toContain('<style id="signinout-page" media="not all" type="text/css">@page { size: A4 portrait; margin: 8mm; }</style>');
+    });
+
+    it('replaces the entry list and page header in its view, on screen as well as paper', () => {
+      const html = render();
+      expect(html).toContain('.signsheet { display: none; }');
+      expect(html).toContain('body.signinout .signsheet { display: block;');
+      expect(html).toContain('body.signinout table.headertable');
+      expect(html).toContain('body.signinout .tablewrap');
+      // Each sheet's view hides the other's link, so the footer offers only
+      // the way back.
+      expect(html).toContain('body.signinout .startersnav');
+      expect(html).toContain('body.starters .signnav');
+    });
+
+    it('leaves the page as it was when there is nothing to list', () => {
+      for (const empty of [undefined, { personHeader: 'Helm', showClass: false, tables: [{ heading: 'ILCA 7', rows: [] }] }]) {
+        const html = renderCompetitorListHtml(chrome, flat(rows), {
+          enabledCompetitorFields: [],
+          multiFleet: true,
+          signInOut: empty,
+        });
+        expect(html).not.toContain('signsheet');
+        expect(html).not.toContain('#sign-in-out');
       }
     });
   });
