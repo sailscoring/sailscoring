@@ -628,6 +628,14 @@ over the canonical `/p/{workspace}` tree and user slugs driving attribution
 surfaces (e.g. a profile under `/u/{slug}`). The canonical URLs work without
 any of it, so this is a naming-polish layer, not plumbing.
 
+### Results columns in the published results API
+
+A series can set its own results columns (`results-columns.md`), but the
+published results API (ADR-015) names the competitor fields a page shows,
+not the columns' order or titles. An app drawing a page as published would
+need both. Adding them is additive within v1. It waits until an app asks
+for them.
+
 ### Growing the public directory
 
 The directory at `/p` (#670) shipped as one list of club cards under a

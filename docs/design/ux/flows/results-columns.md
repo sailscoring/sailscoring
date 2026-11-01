@@ -324,7 +324,8 @@ CrewName field scorers fill with "A, B, C".
   combined pages, and the split-fleet championship pages.
 - **The published results API** names the competitor fields that are
   columns on the page it describes, as it now names the fields switched on.
-  Fields of the series' own appear as data under their names.
+  Fields of the series' own appear as data under their names. It doesn't
+  describe the columns' order or titles.
 - **Not the competitors table, finish entry or check-in.** The competitors
   table is where the data is edited, so it shows every field the series
   records. A finish-sheet row's label is built for the finish line, not for
@@ -340,7 +341,8 @@ columns they are rows in the list (*Rating calculations* under Race
 results, and *Ratings beneath each score* with the seed rating under
 Standings). The card says where they went: *"Rating calculations: set in
 Results columns."* Setting the series' own columns starts each row from the
-toggle's value.
+toggle's value. When the gate goes general, both toggles leave the
+Publishing card and live only here.
 
 *Publish track data* stays on the Publishing card. Publishing a boat's
 speeds and distances is a choice about what the series publishes, as
@@ -425,12 +427,13 @@ which stay narrow enough to read on a phone.
 
 ## Open questions
 
-- **Titles per table.** One title per column, on every table. Is there a
-  real page that titles the same field differently on its standings and its
-  race results?
-- **The publishing toggles' future.** When the gate goes general, should
-  *Publish rating calculations* and *Show per-race ratings* leave the
-  Publishing card altogether and live only in this dialog?
-- **The API's columns.** Should the published results API describe the
-  columns (order and titles) so an app can draw the page as published, or
-  keep naming fields only?
+Settled:
+
+- **One title per column**, on every table it appears on. There are no
+  titles per table.
+- **The publishing toggles leave the Publishing card** when the gate goes
+  general. They are then rows in this dialog only. Until then they move here
+  only while a series has its own columns (see *The publishing toggles*).
+- **The published results API keeps naming fields**, not columns.
+  Describing the columns' order and titles, so an app can draw a page as
+  published, is deferred to `horizon.md`.

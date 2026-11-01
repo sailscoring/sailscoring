@@ -108,7 +108,8 @@ hidden, so a fleet added later still gets its handicap columns.
 3. **Fields of a series' own**: the Competitor fields card, the competitor
    dialog, CSV import, the competitors table and search.
 4. **The gate, the settings line and the Columns dialog.** The publishing
-   toggles move into the dialog while a series has its own columns.
+   toggles move into the dialog while a series has its own columns, and
+   leave the Publishing card when the gate goes general.
 5. **Published pages and the API** follow the list. The API carries fields
    of the series' own as data.
 6. **Sailwave import and export** carry a file's published columns, order
@@ -117,9 +118,13 @@ hidden, so a fleet added later still gets its handicap columns.
 7. Help, the feature inventory and screenshot, the gating docs, and a check
    of the privacy policy: fields of a series' own may hold personal data.
 
-## Open questions
+## Settled since
 
-- Whether the publishing toggles (rating calculations, per-race ratings)
-  leave the Publishing card for good once the gate is general.
-- Whether the published results API should describe the columns (order and
-  titles) or keep naming fields only.
+- **One title per column**, used on every table it appears on.
+- **The publishing toggles leave the Publishing card** for good once the
+  gate is general. *Publish rating calculations* and *Show per-race ratings
+  in the summary* become rows in the Results columns dialog only, and the
+  automatic columns keep their present defaults. Until then, they move into
+  the dialog only while a series has its own columns.
+- **The published results API keeps naming fields.** Describing the
+  columns' order and titles is deferred (see `horizon.md`).
