@@ -1,4 +1,4 @@
-import type { FinishTrackData, Fleet, ResultCode, PenaltyCode, CompetitorFieldKey, MultiPersonFieldKey, OrcCertData, OrcCourseLeg, OrcRaceCalc, OrcScoringOptionCatalog, PrimaryPersonLabel, RaceConditions, RaceDiscardPolicy, RaceOfficial, RaceStartCourse, SubdivisionAxis } from './types';
+import type { CustomField, ResultsColumn, FinishTrackData, Fleet, ResultCode, PenaltyCode, CompetitorFieldKey, MultiPersonFieldKey, OrcCertData, OrcCourseLeg, OrcRaceCalc, OrcScoringOptionCatalog, PrimaryPersonLabel, RaceConditions, RaceDiscardPolicy, RaceOfficial, RaceStartCourse, SubdivisionAxis } from './types';
 import { buildOrcMix, type OrcMix } from './orc-mix';
 import { penaltyAmountText } from './scoring-codes';
 import type { ScoringCodeNote } from './scoring-codes-text';
@@ -29,7 +29,19 @@ import {
   DEFAULT_PRIMARY_PERSON_LABEL,
 } from './competitor-fields';
 import { renderPageNoteHtml } from './page-note';
-import { automaticColumns, columnClass, subdivisionAxisId, type ColumnRow, type CompetitorColumn } from './results-columns';
+import {
+  columnClass,
+  customFieldId,
+  scoringColumnShown,
+  scoringColumnTitle,
+  subdivisionAxisId,
+  tableColumns,
+  type ColumnRow,
+  type CompetitorColumn,
+  type RaceScoringColumnKey,
+  type StandingsScoringColumnKey,
+} from './results-columns';
+import { lookupCode } from './nationality';
 import { formatConditions, hasConditions } from './race-conditions';
 import { formatOfficials, hasOfficials, namedOfficials, officialRoleLabel } from './race-officials';
 import { compareSailNumbers } from './sail-number-sort';
@@ -87,6 +99,11 @@ export interface SeriesResultsData {
    *  race tables, headed by its label, suppressed when no competitor has a value
    *  on it. Absent/empty = no subdivision columns. */
   subdivisionAxes?: SubdivisionAxis[];
+  /** The series' custom fields; under automatic columns each becomes a
+   *  column, suppressed when no competitor has a value. */
+  customFields?: CustomField[];
+  /** The series' own results columns; absent = automatic columns. */
+  resultsColumns?: ResultsColumn[];
   /** Races in series order */
   races: RaceData[];
   /** Standings sorted by rank ascending */
@@ -352,6 +369,8 @@ export interface RaceResultData {
   worldSailingId?: string;
   /** Per-axis subdivision values, keyed by `SubdivisionAxis.id`. */
   subdivisions?: Record<string, string>;
+  /** Custom field values, keyed by `CustomField.id`. */
+  customFields?: Record<string, string>;
   /** Competitor gender, rendered as the raw "M"/"F" code. */
   gender?: 'M' | 'F' | '';
   /** Competitor age in years. */
@@ -472,6 +491,8 @@ export interface StandingRowData {
   /** Per-axis subdivision values for the prize-giving columns, keyed by
    *  `SubdivisionAxis.id`. */
   subdivisions?: Record<string, string>;
+  /** Custom field values, keyed by `CustomField.id`. */
+  customFields?: Record<string, string>;
   /** Competitor gender, rendered as the raw "M"/"F" code. */
   gender?: 'M' | 'F' | '';
   /** Competitor age in years. */
@@ -524,6 +545,9 @@ interface SectionView {
   /** The race tables' competitor columns, Rank first. */
   raceColumns: CompetitorColumn[];
   summaryRatingSystem: 'nhc' | 'echo' | null;
+  /** Whether a scoring column is shown, and the title it shows under. */
+  scoringShown: (key: StandingsScoringColumnKey | RaceScoringColumnKey) => boolean;
+  scoringTitle: (key: StandingsScoringColumnKey | RaceScoringColumnKey) => string | undefined;
 }
 
 function computeSectionView(data: SeriesResultsData): SectionView {
@@ -533,12 +557,15 @@ function computeSectionView(data: SeriesResultsData): SectionView {
   // One set of rows decides both tables, so a column on the standings is on
   // the race tables too and a reader moving between them finds it again.
   const rows = [...standings, ...races.flatMap((r) => r.results)];
-  const columns = automaticColumns(data, 'standings', rows);
   return {
     hasDiscards,
-    standingsColumns: columns,
-    raceColumns: columns,
+    standingsColumns: tableColumns(data, 'standings', rows),
+    raceColumns: tableColumns(data, 'races', rows),
     summaryRatingSystem,
+    // The per-race ratings and the NHC/ECHO working arrive already decided:
+    // the assembler attaches them only when the series shows them.
+    scoringShown: (key) => scoringColumnShown({ resultsColumns: data.resultsColumns }, key),
+    scoringTitle: (key) => scoringColumnTitle(data.resultsColumns, key),
   };
 }
 
@@ -1309,6 +1336,7 @@ export interface CompetitorListRow {
   nationality?: string;
   worldSailingId?: string;
   subdivisions?: Record<string, string>;
+  customFields?: Record<string, string>;
   gender?: 'M' | 'F' | '';
   age?: number | null;
   /** Names of every fleet the boat is entered in, joined for display. Read
@@ -1364,6 +1392,8 @@ export function renderCompetitorListHtml(
   context: {
     enabledCompetitorFields: CompetitorFieldKey[];
     subdivisionAxes?: SubdivisionAxis[];
+    customFields?: CustomField[];
+    resultsColumns?: ResultsColumn[];
     primaryPersonLabel?: PrimaryPersonLabel;
     multiPersonFields?: MultiPersonFieldKey[];
     /** Show the Fleet column; set when the page is one table and the series
@@ -1388,7 +1418,7 @@ export function renderCompetitorListHtml(
   // The columns are decided once across the whole page rather than per
   // table, so every table carries the same columns and they line up down the
   // page.
-  const columns = automaticColumns(context, 'entries', rows.map(entryColumnRow), { multiFleet });
+  const columns = tableColumns(context, 'entries', rows.map(entryColumnRow), { multiFleet });
   const showNationality = columns.some((c) => c.key === 'nationality');
   const showsWorldSailingId = columns.some((c) => c.key === 'worldSailingId');
   const headerCells = columns.map(columnHeaderCell);
@@ -2244,25 +2274,31 @@ function renderSummaryTable(
   if (placeholder) {
     standings = [...standings].sort((a, b) => compareSailNumbers(a.sailNumber, b.sailNumber));
   }
-  const showTotal = !placeholder;
+  // A series that shows its own columns may hide Total or Nett.
+  const showTotal = !placeholder && view.scoringShown('total');
+  const showNett = !placeholder && hasDiscards && view.scoringShown('nett');
+  const titled = (key: StandingsScoringColumnKey, fallback: string) => {
+    const title = view.scoringTitle(key);
+    return title ? titleHtml(title) : fallback;
+  };
   const racesSpanDays = new Set(races.map((r) => r.date)).size > 1;
   // A placeholder table has nothing to rank by, so no Rank column.
   const columns = placeholder ? view.standingsColumns.filter((c) => c.key !== 'rank') : view.standingsColumns;
   const showsWorldSailingId = columns.some((c) => c.key === 'worldSailingId');
   // competitor columns [+ seed] + races [+ total [+ nett]]
-  const colCount = columns.length + (hasSeedCol ? 1 : 0) + races.length + (showTotal ? (hasDiscards ? 2 : 1) : 0);
+  const colCount = columns.length + (hasSeedCol ? 1 : 0) + races.length + (showTotal ? 1 : 0) + (showNett ? 1 : 0);
 
   const cols = [
     ...columns.map((c) => `<col class="${columnClass(c.key)}" />`),
     ...(hasSeedCol ? ['<col class="seedrating" />'] : []),
     ...races.map(() => '<col class="race" />'),
     ...(showTotal ? ['<col class="total" />'] : []),
-    ...(showTotal && hasDiscards ? ['<col class="nett" />'] : []),
+    ...(showNett ? ['<col class="nett" />'] : []),
   ].join('\n');
 
   const headerCells = [
     ...columns.map(columnHeaderCell),
-    ...(hasSeedCol ? [`<th>${esc(seedHeader)}</th>`] : []),
+    ...(hasSeedCol ? [`<th>${titled('perRaceRatings', esc(seedHeader))}</th>`] : []),
     ...races.map((r) => {
       // The day under the number: "R2" means something to the race
       // committee, "19 Sept" to the boats that sailed it. Left off when every
@@ -2283,8 +2319,8 @@ function renderSummaryTable(
         ? `<th${titleAttr}><a class="racelink" href="#${esc(r.anchorId)}">${esc(r.label)}</a>${esc(marks)}${dateLine}</th>`
         : `<th${titleAttr}>${esc(r.label)}${esc(marks)}${dateLine}</th>`;
     }),
-    ...(showTotal ? ['<th>Total</th>'] : []),
-    ...(showTotal && hasDiscards ? ['<th>Nett</th>'] : []),
+    ...(showTotal ? [`<th>${titled('total', 'Total')}</th>`] : []),
+    ...(showNett ? [`<th>${titled('nett', 'Nett')}</th>`] : []),
   ].join('\n');
 
   const rows = standings
@@ -2328,7 +2364,7 @@ function renderSummaryTable(
         ...(hasSeedCol ? [seedCell] : []),
         scoreCells,
         ...(showTotal ? [`<td>${formatPoints(s.totalPoints)}</td>`] : []),
-        ...(showTotal && hasDiscards ? [`<td>${formatPoints(s.netPoints)}</td>`] : []),
+        ...(showNett ? [`<td>${formatPoints(s.netPoints)}</td>`] : []),
         `</tr>`,
       ].join('\n');
     })
@@ -2384,17 +2420,19 @@ ${rows}
  * columns are skipped on handicap tables, which already show Finish/ET.
  */
 export const TRACK_DATA_COLUMNS: {
+  key: RaceScoringColumnKey;
   header: string;
   title?: string;
   time?: boolean;
   value: (c: TrackDataCell | undefined) => string;
 }[] = [
-  { header: 'Finish time', time: true, value: finishTimeText },
-  { header: 'Elapsed', time: true, value: elapsedText },
-  { header: 'Distance (km)', title: 'Distance sailed', value: distanceKmText },
-  { header: 'Avg speed (kn)', value: avgSpeedKnText },
-  { header: 'Max speed (kn)', value: maxSpeedKtsText },
+  { key: 'track:finishTime', header: 'Finish time', time: true, value: finishTimeText },
+  { key: 'track:elapsed', header: 'Elapsed', time: true, value: elapsedText },
+  { key: 'track:distance', header: 'Distance (km)', title: 'Distance sailed', value: distanceKmText },
+  { key: 'track:avgSpeed', header: 'Avg speed (kn)', value: avgSpeedKnText },
+  { key: 'track:maxSpeed', header: 'Max speed (kn)', value: maxSpeedKtsText },
   {
+    key: 'track:dtl',
     header: 'DTL (m)',
     title: 'Distance to line at the starting signal',
     value: dtlAtStartText,
@@ -2429,8 +2467,16 @@ function renderRaceTable(
   // this table (no line recorded → no DTL) simply isn't rendered. Handicap
   // tables skip the two time columns they already carry as Finish/ET.
   const trackColumns = TRACK_DATA_COLUMNS.filter(
-    (col) => !(col.time && hasHandicapCols) && race.results.some((r) => col.value(r) !== ''),
+    (col) =>
+      !(col.time && hasHandicapCols) &&
+      view.scoringShown(col.key) &&
+      race.results.some((r) => col.value(r) !== ''),
   );
+  // A scoring column's heading: the series' own title where it gave one.
+  const head = (key: RaceScoringColumnKey, fallbackHtml: string, attrs = ''): string => {
+    const title = view.scoringTitle(key);
+    return `<th${attrs}>${title ? titleHtml(title) : fallbackHtml}</th>`;
+  };
   // ECHO uses "Starting H" per the IS guide; NHC uses "TCF"; static handicap
   // fleets use "TCC" — except ORC time-on-distance, whose rating is an
   // allowance in seconds per nautical mile, and a fixed-TCF fleet, which is
@@ -2458,6 +2504,56 @@ function renderRaceTable(
     if (r.rank !== null) rankCounts.set(r.rank, (rankCounts.get(r.rank) ?? 0) + 1);
   }
 
+  // The handicap columns, in their fixed order — elapsed, rating, corrected
+  // reads left to right — less any the series hides.
+  const handicapColumns: { key: RaceScoringColumnKey; col: string; th: string; cell: (r: RaceResultData) => string }[] = hasHandicapCols
+    ? [
+        ...(hasLapsCol
+          ? [{
+              key: 'laps' as const,
+              col: '<col class="laps" />',
+              th: head('laps', 'Laps', ' title="Laps sailed. A boat on fewer than the most is corrected on the full course."'),
+              cell: (r: RaceResultData) => `<td class="mono">${r.laps ?? ''}</td>`,
+            }]
+          : []),
+        {
+          key: 'finish' as const,
+          col: '<col class="finish" />',
+          th: head('finish', 'Finish'),
+          cell: (r: RaceResultData) => `<td class="mono">${esc(r.finishTime ?? '')}</td>`,
+        },
+        {
+          key: 'elapsed' as const,
+          col: '<col class="et" />',
+          th: head('elapsed', 'ET'),
+          cell: (r: RaceResultData) => `<td class="mono">${r.elapsedTimeSecs != null ? formatElapsedInput(r.elapsedTimeSecs) : ''}</td>`,
+        },
+        {
+          key: 'rating' as const,
+          col: `<col class="${ratingColClass}" />`,
+          th: head('rating', ratingLabel),
+          cell: (r: RaceResultData) =>
+            `<td class="mono"${r.ircCertNumber ? ` title="IRC certificate ${esc(r.ircCertNumber)}"` : ''}>${r.tcc != null ? r.tcc.toFixed(isOrcTod ? 1 : isOrcTot ? 4 : 3) : ''}${r.tccOverride ? '<span class="override-marker" title="Per-race rating override">*</span>' : ''}</td>`,
+        },
+        {
+          key: 'corrected' as const,
+          col: '<col class="ct" />',
+          th: head('corrected', 'CT'),
+          cell: (r: RaceResultData) => `<td class="mono">${r.correctedTimeSecs != null ? formatElapsedInput(r.correctedTimeSecs) : ''}</td>`,
+        },
+        {
+          key: 'delta' as const,
+          col: '<col class="delta" />',
+          th: head('delta', 'Delta', ' title="Corrected time behind the winner"'),
+          cell: (r: RaceResultData) =>
+            `<td class="mono">${winnerCtSecs !== null && r.rank !== null && r.correctedTimeSecs != null ? formatTimeBehind(r.correctedTimeSecs - winnerCtSecs) : ''}</td>`,
+        },
+      ].filter((c) => view.scoringShown(c.key))
+    : [];
+  const showIw = isOrcPcs && view.scoringShown('impliedWind');
+  const showNewTcf = isNhc && view.scoringShown('newRating');
+  const showNewH = isEcho && view.scoringShown('newRating');
+
   const rows = race.results
     .map((r, i) => {
       const rowClass = i % 2 === 0 ? 'odd' : 'even';
@@ -2467,21 +2563,12 @@ function renderRaceTable(
       // podium classes so per-race and summary podiums share one colour scheme.
       const podiumClass = r.rank !== null && r.rank >= 1 && r.rank <= 3 ? ` class="rank${r.rank}"` : '';
       const pointsText = esc(raceResultPointsText(r));
-      const handicapCells = hasHandicapCols
-        ? [
-            ...(hasLapsCol ? [`<td class="mono">${r.laps ?? ''}</td>`] : []),
-            `<td class="mono">${esc(r.finishTime ?? '')}</td>`,
-            `<td class="mono">${r.elapsedTimeSecs != null ? formatElapsedInput(r.elapsedTimeSecs) : ''}</td>`,
-            `<td class="mono"${r.ircCertNumber ? ` title="IRC certificate ${esc(r.ircCertNumber)}"` : ''}>${r.tcc != null ? r.tcc.toFixed(isOrcTod ? 1 : isOrcTot ? 4 : 3) : ''}${r.tccOverride ? '<span class="override-marker" title="Per-race rating override">*</span>' : ''}</td>`,
-            `<td class="mono">${r.correctedTimeSecs != null ? formatElapsedInput(r.correctedTimeSecs) : ''}</td>`,
-            `<td class="mono">${winnerCtSecs !== null && r.rank !== null && r.correctedTimeSecs != null ? formatTimeBehind(r.correctedTimeSecs - winnerCtSecs) : ''}</td>`,
-          ]
-        : [];
-      const orcIwCell = isOrcPcs
+      const handicapCells = handicapColumns.map((c) => c.cell(r));
+      const orcIwCell = showIw
         ? [`<td class="mono"${r.impliedWind != null ? ` title="${r.impliedWind.toFixed(5)} kt"` : ''}>${r.impliedWind != null ? r.impliedWind.toFixed(2) : ''}</td>`]
         : [];
-      const nhcNewTcfCell = isNhc ? [renderNhcNewTcfCell(r)] : [];
-      const echoNewHCell = isEcho ? [renderEchoNewHCell(r)] : [];
+      const nhcNewTcfCell = showNewTcf ? [renderNhcNewTcfCell(r)] : [];
+      const echoNewHCell = showNewH ? [renderEchoNewHCell(r)] : [];
       const nhcCells = hasExplain ? renderNhcCells(r) : [];
       const echoCells = hasEchoExplain ? renderEchoCells(r) : [];
       return [
@@ -2509,29 +2596,24 @@ function renderRaceTable(
   // competitor columns + Points
   const baseColCount = columns.length + 1;
   const colCount = baseColCount
-    + (hasHandicapCols ? 5 : 0)
-    + (hasLapsCol ? 1 : 0)
-    + (isOrcPcs ? 1 : 0)
-    + (isNhc ? 1 : 0) + (hasExplain ? 5 : 0)
-    + (isEcho ? 1 : 0) + (hasEchoExplain ? 3 : 0)
+    + handicapColumns.length
+    + (showIw ? 1 : 0)
+    + (showNewTcf ? 1 : 0) + (hasExplain ? 5 : 0)
+    + (showNewH ? 1 : 0) + (hasEchoExplain ? 3 : 0)
     + trackColumns.length;
   const trackHeaders = trackColumns
-    .map((col) => `\n<th${col.title ? ` title="${esc(col.title)}"` : ''}>${esc(col.header)}</th>`)
+    .map((col) => `\n${head(col.key, esc(col.header), col.title ? ` title="${esc(col.title)}"` : '')}`)
     .join('');
   const trackCols = trackColumns.map(() => '\n<col class="trackdata" />').join('');
-  const handicapHeaders = hasHandicapCols
-    ? `${hasLapsCol ? '\n<th title="Laps sailed. A boat on fewer than the most is corrected on the full course.">Laps</th>' : ''}\n<th>Finish</th>\n<th>ET</th>\n<th>${ratingLabel}</th>\n<th>CT</th>\n<th title="Corrected time behind the winner">Delta</th>`
-    : '';
-  const handicapCols = hasHandicapCols
-    ? `${hasLapsCol ? '\n<col class="laps" />' : ''}\n<col class="finish" />\n<col class="et" />\n<col class="${ratingColClass}" />\n<col class="ct" />\n<col class="delta" />`
-    : '';
+  const handicapHeaders = handicapColumns.map((c) => `\n${c.th}`).join('');
+  const handicapCols = handicapColumns.map((c) => `\n${c.col}`).join('');
   // "New TCF" is always visible for NHC fleets (alongside Finish/ET/TCF/CT) —
   // it's the next-race rating, the headline output of progressive scoring, so
   // it shows even when the scorer has opted out of publishing the underlying
   // calculations. The five SWNHC2015 explainability columns (Q, S, α, Z,
   // Adjustment) remain under the calculation toggle for verification.
-  const nhcNewTcfHeader = isNhc ? '\n<th>New TCF</th>' : '';
-  const nhcNewTcfCol = isNhc ? '\n<col class="newtcf" />' : '';
+  const nhcNewTcfHeader = showNewTcf ? `\n${head('newRating', 'New TCF')}` : '';
+  const nhcNewTcfCol = showNewTcf ? '\n<col class="newtcf" />' : '';
   const nhcHeaders = hasExplain
     ? '\n<th class="nhc-detail">Q</th>\n<th class="nhc-detail">S</th>\n<th class="nhc-detail">α</th>\n<th class="nhc-detail">Z</th>\n<th class="nhc-detail">Adjustment</th>'
     : '';
@@ -2547,10 +2629,10 @@ function renderRaceTable(
   // toggle; New H is always visible for ECHO fleets so competitors see next
   // race's handicap regardless of whether the math is being published. Header
   // reproduces the IS-formula inputs.
-  const echoNewHHeader = isEcho ? '\n<th>New H</th>' : '';
-  const echoNewHCol = isEcho ? '\n<col class="newh" />' : '';
-  const orcIwHeader = isOrcPcs ? '\n<th>Implied wind</th>' : '';
-  const orcIwCol = isOrcPcs ? '\n<col class="iw" />' : '';
+  const echoNewHHeader = showNewH ? `\n${head('newRating', 'New H')}` : '';
+  const echoNewHCol = showNewH ? '\n<col class="newh" />' : '';
+  const orcIwHeader = showIw ? `\n${head('impliedWind', 'Implied wind')}` : '';
+  const orcIwCol = showIw ? '\n<col class="iw" />' : '';
   // The ORC audit line: how this race's corrected times were arrived at —
   // the scoring wind and its source, the course, and the scratch allowance.
   // Always visible: making PCS checkable by competitors is the point.
@@ -2691,7 +2773,7 @@ ${columns.map((c) => `<col class="${columnClass(c.key)}" />\n`).join('')}${handi
 <thead>
 <tr class="titlerow">
 ${columns.map(columnHeaderCell).join('\n')}${handicapHeaders}${orcIwHeader}${nhcNewTcfHeader}${echoNewHHeader}${nhcHeaders}${echoHeaders}
-<th>Points</th>${trackHeaders}
+${head('points', 'Points')}${trackHeaders}
 </tr>
 </thead>
 <tbody>
@@ -2890,15 +2972,27 @@ function entryCellRow(r: CompetitorListRow): CompetitorCellRow {
     nationality: r.nationality,
     worldSailingId: r.worldSailingId,
     subdivisions: r.subdivisions,
+    customFields: r.customFields,
     gender: r.gender,
     age: r.age,
     fleetNames: r.fleetNames,
   };
 }
 
+/** A column title as heading HTML: escaped, its lines (a title in two
+ *  languages) one above the other. */
+function titleHtml(title: string): string {
+  return title.split('\n').map(esc).join('<br>');
+}
+
 /** A competitor column's heading cell. */
 function columnHeaderCell(column: CompetitorColumn): string {
-  return `<th>${esc(column.header)}</th>`;
+  return `<th>${titleHtml(column.header)}</th>`;
+}
+
+/** A person list on one line, joined with " & ", or one name per line. */
+function personListCell(values: string[] | undefined, join: boolean | undefined): string {
+  return join ? esc(formatPrimaryNames(values ?? [])) : renderListCell(values);
 }
 
 /** One competitor column's cell. `rankCell` is the table's own Rank cell —
@@ -2915,6 +3009,8 @@ function renderCompetitorCell(
 ): string {
   const axisId = subdivisionAxisId(column.key);
   if (axisId != null) return `<td>${esc(row.subdivisions?.[axisId] ?? '')}</td>`;
+  const fieldId = customFieldId(column.key);
+  if (fieldId != null) return `<td>${esc(row.customFields?.[fieldId] ?? '')}</td>`;
   switch (column.key) {
     case 'rank': return ctx.rankCell;
     case 'fleet': return `<td>${esc((row.fleetNames ?? []).join(', '))}</td>`;
@@ -2924,16 +3020,25 @@ function renderCompetitorCell(
     case 'tallyNumber': return `<td>${esc(row.tallyNumber ?? '')}</td>`;
     case 'boatName': return `<td>${esc(row.boatName ?? '')}</td>`;
     case 'boatClass': return `<td>${esc(row.boatClass ?? '')}</td>`;
-    case 'primary':
-      return `<td>${renderHelmCell(row.helm, row.crewNames, column.pairCrew === true, helmBioUrl(row.worldSailingId, ctx.showsWorldSailingId))}</td>`;
-    case 'helm': return `<td>${renderListCell(row.helmRole)}</td>`;
-    case 'owner': return `<td>${renderListCell(row.owner)}</td>`;
-    case 'crewName': return `<td>${renderListCell(row.crewNames)}</td>`;
+    case 'primary': {
+      // A name list the scorer wants on one line is joined before it is
+      // paired, so "J. Murphy & M. Murphy / A. Crew" stays one line.
+      const names = column.joinNames ? [formatPrimaryNames(row.helm)] : row.helm;
+      const crew = column.joinCrew && row.crewNames?.length ? [formatPrimaryNames(row.crewNames)] : row.crewNames;
+      return `<td>${renderHelmCell(names, crew, column.pairCrew === true, helmBioUrl(row.worldSailingId, ctx.showsWorldSailingId))}</td>`;
+    }
+    case 'helm': return `<td>${personListCell(row.helmRole, column.joinNames)}</td>`;
+    case 'owner': return `<td>${personListCell(row.owner, column.joinNames)}</td>`;
+    case 'crewName': return `<td>${personListCell(row.crewNames, column.joinNames)}</td>`;
     case 'club': return `<td>${renderListCell(row.clubs)}</td>`;
     case 'nationality': return renderNationalityCell(row.nationality, ctx.flagSvgByCode);
     case 'worldSailingId': return renderWorldSailingIdCell(row.worldSailingId);
     case 'age': return `<td>${row.age != null ? row.age : ''}</td>`;
     case 'gender': return `<td>${esc(row.gender ?? '')}</td>`;
+    case 'country': {
+      const code = row.nationality;
+      return `<td>${code ? esc(lookupCode(code)?.name ?? code) : ''}</td>`;
+    }
   }
   return '<td></td>';
 }
@@ -3323,7 +3428,7 @@ export function assembleSeriesResultsData(
   races: Array<{ id: string; raceNumber: number; order?: number; name?: string | null; date: string; discardPolicy?: RaceDiscardPolicy; pointsMultiplier?: number; conditions?: RaceConditions; officials?: RaceOfficial[] }>,
   standings: Array<{
     rank: number;
-    competitor: { id: string; sailNumber: string; bowNumber?: string; entryNumber?: string; tallyNumber?: string; boatName?: string; boatClass?: string; names: string[]; owners?: string[]; helms?: string[]; crewNames?: string[]; clubs?: string[]; nationality?: string; worldSailingId?: string; subdivisions?: Record<string, string>; gender?: 'M' | 'F' | ''; age?: number | null };
+    competitor: { id: string; sailNumber: string; bowNumber?: string; entryNumber?: string; tallyNumber?: string; boatName?: string; boatClass?: string; names: string[]; owners?: string[]; helms?: string[]; crewNames?: string[]; clubs?: string[]; nationality?: string; worldSailingId?: string; subdivisions?: Record<string, string>; customFields?: Record<string, string>; gender?: 'M' | 'F' | ''; age?: number | null };
     racePoints: number[];
     raceCodes: (ResultCode | null)[];
     racePenaltyCodes?: (PenaltyCode | null)[];
@@ -3338,7 +3443,7 @@ export function assembleSeriesResultsData(
     raceNotScored?: boolean[];
   }>,
   raceScoresByRaceId: Map<string, Map<string, { points: number; place: number | null; rank: number | null; resultCode: ResultCode | null; penaltyCode?: PenaltyCode | null; penaltyOverride?: number | null; penaltyInPoints?: boolean; penaltyLabel?: string; finishTime?: string | null; elapsedSecs?: number | null; trackData?: FinishTrackData | null; tcfApplied?: number | null; tccOverride?: boolean; newTcf?: number | null; elapsedTime?: number | null; courseElapsedTime?: number; laps?: number; correctedTime?: number | null; orc?: OrcRaceCalc; nhc?: { fairTcf: number; compScore: number; isExtreme: boolean; extremeDirection?: 'fast' | 'slow'; alphaApplied: number; provisionalTcf: number; adjustment: number }; echo?: { ctRatio: number; fairTcf: number; adjustment: number; alphaApplied: number } }>>,
-  competitorsById: Map<string, { sailNumber: string; bowNumber?: string; entryNumber?: string; tallyNumber?: string; boatName?: string; boatClass?: string; names: string[]; owners?: string[]; helms?: string[]; crewNames?: string[]; clubs?: string[]; nationality?: string; worldSailingId?: string; subdivisions?: Record<string, string>; gender?: 'M' | 'F' | ''; age?: number | null; ircTcc?: number; vprsTcc?: number; fixedTcf?: number; pyNumber?: number; orcCert?: OrcCertData; ircCert?: { certNumber?: string } }>,
+  competitorsById: Map<string, { sailNumber: string; bowNumber?: string; entryNumber?: string; tallyNumber?: string; boatName?: string; boatClass?: string; names: string[]; owners?: string[]; helms?: string[]; crewNames?: string[]; clubs?: string[]; nationality?: string; worldSailingId?: string; subdivisions?: Record<string, string>; customFields?: Record<string, string>; gender?: 'M' | 'F' | ''; age?: number | null; ircTcc?: number; vprsTcc?: number; fixedTcf?: number; pyNumber?: number; orcCert?: OrcCertData; ircCert?: { certNumber?: string } }>,
   enabledCompetitorFields: CompetitorFieldKey[],
   generatedAt: Date,
   fleetName?: string,
@@ -3350,6 +3455,10 @@ export function assembleSeriesResultsData(
     multiPersonFields?: MultiPersonFieldKey[];
     /** Named subdivision axes; one prize-giving column each. */
     subdivisionAxes?: SubdivisionAxis[];
+    /** The series' custom fields. */
+    customFields?: CustomField[];
+    /** The series' own results columns; absent = automatic columns. */
+    resultsColumns?: ResultsColumn[];
     /** RaceStart records for all races — used to find the gun time for this fleet */
     raceStarts?: Array<{ raceId: string; fleetIds: string[]; startTime?: string; courseLegs?: OrcCourseLeg[]; course?: RaceStartCourse }>;
     /** ID of the fleet being rendered */
@@ -3411,7 +3520,7 @@ export function assembleSeriesResultsData(
     courseBackgroundSet?: string;
   },
 ): SeriesResultsData {
-  const { raceStarts, fleetId, scoringSystem, ratingColumnLabel, nhcAggregatesByRaceId, echoAggregatesByRaceId, primaryPersonLabel, multiPersonFields, subdivisionAxes, showPerRaceRatings, seedRatingByCompetitorId, anchorPrefix, resultsFinal, finalisedAt, officials, publishOfficials, showTrackData, orcScoringOptions } = options ?? {};
+  const { raceStarts, fleetId, scoringSystem, ratingColumnLabel, nhcAggregatesByRaceId, echoAggregatesByRaceId, primaryPersonLabel, multiPersonFields, subdivisionAxes, customFields, resultsColumns, showPerRaceRatings, seedRatingByCompetitorId, anchorPrefix, resultsFinal, finalisedAt, officials, publishOfficials, showTrackData, orcScoringOptions } = options ?? {};
   const isHandicap = scoringSystem === 'irc' || scoringSystem === 'vprs' || scoringSystem === 'tcf' || scoringSystem === 'py' || scoringSystem === 'nhc' || scoringSystem === 'echo' || scoringSystem === 'orc';
   const isNhcExplain = scoringSystem === 'nhc' && nhcAggregatesByRaceId != null;
   const isEchoExplain = scoringSystem === 'echo' && echoAggregatesByRaceId != null;
@@ -3622,6 +3731,9 @@ export function assembleSeriesResultsData(
         ...(competitor.subdivisions && Object.keys(competitor.subdivisions).length > 0
           ? { subdivisions: competitor.subdivisions }
           : {}),
+        ...(competitor.customFields && Object.keys(competitor.customFields).length > 0
+          ? { customFields: competitor.customFields }
+          : {}),
         ...(competitor.gender ? { gender: competitor.gender } : {}),
         ...(competitor.age != null ? { age: competitor.age } : {}),
         place: score.place,
@@ -3735,6 +3847,9 @@ export function assembleSeriesResultsData(
       ...(s.competitor.subdivisions && Object.keys(s.competitor.subdivisions).length > 0
         ? { subdivisions: s.competitor.subdivisions }
         : {}),
+      ...(s.competitor.customFields && Object.keys(s.competitor.customFields).length > 0
+        ? { customFields: s.competitor.customFields }
+        : {}),
       ...(s.competitor.gender ? { gender: s.competitor.gender } : {}),
       ...(s.competitor.age != null ? { age: s.competitor.age } : {}),
       ...(seedRating != null ? { seedRating } : {}),
@@ -3792,6 +3907,8 @@ export function assembleSeriesResultsData(
     ...(primaryPersonLabel ? { primaryPersonLabel } : {}),
     ...(multiPersonFields?.length ? { multiPersonFields } : {}),
     ...(subdivisionAxes?.length ? { subdivisionAxes } : {}),
+    ...(customFields?.length ? { customFields } : {}),
+    ...(resultsColumns ? { resultsColumns } : {}),
     races: raceDataList,
     standings: standingRows,
     ...(isProgressive ? { progressiveScoringSystem: scoringSystem as 'nhc' | 'echo' } : {}),

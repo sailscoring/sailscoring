@@ -72,6 +72,7 @@ import {
   defaultEnabledCompetitorFields,
   DEFAULT_PRIMARY_PERSON_LABEL,
 } from './competitor-fields';
+import { scoringColumnShown } from './results-columns';
 import { pageNoteFor, type NotePageRef } from './page-note';
 import { isSyntheticFleetName } from './publishing';
 import { buildSchedule } from './schedule';
@@ -455,6 +456,9 @@ async function buildCompetitorListFile(
     ...(c.subdivisions && Object.keys(c.subdivisions).length > 0
       ? { subdivisions: c.subdivisions }
       : {}),
+    ...(c.customFields && Object.keys(c.customFields).length > 0
+      ? { customFields: c.customFields }
+      : {}),
     ...(c.gender ? { gender: c.gender } : {}),
     ...(c.age != null ? { age: c.age } : {}),
     fleetNames: displayed.get(c.id)!.map((f) => f.name),
@@ -546,6 +550,8 @@ async function buildCompetitorListFile(
       {
         enabledCompetitorFields,
         subdivisionAxes: series.subdivisionAxes ?? [],
+        ...(series.customFields?.length ? { customFields: series.customFields } : {}),
+        ...(series.resultsColumns ? { resultsColumns: series.resultsColumns } : {}),
         primaryPersonLabel: series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
         ...(series.multiPersonFields ? { multiPersonFields: series.multiPersonFields } : {}),
         // The column earns its place only when the roster is actually
@@ -1281,8 +1287,10 @@ export async function buildFleetHtmlFiles(
     const fleetName = isSingleDefault ? undefined : fleet.name;
 
     // Build NHC / ECHO aggregates header maps iff publishing toggle is on
-    const publishRatingCalcs = series.publishRatingCalculations ?? true;
-    const showPerRaceRatings = series.showPerRaceRatingsInSummary ?? true;
+    // The Publishing card's toggles under automatic columns; the series' own
+    // columns, when it has them.
+    const publishRatingCalcs = scoringColumnShown(series, 'ratingCalculations');
+    const showPerRaceRatings = scoringColumnShown(series, 'perRaceRatings');
     // Build seed-rating map for NHC/ECHO fleets — populated from the
     // competitor's initial TCF/H. Restricted to this fleet's competitors.
     const seedRatingByCompetitorId = (isNhc || isEcho)
@@ -1349,6 +1357,8 @@ export async function buildFleetHtmlFiles(
           subdivisionAxes: (series.subdivisionAxes ?? []).filter(
             (axis) => axis.id !== section?.axisId,
           ),
+          ...(series.customFields?.length ? { customFields: series.customFields } : {}),
+          ...(series.resultsColumns ? { resultsColumns: series.resultsColumns } : {}),
           ...(nhcAggregatesForRender ? { nhcAggregatesByRaceId: nhcAggregatesForRender } : {}),
           ...(echoAggregatesForRender ? { echoAggregatesByRaceId: echoAggregatesForRender } : {}),
           showPerRaceRatings,

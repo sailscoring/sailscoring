@@ -220,6 +220,9 @@ export interface ColumnSettings {
   primaryPersonLabel?: PrimaryPersonLabel;
   multiPersonFields?: readonly MultiPersonFieldKey[];
   subdivisionAxes?: readonly SubdivisionAxis[];
+  customFields?: readonly CustomField[];
+  /** The series' own columns; absent = automatic columns. */
+  resultsColumns?: readonly ResultsColumn[];
 }
 
 /**
@@ -242,15 +245,21 @@ export interface ColumnRow {
   subdivisions?: Record<string, string>;
   gender?: 'M' | 'F' | '';
   age?: number | null;
+  customFields?: Record<string, string>;
 }
 
 /** One column of a table, decided. */
 export interface CompetitorColumn {
   key: CompetitorColumnKey;
-  /** The column's heading, as plain text. */
+  /** The column's heading, as plain text. A title the scorer gave two lines
+   *  carries them split by "\n". */
   header: string;
   /** On `primary`: the crew share this column ("Helm / Crew"). */
   pairCrew?: boolean;
+  /** Several names on one line, joined with " & ". On `primary` paired with
+   *  the crew, `joinCrew` says the same of the crew. */
+  joinNames?: boolean;
+  joinCrew?: boolean;
 }
 
 /** The subdivision axis a `subdivision:<id>` key names, if it is one. */
@@ -262,6 +271,7 @@ export function subdivisionAxisId(key: string): string | null {
  *  readers' own stylesheets target them. */
 export function columnClass(key: CompetitorColumnKey): string {
   if (subdivisionAxisId(key) != null) return 'subdivision';
+  if (customFieldId(key) != null) return 'customfield';
   switch (key) {
     case 'rank': return 'rank';
     case 'fleet': return 'fleet';
@@ -280,6 +290,7 @@ export function columnClass(key: CompetitorColumnKey): string {
     case 'worldSailingId': return 'wsid';
     case 'age': return 'age';
     case 'gender': return 'gender';
+    case 'country': return 'country';
   }
   return 'competitor';
 }
@@ -309,6 +320,10 @@ export function defaultColumnHeader(
     const axis = settings.subdivisionAxes?.find((a) => a.id === axisId);
     return axis?.label?.trim() || DEFAULT_SUBDIVISION_LABEL;
   }
+  const fieldId = customFieldId(key);
+  if (fieldId != null) {
+    return settings.customFields?.find((f) => f.id === fieldId)?.label.trim() || 'Custom field';
+  }
   const people = personHeaders(settings);
   switch (key) {
     case 'rank': return 'Rank';
@@ -328,6 +343,7 @@ export function defaultColumnHeader(
     case 'worldSailingId': return 'World Sailing ID';
     case 'age': return 'Age';
     case 'gender': return 'Gender';
+    case 'country': return 'Country';
   }
   return key;
 }
@@ -339,6 +355,8 @@ export function defaultColumnHeader(
 export function columnHasValues(key: CompetitorColumnKey, rows: readonly ColumnRow[]): boolean {
   const axisId = subdivisionAxisId(key);
   if (axisId != null) return rows.some((r) => !!r.subdivisions?.[axisId]);
+  const fieldId = customFieldId(key);
+  if (fieldId != null) return rows.some((r) => !!r.customFields?.[fieldId]?.trim());
   switch (key) {
     case 'bowNumber': return rows.some((r) => !!r.bowNumber);
     case 'entryNumber': return rows.some((r) => !!r.entryNumber);
@@ -349,7 +367,9 @@ export function columnHasValues(key: CompetitorColumnKey, rows: readonly ColumnR
     case 'owner': return rows.some((r) => (r.owner?.length ?? 0) > 0);
     case 'crewName': return rows.some((r) => (r.crewNames?.length ?? 0) > 0);
     case 'club': return rows.some((r) => (r.clubs?.length ?? 0) > 0);
-    case 'nationality': return rows.some((r) => !!r.nationality);
+    case 'nationality':
+    case 'country':
+      return rows.some((r) => !!r.nationality);
     case 'worldSailingId': return rows.some((r) => !!r.worldSailingId);
     case 'age': return rows.some((r) => r.age != null);
     case 'gender': return rows.some((r) => !!r.gender);
@@ -416,12 +436,136 @@ export function automaticColumns(
   }
   if (shown('age')) keys.push('age');
   if (shown('gender')) keys.push('gender');
+  // Custom fields come last, each left off when no boat has a value.
+  for (const field of settings.customFields ?? []) {
+    const key = `field:${field.id}` as const;
+    if (columnHasValues(key, rows)) keys.push(key);
+  }
 
   return keys.map((key) => ({
     key,
     header: defaultColumnHeader(key, settings, { pairCrew: key === 'primary' && pairCrew }),
     ...(key === 'primary' && pairCrew ? { pairCrew: true } : {}),
   }));
+}
+
+/**
+ * The competitor columns for one table: the series' own columns when it has
+ * them, otherwise the automatic ones.
+ */
+export function tableColumns(
+  settings: ColumnSettings,
+  table: ResultsTable,
+  rows: readonly ColumnRow[],
+  opts?: { multiFleet?: boolean },
+): CompetitorColumn[] {
+  return settings.resultsColumns
+    ? ownColumns(settings, settings.resultsColumns, table, rows, opts)
+    : automaticColumns(settings, table, rows, opts);
+}
+
+/**
+ * Whether a competitor column can appear on a table at all: its field is
+ * switched on, its subdivision axis or custom field still exists, and it
+ * means something there — Rank is not on an entry list, the Fleet column
+ * only on the entry list's single table across several fleets.
+ */
+export function columnAvailable(
+  key: CompetitorColumnKey,
+  settings: ColumnSettings,
+  table: ResultsTable,
+  opts?: { multiFleet?: boolean },
+): boolean {
+  const on = (k: CompetitorFieldKey) => settings.enabledCompetitorFields.includes(k);
+  const primaryLabel = settings.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL;
+  const axisId = subdivisionAxisId(key);
+  if (axisId != null) return on('subdivision') && !!settings.subdivisionAxes?.some((a) => a.id === axisId);
+  const fieldId = customFieldId(key);
+  if (fieldId != null) return !!settings.customFields?.some((f) => f.id === fieldId);
+  switch (key) {
+    case 'rank': return table !== 'entries';
+    case 'fleet': return table === 'entries' && opts?.multiFleet === true;
+    case 'sailNumber':
+    case 'primary':
+      return true;
+    case 'helm':
+    case 'owner':
+      return on(key) && !isFieldDisabledByPrimary(key, primaryLabel);
+    case 'country': return on('nationality');
+  }
+  return on(key as CompetitorFieldKey);
+}
+
+/** The series' own columns for one table, in its order, each under its own
+ *  title where it has one. */
+function ownColumns(
+  settings: ColumnSettings,
+  list: readonly ResultsColumn[],
+  table: ResultsTable,
+  rows: readonly ColumnRow[],
+  opts?: { multiFleet?: boolean },
+): CompetitorColumn[] {
+  const crew = list.find((c) => c.key === 'crewName');
+  const crewInPrimary = crew?.inPrimary === true && columnAvailable('crewName', settings, table, opts);
+  const out: CompetitorColumn[] = [];
+  for (const column of list) {
+    if (!isCompetitorColumnKey(column.key)) continue;
+    const key = column.key;
+    if (!columnAvailable(key, settings, table, opts)) continue;
+    if (column.tables && !column.tables.includes(table)) continue;
+    if (key === 'crewName' && crewInPrimary) continue;
+    const always = key === 'rank' || key === 'fleet' || (REQUIRED_COLUMNS as readonly string[]).includes(key);
+    if (!always && !column.showWhenEmpty && !columnHasValues(key, rows)) continue;
+    const pairCrew = key === 'primary' && crewInPrimary;
+    const title = column.title != null ? titleLines(column.title).join('\n') : '';
+    out.push({
+      key,
+      header: title || defaultColumnHeader(key, settings, { pairCrew }),
+      ...(pairCrew ? { pairCrew: true } : {}),
+      ...(column.joinNames ? { joinNames: true } : {}),
+      ...(pairCrew && crew?.joinNames ? { joinCrew: true } : {}),
+    });
+  }
+  return out;
+}
+
+/** What a series says about its scoring columns: its own list, and the
+ *  publishing toggles that decide two of them under automatic columns. */
+export interface ScoringColumnSettings {
+  resultsColumns?: readonly ResultsColumn[];
+  publishRatingCalculations?: boolean;
+  showPerRaceRatingsInSummary?: boolean;
+}
+
+/**
+ * Whether a scoring column is shown. Under automatic columns every one is,
+ * except that the NHC and ECHO working and the per-race ratings follow the
+ * Publishing card's toggles. With the series' own columns the list decides;
+ * a scoring column it doesn't mention is shown, since it is part of the
+ * table rather than a choice the scorer made.
+ */
+export function scoringColumnShown(
+  settings: ScoringColumnSettings,
+  key: StandingsScoringColumnKey | RaceScoringColumnKey,
+): boolean {
+  if (settings.resultsColumns) {
+    const column = settings.resultsColumns.find((c) => c.key === key);
+    return column ? column.hidden !== true || UNHIDEABLE_SCORING_COLUMNS.includes(key) : true;
+  }
+  if (key === 'ratingCalculations') return settings.publishRatingCalculations ?? true;
+  if (key === 'perRaceRatings') return settings.showPerRaceRatingsInSummary ?? true;
+  return true;
+}
+
+/** A scoring column's own title, as its lines split by "\n", or undefined
+ *  for its default. */
+export function scoringColumnTitle(
+  columns: readonly ResultsColumn[] | undefined,
+  key: StandingsScoringColumnKey | RaceScoringColumnKey,
+): string | undefined {
+  const title = columns?.find((c) => c.key === key)?.title;
+  const lines = title != null ? titleLines(title) : [];
+  return lines.length > 0 ? lines.join('\n') : undefined;
 }
 
 /** Where the crew go. Beside the primary ("Helm / Crew") when the primary is
