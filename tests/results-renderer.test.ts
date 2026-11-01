@@ -2331,7 +2331,7 @@ describe('renderCompetitorListHtml', () => {
         multiFleet: true,
         checklist,
       });
-      expect(html).toContain('<div class="starterslist">');
+      expect(html).toContain('<div class="starterslist starters-d0">');
       expect(html).toContain('<th class="startershead" colspan="4">Class 1</th>');
       expect(html).toContain('<th class="startershead" colspan="3">Class 2</th>');
       expect(html).toContain('<td class="sail">2001</td>');
@@ -2388,13 +2388,59 @@ describe('renderCompetitorListHtml', () => {
       expect(html).toContain('table.starterstable td.tick::before');
     });
 
+    it('lays the sheet out as planned, a page of two columns at a time', () => {
+      // Five classes of twenty: more than a page however it is set.
+      const big = Array.from({ length: 5 }, (_, i) => ({
+        heading: `Class ${i + 1}`,
+        boats: Array.from({ length: 20 }, (_, j) => ({ sailNumber: String(i * 100 + j) })),
+      }));
+      const html = renderCompetitorListHtml(chrome, flat(rows), {
+        enabledCompetitorFields: [],
+        multiFleet: true,
+        checklist: big,
+      });
+      const pages = html.split('<div class="starterspage">').slice(1);
+      expect(pages).toHaveLength(2);
+      // The series line heads the first page only.
+      expect(pages[0]).toContain('<div class="startersident">');
+      expect(pages[1]).not.toContain('<div class="startersident">');
+      // Every class on one page or the other, never both.
+      for (const t of big) {
+        const on = pages.filter((p) => p.includes(`>${t.heading}</th>`));
+        expect(on).toHaveLength(1);
+      }
+      expect(html).toContain('.starterspage + .starterspage { break-before: page; }');
+    });
+
+    it('prints at the size and row heights it was planned for', () => {
+      const html = renderCompetitorListHtml(chrome, flat(rows), {
+        enabledCompetitorFields: [],
+        multiFleet: true,
+        checklist,
+      });
+      expect(html).toContain('@page { size: A4; margin: 8mm; }');
+      expect(html).toContain('.starters-d0 table.starterstable td { height: calc(7.6mm - 1px); }');
+      expect(html).not.toContain('column-count');
+    });
+
+    it('sets the number beside its box on a table with no boat names', () => {
+      const html = renderCompetitorListHtml(chrome, flat(rows), {
+        enabledCompetitorFields: [],
+        multiFleet: true,
+        checklist,
+      });
+      // The write-in space takes the rest of the row, not the number's cell.
+      expect(html).toContain('<table class="starterstable noboat"');
+      expect(html).toContain('table.starterstable.noboat td.write { width: auto; }');
+    });
+
     it('heads no table on a series with a single start', () => {
       const html = renderCompetitorListHtml(chrome, flat(rows), {
         enabledCompetitorFields: [],
         multiFleet: false,
         checklist: [{ heading: null, boats: [{ sailNumber: '4' }] }],
       });
-      expect(html).toContain('<div class="starterslist">');
+      expect(html).toContain('<div class="starterslist starters-d0">');
       expect(html).not.toContain('<th class="startershead"');
     });
 

@@ -628,15 +628,23 @@ export default function Publishing() {
             not per fleet: a class scored under IRC and ECHO at once is one table, with every boat
             on it once. The starts come from your default start sequence (Settings → Fleets) when
             you have set one up; otherwise fleets that share a boat are taken to share a start.
-            Sail numbers are set large for a moving boat, and the tables run in columns. A class
-            that runs from one column into the next carries its name over, so a column never
-            starts with boats you cannot place.
+            Sail numbers are set large for a moving boat, and the tables run in two columns to a
+            page. A class that runs from one column into the next carries its name over, so a
+            column never starts with boats you cannot place.
+          </p>
+          <p>
+            The sheet is laid out to fit the paper, as you would lay it out by hand. A list a
+            few rows too long for one A4 page is set a little tighter — one spare row per start
+            rather than two first, then smaller rows — rather than printing a second page for
+            the last few boats. A list that needs two pages whatever is done prints at full
+            size, and breaks between starts: a class is never split across a page, so the
+            recorder never turns over in the middle of one.
           </p>
           <p>
             It is a working sheet, so most of it is space to write on. A boat that turns up under
             a number other than the one it entered under gets that number written on its row —
             which is what makes the results add up afterwards. Each start’s table ends in{' '}
-            <strong className="text-foreground">two spare rows</strong>, ruled and boxed like the
+            <strong className="text-foreground">spare rows</strong>, ruled and boxed like the
             rest, for a boat that entered too late to be printed on the sheet or that you are told
             about on the water. The sheet then ends in a ruled{' '}
             <strong className="text-foreground">Notes</strong> block for anything that belongs to

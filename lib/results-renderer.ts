@@ -57,7 +57,8 @@ import {
   racePolicy,
   scoringOptionsLegend,
 } from './race-scoring-options';
-import type { ChecklistTable } from './starters-checklist';
+import { CHECKLIST_DENSITIES, CHECKLIST_PAGE, planChecklistSheet } from './starters-checklist';
+import type { ChecklistPiece, ChecklistTable } from './starters-checklist';
 
 // ---- Input types ----
 
@@ -1627,75 +1628,71 @@ h3.month {color: #073358; margin: 1.2em 0 0.4em;}
  *
  * The recorder is on a moving committee boat, so the sail number is set
  * large; and a recorder switching pages while boats mill around loses the
- * boat they were looking for, so the tables flow in columns across the page.
- * Both are the print stylesheet's business.
+ * boat they were looking for, so the sheet is laid out in two columns a page
+ * and planned here rather than left to the browser's column flow, which
+ * neither knows where the page ends nor can trade a spare row for one. The
+ * plan (`planChecklistSheet`) keeps every start on one page, and sets the
+ * sheet a little tighter when that saves printing a page for a few rows.
  */
 function renderStartersChecklist(tables: ChecklistTable[], series: { name: string; venue: string }): string {
   const populated = tables.filter((t) => t.boats.length > 0);
   if (populated.length === 0) return '';
-  const sections = populated.map((t) => {
+  const sheet = planChecklistSheet(populated.map((t) => ({ boats: t.boats.length, headed: t.heading !== null })));
+  const level = CHECKLIST_DENSITIES.indexOf(sheet.density);
+
+  const piece = ({ table, from, to }: ChecklistPiece): string => {
+    const t = populated[table];
     const showBoat = t.boats.some((b) => !!b.boatName);
-    const cells = (sail: string, boat: string) =>
-      `<td class="tick"></td><td class="sail">${sail}</td>${showBoat ? `<td class="boat"><span>${boat}</span></td>` : ''}<td class="write"></td>`;
-    const rows = t.boats
-      .map((b) => `<tr>${cells(esc(b.sailNumber), esc(b.boatName ?? ''))}</tr>`)
-      .join('\n');
-    // Room for the boats that are not on the list: a very late entry, or one
-    // the recorder is told about on the water. Ruled and boxed like the rest,
-    // under the start it belongs to, rather than written in the margin.
-    const spare = Array.from(
-      { length: SPARE_ROWS },
-      () => `<tr class="spare"><td class="tick"></td><td></td>${showBoat ? '<td></td>' : ''}<td></td></tr>`,
-    ).join('\n');
-    // The start's name heads the table from inside it, as a header row rather
-    // than as a heading above it, so that it repeats wherever the table
-    // breaks. A table that runs from one column into the next is the ordinary
-    // case on this sheet, and a column of boats under no name at all tells
-    // the recorder nothing about which start they are.
+    const rows: string[] = [];
+    for (let r = from; r < to; r++) {
+      const b = t.boats[r];
+      // Past the listed boats, room for the ones that are not on the list: a
+      // very late entry, or one the recorder is told about on the water.
+      // Ruled and boxed like the rest, under the start it belongs to, rather
+      // than written in the margin.
+      rows.push(
+        b
+          ? `<tr><td class="tick"></td><td class="sail">${esc(b.sailNumber)}</td>${showBoat ? `<td class="boat"><span>${esc(b.boatName ?? '')}</span></td>` : ''}<td class="write"></td></tr>`
+          : `<tr class="spare"><td class="tick"></td><td></td>${showBoat ? '<td></td>' : ''}<td></td></tr>`,
+      );
+    }
+    // The start's name heads every part of its table, so a table that runs
+    // on into the next column is still named there: a column of boats under
+    // no name tells the recorder nothing about which start they are.
     const head =
       t.heading !== null
         ? `<thead>\n<tr><th class="startershead" colspan="${showBoat ? 4 : 3}">${esc(t.heading)}</th></tr>\n</thead>\n`
         : '';
-    // A table of a few boats stays whole rather than straddling two
-    // columns, where the split would be more distracting than the space it
-    // saves. A longer one is allowed to split: a column holds around thirty
-    // rows and a class is routinely half that, so keeping every table whole
-    // leaves a third of each column empty and costs a page.
-    return `<section class="startersstart${t.boats.length + SPARE_ROWS <= KEEP_WHOLE_ROWS ? ' keep' : ''}">
-<table class="starterstable" cellspacing="0" cellpadding="0" border="0">
+    return `<section class="startersstart">
+<table class="starterstable${showBoat ? '' : ' noboat'}" cellspacing="0" cellpadding="0" border="0">
 ${head}<tbody>
-${rows}
-${spare}
+${rows.join('\n')}
 </tbody>
 </table>
 </section>`;
-  });
+  };
+
+  const notes = `<div class="startersnotes">
+<span class="startersnoteslabel">Notes</span>
+${Array.from({ length: sheet.density.noteLines }, () => '<div class="startersrule"></div>').join('\n')}
+</div>`;
   const blank = (label: string) => `<span class="startersblank">${label} <i></i></span>`;
-  return `<div class="starterslist">
-<div class="startersident">
+  const ident = `<div class="startersident">
 <span class="startersfor">${esc(series.name)}${series.venue ? ` — ${esc(series.venue)}` : ''}</span>
 <span class="startersblanks">${blank('Date')}${blank('Race(s)')}${blank('Recorder')}</span>
 </div>
-<div class="starterscols">
-${sections.join('\n')}
-<div class="startersnotes">
-<span class="startersnoteslabel">Notes</span>
-${Array.from({ length: NOTE_LINES }, () => '<div class="startersrule"></div>').join('\n')}
+`;
+  const pages = sheet.pages.map(
+    (columns, i) => `<div class="starterspage">
+${i === 0 ? ident : ''}<div class="starterscols">
+${columns.map((c) => `<div class="starterscol">\n${[...c.pieces.map(piece), ...(c.notes ? [notes] : [])].join('\n')}\n</div>`).join('\n')}
 </div>
-</div>
+</div>`,
+  );
+  return `<div class="starterslist starters-d${level}">
+${pages.join('\n')}
 </div>`;
 }
-
-/** How short a table has to be to be kept off a column boundary. */
-const KEEP_WHOLE_ROWS = 8;
-
-/** Blank rows at the foot of each start's table, for boats that are not on
- *  the list. Two is a guess at what a club night needs; a forty-boat class
- *  may well want more. */
-const SPARE_ROWS = 2;
-
-/** Ruled lines in the sheet's closing notes block. */
-const NOTE_LINES = 4;
 
 /** The stylesheet for the starters checklist.
  *
@@ -1713,11 +1710,26 @@ const NOTE_LINES = 4;
  *
  *  Two columns rather than three: a column has to be wide enough to leave
  *  blank space after the boat name, which is where the number a boat
- *  actually turned up under gets written. The columns balance rather than
- *  filling, so a short list stays short and the notes block lands under it
- *  on the same page instead of being pushed to a second by a first column
- *  drawn out to the full page height. */
+ *  actually turned up under gets written. On a screen too narrow for two the
+ *  columns stack.
+ *
+ *  Every height is fixed, in millimetres, from the figures the sheet was
+ *  planned with, one block per density: a row the browser sized from its
+ *  text would not be the row the plan counted on. */
 function renderStartersChecklistCss(): string {
+  const { identMm, noteLabelMm, noteLineMm } = CHECKLIST_PAGE;
+  const densities = CHECKLIST_DENSITIES.map((d, i) => {
+    const s = `.starters-d${i}`;
+    // A pixel off the cell for the rule under it, which the browser draws
+    // whole and adds to the row however the cell is boxed.
+    return `${s} table.starterstable td { height: calc(${d.rowMm}mm - 1px); }
+${s} table.starterstable td.sail { font-size: ${d.sailPt}pt; }
+${s} table.starterstable th.startershead { height: ${d.headMm}mm; }
+${s} table.starterstable td.tick { width: ${d.tickMm}mm; }
+${s} table.starterstable td.tick::before { width: ${d.tickMm}mm; height: ${d.tickMm}mm; }
+${s} .starterscol > * + * { margin-top: ${d.gapMm}mm; }
+`;
+  }).join('');
   return `.starterslist { display: none; }
 body.starters .starterslist { display: block; text-align: left; }
 body.starters .caption, body.starters .tablewrap, body.starters h3.grouptitle, body.starters > h2, body.starters h3.seriestitle, body.starters .seriesofficials, body.starters .pagenotes, body.starters table.headertable { display: none; }
@@ -1725,40 +1737,49 @@ body.starters .caption, body.starters .tablewrap, body.starters h3.grouptitle, b
 body.starters .startersback { display: inline; }
 body.starters .starterslink { display: none; }
 .startersident { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 2mm 6mm; margin: 0 0 4mm 0; font-size: 10pt; }
+@media print {
+  .startersident { flex-wrap: nowrap; height: ${identMm - 4}mm; overflow: hidden; }
+}
 .startersident .startersfor { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .startersident .startersblanks { flex: none; color: #333; }
 .startersident .startersblank { margin-left: 4mm; white-space: nowrap; display: inline-block; }
 .startersident .startersblank i { display: inline-block; width: 18mm; border-bottom: 0.3mm solid #666; }
-.startersstart { margin: 0 0 6mm 0; }
-table.starterstable th.startershead { background: none; color: #1a1a1a; font-size: 12pt; font-weight: 700; text-align: left; border: 0; padding: 3mm 0 1.2mm 0; }
+@media print, (min-width: 640px) {
+  .starterscols { display: grid; grid-template-columns: 1fr 1fr; column-gap: 6mm; align-items: start; }
+}
+@media screen {
+  .starterspage + .starterspage { margin-top: 8mm; padding-top: 6mm; border-top: 0.3mm dashed #999; }
+}
 table.starterstable { width: 100%; margin: 0; border: 0; }
-table.starterstable td { border: 0; border-bottom: 0.3mm solid #999; padding: 1.2mm 1mm; vertical-align: middle; font-size: 13pt; line-height: 1.1; }
+table.starterstable th.startershead { box-sizing: border-box; background: none; color: #1a1a1a; font-size: 12pt; font-weight: 700; text-align: left; vertical-align: bottom; border: 0; padding: 0 0 1.2mm 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+table.starterstable td { box-sizing: border-box; border: 0; border-bottom: 0.3mm solid #999; padding: 0 1mm; vertical-align: middle; font-size: 13pt; line-height: 1.1; }
 table.starterstable td.sail { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; width: 1%; }
 table.starterstable td.boat { font-size: 9pt; color: #333; width: 38%; padding-left: 2mm; }
 table.starterstable td.boat span { display: block; width: 0; min-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 table.starterstable td.write { width: 26%; }
-table.starterstable td.tick { width: 5mm; padding: 1.2mm 1mm 1.2mm 0; }
-table.starterstable td.tick::before { content: ""; display: block; width: 5mm; height: 5mm; border: 0.4mm solid #1a1a1a; box-sizing: border-box; }
-.startersnotes .startersnoteslabel { display: block; font-size: 10pt; font-weight: 600; margin: 0 0 1mm 0; }
-.startersnotes .startersrule { height: 6mm; border-bottom: 0.3mm solid #999; }
-/* Paper only: how the sheet is laid out across the page, and the footer that
+table.starterstable.noboat td.write { width: auto; }
+table.starterstable td.tick { padding: 0 1mm 0 0; box-sizing: content-box; }
+table.starterstable td.tick::before { content: ""; display: block; border: 0.4mm solid #1a1a1a; box-sizing: border-box; }
+.startersnotes .startersnoteslabel { display: block; box-sizing: border-box; height: ${noteLabelMm}mm; padding-top: 1mm; font-size: 10pt; font-weight: 600; }
+.startersnotes .startersrule { box-sizing: border-box; height: ${noteLineMm}mm; border-bottom: 0.3mm solid #999; }
+${densities}/* Paper only: one planned page to a sheet of paper, and the footer that
    is the way back to the entry list on screen and nothing on paper. */
 @media print {
   body.starters .credit, .startersnav { display: none; }
-  .starterscols { column-count: 2; column-gap: 6mm; column-fill: auto; }
-  .startersstart.keep { break-inside: avoid; }
-  .startersnotes { break-inside: avoid; }
+  body.starters { margin: 0; }
+  .starterspage + .starterspage { break-before: page; }
 }
 `;
 }
 
-/** The page box the checklist prints in: tighter margins than the results
- *  pages, because a working sheet wants the paper. `@page` cannot be
- *  qualified by a body class, so it rides in its own stylesheet switched on
- *  when the checklist view is entered — at navigation time, not print time,
- *  so that whatever prints the page afterwards gets the right page box. */
+/** The page box the checklist prints in: A4, the page the sheet is planned
+ *  for, inside tighter margins than the results pages, because a working
+ *  sheet wants the paper. `@page` cannot be qualified by a body class, so it
+ *  rides in its own stylesheet switched on when the checklist view is
+ *  entered — at navigation time, not print time, so that whatever prints the
+ *  page afterwards gets the right page box. */
 function renderStartersPageCss(): string {
-  return `<style id="starters-page" media="not all" type="text/css">@page { margin: 8mm; }</style>`;
+  return `<style id="starters-page" media="not all" type="text/css">@page { size: A4; margin: 8mm; }</style>`;
 }
 
 /** The links between the entry list and the checklist, on a line of their

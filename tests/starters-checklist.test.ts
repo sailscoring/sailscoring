@@ -5,7 +5,14 @@
  */
 import { describe, it, expect } from 'vitest';
 
-import { buildStartersChecklist, checklistHeading } from '@/lib/starters-checklist';
+import {
+  CHECKLIST_DENSITIES,
+  KEEP_WHOLE_ROWS,
+  buildStartersChecklist,
+  checklistHeading,
+  planChecklistSheet,
+  type ChecklistSheet,
+} from '@/lib/starters-checklist';
 
 const fleet = (id: string, name: string, displayOrder: number, splitRoundId?: string) => ({
   id,
@@ -165,5 +172,103 @@ describe('checklistHeading', () => {
 
   it('is the fleet name itself for a lone fleet', () => {
     expect(checklistHeading(['ILCA 7'])).toBe('ILCA 7');
+  });
+});
+
+describe('planChecklistSheet', () => {
+  const headed = (...boats: number[]) => boats.map((n) => ({ boats: n, headed: true }));
+  // HYC's Dinghy Frostbite: ILCA 7, ILCA 6, ILCA 4, Melges 15, PY Fleet.
+  const FROSTBITE = headed(15, 7, 4, 8, 17);
+
+  /** The pages each table's rows were set on. */
+  const pagesOf = (sheet: ChecklistSheet, table: number) =>
+    new Set(sheet.pages.flatMap((cols, p) => (cols.some((c) => c.pieces.some((x) => x.table === table)) ? [p] : [])));
+  const pieces = (sheet: ChecklistSheet) => sheet.pages.flatMap((cols) => cols.flatMap((c) => c.pieces));
+
+  /** Every row of every table set once, in order, spare rows included. */
+  const expectEveryRowOnce = (sheet: ChecklistSheet, tables: { boats: number }[]) => {
+    tables.forEach((t, i) => {
+      const mine = pieces(sheet).filter((x) => x.table === i);
+      let next = 0;
+      for (const x of mine) {
+        expect(x.from).toBe(next);
+        next = x.to;
+      }
+      expect(next).toBe(t.boats + sheet.density.spareRows);
+    });
+  };
+
+  it('tightens a sheet a few rows over one page onto one', () => {
+    const sheet = planChecklistSheet(FROSTBITE);
+    expect(sheet.pages).toHaveLength(1);
+    // Giving up a spare row under each start is enough; the rows stay full size.
+    expect(sheet.density).toBe(CHECKLIST_DENSITIES[1]);
+    expectEveryRowOnce(sheet, FROSTBITE);
+  });
+
+  it('sets a short sheet as designed, on one page', () => {
+    const tables = headed(6, 3, 2, 3, 7);
+    const sheet = planChecklistSheet(tables);
+    expect(sheet.pages).toHaveLength(1);
+    expect(sheet.density).toBe(CHECKLIST_DENSITIES[0]);
+    expectEveryRowOnce(sheet, tables);
+  });
+
+  it('prints a sheet that needs two pages however it is set at full size', () => {
+    const tables = headed(24, 11, 6, 13, 27);
+    const sheet = planChecklistSheet(tables);
+    expect(sheet.pages).toHaveLength(2);
+    expect(sheet.density).toBe(CHECKLIST_DENSITIES[0]);
+    expectEveryRowOnce(sheet, tables);
+  });
+
+  it('breaks between starts, never inside one, when the sheet runs to a second page', () => {
+    for (const tables of [headed(24, 11, 6, 13, 27), headed(39, 18, 10, 21, 44), headed(30, 30, 30, 30)]) {
+      const sheet = planChecklistSheet(tables);
+      expect(sheet.pages.length).toBeGreaterThan(1);
+      tables.forEach((_, i) => expect(pagesOf(sheet, i).size).toBe(1));
+      expectEveryRowOnce(sheet, tables);
+    }
+  });
+
+  it('runs a start too long for a page of its own over as many as it needs', () => {
+    const tables = headed(150);
+    const sheet = planChecklistSheet(tables);
+    expect(sheet.pages.length).toBeGreaterThan(1);
+    expectEveryRowOnce(sheet, tables);
+  });
+
+  it('keeps a short table off a column boundary', () => {
+    for (const tables of [FROSTBITE, headed(24, 11, 6, 13, 27), headed(5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5)]) {
+      const sheet = planChecklistSheet(tables);
+      tables.forEach((t, i) => {
+        if (t.boats + sheet.density.spareRows <= KEEP_WHOLE_ROWS) {
+          expect(pieces(sheet).filter((x) => x.table === i)).toHaveLength(1);
+        }
+      });
+    }
+  });
+
+  it('leaves no lone row at the foot of a column or the head of the next', () => {
+    for (const tables of [FROSTBITE, headed(24, 11, 6, 13, 27), headed(39, 18, 10, 21, 44)]) {
+      for (const x of pieces(planChecklistSheet(tables))) expect(x.to - x.from).toBeGreaterThan(1);
+    }
+  });
+
+  it('balances the last page rather than filling the first column', () => {
+    const sheet = planChecklistSheet(headed(20, 20));
+    const [first, second] = sheet.pages[0];
+    // Two twenty-boat classes: one to a column, not both run down the first.
+    expect(first.pieces.map((x) => x.table)).toEqual([0]);
+    expect(second.pieces.map((x) => x.table)).toEqual([1]);
+  });
+
+  it('ends the sheet with the notes, once', () => {
+    for (const tables of [FROSTBITE, headed(3), headed(39, 18, 10, 21, 44)]) {
+      const sheet = planChecklistSheet(tables);
+      const withNotes = sheet.pages.flatMap((cols, p) => cols.flatMap((c, k) => (c.notes ? [[p, k]] : [])));
+      expect(withNotes).toHaveLength(1);
+      expect(withNotes[0][0]).toBe(sheet.pages.length - 1);
+    }
   });
 });

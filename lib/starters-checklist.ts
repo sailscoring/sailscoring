@@ -174,3 +174,232 @@ export function buildStartersChecklist(input: {
 
   return tables;
 }
+
+/**
+ * How tightly the sheet is set. The first is the sheet as designed; each
+ * after it gives up a little more to save paper, in the order a scorer
+ * preparing the sheet by hand would: a spare row under each start first,
+ * since a late entry can still go in the notes, then the row height and the
+ * size of the number, then the notes themselves.
+ *
+ * Every height on the sheet is fixed rather than left to the text, so that
+ * what is planned here is what prints: the stylesheet is written from these
+ * same figures.
+ */
+export interface ChecklistDensity {
+  /** A boat's row, rule included. */
+  rowMm: number;
+  /** The start's heading row, the space above the heading included. */
+  headMm: number;
+  /** Between one start's table and the next in a column. */
+  gapMm: number;
+  /** The sail number. */
+  sailPt: number;
+  /** The tick box's side. */
+  tickMm: number;
+  spareRows: number;
+  noteLines: number;
+}
+
+export const CHECKLIST_DENSITIES: readonly ChecklistDensity[] = [
+  { rowMm: 7.6, headMm: 9, gapMm: 5, sailPt: 13, tickMm: 5, spareRows: 2, noteLines: 4 },
+  { rowMm: 7.6, headMm: 9, gapMm: 5, sailPt: 13, tickMm: 5, spareRows: 1, noteLines: 4 },
+  { rowMm: 6.6, headMm: 8, gapMm: 4, sailPt: 12, tickMm: 4.6, spareRows: 1, noteLines: 3 },
+  { rowMm: 5.9, headMm: 7, gapMm: 3, sailPt: 11, tickMm: 4.2, spareRows: 1, noteLines: 2 },
+];
+
+/**
+ * The page the sheet is planned for: A4 inside the sheet's own 8mm margins,
+ * two columns. The stylesheet asks for A4, so this is what the browser
+ * prints on; a printer loaded with Letter scales it.
+ */
+export const CHECKLIST_PAGE = {
+  /** The printable height, less a little slack for rounding in the browser. */
+  heightMm: 279,
+  /** The line naming the series and leaving Date, Race(s) and Recorder
+   *  blank, on the first page only. */
+  identMm: 10,
+  noteLabelMm: 6,
+  noteLineMm: 6,
+  columns: 2,
+} as const;
+
+/** How short a table has to be to be kept off a column boundary. A table of
+ *  a few boats split across two columns is more distracting than the space
+ *  the split saves; a class of thirty is not. */
+export const KEEP_WHOLE_ROWS = 8;
+
+/** Rows of a start's table, spare rows included, from `from` up to `to`. */
+export interface ChecklistPiece {
+  table: number;
+  from: number;
+  to: number;
+}
+
+export interface ChecklistColumn {
+  pieces: ChecklistPiece[];
+  /** The closing notes block ends this column. */
+  notes?: boolean;
+}
+
+export interface ChecklistSheet {
+  density: ChecklistDensity;
+  /** Each page's columns, `CHECKLIST_PAGE.columns` of them. */
+  pages: ChecklistColumn[][];
+}
+
+interface PlanTable {
+  boats: number;
+  headed: boolean;
+}
+
+/**
+ * Lay the tables out at one density, into columns of `capMm(page)`.
+ *
+ * A start's table may run on from one column into the next on the same
+ * page, but never over a page: one that would is moved whole to the next
+ * page, where the recorder finds the start in one place rather than turning
+ * over in the middle of it. Only a table too long for a page of its own is
+ * split across pages, because there is nothing else to do with it.
+ *
+ * With `wholeColumns`, a table that will not fit in what is left of a column
+ * but would fit whole in the next one on the page starts there instead of
+ * splitting: one start to a column, where there is room for it.
+ */
+function layOut(
+  tables: PlanTable[],
+  d: ChecklistDensity,
+  capMm: (page: number) => number,
+  wholeColumns: boolean,
+): ChecklistColumn[][] {
+  const pages: ChecklistColumn[][] = [];
+  let col = 0;
+  let used = 0;
+  const openPage = () => {
+    pages.push(Array.from({ length: CHECKLIST_PAGE.columns }, () => ({ pieces: [] })));
+    col = 0;
+    used = 0;
+  };
+  const nextColumn = () => {
+    if (col + 1 < CHECKLIST_PAGE.columns) {
+      col++;
+      used = 0;
+    } else {
+      openPage();
+    }
+  };
+  const cap = () => capMm(pages.length - 1);
+  const gap = () => (used > 0 ? d.gapMm : 0);
+
+  /** How many of `left` rows to set in what remains of the current column,
+   *  0 when it is better to start the next one. Never a lone row at the
+   *  foot of a column, nor a lone row carried over to the top of the next. */
+  const take = (left: number, head: number, whole: boolean): number => {
+    const room = Math.floor((cap() - used - gap() - head) / d.rowMm + 1e-9);
+    if (whole) return room >= left ? left : 0;
+    if (room >= left) return left;
+    const n = left - room === 1 ? room - 1 : room;
+    return n >= 2 ? n : 0;
+  };
+
+  /** Whether the table fits in what is left of this page, from here. */
+  const fitsOnPage = (rows: number, head: number, whole: boolean): boolean => {
+    const saved = { col, used };
+    let left = rows;
+    let ok = true;
+    while (left > 0) {
+      const n = take(left, head, whole);
+      if (n > 0) {
+        used += gap() + head + n * d.rowMm;
+        left -= n;
+      }
+      if (left > 0) {
+        if (col + 1 >= CHECKLIST_PAGE.columns) {
+          ok = false;
+          break;
+        }
+        col++;
+        used = 0;
+      }
+    }
+    ({ col, used } = saved);
+    return ok;
+  };
+
+  openPage();
+  tables.forEach((t, i) => {
+    const rows = t.boats + d.spareRows;
+    const head = t.headed ? d.headMm : 0;
+    const whole = rows <= KEEP_WHOLE_ROWS;
+    const pageEmpty = col === 0 && used === 0;
+    if (!pageEmpty && !fitsOnPage(rows, head, whole)) openPage();
+    else if (
+      wholeColumns &&
+      used > 0 &&
+      col + 1 < CHECKLIST_PAGE.columns &&
+      take(rows, head, true) === 0 &&
+      head + rows * d.rowMm <= cap()
+    ) {
+      nextColumn();
+    }
+    let from = 0;
+    while (from < rows) {
+      let n = take(rows - from, head, whole);
+      // An empty column that still cannot take the table: a column shorter
+      // than the table's minimum. Set what fits and let the rest run on.
+      if (n === 0 && used === 0) n = Math.max(1, Math.min(rows - from, Math.floor((cap() - head) / d.rowMm)));
+      if (n > 0) {
+        pages[pages.length - 1][col].pieces.push({ table: i, from, to: from + n });
+        used += gap() + head + n * d.rowMm;
+        from += n;
+      }
+      if (from < rows) nextColumn();
+    }
+  });
+
+  const notesMm = CHECKLIST_PAGE.noteLabelMm + d.noteLines * CHECKLIST_PAGE.noteLineMm;
+  if (used > 0 && used + d.gapMm + notesMm > cap()) nextColumn();
+  pages[pages.length - 1][col].notes = true;
+  return pages;
+}
+
+/**
+ * Plan the printed sheet: which rows of which start go in which column of
+ * which page, and how tightly it is set.
+ *
+ * The density is the loosest that prints on the fewest pages. A sheet a few
+ * rows over one page is tightened onto one, as anyone preparing it by hand
+ * would; one that needs two pages however it is set prints at full size on
+ * two, broken between starts. At that density, each start is kept to a
+ * column of its own when that costs no page.
+ *
+ * The last page's columns are then balanced, shortest first, so that a
+ * short list stays short and the notes sit under it rather than at the foot
+ * of a second column drawn out to the full page height.
+ */
+export function planChecklistSheet(tables: PlanTable[]): ChecklistSheet {
+  const full = (page: number) =>
+    CHECKLIST_PAGE.heightMm - (page === 0 ? CHECKLIST_PAGE.identMm : 0);
+  let best: { density: ChecklistDensity; wholeColumns: boolean; pages: ChecklistColumn[][] } | null = null;
+  for (const density of CHECKLIST_DENSITIES) {
+    for (const wholeColumns of [true, false]) {
+      const pages = layOut(tables, density, full, wholeColumns);
+      if (best === null || pages.length < best.pages.length) best = { density, wholeColumns, pages };
+    }
+  }
+  const { density, wholeColumns } = best!;
+  const count = best!.pages.length;
+  const last = count - 1;
+
+  // The shortest last-page column that keeps everything on the same number
+  // of pages, to the millimetre.
+  let lo = 0;
+  let hi = full(last);
+  while (hi - lo > 1) {
+    const mid = (lo + hi) / 2;
+    const pages = layOut(tables, density, (p) => (p === last ? mid : full(p)), wholeColumns);
+    if (pages.length === count) hi = mid;
+    else lo = mid;
+  }
+  return { density, pages: layOut(tables, density, (p) => (p === last ? hi : full(p)), wholeColumns) };
+}
