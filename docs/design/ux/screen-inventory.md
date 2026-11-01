@@ -15,8 +15,8 @@ This is the starting point for user flow and wireframe work.
 > accurate; treat the routes and per-screen mechanics as historical until
 > this doc is refreshed.
 
-**Scope:** Desktop-optimised. Tablet/mobile is a future consideration noted
-where it significantly affects design decisions.
+**Scope:** Laid out for a laptop, but every screen must be usable on a phone;
+see *On a phone* in [conventions.md](conventions.md).
 
 **Stack context:** Next.js App Router on Vercel Fluid Compute, server-side
 data via the `/api/v1/...` route handlers (see ADR-008).

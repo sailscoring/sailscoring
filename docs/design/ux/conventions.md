@@ -92,6 +92,35 @@ replacing it with a generic one: its errors are written for the scorer.
 
 **Apostrophes are curly** (`’`) in UI text, as in most of the app.
 
+## On a phone
+
+Scorers use the app from a phone, and not only for finish entry: a
+settings fix, a re-publish or a competitor change can come up anywhere.
+Three dialogs have been found with their buttons off the bottom of the
+screen and no way to scroll to them (#161, #528, #721), each one found by a
+scorer mid-task.
+
+**Every screen is usable on a phone** (390px wide). That means:
+
+- **Everything can be reached.** A dialog fits the screen and scrolls
+  inside itself; its buttons are never stranded off-screen.
+- **The page never scrolls sideways.** A table wider than the screen
+  scrolls inside its own box.
+- **Tapping a field doesn't zoom the page.** iOS zooms on a field whose
+  text is under 16px, so form controls are `text-base` on a phone
+  (`text-base md:text-sm`, as `components/ui/input.tsx` does).
+- **Every action works by touch.** Nothing is reachable only on hover or
+  only by keyboard shortcut.
+- **Heights use `dvh`, not `vh`.** On a phone `vh` measures the screen as if
+  the address bar were hidden, so `50vh` is more than half of what's
+  visible.
+
+Screens used often, such as finish entry and the imports, should also be
+comfortable on a phone, not just usable; the rest only has to meet the
+list above. Checking the list belongs to the build, not to whoever next
+scores from a phone: #722 runs the e2e suite at phone width and fails any
+test that breaks it.
+
 ## Not yet surveyed
 
 - **Notices and warnings.** There's no shared notice component, and amber
