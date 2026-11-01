@@ -119,6 +119,7 @@ export const HELP_GROUPS: HelpGroupDef[] = [
       { id: 'public-directory', title: 'The public directory', keywords: ['directory', 'clubs', 'listing', 'showcase', 'unlisted', 'opt out', 'who uses sail scoring'] },
       { id: 'combined-pages', title: 'Extra pages', feature: 'combined-pages', keywords: ['overall page', 'one page', 'all fleets', 'extra page', 'race grid'] },
       { id: 'page-notes', title: 'A note on a published page', feature: 'page-notes', keywords: ['note', 'explain', 'correction', 'annotation', 'message on the page'] },
+      { id: 'custom-results-columns', title: 'Choosing your own results columns', feature: 'custom-columns', keywords: ['columns', 'column order', 'reorder', 'rename column', 'column title', 'hide column', 'custom field', 'extra field', 'rig', 'sponsor', 'country', 'sailwave columns', 'layout', 'two languages'] },
       { id: 'results-status', title: 'Provisional and final results', feature: 'results-status', keywords: ['provisional', 'final', 'finalise', 'protest time limit', 'lock'] },
       { id: 'competitor-list', title: 'Publishing the competitor list', feature: 'entry-list', keywords: ['entry list', 'entries page', 'who is coming', 'publish entries'] },
       { id: 'starters-checklist', title: 'The starters checklist', feature: 'entry-list', keywords: ['tally', 'check in sheet', 'starters', 'print', 'race team'] },

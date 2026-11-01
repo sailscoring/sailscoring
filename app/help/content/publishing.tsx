@@ -478,6 +478,77 @@ export default function Publishing() {
           </p>
         </Section>
       )}
+      {has('custom-columns') && (
+        <Section id="custom-results-columns" title="Choosing your own results columns">
+          <HelpShot
+            src="/help/shots/custom-results-columns.webp"
+            alt="The Results columns dialog: the competitor columns in order, each ticked for the standings, race results and entry list, then the scoring columns."
+            caption="The Results columns dialog: the series’ own columns, in order, and the tables each is on."
+          />
+          <p>
+            Sail Scoring chooses a series’ columns from the competitor fields switched on in its
+            settings, and leaves out a column no boat has a value in. Most series never need more.
+            When the organisers expect a particular layout — Class before Rank, the sail number
+            headed “Bib Number”, the crew only on the standings — the series can set its own.
+          </p>
+          <p>
+            On the <strong className="text-foreground">Settings</strong> tab, open the{' '}
+            <strong className="text-foreground">Competitor fields</strong> card and choose{' '}
+            <strong className="text-foreground">Change results columns…</strong> at the end. The
+            dialog says what it costs first: from then on the columns change only when you change
+            them. Past it, the list starts from the columns you have now.
+          </p>
+          <ul className="ml-5 list-disc space-y-1">
+            <li>
+              <strong className="text-foreground">Competitor columns</strong> are one list for every
+              table. Move one by dragging it, with its arrows, or by focusing it and pressing{' '}
+              <kbd>Alt</kbd>+<kbd>↑</kbd> / <kbd>Alt</kbd>+<kbd>↓</kbd>. The ticks say which tables
+              it is on: the standings, race results and the entry list. Rank moves too.
+            </li>
+            <li>
+              Open a column to give it a <strong className="text-foreground">title</strong> of its
+              own — press Enter for a second line, for a title in two languages — to print it even
+              when no boat has a value, or to remove it. Sail number and the primary name stay: every
+              row has to say whose it is.
+            </li>
+            <li>
+              The <strong className="text-foreground">crew</strong> can have a column of their own
+              or follow the primary name (“Helm / Crew”), and a field that takes several names shows
+              them one per line or on one line, joined with an ampersand.
+            </li>
+            <li>
+              <strong className="text-foreground">Add a column</strong> offers every field switched
+              on that isn’t in the list, the series’ custom fields, and{' '}
+              <strong className="text-foreground">Country</strong> — the nationality as the
+              country’s name.
+            </li>
+            <li>
+              The <strong className="text-foreground">scoring columns</strong> — Total and Nett, and
+              in race results the finish, elapsed, rating and corrected times, Points and the rest —
+              keep their places, so the arithmetic still reads left to right. Each can be hidden or
+              retitled, except Points. While a series has its own columns, the rating-calculation and
+              per-race-rating settings live here rather than on the Publishing card.
+            </li>
+          </ul>
+          <p>
+            A <strong className="text-foreground">custom field</strong> is a text field you add to a
+            series and name — a WASZP rig size, a sponsor. Add one under{' '}
+            <strong className="text-foreground">Custom fields</strong> on the Competitor fields card;
+            the competitor dialog gets an input for it, and a CSV import can create one from a column
+            it can’t otherwise map. Custom fields aren’t used for scoring, prizes or grouping (a
+            Division or Category is a subdivision), and are published only as columns.
+          </p>
+          <p>
+            The in-app Standings tab shows the series’ own columns, so you see what will be published.
+            Switching a field on while the series has its own columns adds its column to the end of
+            the competitor columns; a column added to Sail Scoring later doesn’t appear by itself, but
+            is offered under Add a column. <strong className="text-foreground">Use automatic
+            columns</strong> goes back to the app’s choice. Importing a Sailwave file brings its
+            published columns, their order and titles across, and its other published fields as
+            custom fields — never personal details such as email or phone.
+          </p>
+        </Section>
+      )}
       {has('entry-list') && (
         <Section id="competitor-list" title="Publishing the competitor list">
           <p>

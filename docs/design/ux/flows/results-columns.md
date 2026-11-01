@@ -148,8 +148,8 @@ straight on the list.
   tables each one appears on. Most of them are on all three, which is why
   there is one list rather than three. Rank has no tick under Entry list,
   because an entry list has no rank.
-- **Moving a column**: drag it by its handle, or select it and press
-  **Alt+↑** / **Alt+↓**.
+- **Moving a column**: drag it by its handle, use its small up and down
+  arrows, or focus it and press **Alt+↑** / **Alt+↓**.
 - **A retitled column shows its own title**, with the field it shows beside
   it in grey ("Helm Club — Club"). A column under its default title shows
   only that.
@@ -255,13 +255,13 @@ sponsor, a hull colour. In Sailwave, scorers put these in a field meant for
 something else. Here the scorer adds a custom field: a text field they name
 themselves, which the series' competitors each have one value for.
 
-The Competitor fields card lists them after the optional fields, beside the
-subdivision axes, each with a name that can be changed:
+The Competitor fields card lists them after the optional fields, each with a
+name that can be changed in place:
 
 ```
 │  Custom fields                                                   │
-│  Rig          [ Rename ] [ Delete ]                              │
-│  Sponsor      [ Rename ] [ Delete ]                              │
+│  [ Rig                ]  Delete                                  │
+│  [ Sponsor            ]  Delete                                  │
 │  [ Add a field ]                                                 │
 │  Text the organisers publish that no field above holds. Not used │
 │  for scoring, prizes or grouping. A Division or Category goes in │
@@ -327,10 +327,14 @@ CrewName field scorers fill with "A, B, C".
 
 ## What follows the columns
 
-- **The in-app Standings tab** shows the series' columns, so the app shows
-  what will be published. Its column sorting works as now.
-- **Every published table**: standings, race results, the entry list,
-  combined pages, and the split-fleet championship pages.
+- **The in-app Standings tab** shows the series' own columns when it has
+  them, so the app shows what will be published. Under automatic columns it
+  keeps its own working layout (every field switched on, "Sail no.", "Nat"),
+  with a column for each custom field. Its column sorting works as now.
+- **Every published table**: standings, race results, the entry list and
+  combined pages. The split-fleet championship pages show a fixed set of
+  competitor columns (Nat, Sail, Class, Helm, Club, WS ID); the list orders
+  and titles them, and leaves off any it removes.
 - **The published results API** names the competitor fields that are
   columns on the page it describes, as it now names the fields switched on.
   Custom fields appear as data under their names. It doesn't
@@ -375,15 +379,21 @@ wizard says so:
     Rig (a new custom field) · races · Total · Nett
   Not carried:
     Fleet — Sail Scoring publishes each fleet on its own page.
-    HelmEmail — personal data isn’t published as a field of the series.
+    HelmEmail — personal data isn’t published as a custom field.
 ```
 
 - **A published Sailwave field we model** becomes that field's column, with
   the file's title if it has one.
 - **A published field we don't model** that holds values becomes a custom
   field, named after the column's title. Personal data never does:
-  email, phone, address, medical details, notes and payments. The wizard
-  lists them as not carried.
+  email, phone, address, photos, member numbers, medical details, notes and
+  payments. The wizard lists them as not carried, with Fleet and Rating
+  (each race's results show the ratings).
+- **The order** is each definition's position field: Sailwave writes the
+  definitions alphabetically, and sorting on it reproduces the published
+  page. A Sailwave `<br>` in a title becomes its second line.
+- **An update from a Sailwave file** keeps the series' own settings, so it
+  carries no columns or custom fields.
 - **Sailwave export** writes the series' columns back: order, published or
   not, and titles. A series with automatic columns writes them as they would
   be published.

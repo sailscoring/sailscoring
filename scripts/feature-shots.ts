@@ -1226,6 +1226,42 @@ const SHOTS: Shot[] = [
     },
   },
   {
+    // Inventory: Custom results columns — the Results columns dialog after a
+    // custom field (Rig) is added and the sail number retitled "Bib Number".
+    // Back to automatic columns and no field afterwards, so the demo series
+    // every other shot uses publishes as it did.
+    slug: 'custom-results-columns',
+    group: 'Publishing',
+    async capture({ page, seriesId, shot }) {
+      await ensureFeature(page, 'custom-columns');
+      await page.goto(`${BASE}/series/${await seriesId()}/settings`);
+      await settle(page);
+      const heading = page.getByRole('heading', { name: 'Competitor fields' });
+      await heading.locator('..').getByRole('button', { name: 'Edit ▸' }).click();
+      if ((await page.getByLabel('Rig field name').count()) === 0) {
+        await page.getByRole('button', { name: 'Add a field' }).click();
+        await page.getByLabel('Name of the new field').fill('Rig');
+        await page.getByRole('button', { name: 'Add', exact: true }).click();
+        await page.getByLabel('Rig field name').waitFor();
+      }
+      await page.getByRole('button', { name: /^(Change|Edit) results columns…$/ }).click();
+      const dialog = page.getByTestId('results-columns-dialog');
+      const intro = dialog.getByRole('button', { name: 'Set this series’ columns' });
+      if (await intro.isVisible()) await intro.click();
+      await dialog.getByTestId('open-column-sailNumber').click();
+      const editor = dialog.getByTestId('column-editor');
+      await editor.getByLabel('Title').fill('Bib Number');
+      await editor.getByRole('button', { name: 'Save' }).click();
+      await dialog.getByTestId('column-row-sailNumber').getByText('Bib Number').waitFor();
+      await shot('custom-results-columns.png');
+      await dialog.getByRole('button', { name: 'Use automatic columns' }).click();
+      await dialog.getByTestId('automatic-confirm').getByRole('button', { name: 'Use automatic columns' }).click();
+      await dialog.waitFor({ state: 'hidden' });
+      await page.getByLabel('Rig field name').locator('..').getByRole('button', { name: 'Delete' }).click();
+      await page.getByLabel('Rig field name').waitFor({ state: 'detached' });
+    },
+  },
+  {
     // Inventory: Proportional discards — the One-per-so-many mode with its
     // steps-up readback, left unsaved.
     slug: 'proportional-discards',
