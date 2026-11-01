@@ -24,16 +24,12 @@ import {
 } from './track-data';
 import {
   PRIMARY_PERSON_LABEL_TEXT,
-  boatClassDistinguishes,
   formatClubs,
   formatPrimaryNames,
   DEFAULT_PRIMARY_PERSON_LABEL,
-  DEFAULT_SUBDIVISION_LABEL,
-  isFieldDisabledByPrimary,
-  personFieldHeader,
-  primaryPersonHeader,
 } from './competitor-fields';
 import { renderPageNoteHtml } from './page-note';
+import { automaticColumns, columnClass, subdivisionAxisId, type ColumnRow, type CompetitorColumn } from './results-columns';
 import { formatConditions, hasConditions } from './race-conditions';
 import { formatOfficials, hasOfficials, namedOfficials, officialRoleLabel } from './race-officials';
 import { compareSailNumbers } from './sail-number-sort';
@@ -50,12 +46,6 @@ import {
   scoringOptionsLegend,
 } from './race-scoring-options';
 import type { ChecklistTable } from './starters-checklist';
-
-/** Column heading for a subdivision axis, falling back to the default label when
- *  the axis label is blank. */
-function axisHeader(axis: SubdivisionAxis): string {
-  return axis.label?.trim() || DEFAULT_SUBDIVISION_LABEL;
-}
 
 // ---- Input types ----
 
@@ -523,124 +513,31 @@ export interface RaceScoreData {
 // ---- Renderer ----
 
 /** Per-section display state derived from one fleet's SeriesResultsData:
- *  which optional columns are visible, the primary-name column header, and
- *  whether the summary carries a seed-rating column. Computed once per
- *  section and shared by the summary and race tables; a combined document
- *  computes one per fleet section, so each fleet keeps its own column set. */
+ *  the competitor columns of its standings and race tables, and whether the
+ *  summary carries a seed-rating column. Computed once per section; a
+ *  combined document computes one per fleet section, so each fleet keeps its
+ *  own column set. */
 interface SectionView {
   hasDiscards: boolean;
-  showBowNumber: boolean;
-  showEntryNumber: boolean;
-  showTallyNumber: boolean;
-  showBoatName: boolean;
-  showBoatClass: boolean;
-  showHelm: boolean;
-  showOwner: boolean;
-  /** Crew share the primary column ("Helm / Crew"). */
-  pairCrew: boolean;
-  /** Crew take a column of their own, beside a separate Helm column. */
-  showCrewColumn: boolean;
-  showClub: boolean;
-  showNationality: boolean;
-  showWorldSailingId: boolean;
-  visibleSubdivisionAxes: SubdivisionAxis[];
-  showAge: boolean;
-  showGender: boolean;
-  primaryHeader: string;
-  helmHeader: string;
-  ownerHeader: string;
-  crewHeader: string;
+  /** The standings table's competitor columns, Rank first. */
+  standingsColumns: CompetitorColumn[];
+  /** The race tables' competitor columns, Rank first. */
+  raceColumns: CompetitorColumn[];
   summaryRatingSystem: 'nhc' | 'echo' | null;
 }
 
 function computeSectionView(data: SeriesResultsData): SectionView {
-  const { enabledCompetitorFields, primaryPersonLabel, multiPersonFields, races, standings, progressiveScoringSystem, showPerRaceRatings } = data;
+  const { races, standings, progressiveScoringSystem, showPerRaceRatings } = data;
   const summaryRatingSystem = showPerRaceRatings && progressiveScoringSystem ? progressiveScoringSystem : null;
-
-  const primaryLabel = primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL;
-  const primaryHeader = primaryPersonHeader(primaryLabel, multiPersonFields);
-  const helmHeader = personFieldHeader('helm', multiPersonFields);
-  const ownerHeader = personFieldHeader('owner', multiPersonFields);
-  const crewHeader = personFieldHeader('crewName', multiPersonFields);
   const hasDiscards = standings.some((s) => s.netPoints !== s.totalPoints);
-  // The identifier numbers a boat carries besides its sail number. Each is
-  // suppressed when no competitor has one, the same rule the Club and Nat
-  // columns follow — enabling a field shouldn't publish a dead column.
-  const identifierShown = (
-    key: 'bowNumber' | 'entryNumber' | 'tallyNumber',
-    of: (row: { bowNumber?: string; entryNumber?: string; tallyNumber?: string }) => string | undefined,
-  ): boolean =>
-    enabledCompetitorFields.includes(key) &&
-    (standings.some((s) => !!of(s)) || races.some((r) => r.results.some((x) => !!of(x))));
-  const showBowNumber = identifierShown('bowNumber', (r) => r.bowNumber);
-  const showEntryNumber = identifierShown('entryNumber', (r) => r.entryNumber);
-  const showTallyNumber = identifierShown('tallyNumber', (r) => r.tallyNumber);
-  const showBoatName = enabledCompetitorFields.includes('boatName');
-  // The Class column shows only when the boats in this section are not all
-  // one class: a one-design fleet's heading already names the boat.
-  const showBoatClass =
-    enabledCompetitorFields.includes('boatClass') &&
-    boatClassDistinguishes([
-      ...standings.map((s) => s.boatClass),
-      ...races.flatMap((r) => r.results.map((x) => x.boatClass)),
-    ]);
-  const showHelm = enabledCompetitorFields.includes('helm') && !isFieldDisabledByPrimary('helm', primaryLabel);
-  const showOwner = enabledCompetitorFields.includes('owner') && !isFieldDisabledByPrimary('owner', primaryLabel);
-  const { pairCrew, showCrewColumn } = crewLayout(enabledCompetitorFields.includes('crewName'), showHelm);
-  // Suppress the Club column if nothing references it \u2014 a single-club event
-  // shouldn't get a dead column just because the field is enabled. Mirrors the
-  // Nat-column behaviour and checks both summary and race tables.
-  const showClub =
-    enabledCompetitorFields.includes('club') &&
-    (standings.some((s) => s.clubs?.length) || races.some((r) => r.results.some((x) => x.clubs?.length)));
-  // Suppress the Nat column if nothing references it \u2014 the toggle being on
-  // shouldn't add an empty column when no competitor has a nationality.
-  const showNationality =
-    enabledCompetitorFields.includes('nationality') &&
-    (standings.some((s) => !!s.nationality) || races.some((r) => r.results.some((x) => !!x.nationality)));
-  // Sailor IDs, linked to World Sailing biographies. Suppressed when nothing
-  // references one, like the Club and Nat columns.
-  const showWorldSailingId =
-    enabledCompetitorFields.includes('worldSailingId') &&
-    (standings.some((s) => !!s.worldSailingId) ||
-      races.some((r) => r.results.some((x) => !!x.worldSailingId)));
-  // One prize-giving column per subdivision axis; suppress an axis if no
-  // competitor has a value on it, mirroring the Nat-column behaviour.
-  const visibleSubdivisionAxes = enabledCompetitorFields.includes('subdivision')
-    ? (data.subdivisionAxes ?? []).filter((axis) =>
-        standings.some((s) => !!s.subdivisions?.[axis.id]),
-      )
-    : [];
-  // Age and Gender columns, suppressed when no competitor has a value — same
-  // treatment as the Club/Nat columns.
-  const showAge =
-    enabledCompetitorFields.includes('age') &&
-    (standings.some((s) => s.age != null) || races.some((r) => r.results.some((x) => x.age != null)));
-  const showGender =
-    enabledCompetitorFields.includes('gender') &&
-    (standings.some((s) => !!s.gender) || races.some((r) => r.results.some((x) => !!x.gender)));
-
+  // One set of rows decides both tables, so a column on the standings is on
+  // the race tables too and a reader moving between them finds it again.
+  const rows = [...standings, ...races.flatMap((r) => r.results)];
+  const columns = automaticColumns(data, 'standings', rows);
   return {
     hasDiscards,
-    showBowNumber,
-    showEntryNumber,
-    showTallyNumber,
-    showBoatName,
-    showBoatClass,
-    showHelm,
-    showOwner,
-    pairCrew,
-    showCrewColumn,
-    showClub,
-    showNationality,
-    showWorldSailingId,
-    visibleSubdivisionAxes,
-    showAge,
-    showGender,
-    primaryHeader,
-    helmHeader,
-    ownerHeader,
-    crewHeader,
+    standingsColumns: columns,
+    raceColumns: columns,
     summaryRatingSystem,
   };
 }
@@ -1484,82 +1381,18 @@ export function renderCompetitorListHtml(
   options?: { fontPercent?: number },
 ): string {
   const fontPercent = options?.fontPercent ?? 72;
-  const { enabledCompetitorFields: enabled, multiFleet, flagSvgByCode } = context;
-  const primaryLabel = context.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL;
-  const primaryHeader = primaryPersonHeader(primaryLabel, context.multiPersonFields);
-  const helmHeader = personFieldHeader('helm', context.multiPersonFields);
-  const ownerHeader = personFieldHeader('owner', context.multiPersonFields);
-  const crewHeader = personFieldHeader('crewName', context.multiPersonFields);
+  const { multiFleet, flagSvgByCode } = context;
   const tables = groups.filter((g) => g.rows.length > 0);
   const rows = tables.flatMap((g) => g.rows);
 
-  // A column shows when the series enables it *and* some entry fills it —
-  // the results tables' rule, for the same reason: a field switched on but
-  // left blank should not publish a dead column.
-  const shown = (key: CompetitorFieldKey, of: (r: CompetitorListRow) => unknown): boolean =>
-    enabled.includes(key) && rows.some((r) => {
-      const v = of(r);
-      return Array.isArray(v) ? v.length > 0 : v != null && v !== '';
-    });
-
-  const showBowNumber = shown('bowNumber', (r) => r.bowNumber);
-  const showEntryNumber = shown('entryNumber', (r) => r.entryNumber);
-  const showTallyNumber = shown('tallyNumber', (r) => r.tallyNumber);
-  const showBoatName = shown('boatName', (r) => r.boatName);
-  // Not "some entry fills it" but "the entries differ": a list of one class
-  // gains nothing from a column repeating it.
-  const showBoatClass = enabled.includes('boatClass') && boatClassDistinguishes(rows.map((r) => r.boatClass));
-  const showHelm = !isFieldDisabledByPrimary('helm', primaryLabel) && shown('helm', (r) => r.helms);
-  const { pairCrew, showCrewColumn } = crewLayout(shown('crewName', (r) => r.crewNames), showHelm);
-  const showOwner = !isFieldDisabledByPrimary('owner', primaryLabel) && shown('owner', (r) => r.owners);
-  const showClub = shown('club', (r) => r.clubs?.length);
-  const showNationality = shown('nationality', (r) => r.nationality);
-  const showWorldSailingId = shown('worldSailingId', (r) => r.worldSailingId);
-  const showAge = shown('age', (r) => r.age);
-  const showGender = shown('gender', (r) => r.gender);
-  const axes = enabled.includes('subdivision')
-    ? (context.subdivisionAxes ?? []).filter((axis) => rows.some((r) => !!r.subdivisions?.[axis.id]))
-    : [];
-
-  const headerCells = [
-    ...(multiFleet ? ['<th>Fleet</th>'] : []),
-    '<th>Sail Number</th>',
-    ...(showBowNumber ? ['<th>Bow</th>'] : []),
-    ...(showEntryNumber ? ['<th>Entry</th>'] : []),
-    ...(showTallyNumber ? ['<th>Tally</th>'] : []),
-    ...(showBoatName ? ['<th>Boat</th>'] : []),
-    ...(showBoatClass ? ['<th>Class</th>'] : []),
-    `<th>${esc(pairCrew ? `${primaryHeader} / ${crewHeader}` : primaryHeader)}</th>`,
-    ...(showHelm ? [`<th>${esc(helmHeader)}</th>`] : []),
-    ...(showOwner ? [`<th>${esc(ownerHeader)}</th>`] : []),
-    ...(showCrewColumn ? [`<th>${esc(crewHeader)}</th>`] : []),
-    ...(showClub ? ['<th>Club</th>'] : []),
-    ...(showNationality ? ['<th>Nationality</th>'] : []),
-    ...(showWorldSailingId ? ['<th>World Sailing ID</th>'] : []),
-    ...axes.map((axis) => `<th>${esc(axisHeader(axis))}</th>`),
-    ...(showAge ? ['<th>Age</th>'] : []),
-    ...(showGender ? ['<th>Gender</th>'] : []),
-  ];
-
-  const cols = [
-    ...(multiFleet ? ['<col class="fleet" />'] : []),
-    '<col class="sailno" />',
-    ...(showBowNumber ? ['<col class="bowno" />'] : []),
-    ...(showEntryNumber ? ['<col class="entryno" />'] : []),
-    ...(showTallyNumber ? ['<col class="tally" />'] : []),
-    ...(showBoatName ? ['<col class="boatname" />'] : []),
-    ...(showBoatClass ? ['<col class="boatclass" />'] : []),
-    '<col class="helmname" />',
-    ...(showHelm ? ['<col class="helm" />'] : []),
-    ...(showOwner ? ['<col class="owner" />'] : []),
-    ...(showCrewColumn ? ['<col class="crew" />'] : []),
-    ...(showClub ? ['<col class="club" />'] : []),
-    ...(showNationality ? ['<col class="nat" />'] : []),
-    ...(showWorldSailingId ? ['<col class="wsid" />'] : []),
-    ...axes.map(() => '<col class="subdivision" />'),
-    ...(showAge ? ['<col class="age" />'] : []),
-    ...(showGender ? ['<col class="gender" />'] : []),
-  ];
+  // The columns are decided once across the whole page rather than per
+  // table, so every table carries the same columns and they line up down the
+  // page.
+  const columns = automaticColumns(context, 'entries', rows.map(entryColumnRow), { multiFleet });
+  const showNationality = columns.some((c) => c.key === 'nationality');
+  const showsWorldSailingId = columns.some((c) => c.key === 'worldSailingId');
+  const headerCells = columns.map(columnHeaderCell);
+  const cols = columns.map((c) => `<col class="${columnClass(c.key)}" />`);
 
   // A boat that isn't entered in the column's fleet is dashed; one that is
   // entered but holds no rating yet is left blank, which is the state a
@@ -1574,23 +1407,9 @@ export function renderCompetitorListHtml(
       .map((r, i) =>
         [
           `<tr class="${i % 2 === 0 ? 'odd' : 'even'} summaryrow">`,
-          ...(multiFleet ? [`<td>${esc(r.fleetNames.join(', '))}</td>`] : []),
-          `<td>${esc(r.sailNumber)}</td>`,
-          ...(showBowNumber ? [`<td>${esc(r.bowNumber ?? '')}</td>`] : []),
-          ...(showEntryNumber ? [`<td>${esc(r.entryNumber ?? '')}</td>`] : []),
-          ...(showTallyNumber ? [`<td>${esc(r.tallyNumber ?? '')}</td>`] : []),
-          ...(showBoatName ? [`<td>${esc(r.boatName ?? '')}</td>`] : []),
-          ...(showBoatClass ? [`<td>${esc(r.boatClass ?? '')}</td>`] : []),
-          `<td>${renderHelmCell(r.names, r.crewNames, pairCrew, helmBioUrl(r.worldSailingId, showWorldSailingId))}</td>`,
-          ...(showHelm ? [`<td>${renderListCell(r.helms)}</td>`] : []),
-          ...(showOwner ? [`<td>${renderListCell(r.owners)}</td>`] : []),
-          ...(showCrewColumn ? [`<td>${renderListCell(r.crewNames)}</td>`] : []),
-          ...(showClub ? [`<td>${renderListCell(r.clubs)}</td>`] : []),
-          ...(showNationality ? [renderNationalityCell(r.nationality, flagSvgByCode)] : []),
-          ...(showWorldSailingId ? [renderWorldSailingIdCell(r.worldSailingId)] : []),
-          ...axes.map((axis) => `<td>${esc(r.subdivisions?.[axis.id] ?? '')}</td>`),
-          ...(showAge ? [`<td>${r.age != null ? r.age : ''}</td>`] : []),
-          ...(showGender ? [`<td>${esc(r.gender ?? '')}</td>`] : []),
+          ...columns.map((c) =>
+            renderCompetitorCell(c, entryCellRow(r), { rankCell: '<td></td>', showsWorldSailingId, flagSvgByCode }),
+          ),
           ...group.ratingColumns.map((_, ci) => ratingCell(r.ratings?.[ci])),
           '</tr>',
         ].join('\n'),
@@ -2414,7 +2233,7 @@ function renderSummaryTable(
   linkedAnchorIds: ReadonlySet<string>,
   flagSvgByCode: Readonly<Record<string, NationalFlag>> | undefined,
 ): string {
-  const { hasDiscards, showBowNumber, showEntryNumber, showTallyNumber, showBoatName, showBoatClass, showHelm, showOwner, pairCrew, showCrewColumn, showClub, showNationality, showWorldSailingId, visibleSubdivisionAxes: subdivisionAxes, showAge, showGender, primaryHeader, helmHeader, ownerHeader, crewHeader, summaryRatingSystem: ratingSystem } = view;
+  const { hasDiscards, summaryRatingSystem: ratingSystem } = view;
   const hasSeedCol = ratingSystem !== null;
   const seedHeader = ratingSystem === 'nhc' ? 'NHC1' : (ratingSystem === 'echo' ? 'ECHO' : '');
   // Before the first race is sailed the table is a placeholder: the fleet's
@@ -2425,31 +2244,16 @@ function renderSummaryTable(
   if (placeholder) {
     standings = [...standings].sort((a, b) => compareSailNumbers(a.sailNumber, b.sailNumber));
   }
-  const showRank = !placeholder;
   const showTotal = !placeholder;
   const racesSpanDays = new Set(races.map((r) => r.date)).size > 1;
-  const extraCols = (showBowNumber ? 1 : 0) + (showEntryNumber ? 1 : 0) + (showTallyNumber ? 1 : 0) + (showBoatName ? 1 : 0) + (showBoatClass ? 1 : 0) + (showHelm ? 1 : 0) + (showOwner ? 1 : 0) + (showCrewColumn ? 1 : 0) + (showClub ? 1 : 0) + (showNationality ? 1 : 0) + (showWorldSailingId ? 1 : 0) + subdivisionAxes.length + (showAge ? 1 : 0) + (showGender ? 1 : 0);
-  // [rank +] sail [+ bow] [+ entry] [+ tally] [+ boat] [+ class] + primary [+ helm] [+ owner] [+ crew] [+ club] [+ nat] [+ wsid] [+ subdivision] [+ age] [+ gender] [+ seed] + races [+ total [+ nett]]
-  const colCount = (showRank ? 1 : 0) + 2 + extraCols + (hasSeedCol ? 1 : 0) + races.length + (showTotal ? (hasDiscards ? 2 : 1) : 0);
+  // A placeholder table has nothing to rank by, so no Rank column.
+  const columns = placeholder ? view.standingsColumns.filter((c) => c.key !== 'rank') : view.standingsColumns;
+  const showsWorldSailingId = columns.some((c) => c.key === 'worldSailingId');
+  // competitor columns [+ seed] + races [+ total [+ nett]]
+  const colCount = columns.length + (hasSeedCol ? 1 : 0) + races.length + (showTotal ? (hasDiscards ? 2 : 1) : 0);
 
   const cols = [
-    ...(showRank ? ['<col class="rank" />'] : []),
-    '<col class="sailno" />',
-    ...(showBowNumber ? ['<col class="bowno" />'] : []),
-    ...(showEntryNumber ? ['<col class="entryno" />'] : []),
-    ...(showTallyNumber ? ['<col class="tally" />'] : []),
-    ...(showBoatName ? ['<col class="boatname" />'] : []),
-    ...(showBoatClass ? ['<col class="boatclass" />'] : []),
-    '<col class="helmname" />',
-    ...(showHelm ? ['<col class="helm" />'] : []),
-    ...(showOwner ? ['<col class="owner" />'] : []),
-    ...(showCrewColumn ? ['<col class="crew" />'] : []),
-    ...(showClub ? ['<col class="club" />'] : []),
-    ...(showNationality ? ['<col class="nat" />'] : []),
-    ...(showWorldSailingId ? ['<col class="wsid" />'] : []),
-    ...subdivisionAxes.map(() => '<col class="subdivision" />'),
-    ...(showAge ? ['<col class="age" />'] : []),
-    ...(showGender ? ['<col class="gender" />'] : []),
+    ...columns.map((c) => `<col class="${columnClass(c.key)}" />`),
     ...(hasSeedCol ? ['<col class="seedrating" />'] : []),
     ...races.map(() => '<col class="race" />'),
     ...(showTotal ? ['<col class="total" />'] : []),
@@ -2457,23 +2261,7 @@ function renderSummaryTable(
   ].join('\n');
 
   const headerCells = [
-    ...(showRank ? ['<th>Rank</th>'] : []),
-    '<th>Sail Number</th>',
-    ...(showBowNumber ? ['<th>Bow</th>'] : []),
-    ...(showEntryNumber ? ['<th>Entry</th>'] : []),
-    ...(showTallyNumber ? ['<th>Tally</th>'] : []),
-    ...(showBoatName ? ['<th>Boat</th>'] : []),
-    ...(showBoatClass ? ['<th>Class</th>'] : []),
-    `<th>${esc(pairCrew ? `${primaryHeader} / ${crewHeader}` : primaryHeader)}</th>`,
-    ...(showHelm ? [`<th>${esc(helmHeader)}</th>`] : []),
-    ...(showOwner ? [`<th>${esc(ownerHeader)}</th>`] : []),
-    ...(showCrewColumn ? [`<th>${esc(crewHeader)}</th>`] : []),
-    ...(showClub ? ['<th>Club</th>'] : []),
-    ...(showNationality ? ['<th>Nationality</th>'] : []),
-    ...(showWorldSailingId ? ['<th>World Sailing ID</th>'] : []),
-    ...subdivisionAxes.map((axis) => `<th>${esc(axisHeader(axis))}</th>`),
-    ...(showAge ? ['<th>Age</th>'] : []),
-    ...(showGender ? ['<th>Gender</th>'] : []),
+    ...columns.map(columnHeaderCell),
     ...(hasSeedCol ? [`<th>${esc(seedHeader)}</th>`] : []),
     ...races.map((r) => {
       // The day under the number: "R2" means something to the race
@@ -2530,23 +2318,13 @@ function renderSummaryTable(
 
       return [
         `<tr class="${rowClass} summaryrow">`,
-        ...(showRank ? [`<td>${ordinal(s.rank)}</td>`] : []),
-        `<td>${esc(s.sailNumber)}</td>`,
-        ...(showBowNumber ? [`<td>${esc(s.bowNumber ?? '')}</td>`] : []),
-        ...(showEntryNumber ? [`<td>${esc(s.entryNumber ?? '')}</td>`] : []),
-        ...(showTallyNumber ? [`<td>${esc(s.tallyNumber ?? '')}</td>`] : []),
-        ...(showBoatName ? [`<td>${esc(s.boatName ?? '')}</td>`] : []),
-        ...(showBoatClass ? [`<td>${esc(s.boatClass ?? '')}</td>`] : []),
-        `<td>${renderHelmCell(s.helm, s.crewNames, pairCrew, helmBioUrl(s.worldSailingId, showWorldSailingId))}</td>`,
-        ...(showHelm ? [`<td>${renderListCell(s.helmRole)}</td>`] : []),
-        ...(showOwner ? [`<td>${renderListCell(s.owner)}</td>`] : []),
-        ...(showCrewColumn ? [`<td>${renderListCell(s.crewNames)}</td>`] : []),
-        ...(showClub ? [`<td>${renderListCell(s.clubs)}</td>`] : []),
-        ...(showNationality ? [renderNationalityCell(s.nationality, flagSvgByCode)] : []),
-        ...(showWorldSailingId ? [renderWorldSailingIdCell(s.worldSailingId)] : []),
-        ...subdivisionAxes.map((axis) => `<td>${esc(s.subdivisions?.[axis.id] ?? '')}</td>`),
-        ...(showAge ? [`<td>${s.age != null ? s.age : ''}</td>`] : []),
-        ...(showGender ? [`<td>${esc(s.gender ?? '')}</td>`] : []),
+        ...columns.map((c) =>
+          renderCompetitorCell(c, s, {
+            rankCell: `<td>${ordinal(s.rank)}</td>`,
+            showsWorldSailingId,
+            flagSvgByCode,
+          }),
+        ),
         ...(hasSeedCol ? [seedCell] : []),
         scoreCells,
         ...(showTotal ? [`<td>${formatPoints(s.totalPoints)}</td>`] : []),
@@ -2634,7 +2412,8 @@ function renderRaceTable(
   // scroll the grid off-screen.
   opts?: { suppressLabel?: boolean; suppressAnchor?: boolean },
 ): string {
-  const { showBowNumber, showEntryNumber, showTallyNumber, showBoatName, showBoatClass, showHelm, showOwner, pairCrew, showCrewColumn, showClub, showNationality, showWorldSailingId, visibleSubdivisionAxes: subdivisionAxes, showAge, showGender, primaryHeader, helmHeader, ownerHeader, crewHeader } = view;
+  const columns = view.raceColumns;
+  const showsWorldSailingId = columns.some((c) => c.key === 'worldSailingId');
   const dateStr = formatIsoDate(race.date);
   const startStr = race.startTime ? ` &mdash; Start: ${esc(race.startTime)}` : '';
   const isNhc = race.isNhc === true || race.nhcHeader != null;
@@ -2707,23 +2486,13 @@ function renderRaceTable(
       const echoCells = hasEchoExplain ? renderEchoCells(r) : [];
       return [
         `<tr class="${rowClass} racerow">`,
-        `<td${podiumClass}>${rankText}</td>`,
-        `<td>${esc(r.sailNumber)}</td>`,
-        ...(showBowNumber ? [`<td>${esc(r.bowNumber ?? '')}</td>`] : []),
-        ...(showEntryNumber ? [`<td>${esc(r.entryNumber ?? '')}</td>`] : []),
-        ...(showTallyNumber ? [`<td>${esc(r.tallyNumber ?? '')}</td>`] : []),
-        ...(showBoatName ? [`<td>${esc(r.boatName ?? '')}</td>`] : []),
-        ...(showBoatClass ? [`<td>${esc(r.boatClass ?? '')}</td>`] : []),
-        `<td>${renderHelmCell(r.helm, r.crewNames, pairCrew, helmBioUrl(r.worldSailingId, showWorldSailingId))}</td>`,
-        ...(showHelm ? [`<td>${renderListCell(r.helmRole)}</td>`] : []),
-        ...(showOwner ? [`<td>${renderListCell(r.owner)}</td>`] : []),
-        ...(showCrewColumn ? [`<td>${renderListCell(r.crewNames)}</td>`] : []),
-        ...(showClub ? [`<td>${renderListCell(r.clubs)}</td>`] : []),
-        ...(showNationality ? [renderNationalityCell(r.nationality, flagSvgByCode)] : []),
-        ...(showWorldSailingId ? [renderWorldSailingIdCell(r.worldSailingId)] : []),
-        ...subdivisionAxes.map((axis) => `<td>${esc(r.subdivisions?.[axis.id] ?? '')}</td>`),
-        ...(showAge ? [`<td>${r.age != null ? r.age : ''}</td>`] : []),
-        ...(showGender ? [`<td>${esc(r.gender ?? '')}</td>`] : []),
+        ...columns.map((c) =>
+          renderCompetitorCell(c, r, {
+            rankCell: `<td${podiumClass}>${rankText}</td>`,
+            showsWorldSailingId,
+            flagSvgByCode,
+          }),
+        ),
         ...handicapCells,
         ...orcIwCell,
         ...nhcNewTcfCell,
@@ -2737,7 +2506,8 @@ function renderRaceTable(
     })
     .join('\n');
 
-  const baseColCount = 4 + (showBowNumber ? 1 : 0) + (showEntryNumber ? 1 : 0) + (showTallyNumber ? 1 : 0) + (showBoatName ? 1 : 0) + (showBoatClass ? 1 : 0) + (showHelm ? 1 : 0) + (showOwner ? 1 : 0) + (showCrewColumn ? 1 : 0) + (showClub ? 1 : 0) + (showNationality ? 1 : 0) + (showWorldSailingId ? 1 : 0) + subdivisionAxes.length + (showAge ? 1 : 0) + (showGender ? 1 : 0);
+  // competitor columns + Points
+  const baseColCount = columns.length + 1;
   const colCount = baseColCount
     + (hasHandicapCols ? 5 : 0)
     + (hasLapsCol ? 1 : 0)
@@ -2893,7 +2663,6 @@ function renderRaceTable(
     ? `<p class="echo-fleet-header echo-detail" style="text-align:center; margin: 0 0 6px 0; font-size: 0.9em;">Rating system: ECHO &middot; α = ${race.echoHeader!.alpha} &middot; Finishers: ${race.echoHeader!.finisherCount} &middot; ΣH_S = ${race.echoHeader!.sumH.toFixed(3)} &middot; Σ(1/T_E) = ${race.echoHeader!.sumReciprocalEt.toFixed(5)}${race.echoHeader!.updateSuppressed ? ` &middot; <strong>Rating update suppressed (${suppressionReason(race.echoHeader!.minFinishers)})</strong>` : ''}</p>`
     : '';
 
-  const primaryTh = esc(pairCrew ? `${primaryHeader} / ${crewHeader}` : primaryHeader);
   const nameStr = race.name ? `${esc(race.name)}&nbsp;&mdash;&nbsp;` : '';
   // The Points column here is the race's own score at face value; the
   // multiplier applies in the series total, so say so where the two differ.
@@ -2916,17 +2685,12 @@ function renderRaceTable(
   return `<h3 class="racetitle"${anchorAttr}>${labelStr}${nameStr}${dateStr}${startStr}</h3>
 ${optionsSubheading}${conditionsSubheading}${officialsSubheading}${orcSubheading}${nhcSubheading}${echoSubheading}<div class="tablewrap"><table class="racetable" cellspacing="0" cellpadding="0" border="0">
 <colgroup span="${colCount}">
-<col class="rank" />
-<col class="sailno" />
-${showBowNumber ? '<col class="bowno" />\n' : ''}${showEntryNumber ? '<col class="entryno" />\n' : ''}${showTallyNumber ? '<col class="tally" />\n' : ''}${showBoatName ? '<col class="boatname" />\n' : ''}${showBoatClass ? '<col class="boatclass" />\n' : ''}<col class="helmname" />
-${showHelm ? '<col class="helm" />\n' : ''}${showOwner ? '<col class="owner" />\n' : ''}${showCrewColumn ? '<col class="crew" />\n' : ''}${showClub ? '<col class="club" />\n' : ''}${showNationality ? '<col class="nat" />\n' : ''}${showWorldSailingId ? '<col class="wsid" />\n' : ''}${subdivisionAxes.map(() => '<col class="subdivision" />\n').join('')}${showAge ? '<col class="age" />\n' : ''}${showGender ? '<col class="gender" />\n' : ''}${handicapCols}${orcIwCol}${nhcNewTcfCol}${echoNewHCol}${nhcCols}${echoCols}
+${columns.map((c) => `<col class="${columnClass(c.key)}" />\n`).join('')}${handicapCols}${orcIwCol}${nhcNewTcfCol}${echoNewHCol}${nhcCols}${echoCols}
 <col class="points" />${trackCols}
 </colgroup>
 <thead>
 <tr class="titlerow">
-<th>Rank</th>
-<th>Sail Number</th>
-${showBowNumber ? '<th>Bow</th>\n' : ''}${showEntryNumber ? '<th>Entry</th>\n' : ''}${showTallyNumber ? '<th>Tally</th>\n' : ''}${showBoatName ? '<th>Boat</th>\n' : ''}${showBoatClass ? '<th>Class</th>\n' : ''}<th>${primaryTh}</th>${showHelm ? `\n<th>${esc(helmHeader)}</th>` : ''}${showOwner ? `\n<th>${esc(ownerHeader)}</th>` : ''}${showCrewColumn ? `\n<th>${esc(crewHeader)}</th>` : ''}${showClub ? '\n<th>Club</th>' : ''}${showNationality ? '\n<th>Nationality</th>' : ''}${showWorldSailingId ? '\n<th>World Sailing ID</th>' : ''}${subdivisionAxes.map((axis) => `\n<th>${esc(axisHeader(axis))}</th>`).join('')}${showAge ? '\n<th>Age</th>' : ''}${showGender ? '\n<th>Gender</th>' : ''}${handicapHeaders}${orcIwHeader}${nhcNewTcfHeader}${echoNewHHeader}${nhcHeaders}${echoHeaders}
+${columns.map(columnHeaderCell).join('\n')}${handicapHeaders}${orcIwHeader}${nhcNewTcfHeader}${echoNewHHeader}${nhcHeaders}${echoHeaders}
 <th>Points</th>${trackHeaders}
 </tr>
 </thead>
@@ -3095,13 +2859,83 @@ export function renderListCell(values: string[] | undefined): string {
   return list.map(esc).join('<br>');
 }
 
-/** Where the crew go. Beside the primary ("Helm / Crew") when the primary is
- *  the only person column: in a helm-primary series that is the helm, and
- *  elsewhere the entry's one name. When a separate Helm column is shown, the
- *  primary is not the helm, and pairing the crew with it would put them
- *  under the wrong person, so they take a column of their own instead. */
-function crewLayout(showCrew: boolean, showHelm: boolean): { pairCrew: boolean; showCrewColumn: boolean } {
-  return { pairCrew: showCrew && !showHelm, showCrewColumn: showCrew && showHelm };
+/** The competitor fields a results row carries, as a cell reads them. The
+ *  standings and race rows have this shape already; the entry list's rows
+ *  are mapped onto it. */
+interface CompetitorCellRow extends ColumnRow {
+  sailNumber: string;
+  /** Primary person(s). */
+  helm: string[];
+  fleetNames?: string[];
+}
+
+/** An entry-list row as the column decisions read it. */
+function entryColumnRow(r: CompetitorListRow): ColumnRow {
+  return entryCellRow(r);
+}
+
+function entryCellRow(r: CompetitorListRow): CompetitorCellRow {
+  return {
+    sailNumber: r.sailNumber,
+    bowNumber: r.bowNumber,
+    entryNumber: r.entryNumber,
+    tallyNumber: r.tallyNumber,
+    boatName: r.boatName,
+    boatClass: r.boatClass,
+    helm: r.names,
+    helmRole: r.helms,
+    owner: r.owners,
+    crewNames: r.crewNames,
+    clubs: r.clubs,
+    nationality: r.nationality,
+    worldSailingId: r.worldSailingId,
+    subdivisions: r.subdivisions,
+    gender: r.gender,
+    age: r.age,
+    fleetNames: r.fleetNames,
+  };
+}
+
+/** A competitor column's heading cell. */
+function columnHeaderCell(column: CompetitorColumn): string {
+  return `<th>${esc(column.header)}</th>`;
+}
+
+/** One competitor column's cell. `rankCell` is the table's own Rank cell —
+ *  the series rank in the standings, the race rank in a race table. */
+function renderCompetitorCell(
+  column: CompetitorColumn,
+  row: CompetitorCellRow,
+  ctx: {
+    rankCell: string;
+    /** The WS ID column is on this table, so it carries the bio link. */
+    showsWorldSailingId: boolean;
+    flagSvgByCode: Readonly<Record<string, NationalFlag>> | undefined;
+  },
+): string {
+  const axisId = subdivisionAxisId(column.key);
+  if (axisId != null) return `<td>${esc(row.subdivisions?.[axisId] ?? '')}</td>`;
+  switch (column.key) {
+    case 'rank': return ctx.rankCell;
+    case 'fleet': return `<td>${esc((row.fleetNames ?? []).join(', '))}</td>`;
+    case 'sailNumber': return `<td>${esc(row.sailNumber)}</td>`;
+    case 'bowNumber': return `<td>${esc(row.bowNumber ?? '')}</td>`;
+    case 'entryNumber': return `<td>${esc(row.entryNumber ?? '')}</td>`;
+    case 'tallyNumber': return `<td>${esc(row.tallyNumber ?? '')}</td>`;
+    case 'boatName': return `<td>${esc(row.boatName ?? '')}</td>`;
+    case 'boatClass': return `<td>${esc(row.boatClass ?? '')}</td>`;
+    case 'primary':
+      return `<td>${renderHelmCell(row.helm, row.crewNames, column.pairCrew === true, helmBioUrl(row.worldSailingId, ctx.showsWorldSailingId))}</td>`;
+    case 'helm': return `<td>${renderListCell(row.helmRole)}</td>`;
+    case 'owner': return `<td>${renderListCell(row.owner)}</td>`;
+    case 'crewName': return `<td>${renderListCell(row.crewNames)}</td>`;
+    case 'club': return `<td>${renderListCell(row.clubs)}</td>`;
+    case 'nationality': return renderNationalityCell(row.nationality, ctx.flagSvgByCode);
+    case 'worldSailingId': return renderWorldSailingIdCell(row.worldSailingId);
+    case 'age': return `<td>${row.age != null ? row.age : ''}</td>`;
+    case 'gender': return `<td>${esc(row.gender ?? '')}</td>`;
+  }
+  return '<td></td>';
 }
 
 /** Compose the combined primary/crew cell. The single-person, single-crew
