@@ -667,3 +667,132 @@ export function withCompetitorColumn(list: readonly ResultsColumn[], key: Compet
 export function withoutColumn(list: readonly ResultsColumn[], key: string): ResultsColumn[] {
   return list.filter((c) => c.key !== key);
 }
+
+/** What the dialog reads off a series to start its list and name its rows. */
+export interface ColumnSeries extends ColumnSettings, ScoringColumnSettings {
+  publishTrackData?: boolean;
+}
+
+/**
+ * The list a series starts from when it sets its own columns: the automatic
+ * columns as they are now, in their order, and every scoring column the app
+ * knows, shown or hidden as the publishing toggles have them. The automatic
+ * columns' rule of leaving a column off a table no boat has a value in
+ * carries over as each column's default. The crew sit in the primary column
+ * where automatic columns put them there.
+ */
+export function startingColumns(series: ColumnSeries): ResultsColumn[] {
+  const on = (k: CompetitorFieldKey) => series.enabledCompetitorFields.includes(k);
+  const primaryLabel = series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL;
+  const showHelm = on('helm') && !isFieldDisabledByPrimary('helm', primaryLabel);
+  const showOwner = on('owner') && !isFieldDisabledByPrimary('owner', primaryLabel);
+  const columns: ResultsColumn[] = [{ key: 'fleet' }, { key: 'rank' }, { key: 'sailNumber' }];
+  for (const key of ['bowNumber', 'entryNumber', 'tallyNumber', 'boatName', 'boatClass'] as const) {
+    if (on(key)) columns.push({ key });
+  }
+  columns.push({ key: 'primary' });
+  if (showHelm) columns.push({ key: 'helm' });
+  if (showOwner) columns.push({ key: 'owner' });
+  if (on('crewName')) columns.push(showHelm ? { key: 'crewName' } : { key: 'crewName', inPrimary: true });
+  for (const key of ['club', 'nationality', 'worldSailingId'] as const) {
+    if (on(key)) columns.push({ key });
+  }
+  if (on('subdivision')) {
+    for (const axis of series.subdivisionAxes ?? []) columns.push({ key: `subdivision:${axis.id}` });
+  }
+  if (on('age')) columns.push({ key: 'age' });
+  if (on('gender')) columns.push({ key: 'gender' });
+  for (const field of series.customFields ?? []) columns.push({ key: `field:${field.id}` });
+  for (const key of [...STANDINGS_SCORING_COLUMNS, ...RACE_SCORING_COLUMNS]) {
+    columns.push(scoringColumnShown(series, key) ? { key } : { key, hidden: true });
+  }
+  return columns;
+}
+
+/**
+ * The competitor columns a series could add to its own list: every column
+ * of a field switched on, a custom field, or a subdivision axis that the
+ * list doesn't already have. Country is the nationality shown as the
+ * country's name, so it comes with Nationality.
+ */
+export function addableColumns(series: ColumnSettings, list: readonly ResultsColumn[]): CompetitorColumnKey[] {
+  const listed = new Set(list.map((c) => c.key));
+  const candidates: CompetitorColumnKey[] = [
+    'fleet', 'rank', 'sailNumber', 'bowNumber', 'entryNumber', 'tallyNumber', 'boatName', 'boatClass',
+    'primary', 'helm', 'owner', 'crewName', 'club', 'nationality', 'country', 'worldSailingId',
+    ...(series.subdivisionAxes ?? []).map((a) => `subdivision:${a.id}` as const),
+    'age', 'gender',
+    ...(series.customFields ?? []).map((f) => `field:${f.id}` as const),
+  ];
+  return candidates.filter(
+    (key) =>
+      !listed.has(key) &&
+      (key === 'fleet' || key === 'rank' || columnAvailable(key, series, 'standings')),
+  );
+}
+
+/** The scoring systems a series' fleets score under, as the dialog needs
+ *  them to decide which scoring columns mean anything. */
+export interface ScoringColumnContext {
+  handicap: boolean;
+  progressive: boolean;
+  orc: boolean;
+  trackData: boolean;
+}
+
+/** The scoring columns worth listing for a series: those its fleets use. */
+export function applicableScoringColumns(ctx: ScoringColumnContext): {
+  standings: StandingsScoringColumnKey[];
+  races: RaceScoringColumnKey[];
+} {
+  return {
+    standings: STANDINGS_SCORING_COLUMNS.filter((key) => key !== 'perRaceRatings' || ctx.progressive),
+    races: RACE_SCORING_COLUMNS.filter((key) => {
+      if (key === 'points') return true;
+      if (key.startsWith('track:')) return ctx.trackData;
+      if (key === 'impliedWind') return ctx.orc;
+      if (key === 'newRating' || key === 'ratingCalculations') return ctx.progressive;
+      return ctx.handicap;
+    }),
+  };
+}
+
+/** A scoring column's name in the dialog. */
+export const SCORING_COLUMN_NAMES: Record<StandingsScoringColumnKey | RaceScoringColumnKey, { name: string; detail?: string; titled: boolean }> = {
+  perRaceRatings: { name: 'Ratings beneath each score', detail: 'and the seed rating column', titled: true },
+  total: { name: 'Total', titled: true },
+  nett: { name: 'Nett', titled: true },
+  laps: { name: 'Laps', detail: 'where boats sailed different numbers', titled: true },
+  finish: { name: 'Finish', titled: true },
+  elapsed: { name: 'ET', detail: 'Elapsed time', titled: true },
+  rating: { name: 'Rating', detail: 'TCC, TCF, Starting H or the club’s own name', titled: true },
+  corrected: { name: 'CT', detail: 'Corrected time', titled: true },
+  delta: { name: 'Delta', detail: 'Corrected time behind the winner', titled: true },
+  impliedWind: { name: 'Implied wind', detail: 'ORC performance curves', titled: true },
+  newRating: { name: 'New TCF / New H', detail: 'the next race’s rating', titled: true },
+  ratingCalculations: { name: 'Rating calculations', detail: 'the NHC and ECHO working', titled: false },
+  points: { name: 'Points', titled: true },
+  'track:finishTime': { name: 'Finish time', detail: 'track data', titled: true },
+  'track:elapsed': { name: 'Elapsed', detail: 'track data', titled: true },
+  'track:distance': { name: 'Distance (km)', detail: 'track data', titled: true },
+  'track:avgSpeed': { name: 'Avg speed (kn)', detail: 'track data', titled: true },
+  'track:maxSpeed': { name: 'Max speed (kn)', detail: 'track data', titled: true },
+  'track:dtl': { name: 'DTL (m)', detail: 'track data', titled: true },
+};
+
+/** A competitor column's name in the dialog's lists: its default title, and
+ *  for the few whose default doesn't say what they show, a word more. */
+export function columnName(key: CompetitorColumnKey, settings: ColumnSettings): string {
+  if (key === 'primary') return defaultColumnHeader(key, settings);
+  if (key === 'fleet') return 'Fleet';
+  if (key === 'bowNumber') return 'Bow number';
+  if (key === 'entryNumber') return 'Entry number';
+  if (key === 'tallyNumber') return 'Tally number';
+  if (key === 'boatName') return 'Boat name';
+  return defaultColumnHeader(key, settings);
+}
+
+/** Whether a person column can hold several names. */
+export function isPersonColumn(key: string): key is 'primary' | 'helm' | 'owner' | 'crewName' {
+  return key === 'primary' || key === 'helm' || key === 'owner' || key === 'crewName';
+}

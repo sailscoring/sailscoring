@@ -7,6 +7,7 @@ import { useFeatures } from '@/components/features-provider';
 import { useFinishesBySeries } from '@/hooks/use-finishes';
 import { useUpdateSeries } from '@/hooks/use-series';
 import { hasTrackData } from '@/lib/track-data';
+import { scoringColumnShown } from '@/lib/results-columns';
 import type { Series } from '@/lib/types';
 
 export function PublishingCard({
@@ -27,8 +28,11 @@ export function PublishingCard({
   const [expanded, setExpanded] = useState(false);
 
   const includeJson = series.includeJsonExport ?? true;
-  const publishRatingCalcs = series.publishRatingCalculations ?? true;
-  const showPerRaceRatings = series.showPerRaceRatingsInSummary ?? true;
+  // A series that sets its own results columns decides these two there:
+  // they are columns, and the dialog lists them with the rest.
+  const ownColumns = series.resultsColumns != null;
+  const publishRatingCalcs = scoringColumnShown(series, 'ratingCalculations');
+  const showPerRaceRatings = scoringColumnShown(series, 'perRaceRatings');
   const publishDetail = series.publishDetail ?? 'full';
   const showDetail = !splitFleets;
   // The toggle shows only where the RaceSense import can have recorded the
@@ -166,7 +170,12 @@ export function PublishingCard({
               </div>
             </div>
           )}
-          {anyProgressiveFleet && (
+          {anyProgressiveFleet && ownColumns && (
+            <p className="text-xs text-muted-foreground" data-testid="rating-columns-moved">
+              Rating calculations and per-race ratings: set in Results columns, on the Competitor fields card.
+            </p>
+          )}
+          {anyProgressiveFleet && !ownColumns && (
             <div className="flex items-start gap-2.5">
               <input
                 id="publishRatingCalculations"
@@ -190,7 +199,7 @@ export function PublishingCard({
               </div>
             </div>
           )}
-          {anyProgressiveFleet && (
+          {anyProgressiveFleet && !ownColumns && (
             <div className="flex items-start gap-2.5">
               <input
                 id="showPerRaceRatingsInSummary"

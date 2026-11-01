@@ -9,6 +9,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { seriesRowMutationKey, useUpdateSeries } from '@/hooks/use-series';
 import { CustomFieldsEditor } from '@/components/series-settings/custom-fields-editor';
+import { ResultsColumnsLine } from '@/components/series-settings/results-columns-line';
+import { isCompetitorColumnKey, withCompetitorColumn, withoutColumn, type CompetitorColumnKey } from '@/lib/results-columns';
 import {
   ALL_COMPETITOR_FIELDS,
   COMPETITOR_FIELD_LABELS,
@@ -33,6 +35,22 @@ import type {
   Series,
   SubdivisionAxis,
 } from '@/lib/types';
+
+/** The columns a field switched on or off adds to, or takes from, a series'
+ *  own columns. Subdivision brings a column per axis; Nationality takes its
+ *  Country column with it. */
+function withFieldColumns(series: Series, field: CompetitorFieldKey, on: boolean) {
+  const list = series.resultsColumns ?? [];
+  const keys: CompetitorColumnKey[] =
+    field === 'subdivision'
+      ? (series.subdivisionAxes ?? []).map((a) => `subdivision:${a.id}` as const)
+      : isCompetitorColumnKey(field)
+        ? [field]
+        : [];
+  if (on) return keys.reduce(withCompetitorColumn, list);
+  const dropped = field === 'nationality' ? [...keys, 'country'] : keys;
+  return dropped.reduce(withoutColumn, list);
+}
 
 export function CompetitorFieldsCard({ seriesId, series }: { seriesId: string; series: Series }) {
   const updateSeries = useUpdateSeries();
@@ -111,11 +129,26 @@ export function CompetitorFieldsCard({ seriesId, series }: { seriesId: string; s
     setLocalAxes(next);
     await updateSeries.mutateAsync({
       id: seriesId,
-      patch: {
+      patch: (current) => ({
         subdivisionAxes: next,
-        // eslint-disable-next-line react-hooks/purity -- Date.now() runs inside an async event handler, not render.
+        // A series with its own columns gains a new axis's column and loses a
+        // removed one's.
+        ...(current.resultsColumns
+          ? {
+              resultsColumns: (() => {
+                const ids = new Set(next.map((a) => a.id));
+                let list = current.resultsColumns.filter(
+                  (c) => !c.key.startsWith('subdivision:') || ids.has(c.key.slice('subdivision:'.length)),
+                );
+                if (current.enabledCompetitorFields.includes('subdivision')) {
+                  for (const a of next) list = withCompetitorColumn(list, `subdivision:${a.id}`);
+                }
+                return list;
+              })(),
+            }
+          : {}),
         lastModifiedAt: Date.now(),
-      },
+      }),
     });
   }
 
@@ -156,6 +189,12 @@ export function CompetitorFieldsCard({ seriesId, series }: { seriesId: string; s
         if (checked) fields.add(field); else fields.delete(field);
         return {
           enabledCompetitorFields: ALL_COMPETITOR_FIELDS.filter((f) => fields.has(f)),
+          // A series that sets its own columns gets the field's column at the
+          // end of its competitor columns, and loses it when the field goes.
+          // Without this, switching a field on would appear to do nothing.
+          ...(current.resultsColumns
+            ? { resultsColumns: withFieldColumns(current, field, checked) }
+            : {}),
           lastModifiedAt: Date.now(),
         };
       },
@@ -376,6 +415,7 @@ export function CompetitorFieldsCard({ seriesId, series }: { seriesId: string; s
             )}
           </div>
           <CustomFieldsEditor seriesId={seriesId} series={series} canEdit={has('custom-columns')} />
+          <ResultsColumnsLine series={series} />
           <Button variant="outline" size="sm" onClick={() => setExpanded(false)}>
             Done
           </Button>
