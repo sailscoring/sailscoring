@@ -15,6 +15,8 @@ import type {
   Race,
   RaceOfficial,
   RaceStart,
+  ResultsColumn,
+  ResultsTable,
   SeriesScoringCode,
 } from './types';
 import { scoringCodeNotes } from './scoring-codes-text';
@@ -27,6 +29,7 @@ import {
   type DocumentChrome,
 } from './results-renderer';
 import { boatClassDistinguishes } from './competitor-fields';
+import { titleLines } from './results-columns';
 import { CHAMPIONSHIP_PAGE, SCORING_NOTES_PAGE } from './publish-pages';
 import { formatConditions, hasConditions } from './race-conditions';
 import { formatOfficials, hasOfficials } from './race-officials';
@@ -83,6 +86,10 @@ export interface SplitFleetRenderInput {
   /** Which optional competitor fields the scorer shows; drives the Nat
    *  column. Absent = none. */
   enabledCompetitorFields?: CompetitorFieldKey[];
+  /** The series' own results columns (absent = automatic). These pages show
+   *  a fixed set of competitor columns; the series' list orders them, titles
+   *  them and leaves off the ones it removes. */
+  resultsColumns?: ResultsColumn[];
   /** Inline flags keyed by 3-letter code (see `SeriesResultsData.
    *  flagSvgByCode`). Callers load it on demand; absent = code-only cells. */
   flagSvgByCode?: Readonly<Record<string, NationalFlag>>;
@@ -221,6 +228,42 @@ function showWsid(input: SplitFleetRenderInput): boolean {
     (input.enabledCompetitorFields ?? []).includes('worldSailingId') &&
     input.competitors.some((c) => c.worldSailingId)
   );
+}
+
+/** One of the competitor columns a split-fleet table can show. */
+interface SplitColumnSlot {
+  key: 'nationality' | 'sailNumber' | 'boatClass' | 'primary' | 'club' | 'worldSailingId';
+  shown: boolean;
+  header: string;
+}
+
+/**
+ * The competitor columns of a split-fleet table, from the slots it can show.
+ * Under automatic columns, every slot in its fixed order, each saying
+ * whether it is shown. With the series' own columns, only the shown slots
+ * its list keeps for the table, in the list's order and under its titles.
+ */
+function splitColumns(
+  input: SplitFleetRenderInput,
+  slots: SplitColumnSlot[],
+  table: ResultsTable,
+): SplitColumnSlot[] {
+  const list = input.resultsColumns;
+  if (!list) return slots;
+  const byKey = new Map(slots.map((slot) => [slot.key as string, slot]));
+  const out: SplitColumnSlot[] = [];
+  for (const column of list) {
+    const slot = byKey.get(column.key);
+    if (!slot || !slot.shown) continue;
+    if (column.tables && !column.tables.includes(table)) continue;
+    const title = column.title ? titleLines(column.title).join('\n') : '';
+    out.push({ ...slot, header: title || slot.header });
+  }
+  return out;
+}
+
+function splitHeader(slot: SplitColumnSlot): string {
+  return `<th>${slot.header.split('\n').map(esc).join('<br>')}</th>`;
 }
 
 function wsidCell(id: string | undefined): string {
@@ -414,11 +457,25 @@ export function renderSplitFleetStandingsPage(
   const chippedFleets = new Set<string>();
   const ownNumber = showOwnNumber(data.config);
   const splitRound = roundsForStage(data.rounds, 'final')[0] ?? null;
-  const nat = showNat(input);
-  const boatClass = showClass(input);
-  const crew = showCrew(input);
-  const club = showClub(input);
-  const wsid = showWsid(input);
+  // The crew ride in the Helm column, unless the series' own columns have
+  // no crew in them.
+  const crew =
+    showCrew(input) &&
+    (!input.resultsColumns ||
+      input.resultsColumns.some((c) => c.key === 'crewName' && (!c.tables || c.tables.includes('standings'))));
+  const competitorSlots = splitColumns(
+    input,
+    [
+      { key: 'nationality', shown: showNat(input), header: 'Nat' },
+      { key: 'sailNumber', shown: ownNumber, header: 'Sail' },
+      { key: 'boatClass', shown: showClass(input), header: 'Class' },
+      { key: 'primary', shown: true, header: crew ? 'Helm / Crew' : 'Helm' },
+      { key: 'club', shown: showClub(input), header: 'Club' },
+      { key: 'worldSailingId', shown: showWsid(input), header: 'WS ID' },
+    ],
+    'standings',
+  );
+  const wsid = competitorSlots.some((slot) => slot.key === 'worldSailingId' && slot.shown);
   const vocab = resolveVocabulary(data.config);
   const columnLabel = (stage: StoredStage, n: number) =>
     stageRaceLabel(data.config, stage, n);
@@ -605,12 +662,19 @@ export function renderSplitFleetStandingsPage(
         const tr = `<tr class="${i % 2 === 0 ? 'odd' : 'even'} summaryrow">
   <td>${row.unranked ? '' : row.rank}</td>
   ${fleetCol ? `<td style="white-space:nowrap">${esc((fleetId && fleetName.get(fleetId)) || '')}</td>` : ''}
-  ${nat ? natCell(row.competitor.nationality, input.flagSvgByCode) : ''}
-  ${ownNumber ? `<td style="font-family:monospace">${esc(row.competitor.sailNumber)}</td>` : ''}
-  ${boatClass ? `<td>${esc(row.competitor.boatClass ?? '')}</td>` : ''}
-  <td>${helmHtml}</td>
-  ${club ? `<td>${renderListCell(row.competitor.clubs)}</td>` : ''}
-  ${wsid ? wsidCell(row.competitor.worldSailingId) : ''}
+  ${competitorSlots
+    .map((slot) => {
+      if (!slot.shown) return '';
+      switch (slot.key) {
+        case 'nationality': return natCell(row.competitor.nationality, input.flagSvgByCode);
+        case 'sailNumber': return `<td style="font-family:monospace">${esc(row.competitor.sailNumber)}</td>`;
+        case 'boatClass': return `<td>${esc(row.competitor.boatClass ?? '')}</td>`;
+        case 'primary': return `<td>${helmHtml}</td>`;
+        case 'club': return `<td>${renderListCell(row.competitor.clubs)}</td>`;
+        case 'worldSailingId': return wsidCell(row.competitor.worldSailingId);
+      }
+    })
+    .join('\n  ')}
   ${columns.map((c) => cellHtml(row, c, marksMixed && mixedColumns.includes(c))).join('\n  ')}
   <td style="text-align:right">${row.unranked ? '' : row.total}</td>
   <td style="text-align:right;font-weight:bold">${row.unranked ? '' : row.net}</td>
@@ -619,13 +683,13 @@ export function renderSplitFleetStandingsPage(
         // cut — say so rather than letting the line silently resolve the tie.
         const tiedAcrossCut = cuts.includes(i) && rowsIn[i + 1]?.rank === row.rank;
         const cut = cuts.includes(i)
-          ? `<tr><td colspan="${columns.length + 4 + (ownNumber ? 1 : 0) + (fleetCol ? 1 : 0) + (nat ? 1 : 0) + (boatClass ? 1 : 0) + (club ? 1 : 0) + (wsid ? 1 : 0)}" style="border:none;padding:0"><div style="border-top:2px dashed #f59e0b;text-align:center;font-size:0.75em;color:#b45309;text-transform:uppercase">${esc(cutLabel)}${tiedAcrossCut ? ' — the boats either side are tied; the ranking does not decide this cut' : ''}</div></td></tr>`
+          ? `<tr><td colspan="${columns.length + 3 + (fleetCol ? 1 : 0) + competitorSlots.filter((slot) => slot.shown).length}" style="border:none;padding:0"><div style="border-top:2px dashed #f59e0b;text-align:center;font-size:0.75em;color:#b45309;text-transform:uppercase">${esc(cutLabel)}${tiedAcrossCut ? ' — the boats either side are tied; the ranking does not decide this cut' : ''}</div></td></tr>`
           : '';
         return tr + cut;
       })
       .join('\n');
     return `<div class="tablewrap"><table class="summarytable">
-<thead><tr><th>Rank</th>${fleetCol ? '<th>Fleet</th>' : ''}${nat ? '<th>Nat</th>' : ''}${ownNumber ? '<th>Sail</th>' : ''}${boatClass ? '<th>Class</th>' : ''}<th>${crew ? 'Helm / Crew' : 'Helm'}</th>${club ? '<th>Club</th>' : ''}${wsid ? '<th>WS ID</th>' : ''}${head}<th>Total</th><th>Nett</th></tr></thead>
+<thead><tr><th>Rank</th>${fleetCol ? '<th>Fleet</th>' : ''}${competitorSlots.filter((slot) => slot.shown).map(splitHeader).join('')}${head}<th>Total</th><th>Nett</th></tr></thead>
 <tbody>
 ${body}
 </tbody>
@@ -843,7 +907,7 @@ ${body}
       fontPercent: 72,
       hasNhcDetail: false,
       hasEchoDetail: false,
-      flagDefs: nat ? flagDefsFor(input) : '',
+      flagDefs: competitorSlots.some((slot) => slot.key === 'nationality' && slot.shown) ? flagDefsFor(input) : '',
     },
   );
 }
@@ -930,8 +994,18 @@ export function renderSplitFleetRaceResultsPage(
   const data = assembleSplitFleetData(input);
   const rows = splitFleetStandings(data);
   const fleetName = new Map(data.fleets.map((f) => [f.id, f.name]));
-  const nat = showNat(input);
-  const wsid = showWsid(input);
+  const raceSlots = splitColumns(
+    input,
+    [
+      { key: 'nationality', shown: showNat(input), header: 'Nat' },
+      { key: 'sailNumber', shown: true, header: 'Sail' },
+      { key: 'primary', shown: true, header: 'Helm' },
+      { key: 'worldSailingId', shown: showWsid(input), header: 'WS ID' },
+    ],
+    'races',
+  );
+  const nat = raceSlots.some((slot) => slot.key === 'nationality' && slot.shown);
+  const wsid = raceSlots.some((slot) => slot.key === 'worldSailingId' && slot.shown);
 
   // Each row's cell for one (stage race, fleet), joined back to its
   // competitor. Carried cells have no race id: they are scores, not races.
@@ -1023,10 +1097,18 @@ export function renderSplitFleetRaceResultsPage(
             : helm;
         return `<tr class="${i % 2 === 0 ? 'odd' : 'even'}">
   <td style="text-align:center">${finisher ? ++place : ''}</td>
-  ${nat ? natCell(competitor.nationality, input.flagSvgByCode) : ''}
-  <td style="font-family:monospace">${esc(boatIn(competitor, cell.fleetId))}</td>
-  <td>${helmHtml}</td>
-  ${wsid ? wsidCell(competitor.worldSailingId) : ''}
+  ${raceSlots
+    .map((slot) => {
+      if (!slot.shown) return '';
+      switch (slot.key) {
+        case 'nationality': return natCell(competitor.nationality, input.flagSvgByCode);
+        case 'sailNumber': return `<td style="font-family:monospace">${esc(boatIn(competitor, cell.fleetId))}</td>`;
+        case 'primary': return `<td>${helmHtml}</td>`;
+        case 'worldSailingId': return wsidCell(competitor.worldSailingId);
+        default: return '';
+      }
+    })
+    .join('\n  ')}
   <td style="text-align:center">${esc(cell.code ?? '')}</td>
   <td style="text-align:right">${cell.points}</td>
 ${trackColumns.map((col) => `  <td style="text-align:right">${esc(col.value(finish))}</td>`).join('\n')}
@@ -1037,7 +1119,7 @@ ${trackColumns.map((col) => `  <td style="text-align:right">${esc(col.value(fini
       .map((col) => `<th${col.title ? ` title="${esc(col.title)}"` : ''}>${esc(col.header)}</th>`)
       .join('');
     return `<div class="tablewrap"><table class="summarytable">
-<thead><tr><th>Rank</th>${nat ? '<th>Nat</th>' : ''}<th>Sail</th><th>Helm</th>${wsid ? '<th>WS ID</th>' : ''}<th>Code</th><th>Points</th>${trackHeaders}</tr></thead>
+<thead><tr><th>Rank</th>${raceSlots.filter((slot) => slot.shown).map(splitHeader).join('')}<th>Code</th><th>Points</th>${trackHeaders}</tr></thead>
 <tbody>
 ${body}
 </tbody>

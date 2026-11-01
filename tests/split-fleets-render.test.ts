@@ -109,6 +109,15 @@ describe('renderSplitFleetStandingsPage', () => {
     );
   });
 
+  it('orders, titles and removes its competitor columns as the series’ own columns say', () => {
+    const input = renderInputFor('03-f2-ilca-medal-race.yaml');
+    const html = renderSplitFleetStandingsPage({
+      ...input,
+      resultsColumns: [{ key: 'rank' }, { key: 'primary', title: 'Sailor' }, { key: 'sailNumber', title: 'Bib' }],
+    });
+    expect(headerRow(html, 'Gold').slice(0, 3)).toEqual(['Rank', 'Sailor', 'Bib']);
+  });
+
   it('shows a held carried score from fleet selection, marked as not yet counting', () => {
     // `appliesFrom: first-medal-race` with no medal race sailed: the Carried
     // column is on the page — the qualified boats can see the scores the

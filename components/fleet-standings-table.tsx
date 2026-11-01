@@ -44,12 +44,23 @@ import {
 } from '@/lib/competitor-fields';
 import type {
   CompetitorFieldKey,
+  CustomField,
   MultiPersonFieldKey,
   PrimaryPersonLabel,
   RaceDiscardPolicy,
+  ResultsColumn,
   Standing,
   SubdivisionAxis,
 } from '@/lib/types';
+import {
+  customFieldId,
+  scoringColumnShown,
+  scoringColumnTitle,
+  subdivisionAxisId,
+  tableColumns,
+  type CompetitorColumnKey,
+} from '@/lib/results-columns';
+import { lookupCode } from '@/lib/nationality';
 import {
   formatMultiplier,
   hasScoringOptions,
@@ -86,6 +97,12 @@ export interface FleetStandingsTableProps {
   multiPersonFields?: MultiPersonFieldKey[];
   /** Configured subdivision axes; one prize-giving column each. */
   subdivisionAxes: SubdivisionAxis[];
+  /** The series' custom fields; one column each. */
+  customFields?: CustomField[];
+  /** The series' own results columns. When set the table shows its
+   *  standings columns — order, titles and all — so the app shows what will
+   *  be published; absent, the app's own automatic layout. */
+  resultsColumns?: ResultsColumn[];
   /** Fleet display name, used in the race-column exclusion menu. */
   fleetName?: string;
   /** Races *manually* struck from this fleet's scoring (`raceFleetExclusions`).
@@ -127,6 +144,8 @@ export function FleetStandingsTable({
   primaryLabel,
   multiPersonFields,
   subdivisionAxes,
+  customFields,
+  resultsColumns,
   fleetName,
   excludedRaceIds,
   onToggleExclude,
@@ -135,18 +154,22 @@ export function FleetStandingsTable({
   includedByOverride,
   onClearInclude,
 }: FleetStandingsTableProps) {
-  const showBoat = enabledFields.includes('boatName');
-  const showClass = enabledFields.includes('boatClass');
-  const showHelm = enabledFields.includes('helm') && !isFieldDisabledByPrimary('helm', primaryLabel);
-  const showOwner = enabledFields.includes('owner') && !isFieldDisabledByPrimary('owner', primaryLabel);
-  const showCrew = enabledFields.includes('crewName');
-  const showClub = enabledFields.includes('club');
-  // Code-only in the live UI — flags are reserved for HTML exports so the
-  // standings page doesn't pull the ~2.5 MB flag dataset into its bundle.
-  const showNationality = enabledFields.includes('nationality');
-  const visibleAxes = enabledFields.includes('subdivision') ? subdivisionAxes : [];
-  const showAge = enabledFields.includes('age');
-  const showGender = enabledFields.includes('gender');
+  const columns = standingsColumns({
+    standings,
+    enabledFields,
+    primaryLabel,
+    multiPersonFields,
+    subdivisionAxes,
+    customFields: customFields ?? [],
+    resultsColumns,
+  });
+  const visibleAxes = columns
+    .map((c) => subdivisionAxisId(c.key))
+    .flatMap((id) => subdivisionAxes.filter((a) => a.id === id));
+  const showTotal = scoringColumnShown({ resultsColumns }, 'total');
+  const showNett = hasDiscards && scoringColumnShown({ resultsColumns }, 'nett');
+  const totalTitle = scoringColumnTitle(resultsColumns, 'total');
+  const nettTitle = scoringColumnTitle(resultsColumns, 'nett');
   // Named in words under the table: a column marked "×2" or "*" has to say
   // what it does, or the standings don't add up for anyone checking by hand.
   const optionNotes = races
@@ -184,6 +207,17 @@ export function FleetStandingsTable({
     ),
     { id: 'age', compare: (a, b) => compareNumeric(a.competitor.age, b.competitor.age) },
     { id: 'gender', compare: (a, b) => compareText(a.competitor.gender, b.competitor.gender) },
+    { id: 'bowNumber', compare: (a, b) => compareSailNumbers(a.competitor.bowNumber ?? '', b.competitor.bowNumber ?? '') },
+    { id: 'entryNumber', compare: (a, b) => compareSailNumbers(a.competitor.entryNumber ?? '', b.competitor.entryNumber ?? '') },
+    { id: 'tallyNumber', compare: (a, b) => compareText(a.competitor.tallyNumber, b.competitor.tallyNumber) },
+    { id: 'worldSailingId', compare: (a, b) => compareText(a.competitor.worldSailingId, b.competitor.worldSailingId) },
+    { id: 'country', compare: (a, b) => compareText(countryName(a.competitor.nationality), countryName(b.competitor.nationality)) },
+    ...(customFields ?? []).map(
+      (field): SortableColumn<Standing> => ({
+        id: `field:${field.id}`,
+        compare: (a, b) => compareText(a.competitor.customFields?.[field.id], b.competitor.customFields?.[field.id]),
+      }),
+    ),
     // A race column compares points, with excluded cells blank — past every
     // real score, like any other blank.
     ...races.map(
@@ -219,21 +253,17 @@ export function FleetStandingsTable({
     <Table>
       <TableHeader>
         <TableRow className="bg-primary hover:bg-primary [&>th]:text-primary-foreground [&>th]:font-semibold">
-          <SortableTableHead columnId="rank" sortKeys={sortKeys} onSort={handleSort} className={cn(headClass, 'w-12 justify-center')}>Rank</SortableTableHead>
-          <SortableTableHead columnId="sailNumber" sortKeys={sortKeys} onSort={handleSort} className={cn(headClass, 'w-20')}>Sail no.</SortableTableHead>
-          {showBoat && <SortableTableHead columnId="boatName" sortKeys={sortKeys} onSort={handleSort} className={headClass}>Boat</SortableTableHead>}
-          {showClass && <SortableTableHead columnId="boatClass" sortKeys={sortKeys} onSort={handleSort} className={headClass}>Class</SortableTableHead>}
-          <SortableTableHead columnId="primary" sortKeys={sortKeys} onSort={handleSort} className={headClass}>{primaryPersonHeader(primaryLabel, multiPersonFields)}</SortableTableHead>
-          {showHelm && <SortableTableHead columnId="helm" sortKeys={sortKeys} onSort={handleSort} className={headClass}>{personFieldHeader('helm', multiPersonFields)}</SortableTableHead>}
-          {showOwner && <SortableTableHead columnId="owner" sortKeys={sortKeys} onSort={handleSort} className={headClass}>{personFieldHeader('owner', multiPersonFields)}</SortableTableHead>}
-          {showCrew && <SortableTableHead columnId="crew" sortKeys={sortKeys} onSort={handleSort} className={headClass}>{personFieldHeader('crewName', multiPersonFields)}</SortableTableHead>}
-          {showClub && <SortableTableHead columnId="club" sortKeys={sortKeys} onSort={handleSort} className={headClass}>Club</SortableTableHead>}
-          {showNationality && <SortableTableHead columnId="nationality" sortKeys={sortKeys} onSort={handleSort} className={headClass}>Nat</SortableTableHead>}
-          {visibleAxes.map((axis) => (
-            <SortableTableHead key={axis.id} columnId={`axis-${axis.id}`} sortKeys={sortKeys} onSort={handleSort} className={headClass}>{subdivisionAxisLabel(axis)}</SortableTableHead>
+          {columns.map((column) => (
+            <SortableTableHead
+              key={column.key}
+              columnId={column.sortId}
+              sortKeys={sortKeys}
+              onSort={handleSort}
+              className={cn(headClass, column.headClass)}
+            >
+              {column.header}
+            </SortableTableHead>
           ))}
-          {showAge && <SortableTableHead columnId="age" sortKeys={sortKeys} onSort={handleSort} className={headClass}>Age</SortableTableHead>}
-          {showGender && <SortableTableHead columnId="gender" sortKeys={sortKeys} onSort={handleSort} className={headClass}>Gender</SortableTableHead>}
           {races.map((race, i) => {
             // "R4 ×2 *" — the weighting numerically, an asterisk for a race
             // whose discard behaviour differs. Both are spelled out in the
@@ -332,9 +362,11 @@ export function FleetStandingsTable({
               </TableHead>
             );
           })}
-          <SortableTableHead columnId="total" sortKeys={sortKeys} onSort={handleSort} className={cn(headClass, 'w-20 justify-center')}>Total</SortableTableHead>
-          {hasDiscards && (
-            <SortableTableHead columnId="nett" sortKeys={sortKeys} onSort={handleSort} className={cn(headClass, 'w-20 justify-center')}>Nett</SortableTableHead>
+          {showTotal && (
+            <SortableTableHead columnId="total" sortKeys={sortKeys} onSort={handleSort} className={cn(headClass, 'w-20 justify-center')}>{totalTitle ? titleLines(totalTitle) : 'Total'}</SortableTableHead>
+          )}
+          {showNett && (
+            <SortableTableHead columnId="nett" sortKeys={sortKeys} onSort={handleSort} className={cn(headClass, 'w-20 justify-center')}>{nettTitle ? titleLines(nettTitle) : 'Nett'}</SortableTableHead>
           )}
         </TableRow>
       </TableHeader>
@@ -346,17 +378,9 @@ export function FleetStandingsTable({
             standing={standing}
             races={races}
             raceCount={races.length}
-            hasDiscards={hasDiscards}
-            showBoat={showBoat}
-            showClass={showClass}
-            showHelm={showHelm}
-            showOwner={showOwner}
-            showCrew={showCrew}
-            showClub={showClub}
-            showNationality={showNationality}
-            subdivisionAxes={visibleAxes}
-            showAge={showAge}
-            showGender={showGender}
+            showTotal={showTotal}
+            showNett={showNett}
+            columns={columns}
             onExcludeCompetitor={onExcludeCompetitor}
             excludeCompetitorLabel={excludeCompetitorLabel}
             includedByOverride={includedByOverride}
@@ -381,17 +405,9 @@ interface StandingRowProps {
   standing: Standing;
   races: FleetStandingsTableProps['races'];
   raceCount: number;
-  hasDiscards: boolean;
-  showBoat: boolean;
-  showClass: boolean;
-  showHelm: boolean;
-  showOwner: boolean;
-  showCrew: boolean;
-  showClub: boolean;
-  showNationality: boolean;
-  subdivisionAxes: SubdivisionAxis[];
-  showAge: boolean;
-  showGender: boolean;
+  showTotal: boolean;
+  showNett: boolean;
+  columns: StandingsColumn[];
   onExcludeCompetitor?: (competitorId: string) => void;
   excludeCompetitorLabel?: string;
   includedByOverride?: ReadonlySet<string>;
@@ -403,17 +419,9 @@ function StandingRow({
   standing,
   races,
   raceCount,
-  hasDiscards,
-  showBoat,
-  showClass,
-  showHelm,
-  showOwner,
-  showCrew,
-  showClub,
-  showNationality,
-  subdivisionAxes,
-  showAge,
-  showGender,
+  showTotal,
+  showNett,
+  columns,
   onExcludeCompetitor,
   excludeCompetitorLabel,
   includedByOverride,
@@ -423,17 +431,9 @@ function StandingRow({
 
   const isFirst = rank === 1;
   const pinnedIn = includedByOverride?.has(competitor.id) ?? false;
-
-  return (
-    <TableRow
-      className={cn(
-        isFirst ? 'bg-primary/[0.06] font-medium' : stripedRowClass(index),
-      )}
-    >
-      <TableCell className="text-center">
-        <RankBadge rank={rank} />
-      </TableCell>
-      <TableCell className="font-mono">
+  // The sail number opens the entry's menu for an editor.
+  const sailCell = (
+      <>
         {onExcludeCompetitor ? (
           <DropdownMenu>
             <DropdownMenuTrigger
@@ -465,39 +465,24 @@ function StandingRow({
         ) : (
           competitor.sailNumber
         )}
-      </TableCell>
-      {showBoat && <TableCell>{competitor.boatName ?? ''}</TableCell>}
-      {showClass && <TableCell>{competitor.boatClass ?? ''}</TableCell>}
-      {/* No WS ID column on this table — with an ID on file, the name links
-          to the World Sailing bio instead. */}
-      <TableCell>
-        {competitor.names.filter((n) => n.trim()).map((n, i) => (
-          <div key={i}>
-            {competitor.worldSailingId ? (
-              <a
-                href={worldSailingProfileUrl(competitor.worldSailingId)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hover:underline"
-              >
-                {n}
-              </a>
-            ) : (
-              n
-            )}
-          </div>
-        ))}
-      </TableCell>
-      {showHelm && <TableCell>{(competitor.helms ?? []).map((n, i) => <div key={i}>{n}</div>)}</TableCell>}
-      {showOwner && <TableCell>{(competitor.owners ?? []).map((n, i) => <div key={i}>{n}</div>)}</TableCell>}
-      {showCrew && <TableCell>{(competitor.crewNames ?? []).map((n, i) => <div key={i}>{n}</div>)}</TableCell>}
-      {showClub && <TableCell className="text-muted-foreground">{competitor.clubs.map((c, i) => <div key={i}>{c}</div>)}</TableCell>}
-      {showNationality && <TableCell className="font-mono">{competitor.nationality ?? ''}</TableCell>}
-      {subdivisionAxes.map((axis) => (
-        <TableCell key={axis.id}>{competitor.subdivisions?.[axis.id] ?? ''}</TableCell>
+      </>
+  );
+
+  return (
+    <TableRow
+      className={cn(
+        isFirst ? 'bg-primary/[0.06] font-medium' : stripedRowClass(index),
+      )}
+    >
+      {columns.map((column) => (
+        <StandingsCell
+          key={column.key}
+          rank={rank}
+          column={column}
+          standing={standing}
+          sailCell={sailCell}
+        />
       ))}
-      {showAge && <TableCell className="tabular-nums">{competitor.age ?? ''}</TableCell>}
-      {showGender && <TableCell>{competitor.gender}</TableCell>}
       {racePoints.map((points, i) => {
         const isDiscard = raceDiscards[i] ?? false;
         const isNonDiscardable = raceNonDiscardable[i] ?? false;
@@ -592,21 +577,238 @@ function StandingRow({
           —
         </TableCell>
       ))}
-      <TableCell
-        className={cn(
-          'text-center tabular-nums',
-          hasDiscards ? 'font-semibold' : 'font-bold text-primary',
-        )}
-      >
-        {totalPoints}
-      </TableCell>
-      {hasDiscards && (
+      {showTotal && (
+        <TableCell
+          className={cn(
+            'text-center tabular-nums',
+            showNett ? 'font-semibold' : 'font-bold text-primary',
+          )}
+        >
+          {totalPoints}
+        </TableCell>
+      )}
+      {showNett && (
         <TableCell className="text-center font-bold text-primary tabular-nums">
           {netPoints}
         </TableCell>
       )}
     </TableRow>
   );
+}
+
+/** One competitor column of the in-app standings table. */
+interface StandingsColumn {
+  key: CompetitorColumnKey;
+  /** The sort column it sorts by. */
+  sortId: string;
+  header: ReactNode;
+  headClass?: string;
+  pairCrew?: boolean;
+  joinNames?: boolean;
+  joinCrew?: boolean;
+}
+
+/** A title's lines, one above the other. */
+function titleLines(title: string): ReactNode {
+  const lines = title.split('\n');
+  return lines.length === 1 ? title : lines.map((line, i) => <div key={i}>{line}</div>);
+}
+
+function countryName(code: string | undefined): string {
+  return code ? lookupCode(code)?.name ?? code : '';
+}
+
+/** The sort column a competitor column sorts by. */
+function sortIdOf(key: CompetitorColumnKey): string {
+  const axisId = subdivisionAxisId(key);
+  if (axisId != null) return `axis-${axisId}`;
+  return key === 'crewName' ? 'crew' : key;
+}
+
+const COLUMN_HEAD_CLASS: Partial<Record<CompetitorColumnKey, string>> = {
+  rank: 'w-12 justify-center',
+  sailNumber: 'w-20',
+};
+
+/**
+ * The competitor columns of the in-app standings table. A series with its own
+ * columns gets them as they publish, so the app shows what the page will.
+ * Otherwise the app's long-standing layout: every switched-on field, shown
+ * whether or not a boat has a value, with the codes and short headings a
+ * working table wants ("Sail no.", "Nat").
+ */
+function standingsColumns(opts: {
+  standings: Standing[];
+  enabledFields: CompetitorFieldKey[];
+  primaryLabel: PrimaryPersonLabel;
+  multiPersonFields?: MultiPersonFieldKey[];
+  subdivisionAxes: SubdivisionAxis[];
+  customFields: CustomField[];
+  resultsColumns?: ResultsColumn[];
+}): StandingsColumn[] {
+  const { enabledFields, primaryLabel, multiPersonFields, subdivisionAxes, customFields, resultsColumns } = opts;
+  if (resultsColumns) {
+    const rows = opts.standings.map(({ competitor: c }) => ({
+      bowNumber: c.bowNumber,
+      entryNumber: c.entryNumber,
+      tallyNumber: c.tallyNumber,
+      boatName: c.boatName,
+      boatClass: c.boatClass,
+      helmRole: c.helms,
+      owner: c.owners,
+      crewNames: c.crewNames,
+      clubs: c.clubs,
+      nationality: c.nationality,
+      worldSailingId: c.worldSailingId,
+      subdivisions: c.subdivisions,
+      gender: c.gender,
+      age: c.age,
+      customFields: c.customFields,
+    }));
+    return tableColumns(
+      { enabledCompetitorFields: enabledFields, primaryPersonLabel: primaryLabel, multiPersonFields, subdivisionAxes, customFields, resultsColumns },
+      'standings',
+      rows,
+    ).map((column) => ({
+      ...column,
+      sortId: sortIdOf(column.key),
+      header: titleLines(column.header),
+      headClass: COLUMN_HEAD_CLASS[column.key],
+    }));
+  }
+  const on = (k: CompetitorFieldKey) => enabledFields.includes(k);
+  const keys: [CompetitorColumnKey, ReactNode][] = [
+    ['rank', 'Rank'],
+    ['sailNumber', 'Sail no.'],
+  ];
+  if (on('boatName')) keys.push(['boatName', 'Boat']);
+  if (on('boatClass')) keys.push(['boatClass', 'Class']);
+  keys.push(['primary', primaryPersonHeader(primaryLabel, multiPersonFields)]);
+  if (on('helm') && !isFieldDisabledByPrimary('helm', primaryLabel)) keys.push(['helm', personFieldHeader('helm', multiPersonFields)]);
+  if (on('owner') && !isFieldDisabledByPrimary('owner', primaryLabel)) keys.push(['owner', personFieldHeader('owner', multiPersonFields)]);
+  if (on('crewName')) keys.push(['crewName', personFieldHeader('crewName', multiPersonFields)]);
+  if (on('club')) keys.push(['club', 'Club']);
+  // Code-only in the live UI — flags are reserved for HTML exports so the
+  // standings page doesn't pull the ~2.5 MB flag dataset into its bundle.
+  if (on('nationality')) keys.push(['nationality', 'Nat']);
+  if (on('subdivision')) {
+    for (const axis of subdivisionAxes) keys.push([`subdivision:${axis.id}`, subdivisionAxisLabel(axis)]);
+  }
+  if (on('age')) keys.push(['age', 'Age']);
+  if (on('gender')) keys.push(['gender', 'Gender']);
+  for (const field of customFields) keys.push([`field:${field.id}`, field.label]);
+  return keys.map(([key, header]) => ({ key, sortId: sortIdOf(key), header, headClass: COLUMN_HEAD_CLASS[key] }));
+}
+
+/** A list of names: one per line, or on one line joined with " & ". */
+function nameList(names: string[] | undefined, join?: boolean): ReactNode {
+  const list = (names ?? []).filter((n) => n.trim());
+  if (join) return list.join(' & ');
+  return list.map((n, i) => <div key={i}>{n}</div>);
+}
+
+/** One competitor column's cell. */
+function StandingsCell({
+  column,
+  standing,
+  rank,
+  sailCell,
+}: {
+  column: StandingsColumn;
+  standing: Standing;
+  rank: number;
+  sailCell: ReactNode;
+}) {
+  const { competitor } = standing;
+  const axisId = subdivisionAxisId(column.key);
+  if (axisId != null) return <TableCell>{competitor.subdivisions?.[axisId] ?? ''}</TableCell>;
+  const fieldId = customFieldId(column.key);
+  if (fieldId != null) return <TableCell>{competitor.customFields?.[fieldId] ?? ''}</TableCell>;
+  switch (column.key) {
+    case 'rank':
+      return (
+        <TableCell className="text-center">
+          <RankBadge rank={rank} />
+        </TableCell>
+      );
+    case 'sailNumber':
+      return <TableCell className="font-mono">{sailCell}</TableCell>;
+    case 'bowNumber':
+      return <TableCell className="font-mono">{competitor.bowNumber ?? ''}</TableCell>;
+    case 'entryNumber':
+      return <TableCell className="font-mono">{competitor.entryNumber ?? ''}</TableCell>;
+    case 'tallyNumber':
+      return <TableCell className="font-mono">{competitor.tallyNumber ?? ''}</TableCell>;
+    case 'boatName':
+      return <TableCell>{competitor.boatName ?? ''}</TableCell>;
+    case 'boatClass':
+      return <TableCell>{competitor.boatClass ?? ''}</TableCell>;
+    case 'primary': {
+      // With an ID on file and no WS ID column, the name links to the World
+      // Sailing bio instead.
+      const names = competitor.names.filter((n) => n.trim());
+      const shown = column.joinNames ? [names.join(' & ')] : names;
+      return (
+        <TableCell>
+          {shown.map((n, i) => (
+            <div key={i}>
+              {competitor.worldSailingId ? (
+                <a
+                  href={worldSailingProfileUrl(competitor.worldSailingId)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:underline"
+                >
+                  {n}
+                </a>
+              ) : (
+                n
+              )}
+            </div>
+          ))}
+          {column.pairCrew && (
+            <div className="text-muted-foreground">{nameList(competitor.crewNames, column.joinCrew)}</div>
+          )}
+        </TableCell>
+      );
+    }
+    case 'helm':
+      return <TableCell>{nameList(competitor.helms, column.joinNames)}</TableCell>;
+    case 'owner':
+      return <TableCell>{nameList(competitor.owners, column.joinNames)}</TableCell>;
+    case 'crewName':
+      return <TableCell>{nameList(competitor.crewNames, column.joinNames)}</TableCell>;
+    case 'club':
+      return <TableCell className="text-muted-foreground">{competitor.clubs.map((c, i) => <div key={i}>{c}</div>)}</TableCell>;
+    case 'nationality':
+      return <TableCell className="font-mono">{competitor.nationality ?? ''}</TableCell>;
+    case 'country':
+      return <TableCell>{countryName(competitor.nationality)}</TableCell>;
+    case 'worldSailingId':
+      return (
+        <TableCell className="font-mono">
+          {competitor.worldSailingId ? (
+            <a
+              href={worldSailingProfileUrl(competitor.worldSailingId)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:underline"
+            >
+              {competitor.worldSailingId}
+            </a>
+          ) : (
+            ''
+          )}
+        </TableCell>
+      );
+    case 'age':
+      return <TableCell className="tabular-nums">{competitor.age ?? ''}</TableCell>;
+    case 'gender':
+      return <TableCell>{competitor.gender}</TableCell>;
+    case 'fleet':
+      return <TableCell />;
+  }
+  return <TableCell />;
 }
 
 /**

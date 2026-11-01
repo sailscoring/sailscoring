@@ -812,6 +812,7 @@ export async function buildFleetHtmlFiles(
       dnfScoring: snapshot.series.dnfScoring,
       scoringCodes: snapshot.series.scoringCodes,
       enabledCompetitorFields,
+      ...(snapshot.series.resultsColumns ? { resultsColumns: snapshot.series.resultsColumns } : {}),
       ...(opts?.includeTrackData && snapshot.series.publishTrackData
         ? { showTrackData: true }
         : {}),

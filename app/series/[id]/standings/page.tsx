@@ -509,6 +509,8 @@ export default function StandingsPage({
               primaryLabel={data.primaryLabel}
               multiPersonFields={data.series.multiPersonFields}
               subdivisionAxes={axes}
+              customFields={data.series.customFields}
+              resultsColumns={data.series.resultsColumns}
               fleetName={fleet.name}
               excludedRaceIds={excludedRaceIds}
               onToggleExclude={
