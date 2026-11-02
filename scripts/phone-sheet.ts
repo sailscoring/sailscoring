@@ -30,6 +30,9 @@ function main() {
     .filter(Boolean)
     .map((line) => JSON.parse(line) as Shot)
     .filter((s) => existsSync(join(DIR, s.file)))
+    // One per screen: a manifest from before captures were claimed
+    // exclusively can list a screen once per worker that reached it.
+    .filter((s, i, all) => all.findIndex((t) => t.key === s.key) === i)
     .sort((a, b) => a.key.localeCompare(b.key));
 
   const pages = shots.filter((s) => !s.key.includes(' · '));
@@ -52,7 +55,7 @@ function main() {
 <style>
   body { font: 13px system-ui, sans-serif; margin: 16px; background: #f4f4f5; color: #18181b; }
   h2 { margin: 24px 0 8px; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 16px; }
   figure { margin: 0; background: #fff; border: 1px solid #d4d4d8; border-radius: 6px; padding: 8px; }
   img { width: 100%; display: block; border: 1px solid #e4e4e7; }
   figcaption { margin-top: 6px; overflow-wrap: anywhere; }

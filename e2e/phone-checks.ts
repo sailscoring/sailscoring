@@ -1,4 +1,4 @@
-import { appendFileSync, existsSync, mkdirSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 import type { Page } from '@playwright/test';
@@ -67,18 +67,46 @@ const captured = new Set<string>();
 async function captureForSheet(page: Page, path: string, dialog: string | null, testTitle: string) {
   const key = dialog ? `${routeKey(path)} · ${dialog}` : routeKey(path);
   if (captured.has(key)) return;
-  captured.add(key);
   const file = `${key.replace(/[^A-Za-z0-9·]+/g, '_').replace(/·/g, '~').replace(/^_+|_+$/g, '') || 'root'}.png`;
   const out = join(PHONE_SHEET_DIR, file);
-  // Another worker may have it already; first capture wins.
   if (existsSync(out)) return;
-  mkdirSync(PHONE_SHEET_DIR, { recursive: true });
+  // The scan that asked for this shot ran a moment ago; the test has kept
+  // going since. Take the shot only if the screen still shows what the key
+  // names — and still did once it was taken — or the sheet fills with a
+  // blank page mid-navigation, the next page under this one's route, or a
+  // dialog emptied by its closing animation.
+  const stillShowing = () => page.evaluate(sheetStateInPage, { path, dialog }).catch(() => false);
+  let png: Buffer;
   try {
-    await page.screenshot({ path: out, animations: 'disabled' });
+    if (!(await stillShowing())) return;
+    png = await page.screenshot({ animations: 'disabled' });
+    if (!(await stillShowing())) return;
   } catch {
     return; // the page moved on mid-capture; another visit will catch it
   }
+  captured.add(key);
+  mkdirSync(PHONE_SHEET_DIR, { recursive: true });
+  try {
+    // Exclusive create: another worker may be capturing the same screen, and
+    // the first to write it wins (a plain exists-check races, and both
+    // workers end up in the manifest).
+    writeFileSync(out, png, { flag: 'wx' });
+  } catch {
+    return;
+  }
   appendFileSync(join(PHONE_SHEET_DIR, 'manifest.jsonl'), JSON.stringify({ key, file, test: testTitle }) + '\n');
+}
+
+/** Serialised into the page by `page.evaluate`, so it must be self-contained. */
+function sheetStateInPage({ path, dialog }: { path: string; dialog: string | null }): boolean {
+  if (location.pathname !== path) return false;
+  if (!document.body || document.body.innerText.trim() === '') return false;
+  const open = [...document.querySelectorAll('[role=dialog], [role=alertdialog]')].filter(
+    (d) => d.getAttribute('data-state') !== 'closed',
+  );
+  const top = open.at(-1);
+  const title = top ? (top.querySelector('h2')?.textContent?.trim() || top.getAttribute('aria-label') || 'dialog') : null;
+  return title === dialog;
 }
 
 /** Serialised into the page by `addInitScript`, so it must be self-contained. */
@@ -221,8 +249,10 @@ function phoneChecksInPage() {
     checkSideways();
     checkSqueezed();
     if (window.__phoneSheet) {
-      const top = dialogs.at(-1);
-      const title = top ? (top.querySelector('h2')?.textContent?.trim() ?? top.getAttribute('aria-label') ?? 'dialog') : null;
+      // A closing dialog keeps its node until the animation ends, often with
+      // its contents already cleared; it isn't what the screen shows.
+      const top = dialogs.filter((d) => d.getAttribute('data-state') !== 'closed').at(-1);
+      const title = top ? (top.querySelector('h2')?.textContent?.trim() || top.getAttribute('aria-label') || 'dialog') : null;
       void window.__phoneSheet(location.pathname, title);
     }
   };
