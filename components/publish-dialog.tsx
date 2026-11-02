@@ -1141,7 +1141,7 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, unscored 
                         <div
                           // Wraps on a phone: the URL keeps a usable width
                           // and the buttons drop beneath it.
-                          className={`flex flex-wrap items-center gap-x-2 gap-y-1 ${dim ? 'opacity-50' : ''}`}
+                          className={`flex flex-wrap sm:flex-nowrap items-center gap-x-2 gap-y-1 ${dim ? 'opacity-50' : ''}`}
                         >
                           <input
                             type="checkbox"
@@ -1158,7 +1158,7 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, unscored 
                           </span>
                           {row.caption && (
                             <span
-                              className="shrink-0 max-w-44 truncate text-xs text-muted-foreground"
+                              className="min-w-0 max-w-44 truncate text-xs text-muted-foreground"
                               title={row.caption}
                             >
                               {row.caption}
@@ -1193,23 +1193,25 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, unscored 
                               className="flex-1 basis-40 min-w-0 h-7 text-xs font-mono"
                             />
                           )}
-                          {noteButton({ fleetName: row.name })}
-                          {row.frozen &&
-                            !hasBlocks &&
-                            changeUrlButton(row.name, row.publishedUrl ?? url, (segment) => {
-                              setSubPaths((p) => ({ ...p, [row.name]: segment }));
-                              setSelected((sel) => new Set(sel).add(row.name));
-                            })}
-                          {row.frozen && !hasBlocks && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="shrink-0"
-                              onClick={() => navigator.clipboard.writeText(row.publishedUrl ?? url)}
-                            >
-                              Copy
-                            </Button>
-                          )}
+                          <div className="flex shrink-0 items-center gap-2">
+                            {noteButton({ fleetName: row.name })}
+                            {row.frozen &&
+                              !hasBlocks &&
+                              changeUrlButton(row.name, row.publishedUrl ?? url, (segment) => {
+                                setSubPaths((p) => ({ ...p, [row.name]: segment }));
+                                setSelected((sel) => new Set(sel).add(row.name));
+                              })}
+                            {row.frozen && !hasBlocks && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="shrink-0"
+                                onClick={() => navigator.clipboard.writeText(row.publishedUrl ?? url)}
+                              >
+                                Copy
+                              </Button>
+                            )}
+                          </div>
                         </div>
                         {unscoredByPage.has(row.name) && (
                           <p className="pl-6 text-xs text-destructive">
@@ -1234,7 +1236,7 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, unscored 
                       return (
                         <div
                           key={`suppressed-${row.name}`}
-                          className="flex flex-wrap items-center gap-x-2 gap-y-1 opacity-50"
+                          className="flex flex-wrap sm:flex-nowrap items-center gap-x-2 gap-y-1 opacity-50"
                           data-testid={`suppressed-fleet-${row.name}`}
                         >
                           <span className="h-4 w-4 shrink-0" aria-hidden="true" />
@@ -1264,7 +1266,7 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, unscored 
               <div className="space-y-1.5">
                 {(publishedResultPages ?? (singlePreview ? [singlePreview] : [])).map((p) => (
                   <div key={p.url} className="space-y-1">
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <div className="flex flex-wrap sm:flex-nowrap items-center gap-x-2 gap-y-1">
                     {/* Re-publishing is per page here as much as anywhere: a
                         live page left unticked stays up untouched rather than
                         being rebuilt. Only the lone default page can be
@@ -1301,16 +1303,18 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, unscored 
                         {p.url}
                       </a>
                     </div>
-                    {noteButton(publishedResultPages ? { fleetName: p.fleetName } : lonePageRef)}
-                    {!publishedResultPages &&
-                      !hasBlocks &&
-                      changeUrlButton(lonePageLabel, p.url, (segment) => {
-                        setSinglePath(segment);
-                        setLoneSelected(true);
-                      })}
-                    <Button size="sm" variant="outline" className="shrink-0" onClick={() => navigator.clipboard.writeText(p.url)}>
-                      Copy
-                    </Button>
+                    <div className="flex shrink-0 items-center gap-2">
+                      {noteButton(publishedResultPages ? { fleetName: p.fleetName } : lonePageRef)}
+                      {!publishedResultPages &&
+                        !hasBlocks &&
+                        changeUrlButton(lonePageLabel, p.url, (segment) => {
+                          setSinglePath(segment);
+                          setLoneSelected(true);
+                        })}
+                      <Button size="sm" variant="outline" className="shrink-0" onClick={() => navigator.clipboard.writeText(p.url)}>
+                        Copy
+                      </Button>
+                    </div>
                   </div>
                   {noteEditor(
                     publishedResultPages ? { fleetName: p.fleetName } : lonePageRef,
@@ -1325,7 +1329,7 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, unscored 
                     it later. */}
                 {!publishedResultPages && !singlePreview && (
                   <div className="space-y-1">
-                  <div className={`flex flex-wrap items-center gap-x-2 gap-y-1 ${loneSelected ? '' : 'opacity-50'}`}>
+                  <div className={`flex flex-wrap sm:flex-nowrap items-center gap-x-2 gap-y-1 ${loneSelected ? '' : 'opacity-50'}`}>
                     <input
                       type="checkbox"
                       checked={loneSelected}
@@ -1363,7 +1367,7 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, unscored 
                     /p/{workspaceSlug}/{effectiveSlug || '…'}/{folder || '…'}/
                   </span>
                 </p>
-                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <div className="flex flex-wrap sm:flex-nowrap items-center gap-x-2 gap-y-1">
                   <input
                     type="checkbox"
                     checked={loneSelected}
@@ -1401,7 +1405,7 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, unscored 
               return (
                 <div key={name} className="space-y-1">
                 <div
-                  className={`flex flex-wrap items-center gap-x-2 gap-y-1 ${!checked && !frozen ? 'opacity-50' : ''}`}
+                  className={`flex flex-wrap sm:flex-nowrap items-center gap-x-2 gap-y-1 ${!checked && !frozen ? 'opacity-50' : ''}`}
                 >
                   <input
                     type="checkbox"
@@ -1415,7 +1419,7 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, unscored 
                   </span>
                   {caption && (
                     <span
-                      className="shrink-0 max-w-44 truncate text-xs text-muted-foreground"
+                      className="min-w-0 max-w-44 truncate text-xs text-muted-foreground"
                       title={caption}
                     >
                       {caption}
@@ -1449,23 +1453,25 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, unscored 
                       className="flex-1 min-w-0 h-7 text-xs font-mono"
                     />
                   )}
-                  {noteButton({ fleetName: name })}
-                  {frozen &&
-                    !hasBlocks &&
-                    changeUrlButton(name, url, (segment) => {
-                      setSubPaths((p) => ({ ...p, [name]: segment }));
-                      setSelected((sel) => new Set(sel).add(name));
-                    })}
-                  {frozen && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="shrink-0"
-                      onClick={() => navigator.clipboard.writeText(url)}
-                    >
-                      Copy
-                    </Button>
-                  )}
+                  <div className="flex shrink-0 items-center gap-2">
+                    {noteButton({ fleetName: name })}
+                    {frozen &&
+                      !hasBlocks &&
+                      changeUrlButton(name, url, (segment) => {
+                        setSubPaths((p) => ({ ...p, [name]: segment }));
+                        setSelected((sel) => new Set(sel).add(name));
+                      })}
+                    {frozen && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="shrink-0"
+                        onClick={() => navigator.clipboard.writeText(url)}
+                      >
+                        Copy
+                      </Button>
+                    )}
+                  </div>
                 </div>
                 {noteEditor({ fleetName: name }, name)}
                 </div>
@@ -1476,7 +1482,7 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, unscored 
                 note left behind by a page the series no longer builds. */}
             {canNote && (
               <div className="space-y-1 border-t pt-2">
-                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <div className="flex flex-wrap sm:flex-nowrap items-center gap-x-2 gap-y-1">
                   <span className="w-24 sm:w-36 shrink-0 truncate text-sm text-muted-foreground">
                     Every page
                   </span>
@@ -1512,7 +1518,7 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, unscored 
                   />
                 )}
                 {orphanNotes.map((note) => (
-                  <div key={note.page} className="flex flex-wrap items-center gap-x-2 gap-y-1 opacity-60">
+                  <div key={note.page} className="flex flex-wrap sm:flex-nowrap items-center gap-x-2 gap-y-1 opacity-60">
                     <span className="w-24 sm:w-36 shrink-0 truncate text-xs text-muted-foreground">
                       {describePageNoteKey(note.page)}
                     </span>
