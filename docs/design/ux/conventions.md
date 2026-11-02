@@ -133,7 +133,7 @@ size, and fails any test that opens a dialog that doesn't fit, lets the
 page scroll sideways, focuses a field that would zoom, or squeezes a label
 out of sight. `pnpm phone-sheet` captures every page and dialog the suite
 reaches at phone size into one page, for what the checks can't judge. CI runs it on
-every push.
+every push and keeps the page as the mobile job's `phone-sheet` artifact.
 
 ## Not yet surveyed
 

@@ -13,9 +13,11 @@ jobs:
     runs-on: ubuntu-latest
 
     # The e2e suite twice, side by side: at desktop size, and again at phone
-    # size with the phone checks on (e2e/phone-checks.ts). The server-side
-    # Vitest suites don't depend on the screen, so only the desktop job runs
-    # them.
+    # size with the phone checks on (e2e/phone-checks.ts). The phone run is
+    # `pnpm phone-sheet`, which also captures each page and dialog it reaches
+    # and uploads them as the phone-sheet artifact (open index.html), for what
+    # the checks can't judge. The server-side Vitest suites don't depend on
+    # the screen, so only the desktop job runs them.
     strategy:
       fail-fast: false
       matrix:
@@ -80,4 +82,15 @@ jobs:
         run: pnpm exec playwright install chromium --with-deps
 
       - name: Run e2e tests
-        run: pnpm run ${{ matrix.screen == 'mobile' && 'test:e2e:mobile' || 'test:e2e' }}
+        run: pnpm run ${{ matrix.screen == 'mobile' && 'phone-sheet' || 'test:e2e' }}
+
+      # Uploaded whatever the suite's result: a failing phone check is when
+      # the sheet is most worth a look.
+      - name: Upload the phone sheet
+        if: always() && matrix.screen == 'mobile'
+        uses: actions/upload-artifact@v4
+        with:
+          name: phone-sheet
+          path: screenshots/phone/
+          if-no-files-found: ignore
+          retention-days: 14

@@ -21,7 +21,7 @@ from?", start here.
 | `pnpm e2e:install`       | Download the Chromium build Playwright runs against; needed once per machine, and again after a Playwright version bump | No |
 | `pnpm test:e2e`          | Playwright, full-stack build (`retries: 2`, so flaky-but-passed exits 0) | Yes — run `pnpm db:up` first   |
 | `pnpm test:e2e:mobile`   | `test:e2e` at phone size (390×664), failing any test whose page breaks *On a phone* in `docs/design/ux/conventions.md`. CI runs it on every push beside the desktop run | Yes — run `pnpm db:up` first   |
-| `pnpm phone-sheet`       | `test:e2e:mobile` capturing each page and dialog it reaches into `screenshots/phone/index.html` | Yes — run `pnpm db:up` first   |
+| `pnpm phone-sheet`       | `test:e2e:mobile` capturing each page and dialog it reaches into `screenshots/phone/index.html`. CI's mobile job runs it and uploads the sheet as the `phone-sheet` artifact | Yes — run `pnpm db:up` first   |
 | `pnpm test:e2e:triage`   | `test:e2e` then file each flaky test as a `flake` GitHub issue (pre-push run) | Yes — run `pnpm db:up` first   |
 | `pnpm test:e2e:stress`   | `test:e2e` with CPU burners on half the cores (flake stress test; no triage — read results as an aggregate signal) | Yes — run `pnpm db:up` first   |
 | `pnpm flake:triage`      | Triage the last run's `test-results/report.json` into `flake` issues; `--dry-run` to preview, `--ignore-environmental` to file suspend / network-change ones anyway | No (needs `gh` auth) |
@@ -203,8 +203,11 @@ reached, for looking over by eye. A spec whose
 subject the checks would misread can opt out with
 `test.use({ phoneChecks: false })`, with a comment saying why.
 
-CI runs it in parallel with the desktop suite; locally, run it when a
-change touches layout, or a spec alone (`pnpm test:e2e:mobile
+CI's mobile job runs `pnpm phone-sheet` in parallel with the desktop
+suite and uploads the sheet as its `phone-sheet` artifact, pass or fail:
+download it from the run's summary page, or with `gh run download <run-id>
+-n phone-sheet -D screenshots/phone-ci`, and open `index.html`. Locally, run
+the mobile suite when a change touches layout, or a spec alone (`pnpm test:e2e:mobile
 e2e/foo.spec.ts`) to see a CI phone failure.
 
 ### `pnpm test:e2e:triage` and the suspend guard
