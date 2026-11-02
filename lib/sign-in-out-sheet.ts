@@ -16,7 +16,7 @@
  * in ashore, where people look themselves up by fleet, and two classes that
  * share a start are still two fleets on the board.
  */
-import { formatPrimaryNames, PRIMARY_PERSON_LABEL_TEXT } from './competitor-fields';
+import { helmOrPrimaryNamer, PRIMARY_PERSON_LABEL_TEXT } from './competitor-fields';
 import { groupEntriesByStart, type FleetLike } from './starters-checklist';
 import type { CompetitorFieldKey, PrimaryPersonLabel } from './types';
 
@@ -57,17 +57,8 @@ export function buildSignInOutSheet(input: {
   enabledCompetitorFields: readonly CompetitorFieldKey[];
 }): SignInOutSheet {
   const { primaryPersonLabel, enabledCompetitorFields } = input;
-  // The register is signed by the helm. A helm-primary series names them as
-  // its primary person; another series may record them separately, and
-  // where it does not, the primary name is the best the sheet can do.
-  const helmsRecorded =
-    primaryPersonLabel !== 'helm' &&
-    enabledCompetitorFields.includes('helm') &&
-    input.competitors.some((c) => (c.helms ?? []).some((h) => h.trim()));
-  const personOf = (c: { names: string[]; helms?: string[] }): string => {
-    const helms = helmsRecorded ? formatPrimaryNames(c.helms ?? []) : '';
-    return helms || formatPrimaryNames(c.names);
-  };
+  // The register is signed by the helm, where the series knows who that is.
+  const { listsHelms, personOf } = helmOrPrimaryNamer(input);
   const classRecorded = enabledCompetitorFields.includes('boatClass');
 
   const groups = groupEntriesByStart({ fleets: input.fleets, competitors: input.competitors });
@@ -81,8 +72,7 @@ export function buildSignInOutSheet(input: {
   }));
 
   return {
-    personHeader:
-      primaryPersonLabel === 'helm' || helmsRecorded ? 'Helm' : PRIMARY_PERSON_LABEL_TEXT[primaryPersonLabel],
+    personHeader: listsHelms ? 'Helm' : PRIMARY_PERSON_LABEL_TEXT[primaryPersonLabel],
     showClass: tables.some((t) => t.rows.some((r) => r.boatClass)),
     tables,
   };

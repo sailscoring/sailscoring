@@ -157,6 +157,22 @@ describe('buildStartersChecklist', () => {
     ]);
   });
 
+  it('carries each boat\'s helm onto the sheet', () => {
+    const tables = buildStartersChecklist({
+      fleets: [fleet('default', 'Default', 0), fleet('ilca7', 'ILCA 7', 1)],
+      competitors: [
+        { ...boat('97', ['default', 'ilca7']), person: 'David Kirwan' },
+        { ...boat('43', ['default', 'ilca7']), person: 'Conor Murphy' },
+        boat('90', ['default', 'ilca7']),
+      ],
+    });
+    expect(tables[0].boats).toEqual([
+      { sailNumber: '43', person: 'Conor Murphy' },
+      { sailNumber: '90' },
+      { sailNumber: '97', person: 'David Kirwan' },
+    ]);
+  });
+
   it('orders by the number on the sail, not the national prefix', () => {
     const tables = buildStartersChecklist({
       fleets: [fleet('default', 'Default', 0)],

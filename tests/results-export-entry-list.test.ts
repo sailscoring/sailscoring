@@ -166,7 +166,7 @@ describe('buildFleetHtmlFiles — the competitor list', () => {
     const html = files!.find((f) => f.isEntryList)!.html;
     // Blank space at the end of every listed boat's row: where the number a
     // boat actually turned up under gets written.
-    expect(html).toContain('<td class="sail">201</td><td class="write"></td>');
+    expect(html).toContain('<td class="sail">201</td><td class="boat"><span><span class="person">Helm 201</span></span></td><td class="write"></td>');
     // Spare rows under each start, for a boat that entered too late to be on
     // the sheet. Two starts, two rows each, and none of them a listed boat.
     expect(html.match(/<tr class="spare">/g)).toHaveLength(4);
@@ -195,6 +195,31 @@ describe('buildFleetHtmlFiles — the competitor list', () => {
     expect(sheet(await html(['boatClass']))).toContain('<b class="boatclass">RS 600</b>');
     // A class the series does not record stays off the sheet.
     expect(sheet(await html([]))).not.toContain('boatclass');
+  });
+
+  it('names the helm on the checklist, by the sign in/out sheet\'s rule', async () => {
+    const competitors = [
+      { ...competitor('c1', '101', ['f-blue']), names: ['Owner One'], helms: ['Helm One'] },
+      { ...competitor('c2', '201', ['f-red']), names: ['Owner Two'] },
+    ];
+    const html = async (series: Partial<Series>) => {
+      const repos = {
+        ...makeRepos([], []),
+        seriesRepo: { get: async () => ({ ...SERIES, ...series }) },
+        competitorRepo: { listBySeries: async () => competitors },
+      } as unknown as ExportRepos;
+      const files = await buildFleetFiles(repos, 's1', undefined, { includeEntryList: true });
+      const h = files!.find((f) => f.isEntryList)!.html;
+      return h.slice(h.indexOf('<div class="starterslist'));
+    };
+    // An owner-primary series that records helms names the helm, and the
+    // owner where no helm is recorded.
+    const owned = await html({ primaryPersonLabel: 'owner', enabledCompetitorFields: ['helm'] });
+    expect(owned).toContain('<span class="person">Helm One</span>');
+    expect(owned).toContain('<span class="person">Owner Two</span>');
+    // One that does not record them names the primary person.
+    const plain = await html({ primaryPersonLabel: 'owner', enabledCompetitorFields: [] });
+    expect(plain).toContain('<span class="person">Owner One</span>');
   });
 
   it('heads the checklist with the series and blanks to fill', async () => {

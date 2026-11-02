@@ -1625,8 +1625,8 @@ h3.month {color: #073358; margin: 1.2em 0 0.4em;}
  * only when it is printed as one (the `starters` body class, set by the
  * footer button for the duration of the print). One table per start, each
  * row a box to tick as the boat arrives in the starting area, the sail
- * number, the boat name when the series records one, and blank ruled space
- * to write on.
+ * number, the boat name when the series records one, the helm in smaller
+ * grey type, and blank ruled space to write on.
  *
  * The box leads the row, so the boxes stand in one column down the left edge
  * and the recorder ticks down it. The number is right-aligned against the
@@ -1671,11 +1671,18 @@ function renderStartersChecklist(tables: ChecklistTable[], series: { name: strin
     // in the width a changed sail number is written into.
     const showClass = boatClassDistinguishes(t.boats.map((b) => b.boatClass));
     const showName = t.boats.some((b) => !!b.boatName);
-    const showBoat = showClass || showName;
+    const showPerson = t.boats.some((b) => !!b.person);
+    const showBoat = showClass || showName || showPerson;
+    // The helm last, smaller and in grey: a second way to tell the boat,
+    // for a race team that knows its sailors, which must not compete with
+    // the number the recorder ticks against. On the row's one line, so the
+    // row stays the height the sheet was planned with.
     const boatCell = (b: ChecklistBoat) => {
       const cls = showClass && b.boatClass ? `<b class="boatclass">${esc(b.boatClass)}</b>` : '';
       const name = showName && b.boatName ? esc(b.boatName) : '';
-      return `<td class="boat"><span>${cls}${cls && name ? ' · ' : ''}${name}</span></td>`;
+      const boat = `${cls}${cls && name ? ' · ' : ''}${name}`;
+      const person = b.person ? `<span class="person">${esc(b.person)}</span>` : '';
+      return `<td class="boat"><span>${boat}${boat && person ? ' ' : ''}${person}</span></td>`;
     };
     const rows: string[] = [];
     for (let r = from; r < to; r++) {
@@ -1788,9 +1795,12 @@ table.starterstable { width: 100%; margin: 0; border: 0; }
 table.starterstable th.startershead { box-sizing: border-box; background: none; color: #1a1a1a; font-size: 12pt; font-weight: 700; text-align: left; vertical-align: bottom; border: 0; padding: 0 0 1.2mm 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 table.starterstable td { box-sizing: border-box; border: 0; border-bottom: 0.3mm solid #999; padding: 0 1mm; vertical-align: middle; font-size: 13pt; line-height: 1.1; }
 table.starterstable td.sail { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; width: 1%; }
-table.starterstable td.boat { font-size: 9pt; color: #333; width: 38%; padding-left: 2mm; }
-table.starterstable td.boat span { display: block; width: 0; min-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The boat cell's width comes out of the slack before the number, not the
+   space to write in: wide enough for a class and a helm's name on A4. */
+table.starterstable td.boat { font-size: 9pt; color: #333; width: 44%; padding-left: 2mm; }
+table.starterstable td.boat > span { display: block; width: 0; min-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 table.starterstable td.boat b.boatclass { font-weight: 600; color: #1a1a1a; }
+table.starterstable td.boat span.person { font-size: 8pt; color: #6b6b6b; }
 table.starterstable td.write { width: 26%; }
 table.starterstable.noboat td.write { width: auto; }
 table.starterstable td.tick { padding: 0 1mm 0 0; box-sizing: content-box; }

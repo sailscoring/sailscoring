@@ -227,6 +227,10 @@ test('the competitor list carries a starters checklist, one table per start', as
   await expect(checklist.locator('td.sail', { hasText: 'IRL 1234' })).toHaveCount(1);
   await expect(checklist.locator('td.sail')).toHaveCount(3);
   await expect(checklist.locator('th.startershead', { hasText: 'Class 1 IRC' })).toHaveCount(0);
+  // Each boat's helm beside its number, for a race team that knows its sailors.
+  await expect(
+    checklist.locator('tr', { has: page.locator('td.sail', { hasText: 'IRL 2001' }) }).locator('span.person'),
+  ).toHaveText('Gecko');
 
   // And what makes it a working sheet rather than a reference one: the page
   // header gone, one line naming the series with the rest left blank, spare

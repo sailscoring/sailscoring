@@ -622,7 +622,10 @@ export default function Publishing() {
           </p>
           <p>
             Each row is a box to tick, the sail number, the boat name if your series records one,
-            and blank ruled space to write in. If your series records each boat’s class, a table
+            the helm’s name in smaller grey type — race committees know their sailors, and often
+            recognise one before they can read the number — and blank ruled space to write in.
+            The helm is the person your series names first, unless it records owners and helms
+            separately, in which case it is the helm where one is given. If your series records each boat’s class, a table
             of mixed boats — a PY or handicap fleet — shows it beside the number, since the class
             is what the recorder can see long before the number can be read; a one-design table
             leaves it off, as its heading already says it. The boxes stand in one column down the left edge to

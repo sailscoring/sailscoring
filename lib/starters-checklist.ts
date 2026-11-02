@@ -32,6 +32,10 @@ export interface ChecklistBoat {
   /** What the recorder sees first, long before the number can be read; on a
    *  handicap fleet of mixed boats, how one boat is told from another. */
   boatClass?: string;
+  /** The helm, or the primary name where the series does not record one:
+   *  race committees know their sailors, and a face at the helm is often
+   *  recognised before the number can be read. */
+  person?: string;
 }
 
 export interface ChecklistTable {
@@ -115,10 +119,11 @@ export function buildStartersChecklist(input: {
   competitors: (ChecklistBoat & { fleetIds: string[] })[];
   startGroups?: StartGroup[];
 }): ChecklistTable[] {
-  const boatOf = ({ sailNumber, boatName, boatClass }: ChecklistBoat): ChecklistBoat => ({
+  const boatOf = ({ sailNumber, boatName, boatClass, person }: ChecklistBoat): ChecklistBoat => ({
     sailNumber,
     ...(boatName ? { boatName } : {}),
     ...(boatClass ? { boatClass } : {}),
+    ...(person ? { person } : {}),
   });
   return groupEntriesByStart(input).map(({ heading, entries }) => ({ heading, boats: entries.map(boatOf) }));
 }

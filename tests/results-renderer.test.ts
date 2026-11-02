@@ -2461,6 +2461,57 @@ describe('renderCompetitorListHtml', () => {
       expect(html).toContain('<th class="startershead" colspan="4">PY Fleet</th>');
     });
 
+    it('names the helm last in the row, in its own smaller, greyer type', () => {
+      const html = renderCompetitorListHtml(chrome, flat(rows), {
+        enabledCompetitorFields: [],
+        multiFleet: true,
+        checklist: [
+          {
+            heading: 'ILCA 7',
+            boats: [{ sailNumber: '43', boatClass: 'ILCA 7', person: 'Conor Murphy' }, { sailNumber: '90', boatClass: 'ILCA 7' }],
+          },
+          {
+            heading: 'PY Fleet',
+            boats: [
+              { sailNumber: '6', boatClass: 'Finn', person: 'Harry Dunne' },
+              { sailNumber: '38', boatClass: 'IDRA 14', boatName: 'Wasp', person: 'A & B Smith' },
+            ],
+          },
+        ],
+      });
+      // A one-design table gains the cell for the name alone; a boat with no
+      // name recorded leaves it empty.
+      expect(html).toContain('<td class="sail">43</td><td class="boat"><span><span class="person">Conor Murphy</span></span></td><td class="write"></td>');
+      expect(html).toContain('<td class="sail">90</td><td class="boat"><span></span></td>');
+      expect(html).toContain('<th class="startershead" colspan="4">ILCA 7</th>');
+      expect(html).not.toContain('starterstable noboat');
+      // After the class and boat name, on the same line.
+      expect(html).toContain('<td class="sail">6</td><td class="boat"><span><b class="boatclass">Finn</b> <span class="person">Harry Dunne</span></span></td>');
+      expect(html).toContain('<b class="boatclass">IDRA 14</b> · Wasp <span class="person">A &amp; B Smith</span>');
+      expect(html).toContain('table.starterstable td.boat span.person { font-size: 8pt; color: #6b6b6b; }');
+    });
+
+    it('keeps a sheet with names to the pages it takes without them', () => {
+      // HYC's Dinghy Frostbite 2026: 51 boats in five starts, one sheet.
+      const sizes: [string, number][] = [['ILCA 7', 15], ['ILCA 6', 12], ['ILCA 4', 6], ['Melges 15', 8], ['PY Fleet', 10]];
+      const sheet = (named: boolean) =>
+        sizes.map(([heading, n], i) => ({
+          heading,
+          boats: Array.from({ length: n }, (_, j) => ({
+            sailNumber: String(i * 1000 + j),
+            ...(named ? { person: 'Christopher Fitzgerald-Montgomery' } : {}),
+          })),
+        }));
+      const pagesOf = (html: string) => html.split('<div class="starterspage">').length - 1;
+      const plain = renderCompetitorListHtml(chrome, flat(rows), { enabledCompetitorFields: [], multiFleet: true, checklist: sheet(false) });
+      const named = renderCompetitorListHtml(chrome, flat(rows), { enabledCompetitorFields: [], multiFleet: true, checklist: sheet(true) });
+      expect(pagesOf(named)).toBe(1);
+      expect(pagesOf(named)).toBe(pagesOf(plain));
+      expect(named.match(/starterslist starters-d\d/)![0]).toBe(plain.match(/starterslist starters-d\d/)![0]);
+      // A long name is cut to the row's one line rather than wrapping onto two.
+      expect(named).toContain('table.starterstable td.boat > span { display: block; width: 0; min-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }');
+    });
+
     it('heads no table on a series with a single start', () => {
       const html = renderCompetitorListHtml(chrome, flat(rows), {
         enabledCompetitorFields: [],

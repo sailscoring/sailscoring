@@ -75,6 +75,29 @@ export function formatPrimaryNames(names: readonly string[]): string {
   return names.filter((n) => n.trim()).join(' & ');
 }
 
+/**
+ * Who a printed sheet names for each boat: the helm, the person who signs
+ * out and who the race team on the water recognises. A helm-primary series
+ * names them as its primary person; another series may record them
+ * separately, and where it does not, the primary name is the best a sheet
+ * can do. `listsHelms` says which it came to, for a column heading.
+ */
+export function helmOrPrimaryNamer(input: {
+  competitors: readonly { names: string[]; helms?: string[] }[];
+  primaryPersonLabel: PrimaryPersonLabel;
+  enabledCompetitorFields: readonly CompetitorFieldKey[];
+}): { listsHelms: boolean; personOf: (c: { names: string[]; helms?: string[] }) => string } {
+  const { primaryPersonLabel, enabledCompetitorFields } = input;
+  const helmsRecorded =
+    primaryPersonLabel !== 'helm' &&
+    enabledCompetitorFields.includes('helm') &&
+    input.competitors.some((c) => (c.helms ?? []).some((h) => h.trim()));
+  return {
+    listsHelms: primaryPersonLabel === 'helm' || helmsRecorded,
+    personOf: (c) => (helmsRecorded ? formatPrimaryNames(c.helms ?? []) : '') || formatPrimaryNames(c.names),
+  };
+}
+
 /** Render "Helm / Crew" when the series has crew enabled and exactly one crew
  *  is set; otherwise just the primary name(s). Used in autocomplete rows and
  *  finish lists — one-line contexts, so a multi-person crew is deliberately

@@ -71,6 +71,7 @@ import {
   competitorFleets,
   defaultEnabledCompetitorFields,
   DEFAULT_PRIMARY_PERSON_LABEL,
+  helmOrPrimaryNamer,
 } from './competitor-fields';
 import { scoringColumnShown } from './results-columns';
 import { pageNoteFor, type NotePageRef } from './page-note';
@@ -393,15 +394,22 @@ async function buildCompetitorListFile(
 
   // The starters checklist rides on the page, printable from it: one table
   // per start, each boat once. The boat name and class go on it only when
-  // the series records them, like every other optional column here.
+  // the series records them, like every other optional column here; the
+  // helm, by the sign in/out sheet's rule, always.
+  const primaryPersonLabel = series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL;
+  const { personOf } = helmOrPrimaryNamer({ competitors, primaryPersonLabel, enabledCompetitorFields });
   const checklist = buildStartersChecklist({
     fleets,
-    competitors: competitors.map((c) => ({
-      sailNumber: c.sailNumber,
-      fleetIds: c.fleetIds,
-      ...(enabledCompetitorFields.includes('boatName') && c.boatName ? { boatName: c.boatName } : {}),
-      ...(enabledCompetitorFields.includes('boatClass') && c.boatClass ? { boatClass: c.boatClass } : {}),
-    })),
+    competitors: competitors.map((c) => {
+      const person = personOf(c);
+      return {
+        sailNumber: c.sailNumber,
+        fleetIds: c.fleetIds,
+        ...(enabledCompetitorFields.includes('boatName') && c.boatName ? { boatName: c.boatName } : {}),
+        ...(enabledCompetitorFields.includes('boatClass') && c.boatClass ? { boatClass: c.boatClass } : {}),
+        ...(person ? { person } : {}),
+      };
+    }),
     startGroups: series.defaultStartSequence,
   });
 
@@ -410,7 +418,7 @@ async function buildCompetitorListFile(
   const signInOut = buildSignInOutSheet({
     fleets,
     competitors,
-    primaryPersonLabel: series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
+    primaryPersonLabel,
     enabledCompetitorFields,
   });
 

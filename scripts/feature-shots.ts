@@ -829,7 +829,8 @@ const SHOTS: Shot[] = [
   },
   {
     // Inventory: Starters checklist — the published competitor list as it
-    // prints for the committee boat: one table per start, tick boxes. The
+    // prints for the committee boat: one table per start, tick boxes, the
+    // helm's name in grey. The
     // sheet is a view of the page with its own address, so the capture goes
     // to it; print media is emulated for the two-column paper layout.
     slug: 'starters-checklist',
@@ -841,12 +842,8 @@ const SHOTS: Shot[] = [
       const pub = await anon.newPage();
       await pub.goto(`${new URL(entriesHref, BASE).toString()}#starters`);
       await settle(pub);
-      await pub.evaluate(() => {
-        // On paper the page height makes the columns fill across; a viewport
-        // has no such bound, so give the column box one for the capture.
-        const cols = document.querySelector<HTMLElement>('.starterscols');
-        if (cols) cols.style.height = '720px';
-      });
+      // The sheet plans its own columns, so print media alone lays it out as
+      // it prints; the capture is the top of the first page.
       await pub.emulateMedia({ media: 'print' });
       await settle(pub);
       await shot('starters-checklist.png', { page: pub });
