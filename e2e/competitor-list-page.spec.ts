@@ -213,6 +213,11 @@ test('the competitor list carries a starters checklist, one table per start', as
   await expect(page.locator('table.summarytable:visible')).toHaveCount(0);
 
   // What the printer sees: two tables headed by the class, and Checkmate once.
+  // The printer lays the sheet out across A4, not across the window, so the
+  // window is sized to the paper — at phone width the identifying line, which
+  // never wraps on paper, would have no room for the series name.
+  const screenSize = page.viewportSize();
+  await page.setViewportSize({ width: 794, height: 1123 });
   await page.emulateMedia({ media: 'print' });
   await expect(checklist).toBeVisible();
   // The start's name heads its table from inside it, as a header row, so that
@@ -236,6 +241,7 @@ test('the competitor list carries a starters checklist, one table per start', as
   // Back to the entry list the ordinary way — a navigation, with nothing to
   // undo on a print event that WebKit may never fire.
   await page.emulateMedia({ media: 'screen' });
+  if (screenSize) await page.setViewportSize(screenSize);
   await page.getByRole('link', { name: 'Back to the entry list' }).click();
   await expect(page.locator('body')).not.toHaveClass(/\bstarters\b/);
   await expect(checklist).toBeHidden();

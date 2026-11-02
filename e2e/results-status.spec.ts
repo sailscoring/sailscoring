@@ -102,7 +102,9 @@ test('results status: last finisher, finalise checklist, read-only, reopen', asy
   await page.getByRole('navigation').getByRole('link', { name: 'Races' }).click();
   await page.getByTestId('race-row').click();
   await expect(page.getByText('Finishing order')).toBeVisible();
-  await expect(page.getByTestId('finish-time-11').or(page.getByText('11').first())).toBeVisible();
+  await expect(
+    page.getByRole('listitem').filter({ hasText: 'Grace Malone' }).getByText('11', { exact: true }),
+  ).toBeVisible();
   await expect(page.getByLabel('Sail number')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Add', exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Remove 11' })).toHaveCount(0);

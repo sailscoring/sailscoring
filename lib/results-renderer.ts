@@ -1269,7 +1269,9 @@ ${byBoat}
  *  well as on paper, so the browser's own Print, from a phone's share sheet
  *  or anywhere else, prints the sheet with no script involved. Print adds
  *  only the pagination — a prize kept whole, the by-boat list on a fresh
- *  page — and hides the footer, which is the way back on screen. */
+ *  page — and hides the footer, which is the way back on screen. The line
+ *  naming the series wraps on a phone, the results status dropping beneath
+ *  it, rather than pushing the page wider than the screen. */
 function renderPrizeGivingCss(): string {
   return `.pgsheet { display: none; }
 body.prizegiving .pgsheet { display: block; text-align: left; max-width: 190mm; margin: 0 auto; }
@@ -1278,9 +1280,9 @@ body.prizegiving .prizesheet, body.prizegiving .caption, body.prizegiving > h2, 
 body.prizegiving .pgback { display: inline; }
 body.prizegiving .pglink { display: none; }
 .pgsheet p { text-align: left; }
-.pgident { display: flex; justify-content: space-between; align-items: baseline; gap: 6mm; margin: 0 0 4mm 0; font-size: 10pt; }
+.pgident { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 1mm 6mm; margin: 0 0 4mm 0; font-size: 10pt; }
 .pgident .pgfor { font-weight: 600; }
-.pgident .pgstatus { flex: none; color: #333; }
+.pgident .pgstatus { flex: 0 1 auto; color: #333; }
 h2.pgsection { font-size: 15pt; margin: 6mm 0 1mm 0; }
 .pgprize { margin: 0 0 5mm 0; }
 h3.pghead { font-size: 13pt; margin: 3mm 0 1mm 0; color: #1a1a1a; }
