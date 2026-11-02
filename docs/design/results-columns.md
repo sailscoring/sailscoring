@@ -53,7 +53,7 @@ Scoped October 2026.
   which is how Class comes before Rank. Sail number and the primary name can
   be moved and retitled but not removed.
 - **The scoring columns stay in order and can't be moved, only hidden or
-  retitled**: races, Total and Nett in the standings, and the
+  retitled**: a fixed-handicap fleet's Rating, races, Total and Nett in the standings, and the
   elapsed/rating/corrected sequence in race results. The arithmetic
   reads left to right. The race columns themselves can't be hidden.
 - **A column shows only where it means something.** A CT column stays off a

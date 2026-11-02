@@ -74,11 +74,14 @@ export const FIXED_COMPETITOR_COLUMNS: readonly CompetitorColumnKey[] = [
 export const REQUIRED_COLUMNS: readonly CompetitorColumnKey[] = ['sailNumber', 'primary'];
 
 /**
- * The standings table's scoring columns, after its competitor columns and
- * races, in their fixed order. `perRaceRatings` is the progressive-handicap
- * seed-rating column with each race's applied rating beneath its score.
+ * The standings table's scoring columns, in their fixed order. The two
+ * rating columns sit between the competitor columns and the races:
+ * `boatRating` is each boat's own rating in a fixed-handicap fleet (TCC, PY,
+ * the club's number, ORC APH ToT), and `perRaceRatings` the progressive-
+ * handicap seed-rating column with each race's applied rating beneath its
+ * score. Total and Nett follow the races.
  */
-export const STANDINGS_SCORING_COLUMNS = ['perRaceRatings', 'total', 'nett'] as const;
+export const STANDINGS_SCORING_COLUMNS = ['boatRating', 'perRaceRatings', 'total', 'nett'] as const;
 
 /**
  * A race table's scoring columns, after its competitor columns, in their
@@ -735,6 +738,8 @@ export function addableColumns(series: ColumnSettings, list: readonly ResultsCol
  *  them to decide which scoring columns mean anything. */
 export interface ScoringColumnContext {
   handicap: boolean;
+  /** A fleet scored on a fixed rating — IRC, VPRS, PY, fixed TCF or ORC. */
+  fixedRating: boolean;
   progressive: boolean;
   orc: boolean;
   trackData: boolean;
@@ -746,7 +751,11 @@ export function applicableScoringColumns(ctx: ScoringColumnContext): {
   races: RaceScoringColumnKey[];
 } {
   return {
-    standings: STANDINGS_SCORING_COLUMNS.filter((key) => key !== 'perRaceRatings' || ctx.progressive),
+    standings: STANDINGS_SCORING_COLUMNS.filter((key) => {
+      if (key === 'boatRating') return ctx.fixedRating;
+      if (key === 'perRaceRatings') return ctx.progressive;
+      return true;
+    }),
     races: RACE_SCORING_COLUMNS.filter((key) => {
       if (key === 'points') return true;
       if (key.startsWith('track:')) return ctx.trackData;
@@ -759,6 +768,7 @@ export function applicableScoringColumns(ctx: ScoringColumnContext): {
 
 /** A scoring column's name in the dialog. */
 export const SCORING_COLUMN_NAMES: Record<StandingsScoringColumnKey | RaceScoringColumnKey, { name: string; detail?: string; titled: boolean }> = {
+  boatRating: { name: 'Rating', detail: 'each boat’s TCC, PY, the club’s number or ORC APH ToT', titled: true },
   perRaceRatings: { name: 'Ratings beneath each score', detail: 'and the seed rating column', titled: true },
   total: { name: 'Total', titled: true },
   nett: { name: 'Nett', titled: true },

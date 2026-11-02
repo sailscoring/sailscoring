@@ -259,6 +259,10 @@ test('multi-fleet IRC export includes fleets, ratings, starts, times, and per-fl
   await page.getByRole('link', { name: 'Standings' }).click();
   await expect(page.getByRole('heading', { name: 'IRC' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Cruiser' })).toBeVisible();
+  // The IRC standings name each boat's TCC ahead of the races; the scratch
+  // Cruiser fleet has no rating to show.
+  await expect(page.getByRole('columnheader', { name: 'TCC' })).toHaveCount(1);
+  await expect(page.getByRole('row').filter({ hasText: 'Fast One' })).toContainText('1.100');
 
   // Download IRC fleet HTML via the Preview modal's fleet selector
   const download = await downloadFleetHtml(page, 'IRC');
@@ -280,6 +284,10 @@ test('multi-fleet IRC export includes fleets, ratings, starts, times, and per-fl
   expect(html).toContain('<td class="mono">27:30</td>\n<td class="mono">0:00:00</td>');
   expect(html).toContain('<td class="mono">29:24</td>\n<td class="mono">0:01:54</td>');
   expect(html).toContain('<td class="mono">30:00</td>\n<td class="mono">0:02:30</td>');
+
+  // The standings carry each boat's own TCC
+  expect(html).toContain('<td class="boatrating">1.100</td>');
+  expect(html).toContain('<td class="boatrating">1.050</td>');
 
   // Start time in race header
   expect(html).toContain('Start: 14:00:00');

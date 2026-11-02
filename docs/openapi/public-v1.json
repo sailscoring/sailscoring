@@ -3514,6 +3514,10 @@
             "description": "A championship row's fleet, where the championship has split.",
             "type": "string"
           },
+          "rating": {
+            "description": "The boat's own rating, headed as the table's `ratingLabel` says; absent when the boat holds none.",
+            "type": "number"
+          },
           "scores": {
             "type": "array",
             "items": {
@@ -3606,6 +3610,10 @@
           "namesLabel": {
             "type": "string",
             "description": "What the competitors' `names` are headed, e.g. `Helm`."
+          },
+          "ratingLabel": {
+            "description": "What the rows' `rating` is headed — `TCC`, `PY`, the club's name for a fixed TCF, or `APH ToT` for ORC. Present on a fixed-handicap fleet's table when the series shows each boat's rating in its standings.",
+            "type": "string"
           },
           "caption": {
             "type": "string"

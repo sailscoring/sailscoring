@@ -445,6 +445,7 @@ function resultsSectionParts(
     subSeries,
     scoringSystem: section.scoringSystem,
     namesLabel: namesLabelOf(display),
+    ...(data.standingsRatingLabel ? { ratingLabel: data.standingsRatingLabel } : {}),
     races: data.races.map((r) => ({
       race: r.order ?? r.raceNumber,
       label: r.label,
@@ -455,6 +456,7 @@ function resultsSectionParts(
       rank: placeholder ? null : s.rank,
       rankDisplay: placeholder ? '' : ordinal(s.rank),
       competitor: competitorOf(fieldsOfRow(s), s.competitorId ?? s.sailNumber, display, ctx),
+      ...(s.rating ? { rating: s.rating.value } : {}),
       scores: s.raceScores.map((score) => ({
         points: score.points,
         code: score.resultCode ?? score.penaltyCode ?? (score.isRedress ? 'RDG' : null),

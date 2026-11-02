@@ -42,6 +42,7 @@ import {
   type RaceScoringColumnKey,
   type StandingsScoringColumnKey,
 } from '@/lib/results-columns';
+import { standingsRatingLabel } from '@/lib/competitor-ratings';
 import type { MultiPersonFieldKey, ResultsColumn, ResultsTable, Series } from '@/lib/types';
 import { describeWriteFailure } from '@/lib/write-failure';
 
@@ -108,6 +109,7 @@ export function ResultsColumnsDialog({ open, onOpenChange, series }: ResultsColu
   const list = series.resultsColumns ?? startingColumns(series);
   const scoring = applicableScoringColumns({
     handicap: (fleets ?? []).some((f) => f.scoringSystem !== 'scratch'),
+    fixedRating: (fleets ?? []).some((f) => standingsRatingLabel(f) != null),
     progressive: (fleets ?? []).some((f) => f.scoringSystem === 'nhc' || f.scoringSystem === 'echo'),
     orc: (fleets ?? []).some((f) => f.scoringSystem === 'orc'),
     trackData: series.publishTrackData === true,
@@ -362,7 +364,7 @@ export function ResultsColumnsDialog({ open, onOpenChange, series }: ResultsColu
 
             <ScoringSection
               title="Standings"
-              note="In this order, after the races."
+              note="The ratings before the races, Total and Nett after."
               keys={scoring.standings}
               list={list}
               onOpen={setEditing}

@@ -127,6 +127,10 @@ export const standingsRowSchema = named(
       .string()
       .optional()
       .describe('A championship row\'s fleet, where the championship has split.'),
+    rating: z
+      .number()
+      .optional()
+      .describe('The boat\'s own rating, headed as the table\'s `ratingLabel` says; absent when the boat holds none.'),
     scores: z
       .array(scoreSchema.nullable())
       .describe('One per column of `races`, in the same order; null where the competitor has no score.'),
@@ -149,6 +153,10 @@ export const standingsTableSchema = named(
     subSeries: z.string().nullable().describe('The sub-series the table scores, or null for the whole series.'),
     scoringSystem: z.string().nullable(),
     namesLabel: z.string().describe('What the competitors\' `names` are headed, e.g. `Helm`.'),
+    ratingLabel: z
+      .string()
+      .optional()
+      .describe('What the rows\' `rating` is headed — `TCC`, `PY`, the club\'s name for a fixed TCF, or `APH ToT` for ORC. Present on a fixed-handicap fleet\'s table when the series shows each boat\'s rating in its standings.'),
     caption: z.string().optional(),
     races: z.array(standingsRaceSchema),
     rows: z.array(standingsRowSchema),

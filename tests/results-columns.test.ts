@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { automaticColumns, type ColumnRow, type ColumnSettings } from '@/lib/results-columns';
+import { applicableScoringColumns, automaticColumns, scoringColumnShown, type ColumnRow, type ColumnSettings } from '@/lib/results-columns';
 
 const keys = (settings: ColumnSettings, table: 'standings' | 'races' | 'entries', rows: ColumnRow[], multiFleet = false) =>
   automaticColumns(settings, table, rows, { multiFleet }).map((c) => c.key);
@@ -44,5 +44,23 @@ describe('automaticColumns', () => {
 
   it('starts an entry list of several fleets with a Fleet column, and never ranks it', () => {
     expect(keys({ enabledCompetitorFields: [] }, 'entries', [], true)).toEqual(['fleet', 'sailNumber', 'primary']);
+  });
+});
+
+describe('the standings Rating column', () => {
+  const ctx = { handicap: true, fixedRating: true, progressive: false, orc: false, trackData: false };
+
+  it('is offered where a fleet is scored on a fixed rating, ahead of the progressive ratings', () => {
+    expect(applicableScoringColumns(ctx).standings).toEqual(['boatRating', 'total', 'nett']);
+    expect(applicableScoringColumns({ ...ctx, progressive: true }).standings).toEqual(['boatRating', 'perRaceRatings', 'total', 'nett']);
+  });
+
+  it('is not offered to a series of NHC or ECHO fleets alone', () => {
+    expect(applicableScoringColumns({ ...ctx, fixedRating: false, progressive: true }).standings).toEqual(['perRaceRatings', 'total', 'nett']);
+  });
+
+  it('shows on a series whose own list predates it, and hides when the list says so', () => {
+    expect(scoringColumnShown({ resultsColumns: [{ key: 'sailNumber' }, { key: 'primary' }] }, 'boatRating')).toBe(true);
+    expect(scoringColumnShown({ resultsColumns: [{ key: 'boatRating', hidden: true }] }, 'boatRating')).toBe(false);
   });
 });

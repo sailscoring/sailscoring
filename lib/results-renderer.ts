@@ -139,6 +139,10 @@ export interface SeriesResultsData {
    *  `showPerRaceRatings` to decide whether the summary surfaces per-race
    *  applied ratings. Unset for static or non-handicap fleets. */
   progressiveScoringSystem?: 'nhc' | 'echo';
+  /** Heads the standings' Rating column — each boat's own rating in a
+   *  fixed-handicap fleet ("TCC", "PY", "HPH", "APH ToT"). Set only when
+   *  the series shows the column. */
+  standingsRatingLabel?: string;
   /** When true and `progressiveScoringSystem` is set, the summary table
    *  gains a seed-rating column and prints the applied rating in small text
    *  beneath each score from R2 onwards. R1 is suppressed since the seed
@@ -510,6 +514,9 @@ export interface StandingRowData {
   /** Initial rating for NHC/ECHO competitors (TCF or H). Rendered in the
    *  seed-rating column when the summary surfaces per-race ratings. */
   seedRating?: number;
+  /** A fixed-handicap fleet's own rating for the boat, as the standings
+   *  print it (`standingsRatingLabel` heads the column). */
+  rating?: { value: number; display: string };
   raceScores: RaceScoreData[];
   totalPoints: number;
   netPoints: number;
@@ -555,6 +562,8 @@ interface SectionView {
   /** The race tables' competitor columns, Rank first. */
   raceColumns: CompetitorColumn[];
   summaryRatingSystem: 'nhc' | 'echo' | null;
+  /** Heads the standings' Rating column, or null for none. */
+  standingsRatingLabel: string | null;
   /** Whether a scoring column is shown, and the title it shows under. */
   scoringShown: (key: StandingsScoringColumnKey | RaceScoringColumnKey) => boolean;
   scoringTitle: (key: StandingsScoringColumnKey | RaceScoringColumnKey) => string | undefined;
@@ -572,7 +581,8 @@ function computeSectionView(data: SeriesResultsData): SectionView {
     standingsColumns: tableColumns(data, 'standings', rows),
     raceColumns: tableColumns(data, 'races', rows),
     summaryRatingSystem,
-    // The per-race ratings and the NHC/ECHO working arrive already decided:
+    standingsRatingLabel: data.standingsRatingLabel ?? null,
+    // The ratings and the NHC/ECHO working arrive already decided:
     // the assembler attaches them only when the series shows them.
     scoringShown: (key) => scoringColumnShown({ resultsColumns: data.resultsColumns }, key),
     scoringTitle: (key) => scoringColumnTitle(data.resultsColumns, key),
@@ -2071,7 +2081,7 @@ p.orc-mix-note { max-width: 640px; margin: 6px auto 0 auto; font-size: 0.8em; co
 table.summarytable th .racedate { display: block; font-size: 0.8em; font-weight: normal; white-space: nowrap; }
 table.summarytable td .rating { display: block; font-size: 0.85em; color: #666; margin-top: 1px; font-family: monospace; }
 table.summarytable td.discard .rating { color: #888; }
-table.summarytable td.seedrating { font-family: monospace; }
+table.summarytable td.seedrating, table.summarytable td.boatrating { font-family: monospace; }
 td.nat { font-family: monospace; }
 td.nat .flag { display: block; width: 20px; height: 13px; margin-bottom: 2px; border: 1px solid #ccc; }
 td.nat .flag svg { display: block; width: 100%; height: 100%; }
@@ -2422,8 +2432,9 @@ function renderSummaryTable(
   linkedAnchorIds: ReadonlySet<string>,
   flagSvgByCode: Readonly<Record<string, NationalFlag>> | undefined,
 ): string {
-  const { hasDiscards, summaryRatingSystem: ratingSystem } = view;
+  const { hasDiscards, summaryRatingSystem: ratingSystem, standingsRatingLabel } = view;
   const hasSeedCol = ratingSystem !== null;
+  const hasRatingCol = standingsRatingLabel !== null;
   const seedHeader = ratingSystem === 'nhc' ? 'NHC1' : (ratingSystem === 'echo' ? 'ECHO' : '');
   // Before the first race is sailed the table is a placeholder: the fleet's
   // entrants, with nothing to rank them by. Every boat is on 0 points, so a
@@ -2444,11 +2455,12 @@ function renderSummaryTable(
   // A placeholder table has nothing to rank by, so no Rank column.
   const columns = placeholder ? view.standingsColumns.filter((c) => c.key !== 'rank') : view.standingsColumns;
   const showsWorldSailingId = columns.some((c) => c.key === 'worldSailingId');
-  // competitor columns [+ seed] + races [+ total [+ nett]]
-  const colCount = columns.length + (hasSeedCol ? 1 : 0) + races.length + (showTotal ? 1 : 0) + (showNett ? 1 : 0);
+  // competitor columns [+ rating] [+ seed] + races [+ total [+ nett]]
+  const colCount = columns.length + (hasRatingCol ? 1 : 0) + (hasSeedCol ? 1 : 0) + races.length + (showTotal ? 1 : 0) + (showNett ? 1 : 0);
 
   const cols = [
     ...columns.map((c) => `<col class="${columnClass(c.key)}" />`),
+    ...(hasRatingCol ? ['<col class="boatrating" />'] : []),
     ...(hasSeedCol ? ['<col class="seedrating" />'] : []),
     ...races.map(() => '<col class="race" />'),
     ...(showTotal ? ['<col class="total" />'] : []),
@@ -2457,6 +2469,7 @@ function renderSummaryTable(
 
   const headerCells = [
     ...columns.map(columnHeaderCell),
+    ...(hasRatingCol ? [`<th>${titled('boatRating', esc(standingsRatingLabel))}</th>`] : []),
     ...(hasSeedCol ? [`<th>${titled('perRaceRatings', esc(seedHeader))}</th>`] : []),
     ...races.map((r) => {
       // The day under the number: "R2" means something to the race
@@ -2520,6 +2533,7 @@ function renderSummaryTable(
             flagSvgByCode,
           }),
         ),
+        ...(hasRatingCol ? [`<td class="boatrating">${s.rating ? esc(s.rating.display) : ''}</td>`] : []),
         ...(hasSeedCol ? [seedCell] : []),
         scoreCells,
         ...(showTotal ? [`<td>${formatPoints(s.totalPoints)}</td>`] : []),
@@ -3643,6 +3657,9 @@ export function assembleSeriesResultsData(
     /** Seed rating (initial NHC TCF / ECHO H) per competitor id; used to
      *  populate the seed-rating column in the summary table. */
     seedRatingByCompetitorId?: Map<string, number>;
+    /** The standings' Rating column for a fixed-handicap fleet: its heading
+     *  and each boat's rating. Omitted when the series hides the column. */
+    standingsRating?: { label: string; byCompetitorId: Map<string, { value: number; display: string }> };
     /** Prefix for the per-race in-page anchors (`#r1` → `#{prefix}r1`). Set
      *  per section on combined pages, where several fleets' race tables share
      *  one document and bare race numbers would collide. */
@@ -3680,7 +3697,7 @@ export function assembleSeriesResultsData(
     courseBackgroundSet?: string;
   },
 ): SeriesResultsData {
-  const { raceStarts, fleetId, scoringSystem, ratingColumnLabel, nhcAggregatesByRaceId, echoAggregatesByRaceId, primaryPersonLabel, multiPersonFields, subdivisionAxes, customFields, resultsColumns, showPerRaceRatings, seedRatingByCompetitorId, anchorPrefix, resultsFinal, finalisedAt, officials, publishOfficials, showTrackData, orcScoringOptions } = options ?? {};
+  const { raceStarts, fleetId, scoringSystem, ratingColumnLabel, nhcAggregatesByRaceId, echoAggregatesByRaceId, primaryPersonLabel, multiPersonFields, subdivisionAxes, customFields, resultsColumns, showPerRaceRatings, seedRatingByCompetitorId, standingsRating, anchorPrefix, resultsFinal, finalisedAt, officials, publishOfficials, showTrackData, orcScoringOptions } = options ?? {};
   const isHandicap = scoringSystem === 'irc' || scoringSystem === 'vprs' || scoringSystem === 'tcf' || scoringSystem === 'py' || scoringSystem === 'nhc' || scoringSystem === 'echo' || scoringSystem === 'orc';
   const isNhcExplain = scoringSystem === 'nhc' && nhcAggregatesByRaceId != null;
   const isEchoExplain = scoringSystem === 'echo' && echoAggregatesByRaceId != null;
@@ -3991,6 +4008,7 @@ export function assembleSeriesResultsData(
 
   const standingRows: StandingRowData[] = standings.map((s) => {
     const seedRating = isProgressive ? seedRatingByCompetitorId?.get(s.competitor.id) : undefined;
+    const rating = standingsRating?.byCompetitorId.get(s.competitor.id);
     return {
       rank: s.rank,
       competitorId: s.competitor.id,
@@ -4016,6 +4034,7 @@ export function assembleSeriesResultsData(
       ...(s.competitor.gender ? { gender: s.competitor.gender } : {}),
       ...(s.competitor.age != null ? { age: s.competitor.age } : {}),
       ...(seedRating != null ? { seedRating } : {}),
+      ...(rating ? { rating } : {}),
       raceScores: s.racePoints.map((points, i) => {
         const resultCode = s.raceCodes[i] ?? null;
         const penaltyCode = s.racePenaltyCodes?.[i] ?? null;
@@ -4075,6 +4094,7 @@ export function assembleSeriesResultsData(
     races: raceDataList,
     standings: standingRows,
     ...(isProgressive ? { progressiveScoringSystem: scoringSystem as 'nhc' | 'echo' } : {}),
+    ...(standingsRating ? { standingsRatingLabel: standingsRating.label } : {}),
     ...(surfacePerRaceRatings ? { showPerRaceRatings: true } : {}),
   };
 }

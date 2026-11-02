@@ -137,6 +137,44 @@ export function competitorRatingFor(competitor: Competitor, fleet: Fleet): strin
   return raw == null ? null : formatRatingValue(raw, fleet.scoringSystem);
 }
 
+/** ORC's all-purpose time-on-time rating, the certificate's APH ToT. */
+const APH_TOT = { orcProfile: { option: 'APHT', kind: 'tot' as const } };
+
+/** What a standings table heads the column that names each boat's rating,
+ *  or null for a fleet that has none: a scratch fleet, and NHC and ECHO,
+ *  whose standings carry their own starting-rating column. ORC shows the
+ *  certificate's APH ToT whatever option the fleet scores on — the figure
+ *  ORC sailors know their boat by. */
+export function standingsRatingLabel(fleet: Fleet): string | null {
+  switch (fleet.scoringSystem) {
+    case 'irc':
+    case 'vprs':
+      return 'TCC';
+    case 'py':
+      return 'PY';
+    case 'tcf':
+      return ratingSystemLabel(fleet);
+    case 'orc':
+      return 'APH ToT';
+    default:
+      return null;
+  }
+}
+
+/** The rating a standings table shows beside a boat in `fleet` (see
+ *  `standingsRatingLabel`): its own, not any one race's override. Null when
+ *  the fleet shows none or the boat holds none. */
+export function standingsRating(
+  competitor: Competitor,
+  fleet: Fleet,
+): { value: number; display: string } | null {
+  if (fleet.scoringSystem === 'scratch' || standingsRatingLabel(fleet) == null) return null;
+  const value = fleet.scoringSystem === 'orc'
+    ? orcTotRating(competitor, APH_TOT)
+    : rawRatingFor(competitor, fleet.scoringSystem, fleet);
+  return value == null ? null : { value, display: formatRatingValue(value, fleet.scoringSystem) };
+}
+
 /** What the number in a rating column is called, in the vocabulary the
  *  certificate and the results tables use. Heads the column on a published
  *  entry list where the fleet's own name doesn't already say it. */

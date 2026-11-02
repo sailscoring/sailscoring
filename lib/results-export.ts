@@ -28,7 +28,7 @@ import {
   type CompetitorListGroup,
 } from './results-renderer';
 import { allocatePrizes } from './prizes';
-import { competitorRatingFor, ratingSystemLabel, ratingUnitLabel } from './competitor-ratings';
+import { competitorRatingFor, ratingSystemLabel, ratingUnitLabel, standingsRating, standingsRatingLabel } from './competitor-ratings';
 import { drawnRaceStartCourse, seriesChartSet } from './course-geometry';
 import { groupFleets } from './fleet-groups';
 import { orcCurveOption, orcPcsRatable, orcProfileRating, orcRaceProfile } from './orc-certificate';
@@ -1316,6 +1316,22 @@ export async function buildFleetHtmlFiles(
             .filter((entry): entry is [string, number] => entry[1] != null),
         )
       : undefined;
+    // Each boat's own rating in a fixed-handicap fleet, beside its name in
+    // the standings — the handicap a reader is looking for before the races.
+    const standingsRatingHeading = scoringColumnShown(series, 'boatRating') ? standingsRatingLabel(fleet) : null;
+    const standingsRatingData = standingsRatingHeading
+      ? {
+          label: standingsRatingHeading,
+          byCompetitorId: new Map(
+            competitors
+              .filter((c) => fleetCompetitorIds.has(c.id))
+              .flatMap((c) => {
+                const rating = standingsRating(c, fleet);
+                return rating ? [[c.id, rating] as const] : [];
+              }),
+          ),
+        }
+      : undefined;
     const nhcAggregatesForRender = isNhc && publishRatingCalcs && nhcAggregatesByRaceId
       ? new Map([...nhcAggregatesByRaceId.entries()].map(([raceId, agg]) => [raceId, {
           finisherCount: agg.finisherCount,
@@ -1378,6 +1394,7 @@ export async function buildFleetHtmlFiles(
           ...(echoAggregatesForRender ? { echoAggregatesByRaceId: echoAggregatesForRender } : {}),
           showPerRaceRatings,
           ...(seedRatingByCompetitorId ? { seedRatingByCompetitorId } : {}),
+          ...(standingsRatingData ? { standingsRating: standingsRatingData } : {}),
           ...(anchorPrefix ? { anchorPrefix } : {}),
           ...(series.resultsStatus === 'final'
             ? {

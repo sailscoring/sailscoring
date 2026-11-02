@@ -33,6 +33,16 @@ export default function ReadingAndChecking() {
           Result codes are shown in parentheses in the race columns, e.g. <em>7 (DNF)</em>.
         </p>
         <p>
+          A fleet scored on a fixed handicap shows each boat’s rating before the races, so a reader
+          can see what they are racing off: the <strong className="text-foreground">TCC</strong> for
+          IRC and VPRS, the <strong className="text-foreground">PY</strong> number for Portsmouth
+          Yardstick, the club’s own number for a fixed TCF such as HPH, and the certificate’s{' '}
+          <strong className="text-foreground">APH ToT</strong> for ORC — whichever option the races
+          are scored on, since that is the figure ORC sailors know their boat by. It is the boat’s
+          own rating; a race sailed on a different one shows it in that race’s table. A series that
+          sets its own results columns can hide or retitle it.
+        </p>
+        <p>
           The <strong className="text-foreground">Rank</strong> column gives the top three overall a
           gold, silver, or bronze badge. The same badges appear in the race columns on each race’s
           top three finishers, so you can spot the podium of every race at a glance. Coded,

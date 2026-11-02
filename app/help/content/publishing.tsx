@@ -523,7 +523,7 @@ export default function Publishing() {
               country’s name.
             </li>
             <li>
-              The <strong className="text-foreground">scoring columns</strong> — Total and Nett, and
+              The <strong className="text-foreground">scoring columns</strong> — each boat’s rating, Total and Nett, and
               in race results the finish, elapsed, rating and corrected times, Points and the rest —
               keep their places, so the arithmetic still reads left to right. Each can be hidden or
               retitled, except Points. While a series has its own columns, the rating-calculation and

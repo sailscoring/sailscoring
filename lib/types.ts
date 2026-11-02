@@ -93,8 +93,8 @@ export type ResultsTable = 'standings' | 'races' | 'entries';
  *
  * A competitor column (`sailNumber`, `club`, `subdivision:<axisId>`,
  * `field:<customFieldId>`, `rank` …) appears in list order on the tables it
- * names. A scoring column (`total`, `nett`, `perRaceRatings` in the
- * standings; `finish`, `elapsed`, `rating`, `corrected` … in race results)
+ * names. A scoring column (`boatRating`, `total`, `nett`, `perRaceRatings`
+ * in the standings; `finish`, `elapsed`, `rating`, `corrected` … in race results)
  * keeps its place in the table and may only be hidden or retitled. See
  * lib/results-columns.ts for the keys.
  */

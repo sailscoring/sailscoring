@@ -512,6 +512,7 @@ export default function StandingsPage({
               customFields={data.series.customFields}
               resultsColumns={data.series.resultsColumns}
               fleetName={fleet.name}
+              ratingFleet={isRealFleet ? fleet : undefined}
               excludedRaceIds={excludedRaceIds}
               onToggleExclude={
                 canExclude && isRealFleet

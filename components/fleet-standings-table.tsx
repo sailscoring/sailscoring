@@ -45,6 +45,7 @@ import {
 import type {
   CompetitorFieldKey,
   CustomField,
+  Fleet,
   MultiPersonFieldKey,
   PrimaryPersonLabel,
   RaceDiscardPolicy,
@@ -69,6 +70,7 @@ import {
   scoringOptionsLegend,
 } from '@/lib/race-scoring-options';
 import { ordinal } from '@/lib/ordinal';
+import { standingsRating, standingsRatingLabel } from '@/lib/competitor-ratings';
 import { worldSailingProfileUrl } from '@/lib/world-sailing';
 
 export interface FleetStandingsTableProps {
@@ -105,6 +107,9 @@ export interface FleetStandingsTableProps {
   resultsColumns?: ResultsColumn[];
   /** Fleet display name, used in the race-column exclusion menu. */
   fleetName?: string;
+  /** The fleet the table scores, when it is a real one: a fixed-handicap
+   *  fleet's table shows each boat's rating, as the published page does. */
+  ratingFleet?: Fleet;
   /** Races *manually* struck from this fleet's scoring (`raceFleetExclusions`).
    *  Distinct from the automatic "no entrants" exclusion, which is derived from
    *  the standings themselves. */
@@ -147,6 +152,7 @@ export function FleetStandingsTable({
   customFields,
   resultsColumns,
   fleetName,
+  ratingFleet,
   excludedRaceIds,
   onToggleExclude,
   onExcludeCompetitor,
@@ -168,6 +174,11 @@ export function FleetStandingsTable({
     .flatMap((id) => subdivisionAxes.filter((a) => a.id === id));
   const showTotal = scoringColumnShown({ resultsColumns }, 'total');
   const showNett = hasDiscards && scoringColumnShown({ resultsColumns }, 'nett');
+  const ratingLabel = ratingFleet && scoringColumnShown({ resultsColumns }, 'boatRating')
+    ? standingsRatingLabel(ratingFleet)
+    : null;
+  const ratingTitle = scoringColumnTitle(resultsColumns, 'boatRating');
+  const ratingOf = (s: Standing) => (ratingFleet ? standingsRating(s.competitor, ratingFleet) : null);
   const totalTitle = scoringColumnTitle(resultsColumns, 'total');
   const nettTitle = scoringColumnTitle(resultsColumns, 'nett');
   // Named in words under the table: a column marked "×2" or "*" has to say
@@ -218,6 +229,7 @@ export function FleetStandingsTable({
         compare: (a, b) => compareText(a.competitor.customFields?.[field.id], b.competitor.customFields?.[field.id]),
       }),
     ),
+    { id: 'boatRating', compare: (a, b) => compareNumeric(ratingOf(a)?.value, ratingOf(b)?.value) },
     // A race column compares points, with excluded cells blank — past every
     // real score, like any other blank.
     ...races.map(
@@ -264,6 +276,11 @@ export function FleetStandingsTable({
               {column.header}
             </SortableTableHead>
           ))}
+          {ratingLabel !== null && (
+            <SortableTableHead columnId="boatRating" sortKeys={sortKeys} onSort={handleSort} className={cn(headClass, 'justify-end')}>
+              {ratingTitle ? titleLines(ratingTitle) : ratingLabel}
+            </SortableTableHead>
+          )}
           {races.map((race, i) => {
             // "R4 ×2 *" — the weighting numerically, an asterisk for a race
             // whose discard behaviour differs. Both are spelled out in the
@@ -381,6 +398,7 @@ export function FleetStandingsTable({
             showTotal={showTotal}
             showNett={showNett}
             columns={columns}
+            rating={ratingLabel !== null ? (ratingOf(standing)?.display ?? '') : null}
             onExcludeCompetitor={onExcludeCompetitor}
             excludeCompetitorLabel={excludeCompetitorLabel}
             includedByOverride={includedByOverride}
@@ -408,6 +426,9 @@ interface StandingRowProps {
   showTotal: boolean;
   showNett: boolean;
   columns: StandingsColumn[];
+  /** The boat's rating as printed, or null when the table has no Rating
+   *  column. */
+  rating: string | null;
   onExcludeCompetitor?: (competitorId: string) => void;
   excludeCompetitorLabel?: string;
   includedByOverride?: ReadonlySet<string>;
@@ -422,6 +443,7 @@ function StandingRow({
   showTotal,
   showNett,
   columns,
+  rating,
   onExcludeCompetitor,
   excludeCompetitorLabel,
   includedByOverride,
@@ -483,6 +505,7 @@ function StandingRow({
           sailCell={sailCell}
         />
       ))}
+      {rating !== null && <TableCell className="text-right font-mono tabular-nums">{rating}</TableCell>}
       {racePoints.map((points, i) => {
         const isDiscard = raceDiscards[i] ?? false;
         const isNonDiscardable = raceNonDiscardable[i] ?? false;

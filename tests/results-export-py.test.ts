@@ -10,7 +10,7 @@ import { describe, it, expect } from 'vitest';
 import { buildFleetHtmlFiles } from '@/lib/results-export';
 import type { ExportRepos } from '@/lib/public-export';
 import { applyPublish, viewResources, type PublicationFacts, type ViewContext } from '@/lib/public-api/published-view';
-import { raceSchema } from '@/lib/validation/public-api-v1';
+import { raceSchema, standingsSchema } from '@/lib/validation/public-api-v1';
 import type { Competitor, Finish, Fleet, Race, RaceRatingOverride, RaceStart, Series } from '@/lib/types';
 
 const SERIES: Series = {
@@ -48,8 +48,8 @@ const FINISHES: Finish[] = [
 // The Finn sails race 2 on a PY the scorer entered for that race.
 const OVERRIDES: RaceRatingOverride[] = [{ id: 'o1', raceId: 'r2', competitorId: 'c6', field: 'pyNumber', value: 1063 }];
 
-const repos = {
-  seriesRepo: { get: async (id: string) => (id === 's1' ? SERIES : undefined) },
+const reposFor = (series: Series) => ({
+  seriesRepo: { get: async (id: string) => (id === 's1' ? series : undefined) },
   competitorRepo: { listBySeries: async () => COMPETITORS },
   raceRepo: { listBySeries: async () => RACES },
   fleetRepo: { listBySeries: async () => FLEETS },
@@ -57,10 +57,16 @@ const repos = {
   finishRepo: { listBySeries: async () => FINISHES },
   raceStartRepo: { listBySeries: async () => STARTS },
   raceRatingOverrideRepo: { listBySeries: async () => OVERRIDES },
-} as unknown as ExportRepos;
+}) as unknown as ExportRepos;
+const repos = reposFor(SERIES);
 
 function raceTable(html: string, n: number): string {
   const at = html.indexOf(`id="r${n}"`);
+  return html.slice(at, html.indexOf('</table>', at));
+}
+
+function standingsTable(html: string): string {
+  const at = html.indexOf('class="summarytable');
   return html.slice(at, html.indexOf('</table>', at));
 }
 
@@ -88,6 +94,24 @@ describe('a PY fleet on the published page', () => {
     expect(finn).toMatch(/<td class="mono">1063<span class="override-marker"[^>]*>\*<\/span><\/td>\s*<td class="mono">37:38<\/td>/);
   });
 
+  it('lists each boat’s own PY in the standings, ahead of the races', async () => {
+    const build = await buildFleetHtmlFiles(repos, 's1');
+    const table = standingsTable(build!.files[0].html);
+    expect(table).toMatch(/<th>PY<\/th>\s*<th[^>]*>(<a[^>]*>)?R1/);
+    expect(row(table, '6')).toContain('<td class="boatrating">1049</td>');
+    expect(row(table, '38')).toContain('<td class="boatrating">1125</td>');
+  });
+
+  it('drops the standings PY column when the series hides it, and keeps the race tables’', async () => {
+    const build = await buildFleetHtmlFiles(
+      reposFor({ ...SERIES, resultsColumns: [{ key: 'sailNumber' }, { key: 'primary' }, { key: 'boatRating', hidden: true }] }),
+      's1',
+    );
+    const html = build!.files[0].html;
+    expect(standingsTable(html)).not.toContain('boatrating');
+    expect(raceTable(html, 1)).toContain('<th>PY</th>');
+  });
+
   it('carries the Portsmouth Number in the published results API, labelled PY', async () => {
     const build = await buildFleetHtmlFiles(repos, 's1');
     const api = 'https://app.example/api/public/v1/publications/pub-1';
@@ -106,5 +130,10 @@ describe('a PY fleet on the published page', () => {
     expect(race1.fleets[0].ratingLabel).toBe('PY');
     expect(race1.fleets[0].results.map((r) => r.rating)).toEqual([1049, 1125]);
     expect(raceSchema.parse(out.get('races/2')).fleets[0].results[0].rating).toBe(1063);
+
+    // The standings carry each boat's own PY, not race 2's override.
+    const [table] = standingsSchema.parse(out.get('standings')).tables;
+    expect(table.ratingLabel).toBe('PY');
+    expect(table.rows.map((r) => r.rating)).toEqual([1049, 1125]);
   });
 });

@@ -11,6 +11,8 @@ import {
   configuredRatingSystems,
   formatRatingValue,
   ratingGaps,
+  standingsRating,
+  standingsRatingLabel,
 } from '@/lib/competitor-ratings';
 
 function mkFleet(over: Partial<Fleet> & { id: string; name: string; scoringSystem: Fleet['scoringSystem'] }): Fleet {
@@ -352,5 +354,44 @@ describe('ratingGaps', () => {
       [echo, irc],
     );
     expect(gaps.map((g) => g.system)).toEqual(['irc', 'echo']);
+  });
+});
+
+describe('standingsRating', () => {
+  it('names each fixed-handicap fleet’s rating in its own terms', () => {
+    expect(standingsRatingLabel(mkFleet({ id: 'i', name: 'IRC', scoringSystem: 'irc' }))).toBe('TCC');
+    expect(standingsRatingLabel(mkFleet({ id: 'v', name: 'VPRS', scoringSystem: 'vprs' }))).toBe('TCC');
+    expect(standingsRatingLabel(mkFleet({ id: 'p', name: 'PY', scoringSystem: 'py' }))).toBe('PY');
+    expect(standingsRatingLabel(mkFleet({ id: 'h', name: 'Class 1 HPH', scoringSystem: 'tcf', ratingLabel: 'HPH' }))).toBe('HPH');
+    expect(standingsRatingLabel(mkFleet({ id: 'o', name: 'ORC', scoringSystem: 'orc' }))).toBe('APH ToT');
+  });
+
+  it('has no column for scratch, NHC or ECHO fleets', () => {
+    for (const scoringSystem of ['scratch', 'nhc', 'echo'] as const) {
+      const fleet = mkFleet({ id: 'f', name: 'F', scoringSystem });
+      expect(standingsRatingLabel(fleet)).toBeNull();
+      expect(standingsRating(mkCompetitor({ id: 'c', fleetIds: ['f'], nhcStartingTcf: 0.9, echoStartingTcf: 0.9 }), fleet)).toBeNull();
+    }
+  });
+
+  it('prints the PY number as the boat holds it', () => {
+    const fleet = mkFleet({ id: 'p', name: 'PY', scoringSystem: 'py' });
+    expect(standingsRating(mkCompetitor({ id: 'c', fleetIds: ['p'], pyNumber: 1049 }), fleet)).toEqual({ value: 1049, display: '1049' });
+  });
+
+  it('prints a TCC to three places', () => {
+    const fleet = mkFleet({ id: 'i', name: 'IRC', scoringSystem: 'irc' });
+    expect(standingsRating(mkCompetitor({ id: 'c', fleetIds: ['i'], ircTcc: 1.13 }), fleet)).toEqual({ value: 1.13, display: '1.130' });
+  });
+
+  it('shows ORC’s APH ToT whatever option the fleet scores on', () => {
+    const fleet = mkFleet({ id: 'o', name: 'ORC', scoringSystem: 'orc', orcProfile: { option: 'APHD', kind: 'tod' } });
+    const boat = mkCompetitor({ id: 'c', fleetIds: ['o'], orcCert: { record: { APHT: 0.9216, APHD: 651.0 }, importedAt: 0 } });
+    expect(standingsRating(boat, fleet)).toEqual({ value: 0.9216, display: '0.9216' });
+  });
+
+  it('is null for a boat holding no rating', () => {
+    const fleet = mkFleet({ id: 'p', name: 'PY', scoringSystem: 'py' });
+    expect(standingsRating(mkCompetitor({ id: 'c', fleetIds: ['p'] }), fleet)).toBeNull();
   });
 });
