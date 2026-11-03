@@ -119,7 +119,10 @@ model, Policy §6), then adjusted for propeller, rig and spinnaker use (§7).
 The RYA has stopped developing NHC and promotes YTC in its place (FAQ). DBSC's
 2026 SIs list it (A15.1) as an optional substitute for IRC or VPRS; the
 listing is otherwise overwhelmingly British (~2,100 certificates, ~30
-Irish-club boats in November 2026), so UK clubs are the bigger audience.
+Irish-club boats in November 2026), so UK clubs are the bigger audience. The
+request came from Mayo Sailing Club, which scores a Cruisers YTC fleet in
+HalSail. Its 2026 results are the validation set (see *Validating against
+Mayo's results* below).
 
 **Scoring.** Time-on-time, with the same maths as PY (Policy §6.2:
 "Corrected Time = Elapsed Time × 1000 / YTC"):
@@ -159,12 +162,26 @@ starting point" the club "should adjust") and **temporary** numbers (Policy
 certificate. The Provisional flag is shown when a rating is fetched; it never
 blocks anything.
 
-**Out of the first pass: YTC as a progressive seed.** The FAQ endorses YTC as
-the base number for a personal handicap, and RYA clubs moving off NHC will
-want to seed NHC or ECHO starting TCFs from it (`1000 / YTC`). This is the
-only case where a fetched rating would feed another system's computation,
-which IRC's terms forbid (see *Rating data sources* below). YTC's own
-guidance invites it, but whether to offer it is a separate decision.
+**Validating against Mayo's results.** Mayo's 2026 Cruisers YTC series on
+HalSail are the Spring, Summer and Autumn Series
+(`halsail.com/Result/Public/{96252,96883,96884}`, with race-by-race results at
+`/Result/_Boat/{id}`). They are seven boats and about 45 races. HalSail's
+corrected times are `ET × 1000 / YTC`, shown to the second (Crozz,
+1:41:13 × 1000/920 = 1:50:01). Coded finishes score starters + 1 (A5.3).
+Six of the seven handicaps equal the listing's spinnaker `YTC` exactly. The
+seventh, Crozz, races at 920 until Autumn Race 3 and at 941 from Race 4
+(6 Aug), matching a reissued certificate. That makes it a real mid-series
+re-rating to reproduce with `RaceRatingOverride`. These become YAML scoring
+fixtures and an end-to-end check of the listing fetch against the Mayo boats.
+
+**Deferred: YTC as a progressive seed.** The FAQ endorses YTC as the base
+number for a personal handicap. RYA clubs moving off NHC will want to seed NHC
+or ECHO starting TCFs from it (`1000 / YTC`), from the listing in Update
+handicaps. This would be the only case of a fetched rating feeding another
+system's computation, which IRC's terms forbid (see *Rating data sources*
+below). YTC's own guidance invites it, so the reason for leaving it out is
+scope, not terms: the first pass scores YTC fleets only. Until then, a scorer
+seeds by hand, typing `1000 / YTC` as a starting TCF.
 
 ---
 
@@ -1620,8 +1637,8 @@ Points the parser and matching have to handle:
   sheet at the RORC. The fetch should find the id in the listings page's
   embed, and fall back to a known id only if that fails. A second, older sheet
   is embedded on the YTC landing page (~1,900 rows, no `Country` or `Issue
-  Date`). We read the listings page's sheet; which one the RORC treats as
-  canonical is worth confirming with them.
+  Date`). It is not the source: the listings page's sheet is the canonical
+  one.
 - **Sail numbers are messy.** They are sometimes country-prefixed (`IRL 3007`,
   `GBR1007L`) and often bare. About 80 are shared or placeholders (`0`, `N/A`,
   `TBC`, `NONE`, `NO NUMBER`). `Country` is the *club's* country, not the

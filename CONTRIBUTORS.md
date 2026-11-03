@@ -25,6 +25,7 @@ their club runs and scores its racing, and helped shape what it does:
 - **John Kelly** — Royal Irish Yacht Club, ORC Ireland
 - **Fergal Lyons** — Galway Bay Sailing Club, RaceOps
 - **Mark McGibney** — Royal Irish Yacht Club
+- **Colin McMullen** — Mayo Sailing Club
 - **Dave Mullally** — Killaloe Sailing Club
 - **Neil Murphy** — Howth Yacht Club
 - **John Sheehy** — Royal St George Yacht Club, Melges 15
