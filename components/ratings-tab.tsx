@@ -13,6 +13,7 @@ import type { Competitor, Fleet, RaceRatingOverride, RatingField } from '@/lib/t
 import { formatPrimaryNames } from '@/lib/competitor-fields';
 import { formatRatingValue, type RatingSystemCode } from '@/lib/competitor-ratings';
 import { orcTotRating } from '@/lib/orc-certificate';
+import { staticRatingField } from '@/lib/scoring';
 import { bySailNumber } from '@/lib/sail-number-sort';
 
 export interface RatingsTabProps {
@@ -24,8 +25,6 @@ export interface RatingsTabProps {
   competitors: Competitor[];
   fleets: Fleet[];
 }
-
-const STATIC_FIELD: Record<'irc' | 'py', RatingField> = { irc: 'ircTcc', py: 'pyNumber' };
 
 interface Row {
   key: string;
@@ -68,8 +67,8 @@ export function RatingsTab({ seriesId, raceId, competitors, fleets, readOnly = f
     for (const fleetId of c.fleetIds) {
       const fleet = fleetById.get(fleetId);
       if (!fleet || fleet.scoringSystem === 'scratch') continue;
-      if (fleet.scoringSystem === 'irc' || fleet.scoringSystem === 'py') {
-        const field = STATIC_FIELD[fleet.scoringSystem];
+      const field = staticRatingField(fleet.scoringSystem);
+      if (field) {
         const base = c[field] ?? null;
         const override = overrideFor(c.id, field);
         rows.push({
@@ -130,7 +129,7 @@ export function RatingsTab({ seriesId, raceId, competitors, fleets, readOnly = f
       <div className="space-y-2">
         <h3 className="text-sm font-medium">Ratings for this race</h3>
         <p className="text-xs text-muted-foreground">
-          The rating each boat is scored on in this race, per fleet. Override an IRC or PY rating to
+          The rating each boat is scored on in this race, per fleet. Override a fixed rating to
           record a mid-series rating change (a new certificate) without disturbing other races.
         </p>
       </div>
