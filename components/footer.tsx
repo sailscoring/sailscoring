@@ -21,8 +21,7 @@ export function Footer() {
       </a>
       <SponsorCredit className="flex flex-wrap items-center gap-x-3 gap-y-1" />
       <span className="ml-auto">
-        © {new Date().getFullYear()} Mark McLoughlin. Sail Scoring™ is an
-        unregistered trademark of Mark McLoughlin.
+        Sail Scoring™ © {new Date().getFullYear()} Mark McLoughlin
       </span>
     </footer>
   );
