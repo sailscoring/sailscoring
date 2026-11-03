@@ -191,3 +191,39 @@ html[data-help-resizing] .help-docked {
     font-size: max(16px, 1em);
   }
 }
+
+/* A table wider than its column scrolls sideways, and on a phone nothing
+   said so: the cut-off edge looked like the end of the table. The edge with
+   more beyond it fades out. The fades follow the scroll position, so the
+   left one appears once the table has moved and the right one goes at the
+   end; a table that fits has no scroll timeline, and so no fade. Browsers
+   without scroll-driven animations show the plain edge, as before. */
+@property --table-fade-left {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@property --table-fade-right {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@keyframes table-scroll-fade {
+  0% { --table-fade-left: 0px; --table-fade-right: 2rem; }
+  5% { --table-fade-left: 2rem; }
+  95% { --table-fade-right: 2rem; }
+  100% { --table-fade-left: 2rem; --table-fade-right: 0px; }
+}
+@supports (animation-timeline: scroll()) {
+  [data-slot="table-container"] {
+    mask-image: linear-gradient(
+      to right,
+      transparent,
+      #000 var(--table-fade-left),
+      #000 calc(100% - var(--table-fade-right)),
+      transparent
+    );
+    animation: table-scroll-fade linear both;
+    animation-timeline: scroll(self inline);
+  }
+}
