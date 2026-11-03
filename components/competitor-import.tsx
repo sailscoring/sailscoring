@@ -60,6 +60,7 @@ import {
   type WorkbookSheet,
 } from '@/lib/import-table';
 import { SheetPickerDialog, ImportFileErrorDialog, SkippedRowsNote } from '@/components/import-file-dialogs';
+import { halsailColumnMap, isHalsailExport } from '@/lib/halsail-export';
 import { lookupAlias, normalizeCodeInput } from '@/lib/nationality';
 import { matchLikelySameBoat, type MatchEntry } from '@/lib/competitor-matching';
 import { normalizeWorldSailingId } from '@/lib/world-sailing';
@@ -1517,10 +1518,18 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
     // Once the scorer has explicitly picked a role-primary or switched to
     // 'entrant', we respect it and only offer additive field proposals.
     const canProposePrimary = firstImport || currentPrimary === DEFAULT_PRIMARY_PERSON_LABEL;
-    const proposedPrimary = canProposePrimary
-      ? proposePrimaryLabel(initialMap, currentPrimary)
-      : currentPrimary;
-    const columnMap = reconcileColumnMap(initialMap, proposedPrimary);
+    const settle = (map: ColumnMap) => {
+      const primary = canProposePrimary ? proposePrimaryLabel(map, currentPrimary) : currentPrimary;
+      return { proposedPrimary: primary, columnMap: reconcileColumnMap(map, primary) };
+    };
+    // HACK, for HalSail's export only (see lib/halsail-export.ts): its Name
+    // column is the boat — kept when some other column still fills the
+    // primary name, so the mapping is never left without one.
+    const halsail = isHalsailExport(allRows.slice(0, headerRow))
+      ? settle(halsailColumnMap(headers, initialMap))
+      : null;
+    const { proposedPrimary, columnMap } =
+      halsail && Object.values(halsail.columnMap).includes('primary') ? halsail : settle(initialMap);
 
     // The column that splits competitors into fleets. Not a field role, so
     // it keeps whatever mapping it has. A split-fleet series has no such
