@@ -191,9 +191,11 @@ export default function SeriesLayout({
           </nav>
         )}
         {/* Wraps on a phone: a long series name takes the line and the
-            buttons drop beneath it. */}
+            buttons drop beneath it. On a phone the venue and date line goes
+            straight under the name, ahead of the buttons — beneath them it
+            read as theirs; wider, it is a row of its own below everything. */}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-          <h1 className="min-w-0 text-2xl font-semibold flex flex-wrap items-center gap-2 break-words">
+          <h1 className="order-first min-w-0 text-2xl font-semibold flex flex-wrap items-center gap-2 break-words">
             {series.name}
             {series.asPublished && (
               <span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium text-muted-foreground align-middle">
@@ -216,6 +218,11 @@ export default function SeriesLayout({
               </span>
             )}
           </h1>
+          {(series.venue || series.startDate) && (
+            <p className="basis-full -order-1 sm:order-last -mt-1.5 text-sm text-muted-foreground">
+              {[series.venue, formatSeriesDate(series.startDate)].filter(Boolean).join(' · ')}
+            </p>
+          )}
           {/* Preview, Publish and the ⋯ menu all act on the series as a whole, so they
               live in the header and are reachable from every tab — including a
               race's finish sheet, which is where results become worth
@@ -225,11 +232,6 @@ export default function SeriesLayout({
           <SeriesPublishButton />
           {!isSpectator && <SeriesActionsMenu series={series} />}
         </div>
-        {(series.venue || series.startDate) && (
-          <p className="text-sm text-muted-foreground mt-0.5">
-            {[series.venue, formatSeriesDate(series.startDate)].filter(Boolean).join(' · ')}
-          </p>
-        )}
       </div>
 
       {spectator.kind === 'ready' ? (
