@@ -1202,7 +1202,11 @@ export function FinishTab(props: FinishTabProps) {
                     testId={`fleet-badge-${competitor.sailNumber}`}
                   />
                 )}
-                <span className="text-sm truncate min-w-0 flex-auto basis-32">{displayCompetitorLabel(competitor, { enabledCompetitorFields, showCrew })}</span>
+                <span className="text-sm truncate min-w-0 flex-auto basis-20 sm:basis-32">{displayCompetitorLabel(competitor, { enabledCompetitorFields, showCrew })}</span>
+                {/* Everything after the name wraps as one group: on its own,
+                    each control dropped to the next line separately, which
+                    could leave the remove button alone beneath the row. */}
+                <div className="ml-auto flex shrink-0 items-center gap-x-2 sm:gap-x-3">
                 {showFinishTimeColumn && (isTimed && readOnly ? (
                   <span
                     className="w-24 text-center text-sm font-mono shrink-0"
@@ -1475,6 +1479,7 @@ export function FinishTab(props: FinishTabProps) {
                   <X className="h-4 w-4" />
                 </button>
                 )}
+                </div>
                 </div>
                 {trackDataOpen && (
                   // Read-only, and styled to say so: this is what the device
