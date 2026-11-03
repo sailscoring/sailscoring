@@ -64,6 +64,10 @@ export function useConfirm(): Confirm {
 
 export function ConfirmDialogProvider({ children }: { children: ReactNode }) {
   const [pending, setPending] = useState<ConfirmOptions | null>(null);
+  // What the dialog shows. Kept after it is answered, so the closing
+  // animation fades out the question that was asked, not an empty dialog
+  // with the default labels.
+  const [shown, setShown] = useState<ConfirmOptions | null>(null);
   const resolveRef = useRef<((answer: boolean) => void) | null>(null);
 
   const confirm = useCallback<Confirm>((options) => {
@@ -71,6 +75,7 @@ export function ConfirmDialogProvider({ children }: { children: ReactNode }) {
     // answering it `false` matches what dismissing the dialog would do.
     resolveRef.current?.(false);
     setPending(options);
+    setShown(options);
     return new Promise<boolean>((resolve) => {
       resolveRef.current = resolve;
     });
@@ -102,9 +107,9 @@ export function ConfirmDialogProvider({ children }: { children: ReactNode }) {
           data-testid="confirm-dialog"
         >
           <DialogHeader>
-            <DialogTitle>{pending?.title}</DialogTitle>
-            {pending?.description && (
-              <DialogDescription>{pending.description}</DialogDescription>
+            <DialogTitle>{shown?.title}</DialogTitle>
+            {shown?.description && (
+              <DialogDescription>{shown.description}</DialogDescription>
             )}
           </DialogHeader>
           <DialogFooter>
@@ -113,14 +118,14 @@ export function ConfirmDialogProvider({ children }: { children: ReactNode }) {
               data-testid="confirm-dialog-cancel"
               onClick={() => settle(false)}
             >
-              {pending?.cancelLabel ?? 'Cancel'}
+              {shown?.cancelLabel ?? 'Cancel'}
             </Button>
             <Button
-              variant={pending?.destructive ? 'destructive' : 'default'}
+              variant={shown?.destructive ? 'destructive' : 'default'}
               data-testid="confirm-dialog-confirm"
               onClick={() => settle(true)}
             >
-              {pending?.confirmLabel ?? 'Confirm'}
+              {shown?.confirmLabel ?? 'Confirm'}
             </Button>
           </DialogFooter>
         </DialogContent>
