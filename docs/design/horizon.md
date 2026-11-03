@@ -1585,13 +1585,10 @@ winning under IRC/VPRS forfeits the parallel ECHO prize (NoR 9.2) — the
 parallel-scoring and prize-eligibility shape is the same as the ECHO/one-design
 pairing already supported.
 
-**Rating source.** RYA YTC certificates are listed by the RORC Rating Office at
-`rorcrating.com/ryaytc/ryaytclistings`, and the fetch path lands with YTC
-scoring alongside the implemented IRC, ECHO and VPRS ones (`lib/irc-rating.ts`,
-`lib/irish-sailing-ratings.ts`, `lib/vprs-rating.ts`). It shares their posture —
-per-event and verification-only: fetch the boats in an event being scored, never
-mirror the whole database, and never let a rating fetched for one system feed
-another's computation (e.g. IRC TCCs must not feed ECHO).
+**Now designed.** The scoring, data model, spin and white-sail pair, and the
+RORC listing source (a public Google Sheet exported as CSV) are written up in
+`docs/design/handicap-scoring.md`, in the YTC section and under *Rating data
+sources*.
 
 ### PHRF (time-on-distance)
 

@@ -10,7 +10,9 @@ analysis at
 — and ECHO matches the Irish Sailing 2022 *ECHO Guide for Clubs*. Both
 ship with the rating-calculation explainability layer. RYA NHC 2015 (a
 related but distinct algorithm), scoring-inquiry exclusions, and the ECHO
-certificate-administration layer remain deferred. Covers mathematics,
+certificate-administration layer remain deferred. YTC (the RYA's
+per-boat yardstick, scored with PY's maths) is designed but not yet built.
+Covers mathematics,
 architecture, and implementation status.
 
 ---
@@ -106,6 +108,63 @@ numbers are set from the season just gone.
 A fixed handicap is not a frozen one: a boat re-rated mid-series keeps its
 already-sailed races on the rating they were sailed under, through the same
 per-race `RaceRatingOverride` mechanism a new IRC certificate uses.
+
+### YTC (RYA Yacht Time Correction) — designed, not yet implemented
+
+YTC is the RYA's free rating for cruisers and cruiser-racers, administered by
+the RORC Rating Office (`ytc.rorcrating.com`; rules in the *YTC Policy and
+Procedures* and the *YTC FAQ*, both on that site). A boat's YTC number is
+computed from brochure hull data and sail areas (Wolstenholme's statistical
+model, Policy §6), then adjusted for propeller, rig and spinnaker use (§7).
+The RYA has stopped developing NHC and promotes YTC in its place (FAQ). DBSC's
+2026 SIs list it (A15.1) as an optional substitute for IRC or VPRS; the
+listing is otherwise overwhelmingly British (~2,100 certificates, ~30
+Irish-club boats in November 2026), so UK clubs are the bigger audience.
+
+**Scoring.** Time-on-time, with the same maths as PY (Policy §6.2:
+"Corrected Time = Elapsed Time × 1000 / YTC"):
+
+```
+TCF = 1000 / YTC
+```
+
+Like PY, a lower number is a faster boat. Numbers are integers, currently
+761–1364. The difference from PY is where the number lives. A PY number
+belongs to a boat *type* and comes from the RYA's class list. A YTC number
+belongs to *one boat* and comes from its certificate (one valid certificate
+per boat; a new one invalidates the old, Policy §3.4). So YTC gets its own
+competitor field, `ytcNumber`, rather than reusing `pyNumber`. That is the
+same reasoning that gave VPRS its own `vprsTcc` alongside `ircTcc`: a boat in a
+PY fleet and a YTC fleet has two different numbers, and refreshing one list
+must not overwrite the other.
+
+**Spinnaker and white sail.** Every listing row carries two numbers. `YTC`
+assumes a spinnaker. `YTC White Sail` is the no-downwind-sail figure, about
+1.5–3% higher (the Policy §7 +2.5% allowance and the spinnaker-area term
+together). For a boat declared with no spinnaker, the two are equal. This is
+the IRC/VPRS spin and non-spin pair again, so it reuses
+`Fleet.ratingVariant: 'non-spin'` (labelled "White sail" for a YTC fleet).
+The competitor stores one applied number, and the pair stays in the
+rating-source layer. The FAQ's suggested NoR wording has each boat declare its
+sail configuration at entry, so the choice is per fleet, as it is for IRC.
+
+**Re-rating and club adjustment.** A certificate reissued mid-series is
+handled the way IRC handles one: already-sailed races keep their number
+through `RaceRatingOverride`. Policy §1.4 lets a club's handicappers adjust a
+boat's YTC number for club racing. In the first pass, that is just an edit to
+`ytcNumber`; nothing records that the number has moved off the certificate.
+**Provisional** certificates (FAQ: issued where the formula is stretched, "a
+starting point" the club "should adjust") and **temporary** numbers (Policy
+§4.5–4.6: never altered, and results never rescored) score exactly like a full
+certificate. The Provisional flag is shown when a rating is fetched; it never
+blocks anything.
+
+**Out of the first pass: YTC as a progressive seed.** The FAQ endorses YTC as
+the base number for a personal handicap, and RYA clubs moving off NHC will
+want to seed NHC or ECHO starting TCFs from it (`1000 / YTC`). This is the
+only case where a fetched rating would feed another system's computation,
+which IRC's terms forbid (see *Rating data sources* below). YTC's own
+guidance invites it, but whether to offer it is a separate decision.
 
 ---
 
@@ -1527,6 +1586,57 @@ on top, but there is no API or JSON endpoint — one GET returns the complete
 dataset, which we fetch and parse. This is the source the app uses for Irish
 boats' ECHO ratings; a one-off snapshot of it is the frozen seed for the
 club-racing sample series (`scripts/data/irc-echo-ratings.csv`).
+
+### RYA YTC — UK (`lib/ytc-rating.ts`, planned)
+
+The RORC's "RYA YTC Listings" page (`rorcrating.com/ryaytc/ryaytclistings`)
+embeds a public Google Sheet. The page's own instructions tell race organisers
+to download it as CSV "for import into scoring programs", and the sheet's CSV
+export is a single unauthenticated GET:
+
+```
+https://docs.google.com/spreadsheets/d/<sheet id>/export?format=csv
+```
+
+It returns about 2,100 rows (≈280 KB), current-year certificates only, with
+these columns:
+
+```
+Boat Name, Sail Number, Boat Type, Length - m, YTC, YTC White Sail, Club,
+District, Region, Country, Configuration, Provisional, Issue Date, EntryID
+```
+
+Used by the parser: `Sail Number` and `Boat Name` (match keys), `YTC` → spin,
+`YTC White Sail` → white sail, `Provisional` (`TRUE`/`FALSE`), `Issue Date`,
+and `EntryID` (unique per row, playing the part of IRC's cert number).
+`Boat Type` and `Length - m` are shown so two boats with the same name can be
+told apart. `Configuration` is an undocumented code. Its first character is
+`S`, `A`, `C` or `0`, and `0` rows have equal spin and white-sail numbers,
+which suggests it encodes the spinnaker. We display it but don't interpret it.
+
+Points the parser and matching have to handle:
+
+- **The sheet id is not a stable URL.** It belongs to whoever maintains the
+  sheet at the RORC. The fetch should find the id in the listings page's
+  embed, and fall back to a known id only if that fails. A second, older sheet
+  is embedded on the YTC landing page (~1,900 rows, no `Country` or `Issue
+  Date`). We read the listings page's sheet; which one the RORC treats as
+  canonical is worth confirming with them.
+- **Sail numbers are messy.** They are sometimes country-prefixed (`IRL 3007`,
+  `GBR1007L`) and often bare. About 80 are shared or placeholders (`0`, `N/A`,
+  `TBC`, `NONE`, `NO NUMBER`). `Country` is the *club's* country, not the
+  boat's nationality. Matching goes through the existing `rating-match.ts`
+  helpers with a boat-name fallback, and a placeholder never counts as a sail
+  number.
+- **Bad cells exist.** One row has `YTC = -41693`. Rows whose numbers fall
+  outside a plausible range are dropped, the same way IRC's `ValidCode`
+  filter drops rows.
+- **No `Last-Modified`.** Provenance is each row's `Issue Date`. The refresh
+  path already handles a listing with no date of its own.
+
+The posture is the same as IRC's: fetch transiently (cached for about 6 hours)
+to seed the series being scored. Never commit or mirror the whole list. A small
+parser fixture goes in `tests/fixtures/ytc-listing.csv`.
 
 ### HalSail public results — ECHO worked examples
 
