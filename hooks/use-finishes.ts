@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 
 import { finishRepo } from '@/lib/api-repository';
 import type { Finish } from '@/lib/types';
@@ -68,6 +68,20 @@ export function useFinishesBySeries(seriesId: string, opts?: { enabled?: boolean
   });
 }
 
+/**
+ * Single-row saves of `finishId` not yet settled, counting the one whose
+ * `onSuccess` is running: a save queued behind it in the `finishes` scope is
+ * already pending, with its row as its variables.
+ */
+function pendingSavesOf(qc: QueryClient, finishId: string): number {
+  return qc.getMutationCache().findAll({
+    status: 'pending',
+    predicate: (m) =>
+      m.options.scope?.id === 'finishes'
+      && (m.state.variables as Partial<Finish> | undefined)?.id === finishId,
+  }).length;
+}
+
 export function useSaveFinish() {
   return useVersionedSave<Finish>({
     listKey: (finish) => queryKeys.finishes.byRace(finish.raceId),
@@ -89,12 +103,22 @@ export function useSaveFinish() {
       // list stale — the per-race key above deliberately stays untouched,
       // and with no standings page mounted this is a no-op until one opens.
       void qc.invalidateQueries({ queryKey: ['finishes', 'bySeries'] });
+      // While a later save of the same row is still queued, the cache holds
+      // that save's intent — a time edit's re-slot, say — and the server's
+      // copy predates it. Splicing the copy in would put the row back where
+      // it was until the queued save lands, and an edit made in between
+      // would start from the old position and save it. Take only the
+      // version then; the row's last save splices in the server's copy.
+      const laterSaveQueued = pendingSavesOf(qc, saved.id) > 1;
       qc.setQueryData<Finish[] | undefined>(
         queryKeys.finishes.byRace(saved.raceId),
         (rows) => {
           if (!rows) return rows;
           if (rows.some((r) => r.id === saved.id)) {
-            return rows.map((r) => (r.id === saved.id ? saved : r));
+            return rows.map((r) => {
+              if (r.id !== saved.id) return r;
+              return laterSaveQueued ? { ...r, version: saved.version } : saved;
+            });
           }
           return [...rows, saved];
         },

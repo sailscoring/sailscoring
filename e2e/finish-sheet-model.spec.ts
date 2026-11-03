@@ -1,4 +1,5 @@
 import { signedInTest as test, expect } from './fixtures';
+import type { Page } from '@playwright/test';
 import { createFleets, createSeriesQuick, setScoringMode } from './helpers';
 
 /**
@@ -208,12 +209,12 @@ test('auto-slot: a late timed entry inserts at its correct crossing-order slot',
   await expect(row(2)).toContainText('A3');
 });
 
-test('edit finish time: re-slots to the new position and persists the new time', async ({ page }) => {
-  // Regression: editing a timed row's finish time used to re-slot the row but
-  // write the *old* time back (the re-slot's order-renumber spread a stale
-  // finish snapshot over the just-saved time), so the row moved yet displayed
-  // and published the old time.
-  await createSeriesQuick(page, { name: 'Edit Time Cup' });
+/**
+ * A PY fleet with a 14:00:00 start and three boats, A1–A3, entered on the
+ * timed sheet at 14:10, 14:20 and 14:30.
+ */
+async function timedSheetOfThree(page: Page, name: string) {
+  await createSeriesQuick(page, { name });
 
   await createFleets(page, ['PY']);
   await setScoringMode(page, 'handicap');
@@ -263,6 +264,14 @@ test('edit finish time: re-slots to the new position and persists the new time',
     await page.getByRole('textbox', { name: 'Finish time', exact: true }).fill(time);
     await page.getByRole('button', { name: 'Add', exact: true }).click();
   }
+}
+
+test('edit finish time: re-slots to the new position and persists the new time', async ({ page }) => {
+  // Regression: editing a timed row's finish time used to re-slot the row but
+  // write the *old* time back (the re-slot's order-renumber spread a stale
+  // finish snapshot over the just-saved time), so the row moved yet displayed
+  // and published the old time.
+  await timedSheetOfThree(page, 'Edit Time Cup');
 
   const row = (n: number) => page.getByRole('listitem').nth(n);
   await expect(row(0)).toContainText('A1');
@@ -285,6 +294,68 @@ test('edit finish time: re-slots to the new position and persists the new time',
   await page.reload();
   await expect(page.getByTestId('finish-time-A1')).toHaveValue('14:25:00');
   await expect(row(1)).toContainText('A1');
+});
+
+test('edit finish time: a second edit before the re-slot has saved keeps the new position', async ({ page }) => {
+  // A time edit saves the row, then saves its re-slot. Each save writes the
+  // server's copy of the row back onto the sheet, and the time save's copy
+  // still has the old position: taken while the re-slot was queued, it put
+  // the row back there, and a second edit made in that window started from
+  // the old position and saved it after the re-slot.
+  await timedSheetOfThree(page, 'Second Edit Cup');
+
+  const row = (n: number) => page.getByRole('listitem').nth(n);
+  await expect(row(2)).toContainText('A3');
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+
+  // Let A1's time save through, then hold her re-slot save until the second
+  // edit is in. Holding it is what opens the window every run.
+  let a1Url: string | undefined;
+  let holding = true;
+  let reslotArrived = () => {};
+  const reslotHeld = new Promise<void>((resolve) => { reslotArrived = resolve; });
+  let releaseReslot = () => {};
+  const reslotGate = new Promise<void>((resolve) => { releaseReslot = resolve; });
+  await page.route('**/api/v1/races/*/finishes/*', async (route) => {
+    const url = route.request().url();
+    if (route.request().method() !== 'PUT') return route.fallback();
+    if (a1Url === undefined) a1Url = url;
+    else if (url === a1Url && holding) {
+      holding = false;
+      reslotArrived();
+      await reslotGate;
+    }
+    return route.fallback();
+  });
+
+  const a1 = page.getByTestId('finish-time-A1');
+  await a1.fill('14:25:00');
+  await a1.press('Enter');
+  // The re-slot save is sent only once the time save has landed.
+  await reslotHeld;
+  await expect(row(1)).toContainText('A1');
+
+  // Still between A2 and A3, so this edit doesn't move her.
+  await a1.fill('14:27:00');
+  await a1.press('Enter');
+  await expect(a1).toHaveValue('14:27:00');
+  releaseReslot();
+
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+  await page.reload();
+  await expect(page.getByTestId('finish-time-A1')).toHaveValue('14:27:00');
+  await expect(row(0)).toContainText('A2');
+  await expect(row(1)).toContainText('A1');
+  await expect(row(2)).toContainText('A3');
+
+  // The sheet breaks a shared position by some order of its own, so check the
+  // saved positions themselves: A1 alone in second.
+  const finishes: { id: string; sortOrder: number | null }[] =
+    await (await page.request.get(a1Url!.replace(/\/[^/]+$/, ''))).json();
+  const a1Id = a1Url!.split('/').pop();
+  const orders = finishes.map((f) => f.sortOrder);
+  expect(finishes.find((f) => f.id === a1Id)?.sortOrder).toBe(2);
+  expect(new Set(orders).size).toBe(orders.length);
 });
 
 test('scoring-system change blocked: Scratch → PY with untimed finishes', async ({ page }) => {
