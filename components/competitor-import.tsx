@@ -313,6 +313,7 @@ const STATIC_FIELD_LABELS: Record<Exclude<CompetitorField, 'primary' | 'helm' | 
   vprsTcc: 'VPRS TCC',
   fixedTcf: 'Fixed TCF',
   py: 'PY number',
+  ytcNumber: 'YTC number',
   nhcStartingTcf: 'NHC starting TCF',
   echoStartingTcf: 'ECHO starting handicap',
   ignore: '(ignore)',
@@ -485,6 +486,7 @@ const RATING_FIELD_TO_SYSTEM: Partial<Record<CompetitorField, RatingSystem>> = {
   vprsTcc: 'vprs',
   fixedTcf: 'tcf',
   py: 'py',
+  ytcNumber: 'ytc',
   nhcStartingTcf: 'nhc',
   echoStartingTcf: 'echo',
 };
@@ -497,6 +499,7 @@ const RATING_TARGET_LABEL: Partial<Record<CompetitorField, string>> = {
   vprsTcc: 'VPRS rating',
   fixedTcf: 'Fixed TCF',
   py: 'PY number',
+  ytcNumber: 'YTC number',
   nhcStartingTcf: 'NHC rating',
   echoStartingTcf: 'ECHO rating',
 };
@@ -1846,6 +1849,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       let vprsTccStr = '';
       let fixedTcfStr = '';
       let py = '';
+      let ytcStr = '';
       let nhcStartingTcfStr = '';
       let echoStartingTcfStr = '';
       const relay: RrsOrgRelayFields = {};
@@ -1875,6 +1879,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         else if (field === 'vprsTcc') vprsTccStr = val;
         else if (field === 'fixedTcf') fixedTcfStr = val;
         else if (field === 'py') py = val;
+        else if (field === 'ytcNumber') ytcStr = val;
         else if (field === 'nhcStartingTcf') nhcStartingTcfStr = val;
         else if (field === 'echoStartingTcf') echoStartingTcfStr = val;
         else {
@@ -1926,12 +1931,14 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       const parsedVprs = vprsTccStr ? parseFloat(vprsTccStr) : null;
       const parsedFixedTcf = fixedTcfStr ? parseFloat(fixedTcfStr) : null;
       const parsedPy = py ? parseInt(py, 10) : null;
+      const parsedYtc = ytcStr ? parseInt(ytcStr, 10) : null;
       const parsedNhc = nhcStartingTcfStr ? parseFloat(nhcStartingTcfStr) : null;
       const parsedEcho = echoStartingTcfStr ? parseFloat(echoStartingTcfStr) : null;
       const ircTcc = parsedTcc != null && !isNaN(parsedTcc) ? parsedTcc : existingCompetitor?.ircTcc;
       const vprsTcc = parsedVprs != null && !isNaN(parsedVprs) ? parsedVprs : existingCompetitor?.vprsTcc;
       const fixedTcf = parsedFixedTcf != null && !isNaN(parsedFixedTcf) ? parsedFixedTcf : existingCompetitor?.fixedTcf;
       const pyNumber = parsedPy != null && !isNaN(parsedPy) ? parsedPy : existingCompetitor?.pyNumber;
+      const ytcNumber = parsedYtc != null && !isNaN(parsedYtc) ? parsedYtc : existingCompetitor?.ytcNumber;
       const nhcStartingTcf = parsedNhc != null && !isNaN(parsedNhc) ? parsedNhc : existingCompetitor?.nhcStartingTcf;
       const echoStartingTcf = parsedEcho != null && !isNaN(parsedEcho) ? parsedEcho : existingCompetitor?.echoStartingTcf;
 
@@ -2033,6 +2040,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         ...(vprsTcc != null ? { vprsTcc } : {}),
         ...(fixedTcf != null ? { fixedTcf } : {}),
         ...(pyNumber != null ? { pyNumber } : {}),
+        ...(ytcNumber != null ? { ytcNumber } : {}),
         ...(nhcStartingTcf != null ? { nhcStartingTcf } : {}),
         ...(echoStartingTcf != null ? { echoStartingTcf } : {}),
       };
@@ -2072,6 +2080,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         existingCompetitor.vprsTcc === competitor.vprsTcc &&
         existingCompetitor.fixedTcf === competitor.fixedTcf &&
         existingCompetitor.pyNumber === competitor.pyNumber &&
+        existingCompetitor.ytcNumber === competitor.ytcNumber &&
         existingCompetitor.nhcStartingTcf === competitor.nhcStartingTcf &&
         existingCompetitor.echoStartingTcf === competitor.echoStartingTcf
       ) {

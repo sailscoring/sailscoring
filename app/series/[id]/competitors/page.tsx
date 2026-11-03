@@ -448,11 +448,12 @@ export default function CompetitorsPage({
     { key: 'x', description: 'Select/deselect focused row', section: 'Competitors' },
   ]);
 
-  function ratingFieldsFromForm(data: CompetitorFormData): Pick<Competitor, 'ircTcc' | 'vprsTcc' | 'fixedTcf' | 'pyNumber' | 'nhcStartingTcf' | 'echoStartingTcf'> {
+  function ratingFieldsFromForm(data: CompetitorFormData): Pick<Competitor, 'ircTcc' | 'vprsTcc' | 'fixedTcf' | 'pyNumber' | 'ytcNumber' | 'nhcStartingTcf' | 'echoStartingTcf'> {
     const tcc = data.ircTcc.trim() ? parseFloat(data.ircTcc.trim()) : undefined;
     const vprs = data.vprsTcc.trim() ? parseFloat(data.vprsTcc.trim()) : undefined;
     const fixedTcf = data.fixedTcf.trim() ? parseFloat(data.fixedTcf.trim()) : undefined;
     const py = data.pyNumber.trim() ? parseInt(data.pyNumber.trim(), 10) : undefined;
+    const ytc = data.ytcNumber.trim() ? parseInt(data.ytcNumber.trim(), 10) : undefined;
     const nhc = data.nhcStartingTcf.trim() ? parseFloat(data.nhcStartingTcf.trim()) : undefined;
     const echo = data.echoStartingTcf.trim() ? parseFloat(data.echoStartingTcf.trim()) : undefined;
     return {
@@ -460,6 +461,7 @@ export default function CompetitorsPage({
       ...(vprs != null && !isNaN(vprs) ? { vprsTcc: vprs } : {}),
       ...(fixedTcf != null && !isNaN(fixedTcf) ? { fixedTcf } : {}),
       ...(py != null && !isNaN(py) ? { pyNumber: py } : {}),
+      ...(ytc != null && !isNaN(ytc) ? { ytcNumber: ytc } : {}),
       ...(nhc != null && !isNaN(nhc) ? { nhcStartingTcf: nhc } : {}),
       ...(echo != null && !isNaN(echo) ? { echoStartingTcf: echo } : {}),
     };
@@ -597,6 +599,7 @@ export default function CompetitorsPage({
     if (!updated.vprsTcc) delete updated.vprsTcc;
     if (!updated.fixedTcf) delete updated.fixedTcf;
     if (!updated.pyNumber) delete updated.pyNumber;
+    if (!updated.ytcNumber) delete updated.ytcNumber;
     if (!updated.nhcStartingTcf) delete updated.nhcStartingTcf;
     if (!updated.echoStartingTcf) delete updated.echoStartingTcf;
     if (!data.bowNumber.trim()) delete updated.bowNumber;
@@ -1261,6 +1264,7 @@ export default function CompetitorsPage({
                 vprsTcc: editingCompetitor.vprsTcc?.toString() ?? '',
                 fixedTcf: editingCompetitor.fixedTcf?.toString() ?? '',
                 pyNumber: editingCompetitor.pyNumber?.toString() ?? '',
+                ytcNumber: editingCompetitor.ytcNumber?.toString() ?? '',
                 nhcStartingTcf: editingCompetitor.nhcStartingTcf?.toString() ?? '',
                 echoStartingTcf: editingCompetitor.echoStartingTcf?.toString() ?? '',
               }}

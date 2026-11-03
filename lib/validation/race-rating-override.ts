@@ -4,7 +4,7 @@ import type { RaceRatingOverride } from '@/lib/types';
 
 import { uuidSchema, versionSchema } from './common';
 
-export const ratingFieldSchema = z.enum(['ircTcc', 'pyNumber', 'vprsTcc', 'fixedTcf']);
+export const ratingFieldSchema = z.enum(['ircTcc', 'pyNumber', 'vprsTcc', 'fixedTcf', 'ytcNumber']);
 
 export const raceRatingOverrideSchema = z.object({
   id: uuidSchema,

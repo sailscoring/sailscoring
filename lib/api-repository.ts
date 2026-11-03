@@ -1048,6 +1048,7 @@ export interface HandicapUpdateRow {
   vprsTcc?: number;
   fixedTcf?: number;
   pyNumber?: number;
+  ytcNumber?: number;
   nhcStartingTcf?: number;
   echoStartingTcf?: number;
   /** The whole certificate, written by the ORC source — an ORC rating is a
@@ -1164,7 +1165,7 @@ export async function ensureFleet(
   seriesId: string,
   name: string,
   options?: {
-    scoringSystem?: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo' | 'vprs' | 'orc' | 'tcf';
+    scoringSystem?: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo' | 'vprs' | 'orc' | 'tcf' | 'ytc';
     ratingLabel?: string;
     echoAlpha?: number;
     nhcProfile?: import('./types').NhcProfile;

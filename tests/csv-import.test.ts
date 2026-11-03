@@ -55,6 +55,12 @@ describe('autoDetectField', () => {
     expect(autoDetectField('PY')).toBe('py');
   });
 
+  it('reads a YTC column as the boat\'s YTC number', () => {
+    expect(autoDetectField('YTC')).toBe('ytcNumber');
+    expect(autoDetectField('YTC number')).toBe('ytcNumber');
+    expect(autoDetectField('Yacht Time Correction')).toBe('ytcNumber');
+  });
+
   it('reads a club handicap column as the fixed TCF', () => {
     expect(autoDetectField('HPH')).toBe('fixedTcf');
     expect(autoDetectField('HPH number')).toBe('fixedTcf');

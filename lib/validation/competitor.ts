@@ -73,6 +73,7 @@ export const competitorSchema = z.object({
   vprsTcc: z.number().optional(),
   fixedTcf: z.number().optional(),
   pyNumber: z.number().optional(),
+  ytcNumber: z.number().optional(),
   nhcStartingTcf: z.number().optional(),
   echoStartingTcf: z.number().optional(),
   orcCert: orcCertDataSchema.optional(),
@@ -155,6 +156,7 @@ export const handicapUpdateSchema = z.object({
   vprsTcc: z.number().optional(),
   fixedTcf: z.number().optional(),
   pyNumber: z.number().optional(),
+  ytcNumber: z.number().optional(),
   nhcStartingTcf: z.number().optional(),
   echoStartingTcf: z.number().optional(),
   // The whole certificate, written by the ORC source (the certificate is the

@@ -5,7 +5,8 @@ import type { Fleet, FleetRatingVariant } from './types';
 /**
  * A fleet's stored certificate choice (`Fleet.ratingVariant`), translated to
  * and from the vocabulary each rating-list source speaks: the IRC and VPRS
- * spin / non-spin TCC pair, and ORC's certificate families. A stored value
+ * spin / non-spin TCC pair, YTC's spinnaker / white-sail pair, and ORC's
+ * certificate families. A stored value
  * the fleet's scoring system has no such certificate for — `double-handed` on
  * an IRC fleet, say, left behind by a change of system — reads as standard.
  */
@@ -19,7 +20,19 @@ export function isFleetRatingVariant(v: unknown): v is FleetRatingVariant {
   return v === 'non-spin' || v === 'double-handed';
 }
 
-/** The TCC an IRC or VPRS fleet is set to. */
+/** What a fleet's certificate choices are called, standard first. YTC's
+ *  certificate prints its no-spinnaker number as "White Sail"; ORC names
+ *  certificates rather than TCCs. */
+export function ratingVariantLabels(
+  system: Fleet['scoringSystem'],
+): { standard: string } & Record<FleetRatingVariant, string> {
+  if (system === 'ytc') return { standard: 'Spinnaker', 'non-spin': 'White sail', 'double-handed': RATING_VARIANT_LABEL['double-handed'] };
+  if (system === 'orc') return { standard: 'Standard certificate', ...RATING_VARIANT_LABEL };
+  return { standard: 'Spinnaker TCC', ...RATING_VARIANT_LABEL };
+}
+
+/** The TCC an IRC or VPRS fleet is set to — and, by the same pair, the
+ *  number a YTC fleet is set to. */
 export function fleetTccVariant(fleet: Pick<Fleet, 'ratingVariant'>): IrcTccVariant {
   return fleet.ratingVariant === 'non-spin' ? 'non-spin' : 'spin';
 }
@@ -44,7 +57,7 @@ export function ratingVariantFromOrcFamily(family: OrcFamily): FleetRatingVarian
 /** The certificate choices a scoring system offers beyond standard — empty
  *  for a system rated off no certificate list. */
 export function ratingVariantsFor(system: Fleet['scoringSystem']): readonly FleetRatingVariant[] {
-  if (system === 'irc' || system === 'vprs') return ['non-spin'];
+  if (system === 'irc' || system === 'vprs' || system === 'ytc') return ['non-spin'];
   if (system === 'orc') return ['non-spin', 'double-handed'];
   return [];
 }

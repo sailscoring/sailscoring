@@ -697,7 +697,7 @@ export interface Fleet {
   seriesId: string;
   name: string;
   displayOrder: number;
-  scoringSystem: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo' | 'vprs' | 'orc' | 'tcf';
+  scoringSystem: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo' | 'vprs' | 'orc' | 'tcf' | 'ytc';
   // What the club calls the number a fixed-TCF fleet is scored on — Howth's
   // autumn league calls it "HPH". Present iff scoringSystem === 'tcf' AND the
   // club has named it; absent means the rating is headed "TCF".
@@ -717,7 +717,8 @@ export interface Fleet {
   orcProfile?: OrcProfile;
   // Which certificate a rating list rates this fleet's boats on, when it isn't
   // the standard one: the non-spinnaker TCC for an IRC or VPRS fleet, the
-  // non-spinnaker or double-handed certificate family for an ORC fleet. Read
+  // white-sail number for a YTC fleet, the non-spinnaker or double-handed
+  // certificate family for an ORC fleet. Read
   // by Update handicaps to preselect each fleet's choice, and written back
   // when the scorer applies with a different one. Scoring never reads it —
   // the rating it chose is already on the competitor. Absent means standard.
@@ -874,13 +875,13 @@ export interface RaceStart {
 }
 
 /** A static-rating field that can be overridden per race. */
-export type RatingField = 'ircTcc' | 'pyNumber' | 'vprsTcc' | 'fixedTcf';
+export type RatingField = 'ircTcc' | 'pyNumber' | 'vprsTcc' | 'fixedTcf' | 'ytcNumber';
 
 /**
  * Per-race override of a competitor's static rating (mid-series rating change,
  * e.g. a new IRC certificate). The competitor keeps its *current* rating; an
  * override pins a *past* race to the value in effect then. Sparse — present
- * only for re-rated boats. Applies to static fleets only (irc/vprs/py/tcf);
+ * only for re-rated boats. Applies to static fleets only (irc/vprs/py/tcf/ytc);
  * progressive systems (nhc/echo) recompute ratings per race and ignore
  * overrides. See docs/design/horizon.md.
  */
@@ -889,7 +890,7 @@ export interface RaceRatingOverride {
   raceId: string;
   competitorId: string;
   field: RatingField;
-  value: number;     // in the field's own units (a TCC or TCF, or a PY number)
+  value: number;     // in the field's own units (a TCC or TCF, or a PY or YTC number)
   version?: number;  // server-side concurrency token (see Series.version)
 }
 
@@ -926,6 +927,7 @@ export interface Competitor {
   fixedTcf?: number;
   vprsTcc?: number;   // VPRS Time Correction Coefficient, e.g. 0.992 (single applied value; the spin/non-spin pair lives in the rating-source layer, like IRC)
   pyNumber?: number;  // RYA Portsmouth Yardstick number, e.g. 1034
+  ytcNumber?: number; // RYA YTC (Yacht Time Correction) number off this boat's own certificate, e.g. 941; TCF = 1000 / ytcNumber, as for PY (single applied value; the spinnaker / white-sail pair lives in the rating-source layer, like IRC)
   nhcStartingTcf?: number;  // initial TCF for NHC fleets; required for NHC competitors
   echoStartingTcf?: number; // initial TCF for ECHO fleets; required for ECHO competitors
   // Where this boat's IRC rating came from: the certificate the Update

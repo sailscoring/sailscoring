@@ -34,6 +34,7 @@ export type CompetitorField =
   | 'vprsTcc'
   | 'fixedTcf'
   | 'py'
+  | 'ytcNumber'
   | 'nhcStartingTcf'
   | 'echoStartingTcf'
   | 'ignore';
@@ -324,6 +325,7 @@ export function autoDetectField(header: string): CompetitorField {
   if (/vprs/.test(h)) return 'vprsTcc';
   if (/tcc|irc.*rating|rating.*irc/.test(h)) return 'tcc';
   if (/\bpy\b|portsmouth/.test(h)) return 'py';
+  if (/\bytc\b|yacht time correction/.test(h)) return 'ytcNumber';
   if (/\bnhc\b|nhc.*tcf|nhc.*rating/.test(h)) return 'nhcStartingTcf';
   if (/\becho\b|echo.*tcf|echo.*rating|echo.*handicap/.test(h)) return 'echoStartingTcf';
   if (/starting.*tcf/.test(h)) return 'nhcStartingTcf';

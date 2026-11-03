@@ -474,7 +474,7 @@ export const fleets = pgTable(
     index('fleets_workspace_idx').on(table.workspaceId),
     check(
       'fleets_scoring_system_chk',
-      sql`${table.scoringSystem} in ('scratch','irc','py','nhc','echo','vprs','orc','tcf')`,
+      sql`${table.scoringSystem} in ('scratch','irc','py','nhc','echo','vprs','orc','tcf','ytc')`,
     ),
   ],
 );
@@ -537,6 +537,7 @@ export const competitors = pgTable(
     vprsTcc: real('vprs_tcc'),
     fixedTcf: real('fixed_tcf'),
     pyNumber: real('py_number'),
+    ytcNumber: real('ytc_number'),
     nhcStartingTcf: real('nhc_starting_tcf'),
     echoStartingTcf: real('echo_starting_tcf'),
     // The boat's ORC certificate, verbatim as imported (see OrcCertData).
@@ -1075,7 +1076,7 @@ export const raceRatingOverrides = pgTable(
     ),
     check(
       'race_rating_overrides_field_chk',
-      sql`${table.field} in ('ircTcc','pyNumber','vprsTcc','fixedTcf')`,
+      sql`${table.field} in ('ircTcc','pyNumber','vprsTcc','fixedTcf','ytcNumber')`,
     ),
   ],
 );

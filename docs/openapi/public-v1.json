@@ -4755,7 +4755,7 @@
           },
           "scoringSystem": {
             "type": "string",
-            "description": "How the fleet is scored: `scratch`, `irc`, `orc`, `echo`, `py`, `nhc`, `vprs`, `tcf`. Open-ended: more may be added."
+            "description": "How the fleet is scored: `scratch`, `irc`, `orc`, `echo`, `py`, `nhc`, `vprs`, `tcf`, `ytc`. Open-ended: more may be added."
           }
         },
         "required": [

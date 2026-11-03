@@ -161,7 +161,7 @@ export function endOfSeriesTcfs(
  * systems (`irc`, `py`) are sourced directly from the source competitor
  * record.
  */
-export type HandicapSystem = 'nhc' | 'echo' | 'irc' | 'py' | 'vprs' | 'orc' | 'tcf';
+export type HandicapSystem = 'nhc' | 'echo' | 'irc' | 'py' | 'vprs' | 'orc' | 'tcf' | 'ytc';
 
 export type NotFoundReason =
   /** Target fleet was not mapped to a source fleet — the scorer picked
@@ -324,6 +324,7 @@ function systemForFleet(fleet: Fleet): HandicapSystem | null {
     case 'py':
     case 'vprs':
     case 'tcf':
+    case 'ytc':
       return fleet.scoringSystem;
     case 'scratch':
       return null;
@@ -348,6 +349,8 @@ function currentTcfFor(competitor: Competitor, system: HandicapSystem): number |
       return competitor.fixedTcf ?? null;
     case 'py':
       return competitor.pyNumber ?? null;
+    case 'ytc':
+      return competitor.ytcNumber ?? null;
     case 'orc':
       // The certificate's all-purpose time-on-time number — the comparable
       // scalar for preview deltas; the ORC planner recomputes per-fleet.
@@ -424,6 +427,8 @@ export function planHandicapUpdates(input: PlanInput): PreviewRow[] {
         newTcf = sourceComp.ircTcc ?? null;
       } else if (system === 'vprs') {
         newTcf = sourceComp.vprsTcc ?? null;
+      } else if (system === 'ytc') {
+        newTcf = sourceComp.ytcNumber ?? null;
       } else {
         // system === 'py'
         newTcf = sourceComp.pyNumber ?? null;

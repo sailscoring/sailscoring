@@ -140,6 +140,15 @@ export const FEATURES = {
     label: 'VPRS scoring',
     helpSectionIds: ['update-handicaps-vprs'],
   },
+  ytc: {
+    // Gates the YTC (RYA Yacht Time Correction) scoring system *and* the RORC
+    // YTC listing as a source in the Update-handicaps dialog. Opt-in (default
+    // off): new, and proven against one club's published results (Mayo
+    // Sailing Club's 2026 Cruisers YTC series) before any wider audience, per
+    // the containment model.
+    label: 'YTC scoring',
+    helpSectionIds: ['update-handicaps-ytc'],
+  },
   orc: {
     // Gates the ORC scoring system *and* the ORC certificate-database source
     // in the Update-handicaps dialog. Opt-in (default off): new and being

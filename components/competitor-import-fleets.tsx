@@ -62,6 +62,7 @@ export const SCORING_SYSTEM_LABEL: Record<ScoringSystem, string> = {
   nhc: 'NHC',
   echo: 'ECHO',
   orc: 'ORC',
+  ytc: 'YTC',
 };
 
 /** Which CSV column target holds each rating system's numbers. ORC is absent
@@ -73,6 +74,7 @@ const SYSTEM_TO_RATING_FIELD: Record<Exclude<ScoringSystem, 'scratch' | 'orc'>, 
   vprs: 'vprsTcc',
   tcf: 'fixedTcf',
   py: 'py',
+  ytc: 'ytcNumber',
   nhc: 'nhcStartingTcf',
   echo: 'echoStartingTcf',
 };
@@ -85,6 +87,7 @@ const SYSTEM_FEATURE: Partial<Record<ScoringSystem, FeatureKey>> = {
   irc: 'irc-rating',
   py: 'rya-py',
   vprs: 'vprs',
+  ytc: 'ytc',
   echo: 'echo',
   orc: 'orc',
 };

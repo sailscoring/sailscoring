@@ -145,6 +145,10 @@ describe('formatRatingValue', () => {
     expect(formatRatingValue(1034, 'py')).toBe('1034');
   });
 
+  it('leaves YTC numbers whole, as the certificate prints them', () => {
+    expect(formatRatingValue(941, 'ytc')).toBe('941');
+  });
+
   it('keeps a genuinely fractional PY number but drops float noise', () => {
     expect(formatRatingValue(1034.5, 'py')).toBe('1034.5');
     expect(formatRatingValue(4.899999999999977, 'py')).toBe('4.9');
@@ -362,6 +366,7 @@ describe('standingsRating', () => {
     expect(standingsRatingLabel(mkFleet({ id: 'i', name: 'IRC', scoringSystem: 'irc' }))).toBe('TCC');
     expect(standingsRatingLabel(mkFleet({ id: 'v', name: 'VPRS', scoringSystem: 'vprs' }))).toBe('TCC');
     expect(standingsRatingLabel(mkFleet({ id: 'p', name: 'PY', scoringSystem: 'py' }))).toBe('PY');
+    expect(standingsRatingLabel(mkFleet({ id: 'y', name: 'Cruisers YTC', scoringSystem: 'ytc' }))).toBe('YTC');
     expect(standingsRatingLabel(mkFleet({ id: 'h', name: 'Class 1 HPH', scoringSystem: 'tcf', ratingLabel: 'HPH' }))).toBe('HPH');
     expect(standingsRatingLabel(mkFleet({ id: 'o', name: 'ORC', scoringSystem: 'orc' }))).toBe('APH ToT');
   });

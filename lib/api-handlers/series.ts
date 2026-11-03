@@ -867,6 +867,7 @@ export async function createFollowOnSeries(
       vprsTcc: c.vprsTcc ?? null,
       fixedTcf: c.fixedTcf ?? null,
       pyNumber: c.pyNumber ?? null,
+      ytcNumber: c.ytcNumber ?? null,
       nhcStartingTcf: nhcSeed ?? c.nhcStartingTcf ?? null,
       echoStartingTcf: echoSeed ?? c.echoStartingTcf ?? null,
       orcCert: c.orcCert ?? null,

@@ -395,12 +395,12 @@ export interface RaceResultData {
   /** DPI only: the scorer's own name for the penalty (#424). */
   penaltyLabel?: string;
   // Handicap fields — only set for IRC/PY fleets
-  tcc?: number;              // Time Correction Factor (TCC for IRC, 1000/PY for PY, the club's number for a fixed TCF)
-  /** PY only: the Portsmouth Number the row was corrected on, override-aware
-   *  (`tcc` is 1000 ÷ this). The rating column prints it rather than the
-   *  decimal: a dinghy sailor knows their boat by its PY, and 1000/PY to three
-   *  places is IRC's presentation, not the PY system's. */
-  pyNumber?: number;
+  tcc?: number;              // Time Correction Factor (TCC for IRC, 1000/PY for PY or 1000/YTC for YTC, the club's number for a fixed TCF)
+  /** PY and YTC only: the yardstick number the row was corrected on,
+   *  override-aware (`tcc` is 1000 ÷ this). The rating column prints it rather
+   *  than the decimal: a sailor knows their boat by its PY or YTC number, and
+   *  1000/n to three places is IRC's presentation, not the yardstick's. */
+  yardstickNumber?: number;
   tccOverride?: boolean;     // true when tcc is a per-race override (mid-series rating change)
   /** IRC only: the certificate the boat's TCC was read off (#615). Carried on
    *  the rating cell so a reader asking where a rating came from can answer
@@ -2717,7 +2717,7 @@ function renderRaceTable(
           col: `<col class="${ratingColClass}" />`,
           th: head('rating', ratingLabel),
           cell: (r: RaceResultData) =>
-            `<td class="mono"${r.ircCertNumber ? ` title="IRC certificate ${esc(r.ircCertNumber)}"` : ''}>${r.pyNumber != null ? formatRatingValue(r.pyNumber, 'py') : r.tcc != null ? r.tcc.toFixed(isOrcTod ? 1 : isOrcTot ? 4 : 3) : ''}${r.tccOverride ? '<span class="override-marker" title="Per-race rating override">*</span>' : ''}</td>`,
+            `<td class="mono"${r.ircCertNumber ? ` title="IRC certificate ${esc(r.ircCertNumber)}"` : ''}>${r.yardstickNumber != null ? formatRatingValue(r.yardstickNumber, 'py') : r.tcc != null ? r.tcc.toFixed(isOrcTod ? 1 : isOrcTot ? 4 : 3) : ''}${r.tccOverride ? '<span class="override-marker" title="Per-race rating override">*</span>' : ''}</td>`,
         },
         {
           key: 'corrected' as const,
@@ -3627,7 +3627,7 @@ export function assembleSeriesResultsData(
     raceNotScored?: boolean[];
   }>,
   raceScoresByRaceId: Map<string, Map<string, { points: number; place: number | null; rank: number | null; resultCode: ResultCode | null; penaltyCode?: PenaltyCode | null; penaltyOverride?: number | null; penaltyInPoints?: boolean; penaltyLabel?: string; finishTime?: string | null; elapsedSecs?: number | null; trackData?: FinishTrackData | null; tcfApplied?: number | null; tccOverride?: boolean; newTcf?: number | null; elapsedTime?: number | null; courseElapsedTime?: number; laps?: number; correctedTime?: number | null; orc?: OrcRaceCalc; nhc?: { fairTcf: number; compScore: number; isExtreme: boolean; extremeDirection?: 'fast' | 'slow'; alphaApplied: number; provisionalTcf: number; adjustment: number }; echo?: { ctRatio: number; fairTcf: number; adjustment: number; alphaApplied: number } }>>,
-  competitorsById: Map<string, { sailNumber: string; bowNumber?: string; entryNumber?: string; tallyNumber?: string; boatName?: string; boatClass?: string; names: string[]; owners?: string[]; helms?: string[]; crewNames?: string[]; clubs?: string[]; nationality?: string; worldSailingId?: string; subdivisions?: Record<string, string>; customFields?: Record<string, string>; gender?: 'M' | 'F' | ''; age?: number | null; ircTcc?: number; vprsTcc?: number; fixedTcf?: number; pyNumber?: number; orcCert?: OrcCertData; ircCert?: { certNumber?: string } }>,
+  competitorsById: Map<string, { sailNumber: string; bowNumber?: string; entryNumber?: string; tallyNumber?: string; boatName?: string; boatClass?: string; names: string[]; owners?: string[]; helms?: string[]; crewNames?: string[]; clubs?: string[]; nationality?: string; worldSailingId?: string; subdivisions?: Record<string, string>; customFields?: Record<string, string>; gender?: 'M' | 'F' | ''; age?: number | null; ircTcc?: number; vprsTcc?: number; fixedTcf?: number; pyNumber?: number; ytcNumber?: number; orcCert?: OrcCertData; ircCert?: { certNumber?: string } }>,
   enabledCompetitorFields: CompetitorFieldKey[],
   generatedAt: Date,
   fleetName?: string,
@@ -3648,7 +3648,7 @@ export function assembleSeriesResultsData(
     /** ID of the fleet being rendered */
     fleetId?: string;
     /** Scoring system of the fleet */
-    scoringSystem?: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo' | 'vprs' | 'orc' | 'tcf';
+    scoringSystem?: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo' | 'vprs' | 'orc' | 'tcf' | 'ytc';
     /** Heads the rating column in place of the system's own word — the club's
      *  name for a fixed TCF ("HPH"). */
     ratingColumnLabel?: string;
@@ -3708,7 +3708,7 @@ export function assembleSeriesResultsData(
   },
 ): SeriesResultsData {
   const { raceStarts, fleetId, scoringSystem, ratingColumnLabel, nhcAggregatesByRaceId, echoAggregatesByRaceId, primaryPersonLabel, multiPersonFields, subdivisionAxes, customFields, resultsColumns, showPerRaceRatings, seedRatingByCompetitorId, standingsRating, anchorPrefix, resultsFinal, finalisedAt, officials, publishOfficials, showTrackData, orcScoringOptions } = options ?? {};
-  const isHandicap = scoringSystem === 'irc' || scoringSystem === 'vprs' || scoringSystem === 'tcf' || scoringSystem === 'py' || scoringSystem === 'nhc' || scoringSystem === 'echo' || scoringSystem === 'orc';
+  const isHandicap = scoringSystem === 'irc' || scoringSystem === 'vprs' || scoringSystem === 'tcf' || scoringSystem === 'py' || scoringSystem === 'ytc' || scoringSystem === 'nhc' || scoringSystem === 'echo' || scoringSystem === 'orc';
   const isNhcExplain = scoringSystem === 'nhc' && nhcAggregatesByRaceId != null;
   const isEchoExplain = scoringSystem === 'echo' && echoAggregatesByRaceId != null;
 
@@ -3928,9 +3928,10 @@ export function assembleSeriesResultsData(
         ...(score.penaltyInPoints ? { penaltyInPoints: true } : {}),
         ...(score.penaltyLabel ? { penaltyLabel: score.penaltyLabel } : {}),
         ...(tcc != null ? { tcc } : {}),
-        // Read back off the applied TCF so a per-race override shows the PY
-        // the scorer entered; rounding strips the float noise of 1000 ÷ 1000/PY.
-        ...(scoringSystem === 'py' && tcc != null ? { pyNumber: Math.round((1000 / tcc) * 1000) / 1000 } : {}),
+        // Read back off the applied TCF so a per-race override shows the
+        // number the scorer entered; rounding strips the float noise of
+        // 1000 ÷ 1000/n.
+        ...((scoringSystem === 'py' || scoringSystem === 'ytc') && tcc != null ? { yardstickNumber: Math.round((1000 / tcc) * 1000) / 1000 } : {}),
         ...(score.tccOverride ? { tccOverride: true } : {}),
         // Only where the number on the page is the one the certificate gave:
         // a per-race override is the scorer's figure, not the certificate's,
@@ -3979,7 +3980,7 @@ export function assembleSeriesResultsData(
       ...(publishOfficials && hasOfficials(race.officials) ? { officials: race.officials } : {}),
       ...(startTime ? { startTime } : {}),
       ...(scoringSystem === 'nhc' ? { isNhc: true } : {}),
-      ...(ratingColumnLabel ? { ratingColumnLabel } : scoringSystem === 'py' ? { ratingColumnLabel: 'PY' } : {}),
+      ...(ratingColumnLabel ? { ratingColumnLabel } : scoringSystem === 'py' ? { ratingColumnLabel: 'PY' } : scoringSystem === 'ytc' ? { ratingColumnLabel: 'YTC' } : {}),
       ...(scoringSystem === 'echo' ? { isEcho: true } : {}),
       // The scoring option resolves per race, so the ToD presentation (s/NM
       // rating column, engine corrected times) is a per-race property too,

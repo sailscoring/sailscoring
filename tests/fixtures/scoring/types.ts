@@ -202,7 +202,7 @@ export interface FixtureCompetitor {
 }
 
 export interface FixtureFleet {
-  scoringSystem: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo' | 'vprs' | 'orc' | 'tcf';
+  scoringSystem: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo' | 'vprs' | 'orc' | 'tcf' | 'ytc';
   // Fixed TCF only — what the club calls the handicap ("HPH"); heads the
   // rating column on the rendered fixture. Absent means the generic "TCF".
   ratingLabel?: string;

@@ -101,6 +101,7 @@ const SCORING_SYSTEM_LABELS: Record<Fleet['scoringSystem'], string> = {
   nhc: 'NHC — progressive handicap',
   echo: 'ECHO — progressive handicap',
   tcf: 'Fixed TCF — corrected time',
+  ytc: 'YTC — corrected time',
 };
 
 function discardsLabel(series: Series): string {

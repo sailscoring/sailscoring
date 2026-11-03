@@ -210,6 +210,7 @@ function competitorRowToType(row: CompetitorRow): Competitor {
     ...(row.vprsTcc != null ? { vprsTcc: row.vprsTcc } : {}),
     ...(row.fixedTcf != null ? { fixedTcf: row.fixedTcf } : {}),
     ...(row.pyNumber != null ? { pyNumber: row.pyNumber } : {}),
+    ...(row.ytcNumber != null ? { ytcNumber: row.ytcNumber } : {}),
     ...(row.nhcStartingTcf != null ? { nhcStartingTcf: row.nhcStartingTcf } : {}),
     ...(row.echoStartingTcf != null ? { echoStartingTcf: row.echoStartingTcf } : {}),
     ...(row.orcCert != null ? { orcCert: row.orcCert } : {}),
@@ -1164,6 +1165,7 @@ function competitorToRow(c: Competitor, workspaceId: string) {
     vprsTcc: c.vprsTcc ?? null,
     fixedTcf: c.fixedTcf ?? null,
     pyNumber: c.pyNumber ?? null,
+    ytcNumber: c.ytcNumber ?? null,
     nhcStartingTcf: c.nhcStartingTcf ?? null,
     echoStartingTcf: c.echoStartingTcf ?? null,
     orcCert: c.orcCert ?? null,
@@ -1177,7 +1179,7 @@ const competitorUpdateColumns = [
   'boatName', 'boatClass', 'names',
   'owners', 'helms', 'crewNames', 'clubs', 'nationality',
   'gender', 'age', 'subdivisions', 'customFields',
-  'ircTcc', 'vprsTcc', 'fixedTcf', 'pyNumber', 'nhcStartingTcf', 'echoStartingTcf', 'orcCert', 'ircCert',
+  'ircTcc', 'vprsTcc', 'fixedTcf', 'pyNumber', 'ytcNumber', 'nhcStartingTcf', 'echoStartingTcf', 'orcCert', 'ircCert',
   'excluded',
 ] as const satisfies readonly (keyof ReturnType<typeof competitorToRow>)[];
 

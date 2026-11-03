@@ -11,6 +11,7 @@ const RATING_REQUIREMENT_LABEL: Record<Exclude<RatingSystemCode, 'tcf'>, string>
   irc: 'IRC TCC',
   vprs: 'VPRS TCC',
   py: 'PY number',
+  ytc: 'YTC number',
   nhc: 'NHC starting TCF',
   echo: 'ECHO starting handicap',
   orc: 'ORC certificate',
@@ -54,7 +55,7 @@ export function requiredForFleetsHint(fleetNames: string[]): string {
   return `Required for ${fleetNames.join(', ')} ${suffix}.`;
 }
 
-export type RatingSystemCode = 'irc' | 'py' | 'nhc' | 'echo' | 'vprs' | 'orc' | 'tcf';
+export type RatingSystemCode = 'irc' | 'py' | 'nhc' | 'echo' | 'vprs' | 'orc' | 'tcf' | 'ytc';
 
 export type RatingDisplay = {
   system: RatingSystemCode;
@@ -66,6 +67,7 @@ const RATING_LABEL: Record<RatingSystemCode, string> = {
   irc: 'IRC',
   vprs: 'VPRS',
   py: 'PY',
+  ytc: 'YTC',
   nhc: 'NHC',
   echo: 'ECHO',
   orc: 'ORC',
@@ -87,14 +89,15 @@ export function ratingSystemLabel(fleet: Fleet): string {
  *  places, the way certificates print them, so 1.13 reads as 1.130 and a
  *  column of them lines up on the decimal point. ORC time-on-time ratings are
  *  published to four places (APHT 0.9216) and print as the certificate does.
- *  PY numbers are whole and print as stored; `Number(toFixed(3))` only strips
- *  the float noise a subtraction leaves behind (4.899999999999977 → 4.9). */
+ *  PY and YTC numbers are whole and print as stored; `Number(toFixed(3))`
+ *  only strips the float noise a subtraction leaves behind
+ *  (4.899999999999977 → 4.9). */
 export function formatRatingValue(
   value: number | null | undefined,
   system: RatingSystemCode,
 ): string {
   if (value == null) return '—';
-  if (system === 'py') return String(Number(value.toFixed(3)));
+  if (system === 'py' || system === 'ytc') return String(Number(value.toFixed(3)));
   return system === 'orc' ? value.toFixed(4) : value.toFixed(3);
 }
 
@@ -112,6 +115,8 @@ function rawRatingFor(
       return competitor.fixedTcf ?? null;
     case 'py':
       return competitor.pyNumber ?? null;
+    case 'ytc':
+      return competitor.ytcNumber ?? null;
     case 'nhc':
       return competitor.nhcStartingTcf ?? null;
     case 'echo':
@@ -152,6 +157,8 @@ export function standingsRatingLabel(fleet: Fleet): string | null {
       return 'TCC';
     case 'py':
       return 'PY';
+    case 'ytc':
+      return 'YTC';
     case 'tcf':
       return ratingSystemLabel(fleet);
     case 'orc':
@@ -188,6 +195,8 @@ export function ratingUnitLabel(fleet: Fleet): string | null {
       return 'Starting H';
     case 'py':
       return 'PY';
+    case 'ytc':
+      return 'YTC';
     case 'orc':
       return 'ORC';
     case 'tcf':

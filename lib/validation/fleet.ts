@@ -13,6 +13,7 @@ export const scoringSystemSchema = z.enum([
   'vprs',
   'orc',
   'tcf',
+  'ytc',
 ]);
 
 export const fleetRatingVariantSchema = z.enum(['non-spin', 'double-handed']);

@@ -362,6 +362,7 @@ export function calculateRaceScores(
  * VPRS: TCF = TCC (same static time-on-time shape as IRC).
  * TCF:  the fixed handicap the club assigned, stored directly on the competitor.
  * PY:   TCF = 1000 / pyNumber.
+ * YTC:  TCF = 1000 / ytcNumber (PY's maths, off one boat's certificate).
  * ORC:  the fleet's configured time-on-time rating field, read off the
  *       stored certificate (default APHT — ToT ratings are 600/ToD, so a
  *       TCF-shaped multiplier just like a TCC).
@@ -412,6 +413,7 @@ export function staticRatingField(system: Fleet['scoringSystem']): RatingField |
     case 'vprs': return 'vprsTcc';
     case 'tcf': return 'fixedTcf';
     case 'py': return 'pyNumber';
+    case 'ytc': return 'ytcNumber';
     default: return null;
   }
 }
@@ -422,11 +424,13 @@ export function staticRatingField(system: Fleet['scoringSystem']): RatingField |
  * time-on-time with the TCC as the multiplier (vprs.org: "multiply the
  * elapsed time by the yacht's TCC"), and a fixed TCF applies exactly as a
  * TCC does — where the club's number came from leaves no trace on the
- * scoring. A PY number is a yardstick, applied as `1000 / number`. Null for
- * a yardstick that isn't positive.
+ * scoring. A PY number is a yardstick, applied as `1000 / number`, and so is
+ * a YTC number — the same maths on one boat's certificate rather than a class
+ * list (YTC Policy §6.2: "Corrected Time = Elapsed Time × 1000 / YTC"). Null
+ * for a yardstick that isn't positive.
  */
 export function ratingFieldTcf(field: RatingField, value: number): number | null {
-  if (field === 'pyNumber') return value > 0 ? 1000 / value : null;
+  if (field === 'pyNumber' || field === 'ytcNumber') return value > 0 ? 1000 / value : null;
   return value;
 }
 

@@ -643,9 +643,14 @@ export interface SeriesFileRepos {
  *  `series.resultsColumns` (the series' own results columns, absent for
  *  automatic ones). All sparse. An older build reading a v75 file drops the
  *  fields' values and republishes the series with automatic columns, which is
- *  why this is a bump rather than a ride-along. */
-export const FORMAT_VERSION = 75;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75];
+ *  why this is a bump rather than a ride-along.
+ *
+ *  v76 adds the `ytc` fleet scoring system (RYA Yacht Time Correction) and
+ *  the optional `Competitor.ytcNumber`, with `ytcNumber` as a per-race
+ *  rating-override field. An older build has no such system to score a YTC
+ *  fleet on, hence a bump. */
+export const FORMAT_VERSION = 76;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -683,7 +688,7 @@ interface SeriesFileFleet {
   id: string;
   name: string;
   displayOrder: number;
-  scoringSystem: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo' | 'vprs' | 'orc' | 'tcf';
+  scoringSystem: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo' | 'vprs' | 'orc' | 'tcf' | 'ytc';
   // v50+: what the club calls the number a fixed-TCF fleet is scored on
   // ("HPH"). Present iff scoringSystem === 'tcf' AND the club has named it.
   ratingLabel?: string;
@@ -796,6 +801,7 @@ interface SeriesFileCompetitor {
   vprsTcc?: number;
   fixedTcf?: number;  // v50+
   pyNumber?: number;
+  ytcNumber?: number;  // v76+
   nhcStartingTcf?: number;
   echoStartingTcf?: number;
   orcCert?: OrcCertData;  // v40+: the boat's ORC certificate, verbatim
@@ -871,7 +877,7 @@ interface SeriesFileRaceStart {
 interface SeriesFileRatingOverride {
   id: string;
   competitorId: string;
-  field: 'ircTcc' | 'pyNumber' | 'vprsTcc' | 'fixedTcf';
+  field: 'ircTcc' | 'pyNumber' | 'vprsTcc' | 'fixedTcf' | 'ytcNumber';
   value: number;
 }
 
@@ -1191,6 +1197,7 @@ export async function buildSeriesFile(
       ...(c.vprsTcc != null ? { vprsTcc: c.vprsTcc } : {}),
       ...(c.fixedTcf != null ? { fixedTcf: c.fixedTcf } : {}),
       ...(c.pyNumber != null ? { pyNumber: c.pyNumber } : {}),
+      ...(c.ytcNumber != null ? { ytcNumber: c.ytcNumber } : {}),
       ...(c.nhcStartingTcf != null ? { nhcStartingTcf: c.nhcStartingTcf } : {}),
       ...(c.echoStartingTcf != null ? { echoStartingTcf: c.echoStartingTcf } : {}),
       ...(c.orcCert != null ? { orcCert: c.orcCert } : {}),
@@ -2277,6 +2284,7 @@ async function writeFleetsCompetitorsRaces(
         ...(c.vprsTcc != null ? { vprsTcc: c.vprsTcc } : {}),
         ...(c.fixedTcf != null ? { fixedTcf: c.fixedTcf } : {}),
         ...(c.pyNumber != null ? { pyNumber: c.pyNumber } : {}),
+        ...(c.ytcNumber != null ? { ytcNumber: c.ytcNumber } : {}),
         ...(c.nhcStartingTcf != null ? { nhcStartingTcf: c.nhcStartingTcf } : {}),
         ...(c.echoStartingTcf != null ? { echoStartingTcf: c.echoStartingTcf } : {}),
         ...(c.orcCert != null ? { orcCert: c.orcCert } : {}),

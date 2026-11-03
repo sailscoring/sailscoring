@@ -15,7 +15,7 @@ import { useDeleteRaceStart, useSaveRaceStart } from '@/hooks/use-race-starts';
 import { useUpdateSeries } from '@/hooks/use-series';
 import { OrcOptionItems, OrcOptionValue } from '@/components/orc-option-items';
 import { DEFAULT_ORC_PROFILE, ORC_STANDARD_OPTIONS, orcFleetProfile, orcOptionKind, orcSelectableOptions } from '@/lib/orc-certificate';
-import { RATING_VARIANT_LABEL, ratingVariantsFor } from '@/lib/fleet-rating-variant';
+import { ratingVariantLabels, ratingVariantsFor } from '@/lib/fleet-rating-variant';
 import type { Fleet, FleetRatingVariant, RaceStart, Series } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import {
@@ -439,6 +439,11 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
                     {(has('vprs') || fleet.scoringSystem === 'vprs') && (
                       <SelectItem value="vprs">VPRS</SelectItem>
                     )}
+                    {/* YTC is gated; still offer it for a fleet that already
+                        uses it if a workspace opts out. */}
+                    {(has('ytc') || fleet.scoringSystem === 'ytc') && (
+                      <SelectItem value="ytc">YTC</SelectItem>
+                    )}
                     {/* ORC is experimental/gated; still offer it for a fleet
                         that already uses it if a workspace opts out. */}
                     {(has('orc') || fleet.scoringSystem === 'orc') && (
@@ -601,11 +606,11 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="standard">
-                        {fleet.scoringSystem === 'orc' ? 'Standard certificate' : 'Spinnaker TCC'}
+                        {ratingVariantLabels(fleet.scoringSystem).standard}
                       </SelectItem>
                       {ratingVariantsFor(fleet.scoringSystem).map((v) => (
                         <SelectItem key={v} value={v}>
-                          {RATING_VARIANT_LABEL[v]}
+                          {ratingVariantLabels(fleet.scoringSystem)[v]}
                         </SelectItem>
                       ))}
                     </SelectContent>

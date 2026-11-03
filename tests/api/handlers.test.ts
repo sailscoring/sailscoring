@@ -250,7 +250,7 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
     ).rejects.toBeInstanceOf(NotFoundError);
   });
 
-  test('series: copy remaps start-group fleet ids and carries vprsTcc', async () => {
+  test('series: copy remaps start-group fleet ids and carries vprsTcc and ytcNumber', async () => {
     // copySeries requires the caller to be a member of the target workspace.
     const userId = `copy-user-${uuid().slice(0, 8)}`;
     await db.insert(schema.user).values({
@@ -284,6 +284,7 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
       sailNumber: 'IRL 7007', names: ['Helm'], clubs: ['HYC'],
       gender: '' as const, age: null, createdAt: Date.now(),
       vprsTcc: 0.992,
+      ytcNumber: 941,
     });
     const raceId = uuid();
     await races.putRace(ctxACopier, srcId, raceId, {
@@ -309,6 +310,7 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
     const copiedComps = await competitors.listCompetitors(ctxBCopier, copyId);
     expect(copiedComps).toHaveLength(1);
     expect(copiedComps[0].vprsTcc).toBe(0.992);
+    expect(copiedComps[0].ytcNumber).toBe(941);
     expect(copiedComps[0].fleetIds).toEqual([copiedFleets[0].id]);
 
     const copiedRaces = await races.listRaces(ctxBCopier, copyId);

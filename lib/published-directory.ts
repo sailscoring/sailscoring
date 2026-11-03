@@ -39,6 +39,7 @@ export type DirectoryBadge =
   | 'NHC'
   | 'VPRS'
   | 'PY'
+  | 'YTC'
   | 'TCF'
   | 'One-design'
   | 'Split-fleet'
@@ -51,13 +52,14 @@ const SYSTEM_BADGES: Record<string, DirectoryBadge> = {
   nhc: 'NHC',
   vprs: 'VPRS',
   py: 'PY',
+  ytc: 'YTC',
   tcf: 'TCF',
   scratch: 'One-design',
 };
 
 /** Badge display order: handicap systems, then one-design, then format. */
 const BADGE_ORDER: DirectoryBadge[] = [
-  'IRC', 'ORC', 'ECHO', 'NHC', 'VPRS', 'PY', 'TCF', 'One-design', 'Split-fleet', 'Archive',
+  'IRC', 'ORC', 'ECHO', 'NHC', 'VPRS', 'PY', 'YTC', 'TCF', 'One-design', 'Split-fleet', 'Archive',
 ];
 
 /** A publication the directory links to: its name and where it lands. */

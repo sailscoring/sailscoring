@@ -740,7 +740,7 @@ export function addableColumns(series: ColumnSettings, list: readonly ResultsCol
  *  them to decide which scoring columns mean anything. */
 export interface ScoringColumnContext {
   handicap: boolean;
-  /** A fleet scored on a fixed rating — IRC, VPRS, PY, fixed TCF or ORC. */
+  /** A fleet scored on a fixed rating — IRC, VPRS, PY, YTC, fixed TCF or ORC. */
   fixedRating: boolean;
   progressive: boolean;
   orc: boolean;

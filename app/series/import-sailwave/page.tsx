@@ -57,10 +57,13 @@ interface Handoff {
   updateSeriesId?: string;
 }
 
-const SCORING_SYSTEM_OPTIONS: { value: ScoringSystem; label: string }[] = [
+/** The systems a Sailwave fleet can be imported as. A gated one is offered
+ *  only to a workspace that has it. */
+const SCORING_SYSTEM_OPTIONS: { value: ScoringSystem; label: string; feature?: 'ytc' }[] = [
   { value: 'scratch', label: 'Scratch' },
   { value: 'irc', label: 'IRC' },
   { value: 'py', label: 'Portsmouth Yardstick' },
+  { value: 'ytc', label: 'YTC', feature: 'ytc' },
   { value: 'nhc', label: 'NHC' },
   { value: 'echo', label: 'ECHO' },
   { value: 'tcf', label: 'Fixed TCF' },
@@ -523,7 +526,7 @@ function Wizard({
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {SCORING_SYSTEM_OPTIONS.map((o) => (
+                        {SCORING_SYSTEM_OPTIONS.filter((o) => !o.feature || features.has(o.feature)).map((o) => (
                           <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
                         ))}
                       </SelectContent>

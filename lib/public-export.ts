@@ -323,7 +323,7 @@ export interface PublicSeriesExport {
      *  Absent when the two are the same, which is every ordinary series. */
     label?: string;
     displayOrder: number;
-    scoringSystem: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo' | 'vprs' | 'orc' | 'tcf';
+    scoringSystem: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo' | 'vprs' | 'orc' | 'tcf' | 'ytc';
     /** What the club calls the number a fixed-TCF fleet is scored on ("HPH").
      *  Present iff scoringSystem === 'tcf' and the club has named it. */
     ratingLabel?: string;
@@ -419,6 +419,8 @@ export interface PublicSeriesExport {
     /** The club's fixed handicap for the series, applied time-on-time. */
     fixedTcf?: number;
     pyNumber?: number;
+    /** RYA YTC number off the boat's own certificate; TCF = 1000 / number. */
+    ytcNumber?: number;
     /** NHC starting TCF (race-1 input). */
     nhcStartingTcf?: number;
     /** ECHO starting handicap (race-1 input). */
@@ -1526,6 +1528,7 @@ export function buildPublicExportFromSnapshot(
       ...(c.vprsTcc != null ? { vprsTcc: c.vprsTcc } : {}),
       ...(c.fixedTcf != null ? { fixedTcf: c.fixedTcf } : {}),
       ...(c.pyNumber != null ? { pyNumber: c.pyNumber } : {}),
+      ...(c.ytcNumber != null ? { ytcNumber: c.ytcNumber } : {}),
       ...(c.nhcStartingTcf != null ? { nhcStartingTcf: c.nhcStartingTcf } : {}),
       ...(c.echoStartingTcf != null ? { echoStartingTcf: c.echoStartingTcf } : {}),
       ...(c.orcCert != null ? { orc: orcCertSummary(c.orcCert) } : {}),
@@ -2020,6 +2023,7 @@ export async function importPublicExport(
         ...(c.vprsTcc != null ? { vprsTcc: c.vprsTcc } : {}),
         ...(c.fixedTcf != null ? { fixedTcf: c.fixedTcf } : {}),
         ...(c.pyNumber != null ? { pyNumber: c.pyNumber } : {}),
+        ...(c.ytcNumber != null ? { ytcNumber: c.ytcNumber } : {}),
         ...(c.nhcStartingTcf != null ? { nhcStartingTcf: c.nhcStartingTcf } : {}),
         ...(c.echoStartingTcf != null ? { echoStartingTcf: c.echoStartingTcf } : {}),
         ...(c.orc != null ? { orcCert: orcCertFromSummary(c.orc, now) } : {}),

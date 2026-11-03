@@ -415,6 +415,7 @@ function ratingLabelOf(race: SeriesResultsData['races'][number], scoringSystem: 
     case 'irc': return 'TCC';
     case 'vprs': return 'TCC';
     case 'py': return 'PY';
+    case 'ytc': return 'YTC';
     case 'orc': return 'TCC';
     case 'tcf': return 'TCF';
     default: return null;
@@ -521,7 +522,7 @@ function resultsSectionParts(
             : {}),
         ...(r.correctedTimeSecs != null ? { corrected: formatElapsedInput(r.correctedTimeSecs) } : {}),
         ...(r.laps != null ? { laps: r.laps } : {}),
-        ...(r.pyNumber != null ? { rating: r.pyNumber } : r.tcc != null ? { rating: r.tcc } : {}),
+        ...(r.yardstickNumber != null ? { rating: r.yardstickNumber } : r.tcc != null ? { rating: r.tcc } : {}),
       })),
     };
     const k = raceFleetKey(n, subSeries, key);

@@ -81,7 +81,7 @@ export const fleetResource = named(
     name: z.string(),
     scoringSystem: z
       .string()
-      .describe('How the fleet is scored: `scratch`, `irc`, `orc`, `echo`, `py`, `nhc`, `vprs`, `tcf`. Open-ended: more may be added.'),
+      .describe('How the fleet is scored: `scratch`, `irc`, `orc`, `echo`, `py`, `nhc`, `vprs`, `tcf`, `ytc`. Open-ended: more may be added.'),
   }),
   'Fleet',
   'A fleet of a series.',

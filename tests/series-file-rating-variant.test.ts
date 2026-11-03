@@ -5,6 +5,7 @@ import {
   fleetTccVariant,
   ratingVariantFromOrcFamily,
   ratingVariantFromTcc,
+  ratingVariantLabels,
   ratingVariantsFor,
 } from '@/lib/fleet-rating-variant';
 import {
@@ -120,7 +121,17 @@ describe('fleet rating variant', () => {
   it('offers double-handed for ORC only, and nothing for unlisted systems', () => {
     expect(ratingVariantsFor('orc')).toEqual(['non-spin', 'double-handed']);
     expect(ratingVariantsFor('vprs')).toEqual(['non-spin']);
+    expect(ratingVariantsFor('ytc')).toEqual(['non-spin']);
     expect(ratingVariantsFor('echo')).toEqual([]);
+  });
+
+  it('names a YTC fleet\'s choice as its certificate does', () => {
+    // The listing's no-spinnaker column is "YTC White Sail".
+    expect(ratingVariantLabels('ytc').standard).toBe('Spinnaker');
+    expect(ratingVariantLabels('ytc')['non-spin']).toBe('White sail');
+    expect(ratingVariantLabels('irc').standard).toBe('Spinnaker TCC');
+    expect(ratingVariantLabels('irc')['non-spin']).toBe('Non-spinnaker');
+    expect(ratingVariantLabels('orc').standard).toBe('Standard certificate');
   });
 });
 

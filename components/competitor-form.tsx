@@ -58,6 +58,7 @@ export interface CompetitorFormData {
   vprsTcc: string;      // decimal string, e.g. "0.992"; empty if not set
   fixedTcf: string;     // decimal string, e.g. "0.865"; empty if not set
   pyNumber: string;     // integer string, e.g. "1034"; empty if not set
+  ytcNumber: string;    // integer string, e.g. "941"; empty if not set
   nhcStartingTcf: string; // decimal string, e.g. "1.005"; empty if not set
   echoStartingTcf: string; // decimal string, e.g. "1.020"; empty if not set
 }
@@ -89,6 +90,7 @@ export const emptyCompetitorForm: CompetitorFormData = {
   vprsTcc: '',
   fixedTcf: '',
   pyNumber: '',
+  ytcNumber: '',
   nhcStartingTcf: '',
   echoStartingTcf: '',
 };
@@ -246,6 +248,7 @@ export function CompetitorForm({
   const tcfLabels = [...new Set(tcfFleets.map((f) => ratingSystemLabel(f)))];
   const fixedTcfLabel = tcfLabels.length === 1 ? tcfLabels[0] : 'TCF';
   const pyFleetNames = selectedFleets.filter((f) => f.scoringSystem === 'py').map((f) => f.name);
+  const ytcFleetNames = selectedFleets.filter((f) => f.scoringSystem === 'ytc').map((f) => f.name);
   const nhcFleetNames = selectedFleets.filter((f) => f.scoringSystem === 'nhc').map((f) => f.name);
   const echoFleetNames = selectedFleets.filter((f) => f.scoringSystem === 'echo').map((f) => f.name);
   const orcFleetNames = selectedFleets.filter((f) => f.scoringSystem === 'orc').map((f) => f.name);
@@ -254,6 +257,7 @@ export function CompetitorForm({
   const needsFixedTcf = tcfFleetNames.length > 0;
   const showOrcSection = orcFleetNames.length > 0 || orcCert != null;
   const needsPyNumber = pyFleetNames.length > 0;
+  const needsYtcNumber = ytcFleetNames.length > 0;
   const needsNhcStartingTcf = nhcFleetNames.length > 0;
   const needsEchoStartingTcf = echoFleetNames.length > 0;
 
@@ -317,6 +321,13 @@ export function CompetitorForm({
       const py = parseInt(data.pyNumber, 10);
       if (isNaN(py) || py < 500 || py > 2000) {
         setError('PY number must be a positive integer (e.g. 1034).');
+        return;
+      }
+    }
+    if (needsYtcNumber && data.ytcNumber.trim()) {
+      const ytc = Number(data.ytcNumber.trim());
+      if (!Number.isInteger(ytc) || ytc < 500 || ytc > 2000) {
+        setError('YTC number must be a whole number from the boat\'s certificate (e.g. 941).');
         return;
       }
     }
@@ -728,6 +739,21 @@ export function CompetitorForm({
             />
             {!data.pyNumber.trim() && (
               <p className="text-sm text-amber-600">{requiredForFleetsHint(pyFleetNames)}</p>
+            )}
+          </div>
+        )}
+        {needsYtcNumber && (
+          <div className="space-y-1.5">
+            <Label htmlFor="ytcNumber">YTC number</Label>
+            <Input
+              id="ytcNumber"
+              inputMode="numeric"
+              value={data.ytcNumber}
+              onChange={(e) => set('ytcNumber', e.target.value)}
+              placeholder="e.g. 941"
+            />
+            {!data.ytcNumber.trim() && (
+              <p className="text-sm text-amber-600">{requiredForFleetsHint(ytcFleetNames)}</p>
             )}
           </div>
         )}
