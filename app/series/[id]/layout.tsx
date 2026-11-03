@@ -294,7 +294,7 @@ export default function SeriesLayout({
               href={href}
               aria-current={active ? 'page' : undefined}
               className={cn(
-                'rounded-md px-3.5 py-1.5 text-sm font-medium transition-colors',
+                'rounded-md px-3 sm:px-3.5 py-1.5 text-sm font-medium transition-colors',
                 active
                   ? 'bg-primary text-primary-foreground shadow-sm'
                   : 'text-muted-foreground hover:bg-background/70 hover:text-foreground',
