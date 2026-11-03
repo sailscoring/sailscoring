@@ -95,6 +95,28 @@ export function mappingSlotState(
 }
 
 /**
+ * Whether a sail-number cell reads like text rather than a sail number: more
+ * than 20 characters, or several words without a digit among them. Sail
+ * numbers run to a country code, a number and perhaps a letter ("GBR 12345
+ * R"); a cell like "SAIL NUMBER" or a sentence of instructions is a line of
+ * the sheet that isn't a boat, or a sign the wrong column is mapped.
+ */
+export function isImplausibleSailNumber(value: string): boolean {
+  const text = value.trim();
+  if (text.length > 20) return true;
+  return text.split(/\s+/).length >= 2 && !/\d/.test(text);
+}
+
+/** The sail numbers in the mapped column that {@link isImplausibleSailNumber}
+ *  flags, in row order. Empty when no column is mapped to Sail number. */
+export function implausibleSailNumbers(rows: readonly string[][], columnMap: ColumnMap): string[] {
+  const entry = Object.entries(columnMap).find(([, target]) => target === 'sailNumber');
+  if (!entry) return [];
+  const col = Number(entry[0]);
+  return rows.map((row) => row[col] ?? '').filter(isImplausibleSailNumber);
+}
+
+/**
  * The person fields this column map asks to be opened to several names per
  * entry, on top of those the series already opens.
  *

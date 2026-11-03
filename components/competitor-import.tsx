@@ -38,6 +38,7 @@ import {
   relayFieldOf,
   splitPersonCell,
   isGroupingHeader,
+  implausibleSailNumbers,
   mappingSlotState,
   proposeMultiPersonFields,
   routeSeedingColumn,
@@ -977,6 +978,13 @@ function MappingDialogBody({
     return out.sort((a, b) => a.col - b.col);
   }, [flow.columnMap, flow.groupByColumn]);
 
+  // Rows whose sail number reads like text: a sheet's title or notes, or the
+  // wrong column mapped to Sail number.
+  const oddSailNumbers = useMemo(
+    () => implausibleSailNumbers(flow.rows, flow.columnMap),
+    [flow.rows, flow.columnMap],
+  );
+
   // Pre-slice each column's sample values once — headers and sampleRows are
   // fixed for the import session, so this never recomputes after mount. Rows
   // join them for display (crew-mapped columns preview their in-cell split).
@@ -1101,6 +1109,26 @@ function MappingDialogBody({
         multiPersonFields={flow.multiPersonFields}
         onChange={updateColumn}
       />
+
+      {oddSailNumbers.length > 0 && (
+        <div className="text-sm text-amber-600 dark:text-amber-500 space-y-1" data-testid="implausible-sail-numbers">
+          <p>
+            {oddSailNumbers.length === 1
+              ? "1 row has a sail number that doesn't look like one, and will be imported as a competitor:"
+              : `${oddSailNumbers.length} rows have a sail number that doesn't look like one, and will be imported as competitors:`}
+          </p>
+          <ul className="list-disc pl-5 text-xs">
+            {oddSailNumbers.slice(0, 3).map((s, i) => (
+              <li key={i} className="truncate">{s}</li>
+            ))}
+            {oddSailNumbers.length > 3 && <li>and {oddSailNumbers.length - 3} more</li>}
+          </ul>
+          <p className="text-xs">
+            If these aren&apos;t boats, remove them from the sheet and import it again,
+            or check the column mapped to Sail number.
+          </p>
+        </div>
+      )}
 
       {/* The rrs.org side of a combined import: the one push-mapping choice
           (division source) plus the relay contract, stated where the relay

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseFleetCell, autoDetectField, isGroupingHeader, matchSubdivisionAxis, routeSeedingColumn, splitPersonCell, parseExcludedCell, mappingSlotState, proposeMultiPersonFields } from '@/lib/csv-import';
+import { parseFleetCell, autoDetectField, isGroupingHeader, matchSubdivisionAxis, routeSeedingColumn, splitPersonCell, parseExcludedCell, mappingSlotState, proposeMultiPersonFields, isImplausibleSailNumber, implausibleSailNumbers } from '@/lib/csv-import';
 import type { ColumnMap } from '@/lib/csv-import';
 
 describe('parseFleetCell', () => {
@@ -433,5 +433,39 @@ describe('proposeMultiPersonFields', () => {
   it('ignores repeated non-person columns', () => {
     const map: ColumnMap = { 0: 'sailNumber', 1: 'primary', 2: 'club', 3: 'club', 4: 'ignore', 5: 'ignore' };
     expect(proposeMultiPersonFields(map, [])).toEqual([]);
+  });
+});
+
+describe('isImplausibleSailNumber', () => {
+  it.each(['930', 'IRL 1234', 'GBR 12345 R', 'K 1', 'ESP', 'TBC', '0', ''])(
+    'accepts %j',
+    (v) => expect(isImplausibleSailNumber(v)).toBe(false),
+  );
+
+  it.each([
+    'SAIL NUMBER',
+    'BOATS IN CLASS CRUISERS MASTER 2026',
+    'INSTRUCTIONS FOR RELOADING THIS SPREADSHEET INTO HALSAIL',
+    'Black Sails',
+  ])('flags %j', (v) => expect(isImplausibleSailNumber(v)).toBe(true));
+});
+
+describe('implausibleSailNumbers', () => {
+  const rows = [
+    ['Uforia', '930'],
+    ['', 'BOATS IN CLASS CRUISERS MASTER 2026'],
+    ['Name', 'SAIL NUMBER'],
+  ];
+
+  it('lists the flagged cells of the column mapped to Sail number, in row order', () => {
+    const map: ColumnMap = { 0: 'primary', 1: 'sailNumber' };
+    expect(implausibleSailNumbers(rows, map)).toEqual([
+      'BOATS IN CLASS CRUISERS MASTER 2026',
+      'SAIL NUMBER',
+    ]);
+  });
+
+  it('is empty with no column mapped to Sail number', () => {
+    expect(implausibleSailNumbers(rows, { 0: 'primary', 1: 'ignore' })).toEqual([]);
   });
 });
