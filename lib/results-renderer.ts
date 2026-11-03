@@ -46,7 +46,7 @@ import { lookupCode } from './nationality';
 import { formatConditions, hasConditions } from './race-conditions';
 import { formatOfficials, hasOfficials, namedOfficials, officialRoleLabel } from './race-officials';
 import { compareSailNumbers } from './sail-number-sort';
-import { roundCorrectedSecs } from './scoring';
+import { ratingFieldTcf, roundCorrectedSecs, staticRatingField } from './scoring';
 import { formatRatingValue } from './competitor-ratings';
 import { seriesSlug } from './series-name';
 import { worldSailingProfileUrl } from './world-sailing';
@@ -3827,15 +3827,11 @@ export function assembleSeriesResultsData(
         // override-aware for static fleets (a mid-series rating change), and the
         // running rating for progressive fleets. Fall back to the competitor's
         // current rating only when the engine emitted no per-race value.
-        if (scoringSystem === 'irc') {
-          tcc = score.tcfApplied ?? competitor.ircTcc ?? undefined;
-        } else if (scoringSystem === 'vprs') {
-          tcc = score.tcfApplied ?? competitor.vprsTcc ?? undefined;
-        } else if (scoringSystem === 'tcf') {
-          tcc = score.tcfApplied ?? competitor.fixedTcf ?? undefined;
-        } else if (scoringSystem === 'py') {
+        const ratingField = scoringSystem ? staticRatingField(scoringSystem) : null;
+        if (ratingField) {
+          const current = competitor[ratingField];
           tcc = score.tcfApplied
-            ?? (competitor.pyNumber != null && competitor.pyNumber > 0 ? 1000 / competitor.pyNumber : undefined);
+            ?? (current != null ? ratingFieldTcf(ratingField, current) ?? undefined : undefined);
         } else if ((scoringSystem === 'nhc' || scoringSystem === 'echo' || scoringSystem === 'orc') && score.tcfApplied != null) {
           // ORC: the applied rating depends on the option the race resolved
           // to, which the engine recorded — there is no meaningful

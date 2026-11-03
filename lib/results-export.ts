@@ -10,6 +10,8 @@ import {
   orcCertificateTodContext,
   orcStartHasCourse,
   startKeyResolver,
+  ratingFieldTcf,
+  staticRatingField,
   type TodCorrectionContext,
 } from './scoring';
 import { seriesCodeTable } from './scoring-codes';
@@ -1182,7 +1184,7 @@ export async function buildFleetHtmlFiles(
         let orcCalcByComp: Map<string, OrcRaceCalc> | undefined;
         // Per-race static-rating overrides (mid-series rating change) for this
         // fleet's system, keyed by competitor.
-        const overrideField = fleet.scoringSystem === 'irc' ? 'ircTcc' : fleet.scoringSystem === 'vprs' ? 'vprsTcc' : fleet.scoringSystem === 'tcf' ? 'fixedTcf' : fleet.scoringSystem === 'py' ? 'pyNumber' : null;
+        const overrideField = staticRatingField(fleet.scoringSystem);
         const overrideByComp = new Map<string, number>();
         if (overrideField) {
           for (const o of allRatingOverrides) {
@@ -1211,18 +1213,10 @@ export async function buildFleetHtmlFiles(
           // rating is the chain's, read above).
           let tcfMap = new Map<string, number>();
           for (const c of fleetCompetitors) {
-            if (fleet.scoringSystem === 'irc') {
-              const tcc = overrideByComp.get(c.id) ?? c.ircTcc;
-              if (tcc != null) tcfMap.set(c.id, tcc);
-            } else if (fleet.scoringSystem === 'vprs') {
-              const tcc = overrideByComp.get(c.id) ?? c.vprsTcc;
-              if (tcc != null) tcfMap.set(c.id, tcc);
-            } else if (fleet.scoringSystem === 'tcf') {
-              const tcf = overrideByComp.get(c.id) ?? c.fixedTcf;
+            if (overrideField) {
+              const value = overrideByComp.get(c.id) ?? c[overrideField];
+              const tcf = value != null ? ratingFieldTcf(overrideField, value) : null;
               if (tcf != null) tcfMap.set(c.id, tcf);
-            } else if (fleet.scoringSystem === 'py') {
-              const py = overrideByComp.get(c.id) ?? c.pyNumber;
-              if (py != null && py > 0) tcfMap.set(c.id, 1000 / py);
             } else if (orcProfile) {
               const rating = isOrcCurve
                 ? (orcPcsRatable(c) ? 1 : null)

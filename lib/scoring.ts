@@ -1,4 +1,4 @@
-import type { Competitor, Fleet, Race, Finish, RaceScore, HandicapRaceScore, RaceStart, RaceRatingOverride, Standing, ResultCode, PenaltyCode, DiscardThreshold, ProportionalDiscard, ScoringRejection, RaceScoringGap, NhcRaceCalc, NhcRaceAggregates, EchoRaceCalc, EchoRaceAggregates, OrcProfile, OrcRaceCalc, TcfRecord, NhcProfile, ProgressiveHandicapConfig, ProgressiveRaceCalc, ProgressiveRaceAggregates, SubSeries, RaceFleetExclusion, CompetitorEntryOverride } from './types';
+import type { Competitor, Fleet, Race, Finish, RaceScore, HandicapRaceScore, RaceStart, RaceRatingOverride, RatingField, Standing, ResultCode, PenaltyCode, DiscardThreshold, ProportionalDiscard, ScoringRejection, RaceScoringGap, NhcRaceCalc, NhcRaceAggregates, EchoRaceCalc, EchoRaceAggregates, OrcProfile, OrcRaceCalc, TcfRecord, NhcProfile, ProgressiveHandicapConfig, ProgressiveRaceCalc, ProgressiveRaceAggregates, SubSeries, RaceFleetExclusion, CompetitorEntryOverride } from './types';
 import { oneFinishPerCompetitor } from './finish-rows';
 import { elapsedSecondsOf, roundToPrecision, timingPrecisionOf, type TimingPrecision } from './elapsed-time';
 import { courseLapsOf, fullCourseElapsed, lapsDiffer } from './laps';
@@ -400,29 +400,44 @@ function getProgressiveStartingTcf(competitor: Competitor, fleet: Fleet): number
   return null;
 }
 
+/**
+ * The competitor field a static-rating fleet is scored on — and so the field
+ * a per-race override for that fleet must name. Null for scratch, the
+ * progressive systems (whose rating is the engine's running chain) and ORC
+ * (whose rating is read off the certificate per option).
+ */
+export function staticRatingField(system: Fleet['scoringSystem']): RatingField | null {
+  switch (system) {
+    case 'irc': return 'ircTcc';
+    case 'vprs': return 'vprsTcc';
+    case 'tcf': return 'fixedTcf';
+    case 'py': return 'pyNumber';
+    default: return null;
+  }
+}
+
+/**
+ * A static rating, in its field's own units, as the TCF it is applied with.
+ * IRC and VPRS TCCs, and a club's fixed TCF, already are one: VPRS is
+ * time-on-time with the TCC as the multiplier (vprs.org: "multiply the
+ * elapsed time by the yacht's TCC"), and a fixed TCF applies exactly as a
+ * TCC does — where the club's number came from leaves no trace on the
+ * scoring. A PY number is a yardstick, applied as `1000 / number`. Null for
+ * a yardstick that isn't positive.
+ */
+export function ratingFieldTcf(field: RatingField, value: number): number | null {
+  if (field === 'pyNumber') return value > 0 ? 1000 / value : null;
+  return value;
+}
+
 function getTCF(competitor: Competitor, fleet: Fleet): number | null {
-  if (fleet.scoringSystem === 'irc') {
-    return competitor.ircTcc ?? null;
-  }
-  if (fleet.scoringSystem === 'vprs') {
-    // VPRS is time-on-time: CT = ET × TCC, the same static-TCF shape as IRC
-    // (vprs.org: "multiply the elapsed time by the yacht's TCC").
-    return competitor.vprsTcc ?? null;
-  }
-  if (fleet.scoringSystem === 'tcf') {
-    // A club handicap assigned once and held for the series — the number is
-    // already a TCF, so it applies exactly as a TCC does. Where it came from
-    // (a handicapper's list, or the end of a progressive series) is the
-    // club's business and leaves no trace on the scoring.
-    return competitor.fixedTcf ?? null;
-  }
-  if (fleet.scoringSystem === 'py') {
-    return competitor.pyNumber != null ? 1000 / competitor.pyNumber : null;
-  }
   if (fleet.scoringSystem === 'orc') {
     return orcTotRating(competitor, fleet);
   }
-  return null;
+  const field = staticRatingField(fleet.scoringSystem);
+  if (!field) return null;
+  const value = competitor[field];
+  return value != null ? ratingFieldTcf(field, value) : null;
 }
 
 /** See the `todContext` parameter of {@link calculateHandicapRaceScores}. */
@@ -1838,19 +1853,14 @@ function calculateHandicapStandings(
   // Per-race rating overrides (mid-series rating change). Static fleets only —
   // progressive systems recompute the rating every race and ignore them. The
   // override's field must match the fleet's system; its value is in the field's
-  // own units (IRC TCC = TCF; PY number → 1000/number). Indexed raceId →
+  // own units (see ratingFieldTcf). Indexed raceId →
   // competitorId → TCF.
-  const overrideField: RaceRatingOverride['field'] | null =
-    fleet.scoringSystem === 'irc' ? 'ircTcc'
-      : fleet.scoringSystem === 'vprs' ? 'vprsTcc'
-        : fleet.scoringSystem === 'tcf' ? 'fixedTcf'
-          : fleet.scoringSystem === 'py' ? 'pyNumber'
-            : null;
+  const overrideField = staticRatingField(fleet.scoringSystem);
   const overrideTcfByRace = new Map<string, Map<string, number>>();
   if (overrideField && !isProgressive) {
     for (const o of ratingOverrides) {
       if (o.field !== overrideField) continue;
-      const tcf = fleet.scoringSystem === 'py' ? (o.value > 0 ? 1000 / o.value : null) : o.value;
+      const tcf = ratingFieldTcf(overrideField, o.value);
       if (tcf == null) continue;
       if (!overrideTcfByRace.has(o.raceId)) overrideTcfByRace.set(o.raceId, new Map());
       overrideTcfByRace.get(o.raceId)!.set(o.competitorId, tcf);
