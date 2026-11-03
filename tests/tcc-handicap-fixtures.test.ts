@@ -11,7 +11,7 @@
 import { describe, it, expect } from 'vitest';
 import { join } from 'node:path';
 import { orcProfileRating, orcRaceProfile } from '@/lib/orc-certificate';
-import { calculateFleetStandings, calculateHandicapRaceScores, finishesScoredFor, orcCertificateTodContext } from '@/lib/scoring';
+import { calculateFleetStandings, calculateHandicapRaceScores, finishesScoredFor, orcCertificateTodContext, ratingFieldTcf, staticRatingField } from '@/lib/scoring';
 import { buildFixtureInputs, loadFixturesFromDir } from './fixtures/scoring/types';
 import type { Finish } from '@/lib/types';
 
@@ -39,13 +39,14 @@ describe('TCC handicap scoring fixtures', () => {
       // start's option, falling back to the fleet default.
       const buildTcfMap = (raceStart?: { orcOption?: string }) => {
         const orcProfile = fleet.scoringSystem === 'orc' ? orcRaceProfile(fleet, raceStart) : null;
+        const field = staticRatingField(fleet.scoringSystem);
         const tcfMap = new Map<string, number>();
         for (const c of competitors) {
-          if (fleet.scoringSystem === 'irc' && c.ircTcc != null) tcfMap.set(c.id, c.ircTcc);
-          else if (fleet.scoringSystem === 'vprs' && c.vprsTcc != null) tcfMap.set(c.id, c.vprsTcc);
-          else if (fleet.scoringSystem === 'tcf' && c.fixedTcf != null) tcfMap.set(c.id, c.fixedTcf);
-          else if (fleet.scoringSystem === 'py' && c.pyNumber != null) tcfMap.set(c.id, 1000 / c.pyNumber);
-          else if (orcProfile) {
+          if (field) {
+            const value = c[field];
+            const tcf = value != null ? ratingFieldTcf(field, value) : null;
+            if (tcf != null) tcfMap.set(c.id, tcf);
+          } else if (orcProfile) {
             const rating = orcProfileRating(c, orcProfile);
             if (rating != null) tcfMap.set(c.id, rating);
           }

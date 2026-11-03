@@ -26,7 +26,8 @@ import {
   calculateStandings,
   calculateFleetStandings,
   calculateRaceScores,
-  calculateHandicapRaceScores, resolveEntrants } from '../lib/scoring';
+  calculateHandicapRaceScores, ratingFieldTcf, resolveEntrants, staticRatingField } from '../lib/scoring';
+import { formatRatingValue, standingsRatingLabel } from '../lib/competitor-ratings';
 import { assembleSeriesResultsData, renderSeriesHtml } from '../lib/results-renderer';
 import { orcProfileRating, orcRaceProfile } from '../lib/orc-certificate';
 import { defaultEnabledCompetitorFields, formatPrimaryNames } from '../lib/competitor-fields';
@@ -239,9 +240,9 @@ function fmtSeconds(s: number | null | undefined): string {
   return `${m}m ${whole.toString().padStart(2, '0')}${tail}s`;
 }
 
-function fmtTcf(tcf: number | null | undefined, sys: 'irc' | 'py' | 'nhc' | 'echo' | 'tcf'): string {
+function fmtTcf(tcf: number | null | undefined, sys: 'irc' | 'py' | 'nhc' | 'echo' | 'tcf' | 'vprs' | 'ytc'): string {
   if (tcf === null || tcf === undefined) return '—';
-  const suffix = sys === 'py' ? ' (1000/PY)' : '';
+  const suffix = sys === 'py' ? ' (1000/PY)' : sys === 'ytc' ? ' (1000/YTC)' : '';
   return `${tcf.toFixed(4)}${suffix}`;
 }
 
@@ -292,10 +293,15 @@ function renderStandingsTable(fixture: Fixture): string {
   return renderExpectedStandingsTable(fixture, fixture.expected.standings ?? [], raceHeaders, 'Series standings');
 }
 
-// ─── IRC / PY renderer ───────────────────────────────────────────────────────
+// ─── Fixed-rating renderer (IRC, VPRS, PY, YTC, fixed TCF, ORC) ──────────────
+
+/** A fleet scored on a fixed rating, which gets the per-race arithmetic. */
+function isFixedRatingFixture(sys: string | undefined): sys is 'irc' | 'vprs' | 'py' | 'ytc' | 'tcf' | 'orc' {
+  return sys === 'irc' || sys === 'vprs' || sys === 'py' || sys === 'ytc' || sys === 'tcf' || sys === 'orc';
+}
 
 function generateHandicapFixtureHtml(fixture: Fixture, yamlSource: string): string {
-  if (!fixture.fleet || (fixture.fleet.scoringSystem !== 'irc' && fixture.fleet.scoringSystem !== 'py' && fixture.fleet.scoringSystem !== 'orc' && fixture.fleet.scoringSystem !== 'tcf')) {
+  if (!fixture.fleet || !isFixedRatingFixture(fixture.fleet.scoringSystem)) {
     throw new Error(`Expected handicap fleet, got ${fixture.fleet?.scoringSystem}`);
   }
   const sys = fixture.fleet.scoringSystem;
@@ -303,7 +309,7 @@ function generateHandicapFixtureHtml(fixture: Fixture, yamlSource: string): stri
   const sysUpper = sys === 'tcf'
     ? `Fixed ${fixture.fleet.ratingLabel ?? 'TCF'}`
     : sys.toUpperCase();
-  const { competitors, races, finishes, raceStarts, fleets } = buildFixtureInputs(fixture);
+  const { competitors, races, finishes, raceStarts, fleets, ratingOverrides } = buildFixtureInputs(fixture);
   const competitorByIdMap = new Map(competitors.map((c) => [c.id, c]));
   const fleet = fleets[0];
 
@@ -316,12 +322,23 @@ function generateHandicapFixtureHtml(fixture: Fixture, yamlSource: string): stri
     const orcProfile = sys === 'orc' ? orcRaceProfile(fleet, raceStart) : null;
     const isOrcTod = orcProfile?.kind === 'tod';
     const raceFinishes = finishes.filter((f) => f.raceId === raceId);
+    const ratingField = staticRatingField(fleet.scoringSystem);
+    // A per-race override pins this race to the rating the boat held then,
+    // as the engine does — the arithmetic shown must be the arithmetic scored.
+    const overrideByComp = new Map(
+      ratingOverrides
+        .filter((o) => o.raceId === raceId && o.field === ratingField)
+        .map((o) => [o.competitorId, o.value] as const),
+    );
+    const ratingFor = (c: (typeof competitors)[number]): number | undefined =>
+      ratingField ? overrideByComp.get(c.id) ?? c[ratingField] : undefined;
     const tcfMap = new Map<string, number>();
     for (const c of competitors) {
-      if (sys === 'irc' && c.ircTcc != null) tcfMap.set(c.id, c.ircTcc);
-      else if (sys === 'tcf' && c.fixedTcf != null) tcfMap.set(c.id, c.fixedTcf);
-      else if (sys === 'py' && c.pyNumber != null) tcfMap.set(c.id, 1000 / c.pyNumber);
-      else if (orcProfile) {
+      if (ratingField) {
+        const value = ratingFor(c);
+        const tcf = value != null ? ratingFieldTcf(ratingField, value) : null;
+        if (tcf != null) tcfMap.set(c.id, tcf);
+      } else if (orcProfile) {
         const rating = orcProfileRating(c, orcProfile);
         if (rating != null) tcfMap.set(c.id, rating);
       }
@@ -345,13 +362,11 @@ function generateHandicapFixtureHtml(fixture: Fixture, yamlSource: string): stri
 
     const rows = sortedScores.map(([cId, score]) => {
       const c = competitorByIdMap.get(cId)!;
-      const ratingDisplay = sys === 'irc'
-        ? (c.ircTcc?.toFixed(3) ?? '—')
-        : sys === 'tcf'
-          ? (c.fixedTcf?.toFixed(3) ?? '—')
-          : sys === 'orc'
-          ? (tcfMap.has(cId) ? tcfMap.get(cId)!.toFixed(isOrcTod ? 1 : 4) : '—')
-          : (c.pyNumber?.toString() ?? '—');
+      const ratingDisplay = sys === 'orc'
+        ? (tcfMap.has(cId) ? tcfMap.get(cId)!.toFixed(isOrcTod ? 1 : 4) : '—')
+        : ratingField
+          ? `${formatRatingValue(ratingFor(c), sys)}${overrideByComp.has(cId) ? ' *' : ''}`
+          : '—';
       const finishTimeDisplay = finishTimeByCompetitorId.get(cId) ?? (score.resultCode ?? '—');
       const rankDisplay = score.rank !== null ? score.rank.toString() : '—';
       return `<tr>
@@ -367,10 +382,9 @@ function generateHandicapFixtureHtml(fixture: Fixture, yamlSource: string): stri
 </tr>`;
     }).join('\n');
 
-    const ratingHeader = sys === 'irc' ? 'TCC'
-      : sys === 'tcf' ? (fixture.fleet!.ratingLabel ?? 'TCF')
-        : sys === 'orc' ? (orcProfile?.option ?? 'APHT')
-          : 'PY';
+    const ratingHeader = sys === 'orc'
+      ? (orcProfile?.option ?? 'APHT')
+      : (standingsRatingLabel(fleet) ?? sys.toUpperCase());
     const raceLabel = fixture.races.length > 1 ? `Race ${fixtureRace.number ?? ri + 1}` : 'Race arithmetic';
     const distanceNote = raceStart.distanceNm != null
       ? ` &nbsp; <strong>Course:</strong> ${esc(raceStart.distanceNm.toFixed(2))} NM`
@@ -387,7 +401,7 @@ function generateHandicapFixtureHtml(fixture: Fixture, yamlSource: string): stri
 <tbody>
 ${rows}
 </tbody>
-</table>`;
+</table>${overrideByComp.size > 0 ? '\n<p style="font-size:90%; color:#444;">* Per-race rating override: the rating the boat held when this race was sailed.</p>' : ''}`;
   }).join('\n');
 
   const notesHtml = fixture.rrs_notes
@@ -787,7 +801,7 @@ function generateFixtureHtml(fixture: Fixture, yamlSource: string): string {
   const sys = fixture.fleet?.scoringSystem ?? 'scratch';
   if (sys === 'nhc') return generateNhcFixtureHtml(fixture, yamlSource);
   if (sys === 'echo') return generateEchoFixtureHtml(fixture, yamlSource);
-  if (sys === 'irc' || sys === 'py' || sys === 'orc' || sys === 'tcf') return generateHandicapFixtureHtml(fixture, yamlSource);
+  if (isFixedRatingFixture(sys)) return generateHandicapFixtureHtml(fixture, yamlSource);
   return generateScratchFixtureHtml(fixture, yamlSource);
 }
 
