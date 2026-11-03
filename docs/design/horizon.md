@@ -1557,39 +1557,6 @@ algorithm — out of scope for the first pass, captured so it isn't lost:
 Detail in `docs/design/handicap-scoring.md` (ECHO → "Out of scope (first
 ECHO pass): certificate-layer features").
 
-### YTC (DBSC 2026)
-
-The **DBSC 2026 Summer Series** NoR
-(`reference-docs:events/dbsc-2026/NoR-Keelboats-Wag-Summer-amended1.pdf`) drove
-two rating systems Sail Scoring didn't model. DBSC's general SI
-(`reference-docs:events/dbsc-2026/SI-A-General-v2.pdf`, A15.1) lists the
-full 2026 handicap set — ECHO (Progressive), IRC, VPRS, ORC Club, YTC and PY.
-VPRS has since landed (a `scoringSystem` value behind the `vprs` gate, with
-`lib/vprs-rating.ts` reading `vprs.org/ratings.html`), so with IRC, ECHO and PY
-in production and ORC now active, milestoned work (#429,
-`docs/design/orc/orc-scoring.md`), **YTC is the last missing piece for full DBSC
-coverage**.
-
-**YTC** (RYA Yacht Time Correction) is the RYA's national keelboat yardstick
-scheme. Like PY it is a published yardstick number turned into a TCF, so it
-reuses the existing PY mechanics — but unlike PY it is a **per-boat** rating
-carried on a certificate (NoR 3.5), not a per-boat-*type* class number. That
-distinction drives the data model: PY today is a boat-type lookup, whereas YTC
-is a certificate field on the individual competitor. DBSC allows YTC to
-substitute for IRC in Cruisers 0–3 and for VPRS in Cruisers 4/5 on class
-request (NoR 2.6, 2.7).
-
-It is gated the same way the existing systems are: a boat may only be scored
-under a system for which it holds a current certificate (NoR 3.5), and a class
-winning under IRC/VPRS forfeits the parallel ECHO prize (NoR 9.2) — the
-parallel-scoring and prize-eligibility shape is the same as the ECHO/one-design
-pairing already supported.
-
-**Now designed.** The scoring, data model, spin and white-sail pair, and the
-RORC listing source (a public Google Sheet exported as CSV) are written up in
-`docs/design/handicap-scoring.md`, in the YTC section and under *Rating data
-sources*.
-
 ### PHRF (time-on-distance)
 
 PHRF (Performance Handicap Racing Fleet) is the dominant North American keelboat

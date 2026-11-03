@@ -56,7 +56,7 @@
  * the run continues and reports which shots need attention.
  */
 
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { mkdir, access, readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 
@@ -562,6 +562,31 @@ const SHOTS: Shot[] = [
       await dialog.getByText(/Preview:/i).waitFor({ timeout: 90_000 });
       await settle(page);
       await shot('update-handicaps-irc.png');
+      await page.keyboard.press('Escape');
+      await dialog.waitFor({ state: 'hidden' }).catch(() => {});
+    },
+  },
+  {
+    // Inventory: YTC — the Update-handicaps dialog on the RORC's YTC listing,
+    // previewed only, for a Cruisers YTC fleet of Mayo Sailing Club's boats
+    // entered as the club enters them, by bare sail number. Needs network to
+    // fetch the listing; one boat already carries the number it raced the
+    // spring on, so the preview shows a reissued certificate's change.
+    slug: 'update-handicaps-ytc',
+    group: 'Rating and handicap systems',
+    async capture({ page, shot }) {
+      await ensureFeature(page, 'ytc');
+      const id = await importYtcSample(page);
+      await page.goto(`${BASE}/series/${id}/competitors`);
+      await settle(page);
+      await page.getByRole('button', { name: 'Update handicaps' }).click();
+      const dialog = page.getByRole('dialog');
+      await dialog.waitFor();
+      await dialog.getByText('YTC numbers', { exact: true }).click();
+      await dialog.getByRole('button', { name: 'Next' }).click();
+      await dialog.getByText(/Preview:/i).waitFor({ timeout: 90_000 });
+      await settle(page);
+      await shot('update-handicaps-ytc.png');
       await page.keyboard.press('Escape');
       await dialog.waitFor({ state: 'hidden' }).catch(() => {});
     },
@@ -2527,6 +2552,64 @@ async function dbSetSplitFleetVocabulary(seriesId: string, key: VocabularyKey): 
 /** Switch a self-service feature on via the Workspace-settings Features card.
  *  Idempotent; no-op when the toggle is already on (e.g. production mode with
  *  a pre-configured workspace). */
+/**
+ * A Cruisers YTC series of Mayo Sailing Club's boats, imported as a
+ * .sailscoring file: the boats and sail numbers as the RORC lists them
+ * (entered bare, as the club enters them), with invented helms. Crozz carries
+ * 920, the number it raced the spring on before its certificate was reissued.
+ */
+async function importYtcSample(page: Page): Promise<string> {
+  const fleetId = randomUUID();
+  const boats: Array<[string, string, string, number?]> = [
+    ['3062', 'Crozz', 'Aoife Walsh', 920],
+    ['2552', 'Fusion', 'Ciarán Burke'],
+    ['1552', 'Movita', 'Niamh Gallagher'],
+    ['7059', 'Humdinger', 'Declan Moran'],
+    ['930', 'Uforia', 'Sinéad Kelly'],
+    ['8598', 'Elixir', 'Pádraig Joyce'],
+    ['1558', 'Freebird', 'Orla Heneghan'],
+  ];
+  const file = {
+    formatVersion: 76,
+    seriesId: randomUUID(),
+    exportedAt: new Date().toISOString(),
+    series: {
+      name: 'Cruisers YTC Autumn Series 2026',
+      venue: 'Mayo Sailing Club',
+      startDate: '2026-07-23',
+      endDate: '2026-08-27',
+      venueLogoUrl: '',
+      eventLogoUrl: '',
+      discardThresholds: [],
+      dnfScoring: 'startingArea',
+      ftpHost: '',
+      ftpPath: '',
+      includeJsonExport: true,
+      enabledCompetitorFields: ['boatName'],
+      primaryPersonLabel: 'helm',
+      scoringMode: 'handicap',
+    },
+    fleets: [{ id: fleetId, name: 'Cruisers YTC', displayOrder: 0, scoringSystem: 'ytc' }],
+    competitors: boats.map(([sailNumber, boatName, helm, ytcNumber]) => ({
+      id: randomUUID(),
+      fleetIds: [fleetId],
+      sailNumber,
+      boatName,
+      names: [helm],
+      clubs: ['Mayo Sailing Club'],
+      gender: '',
+      age: null,
+      ...(ytcNumber != null ? { ytcNumber } : {}),
+    })),
+    races: [],
+  };
+  const res = await page.request.post(`${BASE}/api/v1/series/import`, {
+    data: { content: JSON.stringify(file) },
+  });
+  if (!res.ok()) throw new Error(`YTC sample import failed: HTTP ${res.status()} ${await res.text()}`);
+  return ((await res.json()) as { id: string }).id;
+}
+
 async function ensureFeature(page: Page, key: string): Promise<void> {
   if (enabledGates.has(key)) return;
   await page.goto(`${BASE}/workspace`);

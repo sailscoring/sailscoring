@@ -55,6 +55,21 @@ export default function RatingSystems() {
             static handicap for mixed dinghy fleets. Each class carries a published PY
             number; corrected time is elapsed time × 1000 / PY.
           </li>
+          {has('ytc') && (
+            <li>
+              <strong className="text-foreground">YTC (Yacht Time Correction)</strong> —
+              the RYA’s free rating for cruisers, issued by the RORC Rating Office. It is
+              scored exactly as PY is — corrected time is elapsed time × 1000 / YTC, so
+              a lower number is a faster boat — but the number is on each boat’s own
+              certificate rather than published for its class. Every certificate carries
+              a spinnaker number and a <em>white sail</em> number for racing without
+              one; choose which a fleet uses on the{' '}
+              <strong className="text-foreground">Settings</strong> tab or when updating
+              handicaps. A boat whose certificate is reissued part-way through a series
+              keeps its earlier races on the old number, the same way as a new IRC
+              certificate.
+            </li>
+          )}
           <li>
             <strong className="text-foreground">NHC</strong> — the RYA National Handicap
             for Cruisers. A <em>progressive</em> handicap: each boat starts from a
@@ -766,6 +781,45 @@ export default function RatingSystems() {
           it planned against. <strong className="text-foreground">Refresh from source</strong>{' '}
           beside the date fetches that club’s list again — other clubs you have already pulled are
           left alone. It is for workspace administrators, and limited to once a minute per club.
+        </p>
+      </Section>
+      )}
+      {has('ytc') && (
+      <Section id="update-handicaps-ytc" title="Updating YTC numbers from the RORC listing">
+        <HelpShot
+          src="/help/shots/update-handicaps-ytc.webp"
+          alt="YTC numbers proposed from the RORC’s YTC listing."
+          caption="YTC numbers proposed from the RORC’s YTC listing."
+        />
+        <p>
+          The <strong className="text-foreground">Update handicaps</strong> dialog can pull each
+          boat’s YTC number from the RORC Rating Office’s public list of current YTC certificates,
+          matched by sail number. Choose <em>YTC numbers</em> as the source.
+        </p>
+        <p>
+          Each YTC fleet has its own{' '}
+          <strong className="text-foreground">spinnaker</strong> /{' '}
+          <strong className="text-foreground">white sail</strong> choice: a fleet that races
+          without spinnakers takes each boat’s white-sail number, and remembers the choice for the
+          next update. Every change is previewed as{' '}
+          <code className="font-mono text-xs">current → new</code> before anything is written, and
+          you can untick individual boats. Boats not on the list are left unchanged.
+        </p>
+        <p>
+          Many boats are listed without a country code, so sail numbers match ignoring case,
+          spacing, and a missing country code. A boat holds one YTC certificate, so two listed
+          boats sharing a sail number are two different boats: the row is flagged rather than
+          guessed until you turn on{' '}
+          <strong className="text-foreground">Also match by boat name</strong> and the name
+          settles it. Some listed boats have no sail number at all, only a name; they too need
+          name matching. A boat on a <em>provisional</em> certificate — one the RORC issues as a
+          starting point for the club to adjust — is marked as such in the preview.
+        </p>
+        <p>
+          The list is fetched once and reused for six hours, and the preview says when Sail
+          Scoring fetched it. <strong className="text-foreground">Refresh from source</strong>{' '}
+          beside that time fetches it again — say, for a certificate reissued this morning. It is
+          for workspace administrators, and limited to once a minute.
         </p>
       </Section>
       )}

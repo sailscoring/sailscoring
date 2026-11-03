@@ -11,7 +11,8 @@ analysis at
 ship with the rating-calculation explainability layer. RYA NHC 2015 (a
 related but distinct algorithm), scoring-inquiry exclusions, and the ECHO
 certificate-administration layer remain deferred. YTC (the RYA's
-per-boat yardstick, scored with PY's maths) is designed but not yet built.
+per-boat yardstick, scored with PY's maths) is implemented behind the `ytc`
+gate and matches Mayo Sailing Club's HalSail results to the second.
 Covers mathematics,
 architecture, and implementation status.
 
@@ -109,7 +110,7 @@ A fixed handicap is not a frozen one: a boat re-rated mid-series keeps its
 already-sailed races on the rating they were sailed under, through the same
 per-race `RaceRatingOverride` mechanism a new IRC certificate uses.
 
-### YTC (RYA Yacht Time Correction) — designed, not yet implemented
+### YTC (RYA Yacht Time Correction) ✓ Implemented
 
 YTC is the RYA's free rating for cruisers and cruiser-racers, administered by
 the RORC Rating Office (`ytc.rorcrating.com`; rules in the *YTC Policy and
@@ -171,8 +172,9 @@ corrected times are `ET × 1000 / YTC`, shown to the second (Crozz,
 Six of the seven handicaps equal the listing's spinnaker `YTC` exactly. The
 seventh, Crozz, races at 920 until Autumn Race 3 and at 941 from Race 4
 (6 Aug), matching a reissued certificate. That makes it a real mid-series
-re-rating to reproduce with `RaceRatingOverride`. These become YAML scoring
-fixtures and an end-to-end check of the listing fetch against the Mayo boats.
+re-rating to reproduce with `RaceRatingOverride`. Both series are YAML scoring
+fixtures (`tests/fixtures/scoring/tcc-handicap/28-*`, `29-*`), and every
+corrected time, race score, discard and standing matches HalSail's.
 
 **Deferred: YTC as a progressive seed.** The FAQ endorses YTC as the base
 number for a personal handicap. RYA clubs moving off NHC will want to seed NHC
@@ -1604,7 +1606,7 @@ dataset, which we fetch and parse. This is the source the app uses for Irish
 boats' ECHO ratings; a one-off snapshot of it is the frozen seed for the
 club-racing sample series (`scripts/data/irc-echo-ratings.csv`).
 
-### RYA YTC — UK (`lib/ytc-rating.ts`, planned)
+### RYA YTC — UK (`lib/ytc-rating.ts`)
 
 The RORC's "RYA YTC Listings" page (`rorcrating.com/ryaytc/ryaytclistings`)
 embeds a public Google Sheet. The page's own instructions tell race organisers
@@ -1653,7 +1655,7 @@ Points the parser and matching have to handle:
 
 The posture is the same as IRC's: fetch transiently (cached for about 6 hours)
 to seed the series being scored. Never commit or mirror the whole list. A small
-parser fixture goes in `tests/fixtures/ytc-listing.csv`.
+parser fixture is `tests/fixtures/ytc-listing.csv`.
 
 ### HalSail public results — ECHO worked examples
 
