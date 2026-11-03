@@ -245,6 +245,9 @@ export interface PreviewRow {
    *  certificate family: which family it did come from. Set by the standard
    *  fallback, so the row can say what the boat would be scored on. */
   orcCertFamily?: OrcFamily;
+  /** YTC rows only: what the listing says of the certificate the number came
+   *  from, for the scorer to check — never scored. */
+  ytcCertificate?: { boatType?: string; provisional: boolean; issueDate?: string };
 }
 
 /** One selectable certificate for a boat that holds more than one. */
@@ -514,6 +517,14 @@ export interface RatingRecord {
   vprsTcc?: number;
   /** Non-spinnaker VPRS TCC ("No spin" column). */
   vprsNonSpinTcc?: number;
+  /** Spinnaker YTC number, from the RORC's YTC listing (`ytc-rating.ts`). */
+  ytc?: number;
+  /** No-spinnaker YTC number (the listing's "YTC White Sail"). */
+  ytcWhiteSail?: number;
+  /** YTC only: the design as the listing names it. */
+  boatType?: string;
+  /** YTC only: a provisional certificate. */
+  provisional?: boolean;
   /** ECHO standard (Irish Sailing only). */
   echo?: number;
   /** Explicit secondary-certificate flag (IRC list `Secondary = SEC`). When
@@ -734,10 +745,11 @@ function buildIrcCert(
   };
 }
 
-/** The two TCC systems that carry a spin/non-spin split. */
-type VariantSystem = 'irc' | 'vprs';
+/** The systems whose ratings carry a spin/non-spin split: the IRC and VPRS
+ *  TCC pairs, and YTC's spinnaker / white-sail numbers. */
+type VariantSystem = 'irc' | 'vprs' | 'ytc';
 
-/** A boat's TCC for a given spin/non-spin variant, from the IRC or VPRS pair. */
+/** A boat's rating for a given spin/non-spin variant, from its system's pair. */
 function tccForVariant(
   record: RatingRecord,
   variant: IrcTccVariant,
@@ -745,6 +757,9 @@ function tccForVariant(
 ): number | null {
   if (system === 'vprs') {
     return (variant === 'non-spin' ? record.vprsNonSpinTcc : record.vprsTcc) ?? null;
+  }
+  if (system === 'ytc') {
+    return (variant === 'non-spin' ? record.ytcWhiteSail : record.ytc) ?? null;
   }
   return (variant === 'non-spin' ? record.ircNonSpinTcc : record.ircTcc) ?? null;
 }
@@ -787,6 +802,7 @@ function buildCertChoice(
 const IRC_ONLY: ReadonlySet<HandicapSystem> = new Set<HandicapSystem>(['irc']);
 const ECHO_ONLY: ReadonlySet<HandicapSystem> = new Set<HandicapSystem>(['echo']);
 const VPRS_ONLY: ReadonlySet<HandicapSystem> = new Set<HandicapSystem>(['vprs']);
+const YTC_ONLY: ReadonlySet<HandicapSystem> = new Set<HandicapSystem>(['ytc']);
 
 /**
  * Produce preview rows for a rating-list source (Irish Sailing ECHO or
@@ -828,11 +844,11 @@ function planRatingUpdates(
       const system = systemForFleet(targetFleet);
       if (!system || !allowed.has(system)) continue;
 
-      // IRC and VPRS both carry a spin/non-spin split and use the per-fleet
-      // variant; ECHO does not. `variantSystem` is the system whose TCC pair we
+      // IRC, VPRS and YTC carry a spin/non-spin split and use the per-fleet
+      // variant; ECHO does not. `variantSystem` is the system whose pair we
       // read (null for ECHO).
       const variantSystem: VariantSystem | null =
-        system === 'irc' || system === 'vprs' ? system : null;
+        system === 'irc' || system === 'vprs' || system === 'ytc' ? system : null;
       const ircVariant = variantSystem ? ircVariantByFleet[targetFleetId] ?? 'spin' : undefined;
       const base = {
         competitorId: targetComp.id,
@@ -851,7 +867,24 @@ function planRatingUpdates(
         continue;
       }
 
-      const records = matchResult.records;
+      let records = matchResult.records;
+      let method = matchResult.method;
+      // A boat holds one valid YTC certificate (YTC Policy §3.4), so several
+      // listing rows under one sail number are several boats — a club's bare
+      // `127` is common — not a primary and a secondary. The boat name picks
+      // one when the scorer allows name matching; otherwise it is ambiguous.
+      if (system === 'ytc' && records.length > 1) {
+        const name = normalizeBoatName(targetComp.boatName);
+        const named = matchByName && name
+          ? records.filter((r) => normalizeBoatName(r.boatName) === name)
+          : [];
+        if (named.length !== 1) {
+          rows.push({ ...base, newTcf: null, status: 'not-found', notFoundReason: 'ambiguous-match' });
+          continue;
+        }
+        records = named;
+        method = 'sail-and-name';
+      }
 
       // Pick the certificate: an explicit per-boat override if it names one of
       // this boat's certs, otherwise the higher-TCC default (for IRC/VPRS, by
@@ -872,9 +905,16 @@ function planRatingUpdates(
 
       // Annotate non-exact matches so the scorer can verify the boat.
       const match: RatingMatch | undefined =
-        matchResult.method === 'exact-sail'
+        method === 'exact-sail'
           ? undefined
-          : { method: matchResult.method, sail: record.sailNumber, name: record.boatName };
+          : { method, sail: record.sailNumber, name: record.boatName };
+      const ytcCertificate = system === 'ytc'
+        ? {
+            ...(record.boatType ? { boatType: record.boatType } : {}),
+            provisional: record.provisional ?? false,
+            ...(record.issueDate ? { issueDate: record.issueDate } : {}),
+          }
+        : undefined;
 
       if (newTcf === null) {
         rows.push({ ...base, newTcf: null, status: 'not-found', notFoundReason: 'no-source-value', match, certChoice });
@@ -888,8 +928,9 @@ function planRatingUpdates(
         match,
         certChoice,
         ...(system === 'irc'
-          ? { ircCert: buildIrcCert(record, ircVariant!, matchResult.method, input.source) }
+          ? { ircCert: buildIrcCert(record, ircVariant!, method, input.source) }
           : {}),
+        ...(ytcCertificate ? { ytcCertificate } : {}),
       });
     }
   }
@@ -924,6 +965,18 @@ export function planEchoUpdates(input: RatingPlanInput): PreviewRow[] {
  */
 export function planVprsUpdates(input: RatingPlanInput): PreviewRow[] {
   return planRatingUpdates(input, VPRS_ONLY);
+}
+
+/**
+ * Preview rows for the YTC source (the RORC's YTC listing). One row per target
+ * YTC fleet membership; the spinnaker or white-sail number per fleet, like
+ * IRC's spin/non-spin. A boat holds one YTC certificate, so rows sharing a sail
+ * number are different boats: ambiguous unless the boat name settles it. Rows
+ * carry the listing's boat type and provisional flag for the scorer to check.
+ * Non-YTC fleets produce no rows.
+ */
+export function planYtcUpdates(input: RatingPlanInput): PreviewRow[] {
+  return planRatingUpdates(input, YTC_ONLY);
 }
 
 /**

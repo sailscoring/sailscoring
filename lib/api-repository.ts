@@ -807,6 +807,17 @@ export function loadIrcRatings(opts?: { refresh?: boolean }): Promise<IrcRatings
 }
 
 /**
+ * The RORC's YTC listing — the YTC handicap source for the Update Handicaps
+ * dialog. Server-fetched from the listing's Google Sheet and cached; gated
+ * behind the `ytc` feature.
+ */
+export function loadYtcRatings(opts?: { refresh?: boolean }): Promise<import('./ytc-rating').YtcRatings> {
+  return apiFetch(
+    `/api/v1/handicap-sources/ytc-rating${opts?.refresh ? '?refresh=1' : ''}`,
+  );
+}
+
+/**
  * The regatta behind a RaceSense player URL (or a bare regatta id), read
  * server-side from the player's own endpoint and narrowed to what the
  * import needs. Gated behind `racesense-import`; a refused or missing read throws

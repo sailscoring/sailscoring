@@ -108,6 +108,18 @@ export function PreviewSection({
                         {describeMatch(r.match)}
                       </span>
                     )}
+                    {/* The listing's design beside a match the sail number
+                        didn't make alone, so the scorer can see it is the same
+                        boat; and a provisional certificate always, since the
+                        RORC issues one as a number the club should adjust. */}
+                    {r.ytcCertificate && (r.match || r.ytcCertificate.provisional) && (
+                      <span className="block text-xs text-muted-foreground">
+                        {[
+                          r.match ? r.ytcCertificate.boatType : undefined,
+                          r.ytcCertificate.provisional ? 'provisional certificate' : undefined,
+                        ].filter(Boolean).join(' · ')}
+                      </span>
+                    )}
                     {/* The sail number did not make this match by itself, so
                         the boat it landed on is shown beside the entry. */}
                     {r.match && r.ircCert && (

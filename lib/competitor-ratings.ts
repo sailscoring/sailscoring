@@ -251,6 +251,7 @@ export const SOURCED_RATING_SYSTEMS: readonly Exclude<RatingSystemCode, 'tcf'>[]
   'orc',
   'echo',
   'vprs',
+  'ytc',
   'py',
 ];
 

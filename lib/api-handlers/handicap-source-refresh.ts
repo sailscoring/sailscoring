@@ -9,8 +9,8 @@ import { recordActivity } from '@/lib/activity-log';
 /**
  * Forcing a cached handicap source to refetch (#594).
  *
- * The four external feeds — ORC certificates, the IRC listing, Irish Sailing
- * ECHO, VPRS — are served through a six-hour cache. That is right for the
+ * The external feeds — ORC certificates, the IRC listing, Irish Sailing ECHO,
+ * VPRS, the YTC listing — are served through a six-hour cache. That is right for the
  * ordinary case, where a scorer seeds a series a handful of times, and wrong
  * for the one that matters: ORC amends certificates through the season and
  * IRC re-rates after protests, so a scorer who *knows* a certificate was

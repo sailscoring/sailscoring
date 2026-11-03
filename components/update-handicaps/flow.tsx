@@ -21,6 +21,7 @@ import { SeriesSourceStep } from './series-source-step';
 import { SourcePickerStep } from './source-picker-step';
 import { SYSTEM_LABEL, type ApplyOutcome, type HandicapSource } from './shared';
 import { VprsSourceStep } from './vprs-source-step';
+import { YtcSourceStep } from './ytc-source-step';
 
 /** Dialog sizing the flow expects of whatever `DialogContent` hosts it:
  *  wide enough for a preview table. Shared so the importer's ratings step
@@ -72,6 +73,13 @@ export const SOURCE_FOR_SYSTEM: Partial<
     pitch:
       "A club's published VPRS list carries each rated boat's current TCC, matched by sail number.",
   },
+  ytc: {
+    source: 'ytc-rating',
+    feature: 'ytc',
+    action: 'Fetch YTC numbers',
+    pitch:
+      "The RORC's YTC listing carries the number on each boat's current certificate, matched by sail number.",
+  },
   py: {
     source: 'rya-py',
     feature: 'rya-py',
@@ -87,6 +95,7 @@ type Step =
   | 'source-irish-sailing'
   | 'source-irc-rating'
   | 'source-vprs'
+  | 'source-ytc'
   | 'source-rya-py'
   | 'source-orc'
   | 'done';
@@ -98,6 +107,8 @@ function stepForSource(source: HandicapSource): Step {
       return 'source-irc-rating';
     case 'vprs-rating':
       return 'source-vprs';
+    case 'ytc-rating':
+      return 'source-ytc';
     case 'irish-sailing':
       return 'source-irish-sailing';
     case 'rya-py':
@@ -150,6 +161,7 @@ export function UpdateHandicapsFlow({
   const ircRatingEnabled = has('irc-rating');
   const ryaPyEnabled = has('rya-py');
   const vprsRatingEnabled = has('vprs');
+  const ytcRatingEnabled = has('ytc');
   const orcEnabled = has('orc');
 
   const [step, setStep] = useState<Step>(
@@ -207,6 +219,7 @@ export function UpdateHandicapsFlow({
             ircRating: ircRatingEnabled,
             ryaPy: ryaPyEnabled,
             vprsRating: vprsRatingEnabled,
+            ytcRating: ytcRatingEnabled,
             orc: orcEnabled,
           }}
           onNext={() => setStep(stepForSource(source))}
@@ -223,6 +236,7 @@ export function UpdateHandicapsFlow({
       )}
       {step === 'source-irc-rating' && <IrcRatingSourceStep {...stepProps} />}
       {step === 'source-vprs' && <VprsSourceStep {...stepProps} />}
+      {step === 'source-ytc' && <YtcSourceStep {...stepProps} />}
       {step === 'source-irish-sailing' && <IrishSailingSourceStep {...stepProps} />}
       {step === 'source-rya-py' && <RyaPySourceStep {...stepProps} />}
       {step === 'source-orc' && <OrcSourceStep {...stepProps} />}

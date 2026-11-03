@@ -55,6 +55,7 @@ export function SourcePickerStep({
     ircRating: boolean;
     ryaPy: boolean;
     vprsRating: boolean;
+    ytcRating: boolean;
     orc: boolean;
   };
   onNext: () => void;
@@ -93,6 +94,15 @@ export function SourcePickerStep({
             onSelect={onSelect}
             title="VPRS TCC"
             description="Pull each boat's current VPRS TCC from a club's published rating list, matched by sail number."
+          />
+        )}
+        {gates.ytcRating && (
+          <SourceOption
+            value="ytc-rating"
+            current={source}
+            onSelect={onSelect}
+            title="YTC numbers"
+            description="Pull each boat's current YTC number from the RORC's YTC listing, matched by sail number."
           />
         )}
         {gates.orc && (

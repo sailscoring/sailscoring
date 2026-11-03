@@ -27,7 +27,7 @@ import type {
 } from '@/lib/source-handicaps';
 import type { Competitor, Fleet, FleetRatingVariant } from '@/lib/types';
 
-export type HandicapSource = 'series' | 'irish-sailing' | 'irc-rating' | 'vprs-rating' | 'rya-py' | 'orc';
+export type HandicapSource = 'series' | 'irish-sailing' | 'irc-rating' | 'vprs-rating' | 'ytc-rating' | 'rya-py' | 'orc';
 
 export const SYSTEM_LABEL: Record<HandicapSystem, string> = {
   nhc: 'NHC',
@@ -75,6 +75,9 @@ export function systemLabel(r: {
   ircVariant?: IrcTccVariant;
   orcCertFamily?: OrcFamily;
 }): string {
+  if (r.system === 'ytc' && r.ircVariant) {
+    return `${SYSTEM_LABEL.ytc} (${r.ircVariant === 'non-spin' ? 'white sail' : 'spinnaker'})`;
+  }
   if ((r.system === 'irc' || r.system === 'vprs') && r.ircVariant) {
     return `${SYSTEM_LABEL[r.system]} (${r.ircVariant === 'non-spin' ? 'non-spin' : 'spin'})`;
   }
@@ -525,6 +528,7 @@ export function FleetVariantSelector({
   fleets,
   variantByFleet,
   onChange,
+  spinLabel = 'Spinnaker TCC',
   nonSpinLabel,
   hint,
 }: {
@@ -532,6 +536,8 @@ export function FleetVariantSelector({
   fleets: Fleet[];
   variantByFleet: Record<string, IrcTccVariant>;
   onChange: (fleetId: string, variant: IrcTccVariant) => void;
+  /** The standard choice, as the source names it. */
+  spinLabel?: string;
   nonSpinLabel: string;
   hint: string;
 }) {
@@ -554,7 +560,7 @@ export function FleetVariantSelector({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="spin">Spinnaker TCC</SelectItem>
+                <SelectItem value="spin">{spinLabel}</SelectItem>
                 <SelectItem value="non-spin">{nonSpinLabel}</SelectItem>
               </SelectContent>
             </Select>
