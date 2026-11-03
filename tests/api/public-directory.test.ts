@@ -145,13 +145,21 @@ describe.skipIf(skip)('the public directory (#670)', () => {
     });
     expect(doc.workspaces.some((w: { slug: string }) => w.slug === personal.workspaceSlug)).toBe(false);
 
-    const again = await GET(
-      new NextRequest('http://localhost:3000/p/index.json', {
-        headers: { 'if-none-match': res.headers.get('etag')! },
-      }),
-      { params: Promise.resolve({ slug: ['index.json'] }) },
-    );
-    expect(again.status).toBe(304);
+    // The directory lists every club in the database, and other test files
+    // publish into the same database, so its ETag can move between any two
+    // requests. Replay a fresh ETag straight back until it holds still.
+    await expect
+      .poll(async () => {
+        const fresh = await get('/p/index.json');
+        const again = await GET(
+          new NextRequest('http://localhost:3000/p/index.json', {
+            headers: { 'if-none-match': fresh.headers.get('etag')! },
+          }),
+          { params: Promise.resolve({ slug: ['index.json'] }) },
+        );
+        return again.status;
+      })
+      .toBe(304);
   });
 
   test('unlisting takes the club out of the directory; its own pages stay up', async () => {
