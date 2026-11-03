@@ -148,6 +148,64 @@ export async function parseWorkbookFile(file: Blob): Promise<WorkbookParse> {
   return parseWorkbookBytes(await file.arrayBuffer());
 }
 
+/** How far down a sheet {@link findHeaderRow} looks for the column headings. */
+export const HEADER_SCAN_ROWS = 10;
+
+/** A cell longer than this is a sentence, not a column heading. */
+const MAX_HEADING_LENGTH = 40;
+
+/** A cell that can only be the sail-number column's heading: "Sail No",
+ *  "SAIL NUMBER", "Sail #" — not a boat called "Black Sails". */
+const SAIL_NUMBER_HEADING = /^sail\s*(number|num|no\.?|#)?$/i;
+
+/**
+ * The index of the row holding a sheet's column headings.
+ *
+ * Most sheets start with their headings, but an export from another tool can
+ * carry a title or instructions above them: HalSail's class export opens
+ * with how to reload the sheet into HalSail and the class name, and only then
+ * reaches `SAIL NUMBER | Name`. Taking the first row as the headings would
+ * import every line of that preamble as a competitor.
+ *
+ * Each of the first {@link HEADER_SCAN_ROWS} rows is scored by how many
+ * different fields its cells name, according to the importer's own column
+ * detection (`detect`, returning `'ignore'` for a heading it doesn't
+ * recognise). A long cell doesn't count: the preamble's sentences mention
+ * "sail number" too, but a heading is a few words. The best-scoring row wins,
+ * and a tie goes to the earlier row, so a sheet that starts with its headings
+ * is read exactly as before.
+ *
+ * A row past the first must also have a cell that can only be the
+ * sail-number column's heading, which every importer needs. The detection is
+ * loose, and data can satisfy it — a boat called "Black Sails", a club
+ * called "Mayo Sailing Club" — so a sheet whose real headings it doesn't know
+ * would otherwise lose them to a row of data.
+ */
+export function findHeaderRow(
+  rows: readonly string[][],
+  detect: (header: string) => string,
+): number {
+  let best = 0;
+  let bestScore = -1;
+  for (let i = 0; i < Math.min(rows.length, HEADER_SCAN_ROWS); i++) {
+    const fields = new Set<string>();
+    let namesSailNumber = false;
+    for (const cell of rows[i]) {
+      const text = cell.trim();
+      if (!text || text.length > MAX_HEADING_LENGTH) continue;
+      const field = detect(text);
+      if (field !== 'ignore') fields.add(field);
+      if (SAIL_NUMBER_HEADING.test(text)) namesSailNumber = true;
+    }
+    if (i > 0 && !namesSailNumber) continue;
+    if (fields.size > bestScore) {
+      best = i;
+      bestScore = fields.size;
+    }
+  }
+  return best;
+}
+
 /** Parse already-read file bytes. Exposed for tests; components use
  *  `parseTabularFile`. */
 export async function parseTabularBytes(bytes: ArrayBuffer): Promise<TabularParse> {

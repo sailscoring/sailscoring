@@ -100,3 +100,15 @@ export function ImportFileErrorDialog({
     </Dialog>
   );
 }
+
+/** Says the importer started below the sheet's first lines because the
+ *  column headings were further down. Renders nothing when they weren't. */
+export function SkippedRowsNote({ count }: { count: number }) {
+  if (count === 0) return null;
+  return (
+    <p className="text-xs text-muted-foreground" data-testid="import-skipped-rows">
+      The column headings aren&apos;t on the sheet&apos;s first line, so the{' '}
+      {count === 1 ? 'line' : `${count} lines`} above them {count === 1 ? 'is' : 'are'} left out of the import.
+    </p>
+  );
+}

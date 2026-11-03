@@ -1,7 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
+import { autoDetectField } from '@/lib/csv-import';
+import { autoDetectFinishSheetField } from '@/lib/finish-sheet-csv';
 import {
+  findHeaderRow,
   parseTabularBytes,
   parseWorkbookBytes,
   sniffTabularKind,
@@ -205,5 +208,85 @@ describe('parseWorkbookBytes', () => {
       new Uint8Array([0xd0, 0xcf, 0x11, 0xe0, 0, 0, 0, 0]).buffer as ArrayBuffer,
     );
     expect(result).toEqual({ kind: 'error', message: OLD_EXCEL_MESSAGE });
+  });
+});
+
+/** The preamble of a HalSail class export, above its column headings. */
+const HALSAIL_PREAMBLE = [
+  ['INSTRUCTIONS FOR RELOADING THIS SPREADSHEET INTO HALSAIL'],
+  ['THE COLUMN HEADINGS MUST BE IN ONE OF THE FIRST THREE ROWS. YOU CAN USE ANY OF THE FIRST 26 COLUMNS (A TO Z). THE ONLY MANDATORY ONE IS SAIL NUMBER.'],
+  ["HALSAIL STOPS READING THE SPREADSHEET WHEN IT ENCOUNTERS A ROW WITH NO SAIL NUMBER, SO DON'T LEAVE ANY BLANK CELLS IN THAT COLUMN. IF THE BOAT HAS NO SAIL NUMBER ENTER 0."],
+  ['BOATS IN CLASS CRUISERS MASTER 2026'],
+];
+
+describe('findHeaderRow', () => {
+  it('takes the first row when the sheet starts with its headings', () => {
+    const rows = [
+      ['Sail No', 'Boat', 'Helm'],
+      ['IRL 1234', 'Black Sails', 'Pat'],
+    ];
+    expect(findHeaderRow(rows, autoDetectField)).toBe(0);
+  });
+
+  it("skips a HalSail export's instructions and class title", () => {
+    const rows = [
+      ...HALSAIL_PREAMBLE,
+      ['SAIL NUMBER', 'Name'],
+      ['930', 'Uforia'],
+      ['1552', 'Movita'],
+    ];
+    expect(findHeaderRow(rows, autoDetectField)).toBe(4);
+  });
+
+  it("doesn't count a sentence that mentions a field as a heading", () => {
+    // Each long preamble line names the sail number, alone in its row; were
+    // it a heading, it would tie the real header row and win as the earlier.
+    const rows = [HALSAIL_PREAMBLE[2], ['Sail Number'], ['930']];
+    expect(findHeaderRow(rows, autoDetectField)).toBe(1);
+  });
+
+  it('skips a title above a finish sheet', () => {
+    const rows = [
+      ['Race 3 — Saturday'],
+      ['Sail', 'Finish time'],
+      ['930', '14:31:05'],
+    ];
+    expect(findHeaderRow(rows, autoDetectFinishSheetField)).toBe(1);
+  });
+
+  it('keeps unrecognised headings rather than taking a row of data', () => {
+    // No heading here is one the detection knows, and the data names a club
+    // and a boat whose names read as headings.
+    const rows = [
+      ['Yacht', 'Person', 'Home'],
+      ['Black Sails', 'Pat', 'Mayo Sailing Club'],
+    ];
+    expect(findHeaderRow(rows, autoDetectField)).toBe(0);
+  });
+
+  it('takes a row of data for headings only if a cell is a sail-number heading', () => {
+    const rows = [
+      ['Yacht', 'Person', 'Home'],
+      ['Sail #', 'Boat', 'Helm'],
+      ['930', 'Uforia', 'Pat'],
+    ];
+    expect(findHeaderRow(rows, autoDetectField)).toBe(1);
+  });
+
+  it('keeps the earlier row on a tie', () => {
+    const rows = [
+      ['Sail No', 'Club'],
+      ['Black Sails', 'Mayo Sailing Club'],
+    ];
+    expect(findHeaderRow(rows, autoDetectField)).toBe(0);
+  });
+
+  it('looks no further than the first ten rows', () => {
+    const rows = [
+      ...Array.from({ length: 10 }, (_, i) => [`Note ${i + 1}`]),
+      ['Sail No', 'Boat'],
+      ['930', 'Uforia'],
+    ];
+    expect(findHeaderRow(rows, autoDetectField)).toBe(0);
   });
 });

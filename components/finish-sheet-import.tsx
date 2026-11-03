@@ -37,12 +37,13 @@ import {
 } from '@/lib/finish-sheet-csv';
 import { carryAcrossImport, carryOutcome } from '@/lib/finish-entry';
 import {
+  findHeaderRow,
   parseTabularFile,
   TABULAR_IMPORT_ACCEPT,
   type WorkbookSheet,
 } from '@/lib/import-table';
 import type { Finish, SeriesScoringCode } from '@/lib/types';
-import { SheetPickerDialog, ImportFileErrorDialog } from '@/components/import-file-dialogs';
+import { SheetPickerDialog, ImportFileErrorDialog, SkippedRowsNote } from '@/components/import-file-dialogs';
 import { FinishSheetPreviewSummary, untimedHandicapCount } from '@/components/finish-sheet-preview-summary';
 
 const FIELD_LABELS: Record<FinishSheetField, string> = {
@@ -64,6 +65,8 @@ type ImportFlow =
       headers: string[];
       sampleRows: string[][];
       rows: string[][];
+      /** Lines above the column headings, left out of the import. */
+      skippedRows: number;
       columnMap: FinishSheetColumnMap;
     }
   | {
@@ -136,20 +139,23 @@ export const FinishSheetImport = forwardRef<FinishSheetImportHandle, {
   }
 
   function openMapping(allRows: string[][]) {
-    if (allRows.length < 2) {
+    // The headings needn't be on the first line: a sheet can open with a
+    // title, which is not a finisher.
+    const headerRow = findHeaderRow(allRows, autoDetectFinishSheetField);
+    if (allRows.length - headerRow < 2) {
       // No data rows — bail silently rather than opening an empty dialog.
       reset();
       return;
     }
-    const headers = allRows[0];
-    const dataRows = allRows.slice(1);
+    const headers = allRows[headerRow];
+    const dataRows = allRows.slice(headerRow + 1);
     const sampleRows = dataRows.slice(0, 3);
     const columnMap: FinishSheetColumnMap = {};
     headers.forEach((h, i) => {
       const field = autoDetectFinishSheetField(h);
       columnMap[i] = fields.includes(field) ? field : 'ignore';
     });
-    setFlow({ step: 'mapping', headers, sampleRows, rows: dataRows, columnMap });
+    setFlow({ step: 'mapping', headers, sampleRows, rows: dataRows, skippedRows: headerRow, columnMap });
   }
 
   function runParse() {
@@ -236,6 +242,7 @@ export const FinishSheetImport = forwardRef<FinishSheetImportHandle, {
               (DNF, DSQ, OCS, etc.) are recorded as non-finishers.
             </DialogDescription>
           </DialogHeader>
+          {mapping && <SkippedRowsNote count={mapping.skippedRows} />}
           {mapping && (
             <div className="overflow-y-auto max-h-96">
               {/* A minimum width so "Map to" keeps room for its choice on a

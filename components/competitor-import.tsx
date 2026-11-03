@@ -53,11 +53,12 @@ import {
   parseExcludedCell,
 } from '@/lib/csv-import';
 import {
+  findHeaderRow,
   parseTabularFile,
   TABULAR_IMPORT_ACCEPT,
   type WorkbookSheet,
 } from '@/lib/import-table';
-import { SheetPickerDialog, ImportFileErrorDialog } from '@/components/import-file-dialogs';
+import { SheetPickerDialog, ImportFileErrorDialog, SkippedRowsNote } from '@/components/import-file-dialogs';
 import { lookupAlias, normalizeCodeInput } from '@/lib/nationality';
 import { matchLikelySameBoat, type MatchEntry } from '@/lib/competitor-matching';
 import { normalizeWorldSailingId } from '@/lib/world-sailing';
@@ -191,6 +192,9 @@ type ImportFlow =
       headers: string[];
       sampleRows: string[][];
       rows: string[][];
+      /** Lines above the column headings — a title or another tool's
+       *  instructions — left out of the import. */
+      skippedRows: number;
       columnMap: ColumnMap;
       /** True if this is the *first* import into an empty-competitor series.
        *  Drives whether series-level proposals (primary label, enabled fields)
@@ -1419,9 +1423,12 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
 
   /** Build and enter the mapping step from parsed rows (header row first). */
   async function openMappingFromRows(allRows: string[][], rrs: { eventUuid: string; saved: RrsImportConfig | null } | null) {
-    if (allRows.length < 2) return;
-    const headers = allRows[0];
-    const dataRows = allRows.slice(1);
+    // The headings needn't be on the first line: another tool's export can
+    // open with a title or instructions, which are not competitors.
+    const headerRow = findHeaderRow(allRows, autoDetectField);
+    if (allRows.length - headerRow < 2) return;
+    const headers = allRows[headerRow];
+    const dataRows = allRows.slice(headerRow + 1);
     const sampleRows = dataRows.slice(0, 3);
 
     const series = await seriesRepo.get(seriesId);
@@ -1545,6 +1552,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       headers,
       sampleRows,
       rows: dataRows,
+      skippedRows: headerRow,
       columnMap,
       firstImport,
       currentPrimary,
@@ -2372,6 +2380,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
                   boat in several fleets, e.g. <code>PY|M15</code>.
                 </DialogDescription>
               </DialogHeader>
+              <SkippedRowsNote count={importFlow.skippedRows} />
               <FleetsDialogBody
                 flow={importFlow}
                 setFlow={setImportFlow}
@@ -2398,6 +2407,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
                   and the primary identifier are required.
                 </DialogDescription>
               </DialogHeader>
+              {importFlow.step === 'mapping' && <SkippedRowsNote count={importFlow.skippedRows} />}
               {importFlow.step === 'mapping' && (
                 <MappingDialogBody
                   flow={importFlow}
