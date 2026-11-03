@@ -175,6 +175,8 @@ test('scratch event, one fleet, 2 races', async ({ page }) => {
   await page.getByRole('button', { name: 'Delete Race 2' }).click();
   await expect(page.getByTestId('confirm-dialog')).toContainText('Delete Race 2?');
   await page.getByTestId('confirm-dialog-confirm').click();
+  // The dialog keeps its question while it fades out; let it go first.
+  await expect(page.getByTestId('confirm-dialog')).toBeHidden();
   await expect(page.getByText('Race 2')).not.toBeVisible();
   await expect(page.getByText('1 race')).toBeVisible();
 

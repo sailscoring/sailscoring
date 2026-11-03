@@ -66,7 +66,7 @@ test('the competitor list publishes before any race is sailed', async ({ page, s
 
   // ── 6. The public page: the roster, and nothing derived from racing ──────
   await page.goto(entriesPath);
-  await expect(page.getByRole('columnheader', { name: 'Sail Number' })).toBeVisible();
+  await expect(page.getByRole('columnheader', { name: 'Sail No' })).toBeVisible();
   await expect(page.getByRole('columnheader', { name: 'Tally' })).toBeVisible();
   await expect(page.getByText('Entries: 2')).toBeVisible();
   for (const c of entries) {
