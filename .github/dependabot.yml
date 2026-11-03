@@ -15,8 +15,3 @@ updates:
       # ships and eslint-config-next picks it up.
       - dependency-name: "eslint"
         update-types: ["version-update:semver-major"]
-      # postgres (Postgres.js) 4 stops typing parameters from their JS values,
-      # so a Buffer no longer binds as bytea and every gzipped snapshot insert
-      # fails; it is also ESM-only. Upgrade deliberately, not in the group bump.
-      - dependency-name: "postgres"
-        update-types: ["version-update:semver-major"]
