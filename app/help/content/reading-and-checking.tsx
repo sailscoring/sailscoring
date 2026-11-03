@@ -172,9 +172,12 @@ export default function ReadingAndChecking() {
           To keep things tidy, older <em>automatic</em> versions are gradually
           thinned out — recent ones are all kept, then roughly one per day, then
           only the timeline entry remains (so the record of who changed what
-          stays, even though that exact state is no longer restorable). Versions
-          you marked deliberately — named checkpoints, published, and saved
-          versions — are always kept restorable.
+          stays, even though that exact state is no longer restorable). A
+          version’s age counts from when a later edit replaced it, so
+          the state a series was in before your latest session is always
+          restorable, however long it sat untouched. Versions you marked
+          deliberately — named checkpoints, published, and saved versions — are
+          always kept restorable.
         </p>
       </Section>
     </>

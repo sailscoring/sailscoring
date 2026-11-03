@@ -241,6 +241,7 @@ describe.skipIf(skip)('revision log', () => {
     // Distinct sessionKeys so none coalesce; backdate each by id afterwards.
     await captureRevision(actor, seriesId, { summary: 'recent', sessionKey: 'k-recent' });
     await captureRevision(actor, seriesId, { summary: 'old40', sessionKey: 'k-old40' });
+    await captureRevision(actor, seriesId, { summary: 'old50', sessionKey: 'k-old50' });
     await captureRevision(actor, seriesId, { summary: 'dayA', sessionKey: 'k-dayA' });
     await captureRevision(actor, seriesId, { summary: 'dayB', sessionKey: 'k-dayB' });
     await captureRevision(actor, seriesId, { kind: 'named', label: 'pinned', sessionKey: 'k-named' });
@@ -255,24 +256,52 @@ describe.skipIf(skip)('revision log', () => {
     const sameDay = new Date(Date.now() - 10 * DAY);
     sameDay.setUTCHours(12, 0, 0, 0);
     // 'recent' stays at ~now (newest auto). The rest are aged into the tiers.
+    // Newest first: recent, dayB, dayA, old40, pinned, old50.
+    await backdate(byText(initial, 'dayB').id, new Date(sameDay.getTime() + 3600_000)); // 13:00
+    await backdate(byText(initial, 'dayA').id, sameDay); // 12:00, same day
     await backdate(byText(initial, 'old40').id, new Date(Date.now() - 40 * DAY));
-    await backdate(byText(initial, 'dayA').id, sameDay); // 12:00
-    await backdate(byText(initial, 'dayB').id, new Date(sameDay.getTime() + 3600_000)); // 13:00, same day
-    await backdate(byText(initial, 'pinned').id, new Date(Date.now() - 40 * DAY));
+    await backdate(byText(initial, 'pinned').id, new Date(Date.now() - 45 * DAY));
+    await backdate(byText(initial, 'old50').id, new Date(Date.now() - 50 * DAY));
 
     await thinRevisions(workspaceId, seriesId);
 
     const after = await listRevisions(actor, seriesId);
     const has = (t: string) => byText(after, t).hasSnapshot;
-    expect(has('recent')).toBe(true); // <7d (and newest auto)
-    expect(has('old40')).toBe(false); // >30d → dropped
-    expect(has('dayB')).toBe(true); // newest of its day in the daily tier → kept
-    expect(has('dayA')).toBe(false); // older same-day duplicate → dropped
+    expect(has('recent')).toBe(true); // newest auto
+    expect(has('dayB')).toBe(true); // replaced by 'recent' just now → keep-all tier
+    expect(has('dayA')).toBe(false); // replaced 10 days ago, but dayB holds that day's last state
+    // Captured 40 days ago but the current state until 10 days ago (dayA
+    // replaced it): daily tier, and the only snapshot of its day → kept.
+    expect(has('old40')).toBe(true);
+    expect(has('old50')).toBe(false); // replaced 45 days ago (by pinned) → dropped
     expect(has('pinned')).toBe(true); // named milestone → never thinned
 
     // The thinned rows survive for the timeline, just not restorable.
-    expect(after).toHaveLength(5);
-    expect(await getRevisionSnapshot(actor, byText(after, 'old40').id)).toBeNull();
+    expect(after).toHaveLength(6);
+    expect(await getRevisionSnapshot(actor, byText(after, 'old50').id)).toBeNull();
+  });
+
+  test('a new session never thins the state it started from, however old', async () => {
+    const seriesId = await seedSeries('Long Gap Series');
+    const actor = { workspaceId, userId: actorA };
+    const DAY = 24 * 60 * 60 * 1000;
+
+    // The last session before a long break, captured two months ago.
+    await captureRevision(actor, seriesId, { summary: 'before the break', sessionKey: 'k-before' });
+    const [before] = await listRevisions(actor, seriesId);
+    await db
+      .update(schema.seriesRevision)
+      .set({ createdAt: new Date(Date.now() - 60 * DAY) })
+      .where(eq(schema.seriesRevision.id, before.id));
+
+    // The first edit of a new session births a revision, which thins.
+    await captureRevision(actor, seriesId, { summary: 'first edit today', sessionKey: 'k-today' });
+
+    const after = await listRevisions(actor, seriesId);
+    expect(after.map((r) => r.summary)).toEqual(['first edit today', 'before the break']);
+    // It was the live state until moments ago — still restorable.
+    expect(after[1].hasSnapshot).toBe(true);
+    expect(await getRevisionSnapshot(actor, before.id)).not.toBeNull();
   });
 
   test('reads legacy gzip and uncompressed jsonb snapshots (codec sniffing)', async () => {

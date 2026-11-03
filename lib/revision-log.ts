@@ -1,7 +1,7 @@
 import 'server-only';
 import { after } from 'next/server';
 import { constants as zlibConstants, gunzipSync, zstdCompressSync, zstdDecompressSync } from 'node:zlib';
-import { and, desc, eq, gt, inArray, isNull, lt, sql } from 'drizzle-orm';
+import { and, desc, eq, gt, inArray, isNull, sql } from 'drizzle-orm';
 
 import { getDb } from '@/lib/db/client';
 import { recordActivity } from '@/lib/activity-log';
@@ -451,11 +451,13 @@ export async function exportRevisions(
   return { revisions, revisionSnapshots };
 }
 
-/** Retention tiers (#166): keep every auto snapshot newer than this… */
+/** Retention tiers (#166), measured from when a snapshot stopped being the
+ *  series' current state: keep every auto snapshot replaced more recently
+ *  than this… */
 const THIN_KEEP_ALL_DAYS = 7;
 /** …keep one auto snapshot per day between the two cutoffs, drop the rest, and
- *  drop every auto snapshot older than this. (Named / revert / publish / saved
- *  milestones and the latest auto revision are never thinned.) */
+ *  drop every auto snapshot replaced longer ago than this. (Named / revert /
+ *  publish / saved milestones and the latest auto revision are never thinned.) */
 const THIN_DAILY_DAYS = 30;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -463,6 +465,12 @@ const DAY_MS = 24 * 60 * 60 * 1000;
  * Thin a series' old auto revisions (#166): drop the snapshot blob (keeping the
  * row, so the timeline and audit trail survive) per the age tiers above. Run
  * opportunistically when a new revision is born. Best-effort.
+ *
+ * A snapshot's age is counted from when the next revision replaced it, not from
+ * when it was captured. Thinning runs as a new revision is born, and the
+ * revision it has just replaced was the live state until moments ago — however
+ * long ago it was captured, it is the state the scorer started this session
+ * from, and the one they are most likely to want back.
  */
 export async function thinRevisions(
   workspaceId: string,
@@ -474,46 +482,47 @@ export async function thinRevisions(
     const recentCutoff = new Date(now - THIN_KEEP_ALL_DAYS * DAY_MS);
     const dailyCutoff = new Date(now - THIN_DAILY_DAYS * DAY_MS);
 
-    // Always keep the latest auto revision restorable, whatever its age.
-    const [newest] = await db
-      .select({ id: seriesRevision.id })
+    // Every revision of the series (any kind), newest first. Each one's state
+    // was replaced when the revision before it in this list was captured.
+    const rows = await db
+      .select({
+        id: seriesRevision.id,
+        kind: seriesRevision.kind,
+        createdAt: seriesRevision.createdAt,
+        hasSnapshot: sql<boolean>`(${seriesRevision.snapshotGz} is not null or ${seriesRevision.snapshot} is not null)`,
+      })
       .from(seriesRevision)
       .where(
         and(
           eq(seriesRevision.workspaceId, workspaceId),
           eq(seriesRevision.seriesId, seriesId),
-          eq(seriesRevision.kind, 'auto'),
-        ),
-      )
-      .orderBy(desc(seriesRevision.createdAt))
-      .limit(1);
-
-    // Candidate auto revisions: older than the keep-all window and still
-    // holding a blob.
-    const candidates = await db
-      .select({ id: seriesRevision.id, createdAt: seriesRevision.createdAt })
-      .from(seriesRevision)
-      .where(
-        and(
-          eq(seriesRevision.workspaceId, workspaceId),
-          eq(seriesRevision.seriesId, seriesId),
-          eq(seriesRevision.kind, 'auto'),
-          lt(seriesRevision.createdAt, recentCutoff),
-          sql`(${seriesRevision.snapshotGz} is not null or ${seriesRevision.snapshot} is not null)`,
         ),
       )
       .orderBy(desc(seriesRevision.createdAt));
 
     const toThin: string[] = [];
+    // Days (by capture date) that already have a restorable auto snapshot, so
+    // the daily tier keeps only the last state of each day.
     const keptDays = new Set<string>();
-    for (const r of candidates) {
-      if (r.id === newest?.id) continue;
-      if (r.createdAt.getTime() < dailyCutoff.getTime()) {
-        toThin.push(r.id); // older than the daily tier — drop
+    let seenNewestAuto = false;
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i];
+      if (r.kind !== 'auto' || !r.hasSnapshot) continue;
+      const day = r.createdAt.toISOString().slice(0, 10);
+      const replacedAt = i > 0 ? rows[i - 1].createdAt : null;
+      // The latest auto revision is always kept restorable, whatever its age,
+      // as is every one replaced within the keep-all window.
+      const isNewestAuto = !seenNewestAuto;
+      seenNewestAuto = true;
+      if (isNewestAuto || replacedAt === null || replacedAt.getTime() >= recentCutoff.getTime()) {
+        keptDays.add(day);
         continue;
       }
-      // Daily tier: keep the newest per day (candidates are newest-first), thin the rest.
-      const day = r.createdAt.toISOString().slice(0, 10);
+      if (replacedAt.getTime() < dailyCutoff.getTime()) {
+        toThin.push(r.id); // replaced before the daily tier — drop
+        continue;
+      }
+      // Daily tier: keep the newest per day (rows are newest-first), thin the rest.
       if (keptDays.has(day)) toThin.push(r.id);
       else keptDays.add(day);
     }
