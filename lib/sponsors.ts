@@ -87,9 +87,11 @@ function fnv1a(input: string): string {
  * that keeps sponsors out of exports keeps them off paper.
  *
  * On a results page rendered since the footer went to one line, it follows the credit
- * line and joins it — "Sail Scoring ·
+ * line and joins it — "Sail Scoring
  * Supported by <burgee> Howth Yacht Club" — rather than standing as a block of
  * its own; the listing pages, which have no credit line, keep the block.
+ * No separator between the two: the line wraps on a phone, and a "·" put
+ * there for one line was left leading the next.
  *
  * Returns '' when there are no sponsors, so the injection site can stay
  * unconditional.
@@ -117,8 +119,7 @@ a.ss-sponsor { display: inline-flex; align-items: center; gap: 10px; text-decora
 a.ss-sponsor:hover { color: #fb3a3b; }
 a.ss-sponsor img { display: block; height: 34px; width: auto; max-width: 52px; object-fit: contain; }
 .ss-sponsors-inline { display: none; }
-p.credit-inline ~ .ss-sponsors { display: inline-block; max-width: none; margin: 0; padding: 0 0 1em; vertical-align: middle; font-size: 1em; }
-p.credit-inline ~ .ss-sponsors::before { content: "\\00B7"; margin: 0 0.5em 0 0; color: #6b7280; }
+p.credit-inline ~ .ss-sponsors { display: inline-block; max-width: none; margin: 0 0.4em; padding: 0 0 1em; vertical-align: middle; font-size: 1em; }
 p.credit-inline ~ .ss-sponsors .ss-sponsors-label { display: none; }
 p.credit-inline ~ .ss-sponsors .ss-sponsors-inline { display: inline; margin-right: 0.4em; color: #6b7280; }
 p.credit-inline ~ .ss-sponsors .ss-sponsors-row { display: inline-flex; gap: 0 1em; vertical-align: middle; }

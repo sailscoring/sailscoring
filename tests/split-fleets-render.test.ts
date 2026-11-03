@@ -1221,7 +1221,7 @@ describe('the Scoring notes page', () => {
       expect(html).toContain(line.text);
     }
     expect(html).toContain('>Open in Sail Scoring</a>');
-    expect(html).toContain('>Data (.sailscoring.json)</a>');
+    expect(html).toContain('>JSON</a>');
     // Stated once, in the body — not again in the footer.
     expect(html.match(/>Open in Sail Scoring</g)).toHaveLength(1);
   });
@@ -1237,7 +1237,7 @@ describe('the Scoring notes page', () => {
     expect(html).not.toContain('How this championship is scored');
     expect(html).toMatch(/<h3 class="seriestitle">Results are provisional[^<]*<span class="noteslink">&middot; <a href="scoring-notes">Scoring notes<\/a><\/span><\/h3>/);
     expect(html).not.toContain('>Open in Sail Scoring<');
-    expect(html).not.toContain('>Data (.sailscoring.json)<');
+    expect(html).not.toContain('>JSON</a>');
     // The data file is still the page's declared JSON alternate.
     expect(html).toContain('<link rel="alternate" type="application/json" href="/p/ws/event/x.sailscoring.json">');
   });

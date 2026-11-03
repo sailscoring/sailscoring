@@ -196,7 +196,7 @@ test('results status: a published final series imports into a workspace', async 
   await page.goto(path);
   const dataHref =
     (await page
-      .getByRole('link', { name: 'Data (.sailscoring.json)' })
+      .getByRole('link', { name: 'JSON', exact: true })
       .getAttribute('href')) ?? '';
   const from = new URL(dataHref, 'http://localhost').pathname;
   await page.goto(`/import?from=${encodeURIComponent(from)}`);

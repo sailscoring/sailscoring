@@ -92,7 +92,7 @@ describe('buildFleetHtmlFiles — the data-file reference (ADR-012)', () => {
     const html = build.files[0].html;
     expect(html).toContain(`/open?from=${encodeURIComponent(DATA_PATH)}`);
     expect(html).toContain('>Open in Sail Scoring</a>');
-    expect(html).toContain(`<a href="https://app.example${DATA_PATH}" target="_top" rel="noopener">Data (.sailscoring.json)</a>`);
+    expect(html).toContain(`<a href="https://app.example${DATA_PATH}" target="_top" rel="noopener" title="These results as data (.sailscoring.json)">JSON</a>`);
     expect(html).toContain(`<link rel="alternate" type="application/json" href="https://app.example${DATA_PATH}">`);
     expect(html).not.toContain('#data=');
   });
@@ -102,7 +102,7 @@ describe('buildFleetHtmlFiles — the data-file reference (ADR-012)', () => {
     expect(build.exportJson).toBeTruthy();
     const html = build.files[0].html;
     expect(html).toContain('/import#data=');
-    expect(html).not.toContain('Data (.sailscoring.json)');
+    expect(html).not.toContain('>JSON</a>');
     expect(html).not.toContain('rel="alternate"');
   });
 
@@ -112,7 +112,7 @@ describe('buildFleetHtmlFiles — the data-file reference (ADR-012)', () => {
     expect(build.exportJson).toBeUndefined();
     const html = build.files[0].html;
     expect(html).not.toContain('Open in Sail Scoring');
-    expect(html).not.toContain('Data (.sailscoring.json)');
+    expect(html).not.toContain('>JSON</a>');
     expect(html).not.toContain('#data=');
   });
 });
@@ -171,9 +171,9 @@ describe('buildFleetHtmlFiles — a championship\'s data file', () => {
     for (const file of build.files) {
       expect(file.html).toContain(`/open?from=${encodeURIComponent(DATA_PATH)}`);
       expect(file.html).toContain('>Open in Sail Scoring</a>');
-      expect(file.html).toContain(
-        `<a href="https://app.example${DATA_PATH}" target="_top" rel="noopener">Data (.sailscoring.json)</a>`,
-      );
+      // In the footer, or in the body of the Scoring notes page, which
+      // states the data links once there instead.
+      expect(file.html).toMatch(new RegExp(`<a href="https://app\\.example${DATA_PATH.replace(/\./g, '\\.')}"[^>]*>JSON</a>`));
       expect(file.html).not.toContain('#data=');
     }
   });
@@ -182,7 +182,7 @@ describe('buildFleetHtmlFiles — a championship\'s data file', () => {
     const build = (await buildFleetHtmlFiles(championshipRepos(), 's1'))!;
     expect(build.exportJson).toBeTruthy();
     expect(build.files[0].html).toContain('/import#data=');
-    expect(build.files[0].html).not.toContain('Data (.sailscoring.json)');
+    expect(build.files[0].html).not.toContain('>JSON</a>');
   });
 
   it('opting out of the data export takes both links with it', async () => {
@@ -195,7 +195,7 @@ describe('buildFleetHtmlFiles — a championship\'s data file', () => {
     expect(build.exportJson).toBeUndefined();
     for (const file of build.files) {
       expect(file.html).not.toContain('Open in Sail Scoring');
-      expect(file.html).not.toContain('Data (.sailscoring.json)');
+      expect(file.html).not.toContain('>JSON</a>');
       expect(file.html).not.toContain('#data=');
     }
   });

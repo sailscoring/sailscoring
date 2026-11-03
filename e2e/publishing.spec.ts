@@ -178,7 +178,7 @@ test('an unresolved unknown-sail crossing publishes cleanly and stays out of the
   await page.goto(path);
   const dataHref =
     (await page
-      .getByRole('link', { name: 'Data (.sailscoring.json)' })
+      .getByRole('link', { name: 'JSON', exact: true })
       .getAttribute('href')) ?? '';
   const exported = await (await page.request.get(dataHref)).json();
   const finishes = exported.races.flatMap(
@@ -207,7 +207,7 @@ test('the publication serves a .sailscoring.json data file and pages reference i
   expect(openHref).not.toContain('#data=');
   const dataHref =
     (await page
-      .getByRole('link', { name: 'Data (.sailscoring.json)' })
+      .getByRole('link', { name: 'JSON', exact: true })
       .getAttribute('href')) ?? '';
   expect(dataHref).toMatch(/\.sailscoring\.json$/);
 

@@ -356,8 +356,8 @@ export default function DataInAndOut() {
         </p>
         <p>
           Publishing also puts the underlying data itself beside the pages, as a{' '}
-          <code className="text-foreground text-sm">.sailscoring.json</code> file linked from
-          every page footer — a machine-readable snapshot of the series as it stood when you
+          <code className="text-foreground text-sm">.sailscoring.json</code> file, the{' '}
+          <strong className="text-foreground">JSON</strong> link in every page footer — a machine-readable snapshot of the series as it stood when you
           last published, for clubs or third parties who want to consume the data
           programmatically. It is rebuilt whenever you publish anything, even just the entry
           list, so a race you are halfway through entering goes into the file as it stands,

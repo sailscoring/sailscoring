@@ -82,7 +82,7 @@ test('a note written in Preview lands on the published page and in its data file
   // The data file beside the page carries it too, so a reader who takes the
   // data keeps the sentence that explained the figures (ADR-012).
   const dataHref =
-    (await page.getByRole('link', { name: 'Data (.sailscoring.json)' }).getAttribute('href')) ?? '';
+    (await page.getByRole('link', { name: 'JSON', exact: true }).getAttribute('href')) ?? '';
   const exported = await (await page.request.get(dataHref)).json();
   expect(exported.series.pageNotes[0].text).toBe(NOTE);
 

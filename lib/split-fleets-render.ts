@@ -926,7 +926,7 @@ export function renderSplitFleetScoringNotesPage(
       ? `<a href="${esc(opts.openInAppUrl)}" target="_top" rel="noopener">Open in Sail Scoring</a> to look through the series behind these results`
       : '',
     opts.dataFileUrl
-      ? `<a href="${esc(opts.dataFileUrl)}" target="_top" rel="noopener">Data (.sailscoring.json)</a>, the same series as a file`
+      ? `<a href="${esc(opts.dataFileUrl)}" target="_top" rel="noopener">JSON</a>, the same series as a .sailscoring.json file`
       : '',
   ].filter(Boolean);
   // A championship lists its codes that differ from the RRS here, once, rather

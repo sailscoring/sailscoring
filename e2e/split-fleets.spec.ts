@@ -449,7 +449,7 @@ test('split fleets: publish lands the championship + race + assignments pages in
   // (#496), carrying the assignment rounds its pages were built from.
   const dataHref =
     (await page
-      .getByRole('link', { name: 'Data (.sailscoring.json)' })
+      .getByRole('link', { name: 'JSON', exact: true })
       .getAttribute('href')) ?? '';
   expect(dataHref).toMatch(/\.sailscoring\.json$/);
   const exported = await (await page.request.get(dataHref)).json();

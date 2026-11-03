@@ -43,7 +43,7 @@ async function publishSeriesWithData(page: Page, name: string): Promise<string> 
   await page.goto(published);
   const dataHref =
     (await page
-      .getByRole('link', { name: 'Data (.sailscoring.json)' })
+      .getByRole('link', { name: 'JSON', exact: true })
       .getAttribute('href')) ?? '';
   return new URL(dataHref, 'http://localhost').pathname;
 }

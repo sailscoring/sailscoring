@@ -65,7 +65,7 @@ series' Publishing settings can opt out) serves one file:
 /p/{workspace}/{slug}/{series-name}.sailscoring.json
 ```
 
-- Linked from every page footer ("Data (.sailscoring.json)") and declared
+- Linked from every page footer ("JSON") and declared
   in each page's head as `<link rel="alternate" type="application/json">`.
 - Also what the page's "Open in Sail Scoring" link reads: it points at
   `/open?from={path}`, which shows the series read-only with no account
