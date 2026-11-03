@@ -37,13 +37,20 @@ describe('TCC handicap scoring fixtures', () => {
       // For ORC the scoring option — and so the rating field, and whether the
       // map holds multipliers or s/NM allowances — resolves per race from the
       // start's option, falling back to the fleet default.
-      const buildTcfMap = (raceStart?: { orcOption?: string }) => {
+      // A per-race rating override pins the race to the rating a boat held
+      // when it was sailed, as the engine's own series path does.
+      const buildTcfMap = (raceId: string, raceStart?: { orcOption?: string }) => {
         const orcProfile = fleet.scoringSystem === 'orc' ? orcRaceProfile(fleet, raceStart) : null;
         const field = staticRatingField(fleet.scoringSystem);
+        const overrideByComp = new Map(
+          ratingOverrides
+            .filter((o) => o.raceId === raceId && o.field === field)
+            .map((o) => [o.competitorId, o.value] as const),
+        );
         const tcfMap = new Map<string, number>();
         for (const c of competitors) {
           if (field) {
-            const value = c[field];
+            const value = overrideByComp.get(c.id) ?? c[field];
             const tcf = value != null ? ratingFieldTcf(field, value) : null;
             if (tcf != null) tcfMap.set(c.id, tcf);
           } else if (orcProfile) {
@@ -64,7 +71,7 @@ describe('TCC handicap scoring fixtures', () => {
         if (!raceStart) throw new Error(`${yamlPath}: race ${ri + 1} has no startTime`);
         const raceFinishes: Finish[] = finishesScoredFor(fleet, finishes.filter((f) => f.raceId === raceId));
 
-        const { tcfMap, isOrcTod } = buildTcfMap(raceStart);
+        const { tcfMap, isOrcTod } = buildTcfMap(raceId, raceStart);
         const ratedCompetitors = competitors.filter((c) => tcfMap.has(c.id));
         const todContext = isOrcTod ? orcCertificateTodContext(raceStart, raceFinishes, tcfMap) : undefined;
         const { scores } = calculateHandicapRaceScores(raceFinishes, ratedCompetitors, raceStart, tcfMap, codes, todContext);

@@ -163,7 +163,7 @@ export interface FixtureRace {
   aggregates?: FixtureAggregates;
   rejected?: FixtureRejection[];
   /** Per-race static-rating overrides (mid-series rating change). */
-  ratingOverrides?: { sailor: string; field: 'ircTcc' | 'pyNumber' | 'vprsTcc' | 'fixedTcf'; value: number }[];
+  ratingOverrides?: { sailor: string; field: 'ircTcc' | 'pyNumber' | 'vprsTcc' | 'fixedTcf' | 'ytcNumber'; value: number }[];
 }
 
 export interface FixtureStanding {
@@ -190,6 +190,7 @@ export interface FixtureCompetitor {
   vprsTcc?: number;
   fixedTcf?: number;
   pyNumber?: number;
+  ytcNumber?: number;
   nhcStartingTcf?: number;
   echoStartingTcf?: number;
   // ORC only — the certificate's rating fields as {fieldName: value}, e.g.
@@ -365,6 +366,7 @@ export function buildFixtureInputs(fixture: Fixture): FixtureInputs {
       ...(c.vprsTcc != null ? { vprsTcc: c.vprsTcc } : {}),
       ...(c.fixedTcf != null ? { fixedTcf: c.fixedTcf } : {}),
       ...(c.pyNumber != null ? { pyNumber: c.pyNumber } : {}),
+      ...(c.ytcNumber != null ? { ytcNumber: c.ytcNumber } : {}),
       ...(c.nhcStartingTcf != null ? { nhcStartingTcf: c.nhcStartingTcf } : {}),
       ...(c.echoStartingTcf != null ? { echoStartingTcf: c.echoStartingTcf } : {}),
       ...(c.orcCertFields != null

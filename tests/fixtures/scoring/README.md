@@ -80,7 +80,7 @@ pnpm test:unit
 Three runners consume the fixtures, all sharing the loader in `types.ts`:
 
 - `tests/scoring-fixtures.test.ts` — scratch / fleets / codes
-- `tests/tcc-handicap-fixtures.test.ts` — IRC / PY per-race arithmetic + standings
+- `tests/tcc-handicap-fixtures.test.ts` — fixed-rating (IRC, VPRS, PY, YTC, fixed TCF, ORC) per-race arithmetic + standings
 - `tests/nhc-fixtures.test.ts` — NHC per-race progression + standings
 
 Adding a new `.yaml` file in the appropriate subdirectory is enough to add a new test.

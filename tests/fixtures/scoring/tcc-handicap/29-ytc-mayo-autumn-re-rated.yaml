@@ -1,0 +1,205 @@
+description: "YTC — a reissued certificate mid-series (Mayo Autumn Series 2026, HalSail parity)"
+rrs_notes: >
+  Mayo Sailing Club's 2026 Autumn Series for its Cruisers YTC fleet, as
+  published on HalSail (halsail.com/Result/Public/96884). Crozz sailed
+  races 1–3 on YTC 920 and races 4–6 on 941, the number on its reissued
+  RORC certificate. Crozz carries its current number, 941; races 1–3 are
+  pinned to 920 with a per-race rating override on the ytcNumber field,
+  the same mechanism as a new IRC certificate. The override decides race 1:
+  on 941 Crozz would correct to 0:32:53 and win it, not finish third on
+  0:33:38. Every corrected time
+  matches HalSail's to the second. Freebird and Elixir, who came to no
+  race, finish level on 29 and stay tied (HalSail's "6=").
+
+series:
+  discardThresholds:
+    - minRaces: 5
+      discardCount: 1
+  dnfScoring: startingArea
+  # Mayo scores DNC as the boats that came to the start + 1, like DNF.
+  scoringCodes:
+    - code: DNC
+      kind: replace
+      rule: { type: sameAs, code: DNF }
+      discardable: true
+
+fleet:
+  scoringSystem: ytc
+
+competitors:
+  - { sailNumber: "2552", name: "Fusion", ytcNumber: 943 }
+  - { sailNumber: "930", name: "Uforia", ytcNumber: 932 }
+  - { sailNumber: "3062", name: "Crozz", ytcNumber: 941 }
+  - { sailNumber: "7059", name: "Humdinger", ytcNumber: 947 }
+  - { sailNumber: "1552", name: "Movita", ytcNumber: 919 }
+  - { sailNumber: "1558", name: "Freebird", ytcNumber: 1030 }
+  - { sailNumber: "8598", name: "Elixir", ytcNumber: 812 }
+
+races:
+  - number: 1   # 23 Jul 2026
+    startTime: "19:10:00"
+    ratingOverrides:
+      - { sailor: "3062", field: ytcNumber, value: 920 }   # Crozz, before the reissued certificate
+    finishes:   # crossing order
+      - { sailor: "3062", finishTime: "19:40:57", startPresent: true }   # Crozz
+      - { sailor: "930", finishTime: "19:41:04", startPresent: true }   # Uforia
+      - { sailor: "2552", finishTime: "19:41:11", startPresent: true }   # Fusion
+      - { sailor: "7059", finishTime: "19:42:01", startPresent: true }   # Humdinger
+      - { sailor: "1552", finishTime: "19:45:04", startPresent: true }   # Movita
+      - { sailor: "1558", code: "DNC", startPresent: false }   # Freebird
+      - { sailor: "8598", code: "DNC", startPresent: false }   # Elixir
+    expected:
+      - { sailor: "2552", rank: 1, points: 1, elapsedTime: 1871, correctedTime: 1984, tcfApplied: 1.0604453870625663 }   # Fusion YTC 943: 0:31:11 → 0:33:04
+      - { sailor: "930", rank: 2, points: 2, elapsedTime: 1864, correctedTime: 2000, tcfApplied: 1.0729613733905579 }   # Uforia YTC 932: 0:31:04 → 0:33:20
+      - { sailor: "3062", rank: 3, points: 3, elapsedTime: 1857, correctedTime: 2018, tcfApplied: 1.0869565217391304 }   # Crozz YTC 920: 0:30:57 → 0:33:38
+      - { sailor: "7059", rank: 4, points: 4, elapsedTime: 1921, correctedTime: 2029, tcfApplied: 1.0559662090813093 }   # Humdinger YTC 947: 0:32:01 → 0:33:49
+      - { sailor: "1552", rank: 5, points: 5, elapsedTime: 2104, correctedTime: 2289, tcfApplied: 1.088139281828074 }   # Movita YTC 919: 0:35:04 → 0:38:09
+      - { sailor: "1558", rank: null, points: 6, elapsedTime: null, correctedTime: null, tcfApplied: 0.970873786407767 }   # Freebird DNC: 5 came to the start + 1
+      - { sailor: "8598", rank: null, points: 6, elapsedTime: null, correctedTime: null, tcfApplied: 1.2315270935960592 }   # Elixir DNC: 5 came to the start + 1
+  - number: 2   # 23 Jul 2026
+    startTime: "19:55:00"
+    ratingOverrides:
+      - { sailor: "3062", field: ytcNumber, value: 920 }   # Crozz, before the reissued certificate
+    finishes:   # crossing order
+      - { sailor: "2552", finishTime: "20:38:35", startPresent: true }   # Fusion
+      - { sailor: "930", finishTime: "20:41:17", startPresent: true }   # Uforia
+      - { sailor: "3062", finishTime: "20:41:27", startPresent: true }   # Crozz
+      - { sailor: "1552", finishTime: "20:44:17", startPresent: true }   # Movita
+      - { sailor: "7059", finishTime: "20:47:56", startPresent: true }   # Humdinger
+      - { sailor: "1558", code: "DNC", startPresent: false }   # Freebird
+      - { sailor: "8598", code: "DNC", startPresent: false }   # Elixir
+    expected:
+      - { sailor: "2552", rank: 1, points: 1, elapsedTime: 2615, correctedTime: 2773, tcfApplied: 1.0604453870625663 }   # Fusion YTC 943: 0:43:35 → 0:46:13
+      - { sailor: "930", rank: 2, points: 2, elapsedTime: 2777, correctedTime: 2980, tcfApplied: 1.0729613733905579 }   # Uforia YTC 932: 0:46:17 → 0:49:40
+      - { sailor: "3062", rank: 3, points: 3, elapsedTime: 2787, correctedTime: 3029, tcfApplied: 1.0869565217391304 }   # Crozz YTC 920: 0:46:27 → 0:50:29
+      - { sailor: "1552", rank: 4, points: 4, elapsedTime: 2957, correctedTime: 3218, tcfApplied: 1.088139281828074 }   # Movita YTC 919: 0:49:17 → 0:53:38
+      - { sailor: "7059", rank: 5, points: 5, elapsedTime: 3176, correctedTime: 3354, tcfApplied: 1.0559662090813093 }   # Humdinger YTC 947: 0:52:56 → 0:55:54
+      - { sailor: "1558", rank: null, points: 6, elapsedTime: null, correctedTime: null, tcfApplied: 0.970873786407767 }   # Freebird DNC: 5 came to the start + 1
+      - { sailor: "8598", rank: null, points: 6, elapsedTime: null, correctedTime: null, tcfApplied: 1.2315270935960592 }   # Elixir DNC: 5 came to the start + 1
+  - number: 3   # 30 Jul 2026
+    startTime: "19:10:00"
+    ratingOverrides:
+      - { sailor: "3062", field: ytcNumber, value: 920 }   # Crozz, before the reissued certificate
+    finishes:   # crossing order
+      - { sailor: "930", finishTime: "20:24:22", startPresent: true }   # Uforia
+      - { sailor: "2552", finishTime: "20:24:29", startPresent: true }   # Fusion
+      - { sailor: "3062", finishTime: "20:25:47", startPresent: true }   # Crozz
+      - { sailor: "1552", finishTime: "20:29:27", startPresent: true }   # Movita
+      - { sailor: "7059", finishTime: "20:30:48", startPresent: true }   # Humdinger
+      - { sailor: "1558", code: "DNC", startPresent: false }   # Freebird
+      - { sailor: "8598", code: "DNC", startPresent: false }   # Elixir
+    expected:
+      - { sailor: "2552", rank: 1, points: 1, elapsedTime: 4469, correctedTime: 4739, tcfApplied: 1.0604453870625663 }   # Fusion YTC 943: 1:14:29 → 1:18:59
+      - { sailor: "930", rank: 2, points: 2, elapsedTime: 4462, correctedTime: 4788, tcfApplied: 1.0729613733905579 }   # Uforia YTC 932: 1:14:22 → 1:19:48
+      - { sailor: "3062", rank: 3, points: 3, elapsedTime: 4547, correctedTime: 4942, tcfApplied: 1.0869565217391304 }   # Crozz YTC 920: 1:15:47 → 1:22:22
+      - { sailor: "7059", rank: 4, points: 4, elapsedTime: 4848, correctedTime: 5119, tcfApplied: 1.0559662090813093 }   # Humdinger YTC 947: 1:20:48 → 1:25:19
+      - { sailor: "1552", rank: 5, points: 5, elapsedTime: 4767, correctedTime: 5187, tcfApplied: 1.088139281828074 }   # Movita YTC 919: 1:19:27 → 1:26:27
+      - { sailor: "1558", rank: null, points: 6, elapsedTime: null, correctedTime: null, tcfApplied: 0.970873786407767 }   # Freebird DNC: 5 came to the start + 1
+      - { sailor: "8598", rank: null, points: 6, elapsedTime: null, correctedTime: null, tcfApplied: 1.2315270935960592 }   # Elixir DNC: 5 came to the start + 1
+  - number: 4   # 6 Aug 2026
+    startTime: "19:20:00"
+    finishes:   # crossing order
+      - { sailor: "3062", finishTime: "20:32:23", startPresent: true }   # Crozz
+      - { sailor: "2552", finishTime: "20:33:07", startPresent: true }   # Fusion
+      - { sailor: "930", finishTime: "20:34:31", startPresent: true }   # Uforia
+      - { sailor: "1552", finishTime: "20:36:55", startPresent: true }   # Movita
+      - { sailor: "7059", finishTime: "20:45:37", startPresent: true }   # Humdinger
+      - { sailor: "1558", code: "DNC", startPresent: false }   # Freebird
+      - { sailor: "8598", code: "DNC", startPresent: false }   # Elixir
+    expected:
+      - { sailor: "3062", rank: 1, points: 1, elapsedTime: 4343, correctedTime: 4615, tcfApplied: 1.0626992561105206 }   # Crozz YTC 941: 1:12:23 → 1:16:55
+      - { sailor: "2552", rank: 2, points: 2, elapsedTime: 4387, correctedTime: 4652, tcfApplied: 1.0604453870625663 }   # Fusion YTC 943: 1:13:07 → 1:17:32
+      - { sailor: "930", rank: 3, points: 3, elapsedTime: 4471, correctedTime: 4797, tcfApplied: 1.0729613733905579 }   # Uforia YTC 932: 1:14:31 → 1:19:57
+      - { sailor: "1552", rank: 4, points: 4, elapsedTime: 4615, correctedTime: 5022, tcfApplied: 1.088139281828074 }   # Movita YTC 919: 1:16:55 → 1:23:42
+      - { sailor: "7059", rank: 5, points: 5, elapsedTime: 5137, correctedTime: 5424, tcfApplied: 1.0559662090813093 }   # Humdinger YTC 947: 1:25:37 → 1:30:24
+      - { sailor: "1558", rank: null, points: 6, elapsedTime: null, correctedTime: null, tcfApplied: 0.970873786407767 }   # Freebird DNC: 5 came to the start + 1
+      - { sailor: "8598", rank: null, points: 6, elapsedTime: null, correctedTime: null, tcfApplied: 1.2315270935960592 }   # Elixir DNC: 5 came to the start + 1
+  - number: 5   # 13 Aug 2026
+    startTime: "19:19:00"
+    finishes:   # crossing order
+      - { sailor: "930", finishTime: "20:20:56", startPresent: true }   # Uforia
+      - { sailor: "3062", finishTime: "20:21:27", startPresent: true }   # Crozz
+      - { sailor: "1552", finishTime: "20:21:29", startPresent: true }   # Movita
+      - { sailor: "7059", finishTime: "20:23:38", startPresent: true }   # Humdinger
+      - { sailor: "2552", code: "DNF", startPresent: true }   # Fusion
+      - { sailor: "1558", code: "DNC", startPresent: false }   # Freebird
+      - { sailor: "8598", code: "DNC", startPresent: false }   # Elixir
+    expected:
+      - { sailor: "3062", rank: 1, points: 1, elapsedTime: 3747, correctedTime: 3982, tcfApplied: 1.0626992561105206 }   # Crozz YTC 941: 1:02:27 → 1:06:22
+      - { sailor: "930", rank: 2, points: 2, elapsedTime: 3716, correctedTime: 3987, tcfApplied: 1.0729613733905579 }   # Uforia YTC 932: 1:01:56 → 1:06:27
+      - { sailor: "1552", rank: 3, points: 3, elapsedTime: 3749, correctedTime: 4079, tcfApplied: 1.088139281828074 }   # Movita YTC 919: 1:02:29 → 1:07:59
+      - { sailor: "7059", rank: 4, points: 4, elapsedTime: 3878, correctedTime: 4095, tcfApplied: 1.0559662090813093 }   # Humdinger YTC 947: 1:04:38 → 1:08:15
+      - { sailor: "2552", rank: null, points: 6, elapsedTime: null, correctedTime: null, tcfApplied: 1.0604453870625663 }   # Fusion DNF: 5 came to the start + 1
+      - { sailor: "1558", rank: null, points: 6, elapsedTime: null, correctedTime: null, tcfApplied: 0.970873786407767 }   # Freebird DNC: 5 came to the start + 1
+      - { sailor: "8598", rank: null, points: 6, elapsedTime: null, correctedTime: null, tcfApplied: 1.2315270935960592 }   # Elixir DNC: 5 came to the start + 1
+  - number: 6   # 20 Aug 2026
+    startTime: "19:10:00"
+    finishes:   # crossing order
+      - { sailor: "3062", finishTime: "20:08:36", startPresent: true }   # Crozz
+      - { sailor: "2552", finishTime: "20:09:00", startPresent: true }   # Fusion
+      - { sailor: "1552", finishTime: "20:09:08", startPresent: true }   # Movita
+      - { sailor: "7059", finishTime: "20:15:42", startPresent: true }   # Humdinger
+      - { sailor: "930", code: "DNC", startPresent: false }   # Uforia
+      - { sailor: "1558", code: "DNC", startPresent: false }   # Freebird
+      - { sailor: "8598", code: "DNC", startPresent: false }   # Elixir
+    expected:
+      - { sailor: "3062", rank: 1, points: 1, elapsedTime: 3516, correctedTime: 3736, tcfApplied: 1.0626992561105206 }   # Crozz YTC 941: 0:58:36 → 1:02:16
+      - { sailor: "2552", rank: 2, points: 2, elapsedTime: 3540, correctedTime: 3754, tcfApplied: 1.0604453870625663 }   # Fusion YTC 943: 0:59:00 → 1:02:34
+      - { sailor: "1552", rank: 3, points: 3, elapsedTime: 3548, correctedTime: 3861, tcfApplied: 1.088139281828074 }   # Movita YTC 919: 0:59:08 → 1:04:21
+      - { sailor: "7059", rank: 4, points: 4, elapsedTime: 3942, correctedTime: 4163, tcfApplied: 1.0559662090813093 }   # Humdinger YTC 947: 1:05:42 → 1:09:23
+      - { sailor: "930", rank: null, points: 5, elapsedTime: null, correctedTime: null, tcfApplied: 1.0729613733905579 }   # Uforia DNC: 4 came to the start + 1
+      - { sailor: "1558", rank: null, points: 5, elapsedTime: null, correctedTime: null, tcfApplied: 0.970873786407767 }   # Freebird DNC: 4 came to the start + 1
+      - { sailor: "8598", rank: null, points: 5, elapsedTime: null, correctedTime: null, tcfApplied: 1.2315270935960592 }   # Elixir DNC: 4 came to the start + 1
+
+# Standings exactly as HalSail publishes them; "(…)" there is a discard here.
+expected:
+  standings:
+    - rank: 1
+      sailor: "2552"   # Fusion
+      racePoints: [1, 1, 1, 2, 6, 2]
+      raceCodes: [null, null, null, null, "DNF", null]
+      raceDiscards: [false, false, false, false, true, false]
+      totalPoints: 13
+      netPoints: 7
+    - rank: 2
+      sailor: "3062"   # Crozz
+      racePoints: [3, 3, 3, 1, 1, 1]
+      raceCodes: [null, null, null, null, null, null]
+      raceDiscards: [true, false, false, false, false, false]
+      totalPoints: 12
+      netPoints: 9
+    - rank: 3
+      sailor: "930"   # Uforia
+      racePoints: [2, 2, 2, 3, 2, 5]
+      raceCodes: [null, null, null, null, null, "DNC"]
+      raceDiscards: [false, false, false, false, false, true]
+      totalPoints: 16
+      netPoints: 11
+    - rank: 4
+      sailor: "1552"   # Movita
+      racePoints: [5, 4, 5, 4, 3, 3]
+      raceCodes: [null, null, null, null, null, null]
+      raceDiscards: [true, false, false, false, false, false]
+      totalPoints: 24
+      netPoints: 19
+    - rank: 5
+      sailor: "7059"   # Humdinger
+      racePoints: [4, 5, 4, 5, 4, 4]
+      raceCodes: [null, null, null, null, null, null]
+      raceDiscards: [false, true, false, false, false, false]
+      totalPoints: 26
+      netPoints: 21
+    - rank: 6
+      sailor: "1558"   # Freebird
+      racePoints: [6, 6, 6, 6, 6, 5]
+      raceCodes: ["DNC", "DNC", "DNC", "DNC", "DNC", "DNC"]
+      raceDiscards: [true, false, false, false, false, false]
+      totalPoints: 35
+      netPoints: 29
+    - rank: 6
+      sailor: "8598"   # Elixir
+      racePoints: [6, 6, 6, 6, 6, 5]
+      raceCodes: ["DNC", "DNC", "DNC", "DNC", "DNC", "DNC"]
+      raceDiscards: [true, false, false, false, false, false]
+      totalPoints: 35
+      netPoints: 29
