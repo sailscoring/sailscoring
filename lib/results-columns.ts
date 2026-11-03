@@ -331,7 +331,9 @@ export function defaultColumnHeader(
   switch (key) {
     case 'rank': return 'Rank';
     case 'fleet': return 'Fleet';
-    case 'sailNumber': return 'Sail Number';
+    // How sailors write it, and short enough not to set the column's width
+    // on a phone.
+    case 'sailNumber': return 'Sail No';
     case 'bowNumber': return 'Bow';
     case 'entryNumber': return 'Entry';
     case 'tallyNumber': return 'Tally';
@@ -795,6 +797,7 @@ export const SCORING_COLUMN_NAMES: Record<StandingsScoringColumnKey | RaceScorin
 export function columnName(key: CompetitorColumnKey, settings: ColumnSettings): string {
   if (key === 'primary') return defaultColumnHeader(key, settings);
   if (key === 'fleet') return 'Fleet';
+  if (key === 'sailNumber') return 'Sail number';
   if (key === 'bowNumber') return 'Bow number';
   if (key === 'entryNumber') return 'Entry number';
   if (key === 'tallyNumber') return 'Tally number';

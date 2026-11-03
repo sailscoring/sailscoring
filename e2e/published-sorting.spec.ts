@@ -79,7 +79,7 @@ test('published standings sort by column and restore the served order', async ({
   await expect.poll(() => sailOrder(summary)).toEqual(['69', '7', '217236']);
 
   // ── Sail numbers sort numerically, not by first digit ────────────────────
-  const sailHead = summary.locator('th', { hasText: 'Sail Number' });
+  const sailHead = summary.locator('th', { hasText: 'Sail No' });
   await sailHead.click();
   await expect(sailHead).toHaveAttribute('aria-sort', 'ascending');
   await expect.poll(() => sailOrder(summary)).toEqual(['7', '69', '217236']);

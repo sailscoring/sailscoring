@@ -108,7 +108,7 @@ describe('a series’ own results columns', () => {
       { key: 'primary' },
       { key: 'crewName', inPrimary: true, joinNames: true },
     ]);
-    expect(headers(html, 'summarytable')).toEqual(['Rank', 'Sail Number', 'Helm / Crew', 'R1', 'Total']);
+    expect(headers(html, 'summarytable')).toEqual(['Rank', 'Sail No', 'Helm / Crew', 'R1', 'Total']);
     expect(html).toContain('<td>Helm 101 / Crew A</td>');
     expect(html).toContain('<td>Helm 102 / Crew B &amp; Crew C</td>');
   });
@@ -117,10 +117,10 @@ describe('a series’ own results columns', () => {
     const html = withColumns(
       [{ key: 'rank' }, { key: 'sailNumber' }, { key: 'primary' }, { key: 'total', title: 'Points' }, { key: 'points', title: 'Pts' }],
     );
-    expect(headers(html, 'summarytable')).toEqual(['Rank', 'Sail Number', 'Helm', 'R1', 'Points']);
-    expect(headers(html, 'racetable')).toEqual(['Rank', 'Sail Number', 'Helm', 'Pts']);
+    expect(headers(html, 'summarytable')).toEqual(['Rank', 'Sail No', 'Helm', 'R1', 'Points']);
+    expect(headers(html, 'racetable')).toEqual(['Rank', 'Sail No', 'Helm', 'Pts']);
     const hidden = withColumns([{ key: 'rank' }, { key: 'sailNumber' }, { key: 'primary' }, { key: 'total', hidden: true }]);
-    expect(headers(hidden, 'summarytable')).toEqual(['Rank', 'Sail Number', 'Helm', 'R1']);
+    expect(headers(hidden, 'summarytable')).toEqual(['Rank', 'Sail No', 'Helm', 'R1']);
   });
 
   it('drops a column whose field is switched off, or whose custom field is gone', () => {
@@ -128,7 +128,7 @@ describe('a series’ own results columns', () => {
       [{ key: 'rank' }, { key: 'sailNumber' }, { key: 'primary' }, { key: 'club' }, { key: 'field:gone' }],
       { enabledCompetitorFields: [] },
     );
-    expect(headers(html, 'summarytable')).toEqual(['Rank', 'Sail Number', 'Helm', 'R1', 'Total']);
+    expect(headers(html, 'summarytable')).toEqual(['Rank', 'Sail No', 'Helm', 'R1', 'Total']);
   });
 
   it('shows custom fields under automatic columns, after the others', () => {
@@ -148,6 +148,6 @@ describe('a series’ own results columns', () => {
         multiFleet: false,
       },
     );
-    expect(headers(html, 'summarytable')).toEqual(['Rig', 'Sail Number', 'Helm']);
+    expect(headers(html, 'summarytable')).toEqual(['Rig', 'Sail No', 'Helm']);
   });
 });

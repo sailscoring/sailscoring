@@ -379,7 +379,7 @@ describe('renderSeriesHtml', () => {
     expect(html).toContain('<th>Tally</th>');
     expect(html).toContain('<td>T0042</td>');
     // Immediately after the sail number, ahead of everything descriptive.
-    expect(html).toMatch(/<th>Sail Number<\/th>\s*<th>Bow<\/th>\s*<th>Entry<\/th>\s*<th>Tally<\/th>/);
+    expect(html).toMatch(/<th>Sail No<\/th>\s*<th>Bow<\/th>\s*<th>Entry<\/th>\s*<th>Tally<\/th>/);
   });
 
   it('carries the identifier numbers into the per-race tables too', () => {
@@ -2246,7 +2246,7 @@ describe('renderCompetitorListHtml', () => {
       enabledCompetitorFields: [],
       multiFleet: false,
     });
-    expect(html).toContain('<th>Sail Number</th>');
+    expect(html).toContain('<th>Sail No</th>');
     expect(html).toContain('IRL 215');
     expect(html).toContain('Entries: 2');
     // Nothing derived from racing belongs here.
@@ -2316,7 +2316,7 @@ describe('renderCompetitorListHtml', () => {
       multiFleet: false,
     });
     expect(html).toContain('No entries yet.');
-    expect(html).not.toContain('<th>Sail Number</th>');
+    expect(html).not.toContain('<th>Sail No</th>');
   });
 
   describe('the starters checklist', () => {
