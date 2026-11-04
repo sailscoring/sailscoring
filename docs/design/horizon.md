@@ -1159,8 +1159,9 @@ made archives a display-only regime.
 
 Three separate horizon entries now want the same missing machinery: knockout medal-series
 brackets from the split-fleet residue above, vane events, and any RRS Appendix C match
-racing or Appendix D team racing a club might ask for. None of them are low-point fleet
-racing, and all of them need the same four things we don't have.
+racing a club might ask for. None of them are low-point fleet racing, and all of them
+need the same four things we don't have. (Appendix D team racing would need them too, but
+is out of scope — see the next entry.)
 
 First, a **fixture list** — who sails whom, in what order, on which mark or entry — as an
 input that is authored or generated before racing and then drives the day. Second, a
@@ -1180,6 +1181,38 @@ These three entries were prompted by an August 2026 enquiry from a UK club racin
 classes — six radio, two vane — across club racing, open meetings and national events,
 currently split between Sailwave, the HMS spreadsheet and hand-built Excel, and looking
 for something their Mac users and their tablet-carrying volunteers can both use.
+
+### Team racing (Appendix D) — out of scope
+
+Decided November 2026: Sail Scoring does not score team racing, natively or as a scoring
+backend for another tool.
+
+Only the single race resembles what we do — each boat scores its place and the lower
+team total wins. Everything above that is different: a race produces a win or a loss, an
+event is round robins and knockouts ranked on wins and head-to-heads, and entries are
+teams with changing rosters. None of the engine's handicaps, discards, scoring codes, A8
+tie-breaks or rankings apply. The scoring arithmetic is trivial; what makes a team racing
+event hard to run is the day itself — the draw, rotating teams through shared boats with
+few changeovers, flights and call times, start-boat, finish-boat and beachmaster views,
+and telling teams when they are on.
+
+[RaceFlow](https://teamracing.xyz), built by an Irish sailor, already does exactly
+that, and is what clubs and associations running team racing should use. Rebuilding it
+would duplicate a local sailor's work for a format that uses almost nothing we have
+built. Acting as its scoring backend adds a dependency without a capability, since there
+is no hard scoring for us to do.
+
+What a club does want is its team racing visible beside its fleet racing. The integration
+we would accept is a general one: a season or event entry in the publication tree
+([ADR-011](decisions/011-public-results-navigation.md)) that links to results published
+elsewhere — RaceFlow, or equally an IRC event or class championship scored on HalSail or
+Sailwave. That isn't built yet, and is worth doing on its own merits.
+
+Revisit if a club wants **in-house** team racing — training nights or a club league,
+where an event-day platform is overkill and a scorer wants a win/loss table next to
+their fleet racing — and then only once the shared round-robin machinery above has been
+justified by something else; or if RaceFlow's author asks for an integration, which
+makes it a conversation with a real counterparty rather than a speculative build.
 
 ---
 
