@@ -92,8 +92,15 @@ export function useSaveRaceFields(raceId: string): (patch: Partial<Race>) => Pro
 export function useGenerateRaces(seriesId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ races, starts }: { races: Race[]; starts: RaceStart[] }) =>
-      raceRepo.generateMany(seriesId, races, starts),
+    mutationFn: ({
+      races,
+      starts,
+      source,
+    }: {
+      races: Race[];
+      starts: RaceStart[];
+      source?: 'schedule';
+    }) => raceRepo.generateMany(seriesId, races, starts, source ? { source } : undefined),
     onSuccess: async () => {
       qc.invalidateQueries({ queryKey: queryKeys.races.bySeries(seriesId) });
       // A generated race carries its starts; refetch those too. See

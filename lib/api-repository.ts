@@ -33,6 +33,7 @@ import type {
   RaceRepository,
   RaceStartRepository,
   RaceRatingOverrideRepository,
+  GenerateRacesOpts,
   SaveOpts,
   SeriesNotes,
   SeriesPlacement,
@@ -256,12 +257,12 @@ class ApiRaceRepository implements RaceRepository {
     seriesId: string,
     races: Race[],
     starts: RaceStart[],
-    _opts?: SaveOpts,
+    opts?: GenerateRacesOpts,
   ): Promise<Race[]> {
     if (races.length === 0) return [];
     return apiFetch<Race[]>(`/api/v1/series/${seriesId}/races`, {
       method: 'POST',
-      body: { races, starts },
+      body: { races, starts, ...(opts?.source ? { source: opts.source } : {}) },
     });
   }
 

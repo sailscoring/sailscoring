@@ -158,7 +158,7 @@ function fractionOfDayToTime(raw: string): string | null {
 
 /** Fleet names compared the way a finish hut writes them: case, spacing and
  *  punctuation are noise, the letters and digits are the name. */
-function normalizeFleetName(raw: string): string {
+export function normalizeFleetName(raw: string): string {
   return raw.toLowerCase().replace(/[^a-z0-9]+/g, '');
 }
 

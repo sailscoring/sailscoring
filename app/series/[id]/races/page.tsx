@@ -73,6 +73,8 @@ import {
 } from '@/lib/race-schedule';
 import { groupRacesBySubSeries } from '@/lib/scoring';
 import { RaceSenseImport, type RaceSenseImportHandle } from '@/components/racesense-import';
+import { ScheduleImport, type ScheduleImportHandle } from '@/components/schedule-import';
+import type { ImportedRace } from '@/lib/schedule-import';
 import { RaceScoringOptionsDialog } from '@/components/race-scoring-options-dialog';
 import { RaceMetadataDialog } from '@/components/race-metadata-dialog';
 import { hasScoringOptions, scoringOptionsSummary } from '@/lib/race-scoring-options';
@@ -325,14 +327,17 @@ function weekdayLabel(isoDate: string): string | null {
 }
 
 /** Split "Add race" button: the primary segment adds one race; the chevron
- *  opens a menu whose one item launches the multiple-race generator. */
+ *  opens a menu with the multiple-race generator and, where it's on, the
+ *  schedule import. */
 function AddRaceMenu({
   onAddRace,
   onGenerate,
+  onImportSchedule,
   disabled,
 }: {
   onAddRace: () => void;
   onGenerate: () => void;
+  onImportSchedule?: () => void;
   disabled?: boolean;
 }) {
   return (
@@ -354,6 +359,11 @@ function AddRaceMenu({
           <DropdownMenuItem onClick={onGenerate}>
             Add multiple races…
           </DropdownMenuItem>
+          {onImportSchedule && (
+            <DropdownMenuItem onClick={onImportSchedule}>
+              Import schedule…
+            </DropdownMenuItem>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
     </div>
@@ -394,6 +404,7 @@ export default function RacesPage({
     focusIndexAfterChange: focusRaceAfterChange,
   } = useRovingFocus<HTMLDivElement>(raceIds);
   const raceSenseRef = useRef<RaceSenseImportHandle>(null);
+  const scheduleImportRef = useRef<ScheduleImportHandle>(null);
 
   // Handicap race creation dialog state
   const [showNewRaceDialog, setShowNewRaceDialog] = useState(false);
@@ -451,6 +462,7 @@ export default function RacesPage({
   // two gates is on.
   const showResultsStatus = has('results-status');
   const raceSenseEnabled = has('racesense-import') && !readOnly;
+  const scheduleImportEnabled = has('schedule-import') && !readOnly;
   const { data: allFinishes } = useFinishesBySeries(seriesId, {
     enabled: showResultsStatus || raceSenseEnabled,
   });
@@ -662,6 +674,13 @@ export default function RacesPage({
       section: 'Races',
       when: () => !readOnly,
       handler: openGenerateDialog,
+    },
+    {
+      key: 't',
+      description: 'Import a race schedule',
+      section: 'Races',
+      when: () => scheduleImportEnabled && series !== undefined,
+      handler: () => scheduleImportRef.current?.trigger(),
     },
     {
       key: 'i',
@@ -904,6 +923,35 @@ export default function RacesPage({
     setShowGenerateDialog(false);
   }
 
+  // Append a spreadsheet schedule's races with their starts, in one call so
+  // they land together or not at all. Throws for the import dialog to report.
+  async function handleImportSchedule(imported: ImportedRace[]) {
+    const newRaces: Race[] = imported.map((r, i) => ({
+      id: crypto.randomUUID(),
+      seriesId,
+      // Hint only — the server assigns the authoritative numbers.
+      raceNumber: existingCount + i + 1,
+      name: r.name,
+      date: r.date,
+      createdAt: Date.now(),
+    }));
+    const starts = imported.flatMap((r, i) =>
+      r.starts.map((start) => ({
+        id: crypto.randomUUID(),
+        raceId: newRaces[i].id,
+        fleetIds: start.fleetIds,
+        ...(start.startTime ? { startTime: start.startTime } : {}),
+      })),
+    );
+    log('races', 'importing schedule', { count: newRaces.length, starts: starts.length });
+    try {
+      await generateRaces.mutateAsync({ races: newRaces, starts, source: 'schedule' });
+    } catch (err) {
+      dismissError(err);
+      throw err;
+    }
+  }
+
   const allFleetIds = (fleets ?? []).map((f) => f.id);
 
   function openCreateSubSeries() {
@@ -1078,11 +1126,25 @@ export default function RacesPage({
             <AddRaceMenu
               onAddRace={handleAddRaceClick}
               onGenerate={openGenerateDialog}
+              onImportSchedule={
+                scheduleImportEnabled ? () => scheduleImportRef.current?.trigger() : undefined
+              }
               // Also wait for the series row: the handicap branch (start-time
               // dialog) versus the scratch branch (create immediately) is
               // decided from it, so a click before it loads would silently
               // create a race with no start sequence.
               disabled={addingRace || series === undefined}
+            />
+          )}
+          {scheduleImportEnabled && (
+            <ScheduleImport
+              ref={scheduleImportRef}
+              fleets={fleets ?? []}
+              startSequence={startSequence ?? []}
+              untimedSequenceWhenNoStarts={genUsesStartTime}
+              existingCount={existingCount}
+              onConfirm={handleImportSchedule}
+              describeFailure={describeWriteFailure}
             />
           )}
         </div>

@@ -85,6 +85,9 @@ export const racesReorderSchema = z.object({
 export const racesGenerateSchema = z.object({
   races: z.array(raceInputSchema).min(1),
   starts: z.array(raceStartInputSchema).default([]),
+  /** Where the races came from, for the activity log: absent for the
+   *  generator and Add race, `schedule` for a spreadsheet import. */
+  source: z.literal('schedule').optional(),
 });
 
 const _raceFromZod: Race = undefined as unknown as z.infer<typeof raceSchema>;

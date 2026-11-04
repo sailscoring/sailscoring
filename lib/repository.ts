@@ -72,6 +72,12 @@ export interface SaveOpts {
   updatedBy?: string;
 }
 
+/** `generateMany`'s options: a save's, plus where the races came from — a
+ *  spreadsheet schedule rather than the generator — for the activity log. */
+export interface GenerateRacesOpts extends SaveOpts {
+  source?: 'schedule';
+}
+
 export interface FleetRepository {
   listBySeries(seriesId: string): Promise<Fleet[]>;
   get(id: string): Promise<Fleet | undefined>;
@@ -202,7 +208,7 @@ export interface RaceRepository {
     seriesId: string,
     races: Race[],
     starts: RaceStart[],
-    opts?: SaveOpts,
+    opts?: GenerateRacesOpts,
   ): Promise<Race[]>;
   /** Renumber the series' races 1..n to match `orderedIds` (the full set in
    *  its new order). */

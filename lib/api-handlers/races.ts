@@ -159,12 +159,15 @@ export async function generateRaces(
   // A single race reads as the scorer's own gesture — Add race appends
   // through here too, and "Generated 1 race" describes neither control.
   const [single] = created.length === 1 ? created : [];
+  const fromSchedule = input.source === 'schedule';
   await trackChange(workspace, {
-    action: single ? 'race.added' : 'races.generated',
+    action: single && !fromSchedule ? 'race.added' : 'races.generated',
     seriesId,
-    summary: single
-      ? `Added Race ${single.raceNumber}`
-      : `Generated ${created.length} races`,
+    summary: fromSchedule
+      ? `Imported ${created.length} race${created.length === 1 ? '' : 's'} from a schedule`
+      : single
+        ? `Added Race ${single.raceNumber}`
+        : `Generated ${created.length} races`,
     sessionKey: 'races',
   });
   return created;

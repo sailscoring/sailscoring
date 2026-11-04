@@ -69,6 +69,14 @@ export const FEATURES = {
     label: 'Finish-sheet import (CSV / Excel)',
     helpSectionIds: ['importing-finish-sheet'],
   },
+  'schedule-import': {
+    // The Races tab's Import schedule…: a season's races and their guns read
+    // from a spreadsheet, for calendars the Add multiple races generator
+    // can't express. Opt-in while the column conventions are proven against
+    // real club schedules.
+    label: 'Schedule import (CSV / Excel)',
+    helpSectionIds: ['importing-a-schedule'],
+  },
   'racesense-import': {
     // Operator-managed: the format is still being learned from real
     // championship exports, and an import that guesses wrong is worse than

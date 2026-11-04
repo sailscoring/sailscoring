@@ -242,6 +242,37 @@ const SHOTS: Shot[] = [
     },
   },
   {
+    // Inventory: Importing a race schedule — the preview of a spreadsheet
+    // schedule, cancelled before anything is created.
+    slug: 'schedule-import',
+    group: 'Running a series',
+    async capture({ page, seriesId, shot }) {
+      await ensureFeature(page, 'schedule-import');
+      await page.goto(`${BASE}/series/${await seriesId()}/races`);
+      await settle(page);
+      const csv = [
+        'Race,Date,Name,Class 1 IRC,Class 1 ECHO,Class 2 IRC,Class 2 ECHO,Class 3 IRC,Class 3 ECHO',
+        '1,Sat 5 Sep 2026,Autumn League,10:55,10:55,11:00,11:00,11:05,11:05',
+        '2,Sat 5 Sep 2026,Autumn League,ASAP,ASAP,ASAP,ASAP,—,—',
+        '3,Sat 12 Sep 2026,Autumn League,10:55,10:55,11:00,11:00,11:05,11:05',
+        '4,Sat 26 Sep 2026,Round the Island,10:30,10:30,10:30,10:30,10:40,10:40',
+        '5,Sat 3 Oct 2026,Autumn League,10:55,10:55,11:00,11:00,11:05,11:05',
+        '6,Sat 3 Oct 2026,Autumn League,ASAP,ASAP,ASAP,ASAP,—,—',
+      ].join('\n');
+      await page.getByTestId('schedule-import-input').setInputFiles({
+        name: 'autumn-league.csv',
+        mimeType: 'text/csv',
+        buffer: Buffer.from(csv),
+      });
+      await page.getByRole('heading', { name: /map columns/i }).waitFor();
+      await page.getByRole('button', { name: /Preview \d+ rows/i }).click();
+      await page.getByRole('heading', { name: /confirm schedule import/i }).waitFor();
+      await settle(page);
+      await shot('schedule-import.png');
+      await page.keyboard.press('Escape');
+    },
+  },
+  {
     // Inventory: Result codes — the grouped dropdown on a non-finisher.
     slug: 'result-codes',
     group: 'Entering results',

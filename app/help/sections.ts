@@ -46,6 +46,7 @@ export const HELP_GROUPS: HelpGroupDef[] = [
       { id: 'start-sequences', title: 'Start sequences', keywords: ['gun', 'start time', 'sequence', 'warning signal', 'starting order'] },
       { id: 'race-fleets', title: 'Which fleets are in a race', keywords: ['start', 'which classes raced', 'membership', 'sat out', 'did not sail'] },
       { id: 'adding-races', title: 'Adding races', keywords: ['race day', 'add race', 'calendar', 'schedule', 'bulk', 'generate races'] },
+      { id: 'importing-a-schedule', title: 'Importing a race schedule', feature: 'schedule-import', keywords: ['schedule', 'calendar', 'programme', 'timetable', 'csv', 'excel', 'spreadsheet', 'start times', 'import races'] },
       { id: 'race-management-metadata', title: 'Race conditions and the management team', feature: 'race-management-metadata', keywords: ['race officer', 'pro', 'officer of the day', 'ood', 'conditions', 'wind', 'jury', 'officials'] },
       { id: 'sub-series', title: 'Sub-series', feature: 'sub-series', keywords: ['block', 'spring series', 'autumn series', 'split a season', 'sailwave series'] },
       { id: 'creating-a-follow-on-series', title: 'Creating a follow-on series', feature: 'follow-on-series', keywords: ['next series', 'carry over', 'copy entries', 'new season'] },

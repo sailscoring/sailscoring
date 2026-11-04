@@ -207,6 +207,28 @@ describe.skipIf(skip)('activity log wiring (#153)', () => {
     await series.deleteSeries(ctx, seriesId);
   });
 
+  test('races imported from a schedule say so, even one', async () => {
+    const seriesId = uuid();
+    await series.putSeries(ctx, seriesId, sampleSeries(seriesId));
+
+    await races.generateRaces(ctx, seriesId, {
+      races: [{ id: uuid(), seriesId, raceNumber: 1, date: '2026-04-01', createdAt: Date.now() }],
+      starts: [],
+      source: 'schedule',
+    });
+
+    const { items } = await feed(ctx, seriesId);
+    expect(
+      items.some(
+        (i) => i.action === 'races.generated' && i.summary === 'Imported 1 race from a schedule',
+      ),
+    ).toBe(true);
+    expect(items.some((i) => i.action === 'race.added')).toBe(false);
+
+    await series.setSeriesArchived(ctx, seriesId, { archived: true });
+    await series.deleteSeries(ctx, seriesId);
+  });
+
   test('reordering races renumbers them and logs races.reordered', async () => {
     const seriesId = uuid();
     await series.putSeries(ctx, seriesId, sampleSeries(seriesId));

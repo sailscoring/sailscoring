@@ -574,6 +574,53 @@ export default function RunningASeries() {
           so reordering or inserting never disturbs a previously scored redress.
         </p>
       </Section>
+      {has('schedule-import') && (
+        <Section id="importing-a-schedule" title="Importing a race schedule">
+          <HelpShot
+            src="/help/shots/schedule-import.webp"
+            alt="Import schedule previews every race with its starts before anything is created."
+            caption="Import schedule previews every race with its starts before anything is created."
+          />
+          <p>
+            When the club has already written the season down — irregular race days, guns that
+            differ race to race, fleets that don’t sail every race — import it rather than typing it
+            in. Use the chevron beside{' '}
+            <strong className="text-foreground">Add race ▸ Import schedule…</strong> (or press{' '}
+            <kbd>t</kbd>) and pick a .csv or .xlsx with one row per race.
+          </p>
+          <p>
+            Each row needs a <strong className="text-foreground">date</strong>; a typed date is read
+            day first, so <em>8/11/2025</em> is the 8th of November, and a row with no date is left
+            out and named. A <strong className="text-foreground">name</strong> column labels the race,
+            and a <strong className="text-foreground">race number</strong> column orders the rows —
+            the races are added after any already in the series and numbered from there. Give the
+            guns in one of two ways:
+          </p>
+          <ul className="list-disc space-y-1 pl-6">
+            <li>
+              <strong className="text-foreground">One Start column</strong> — the first gun of each
+              race, run through the series’ default start sequence, the same as Add multiple races.
+            </li>
+            <li>
+              <strong className="text-foreground">A column for each fleet</strong>, headed with the
+              fleet’s name (<em>ILCA &amp; 420</em>, or <em>Start: ILCA &amp; 420</em>). Fleets on the
+              same time share a start; a blank or a dash means that fleet doesn’t sail the race.
+            </li>
+          </ul>
+          <p>
+            Write <em>ASAP</em> or <em>TBC</em> where a gun isn’t fixed — the second race of a day
+            usually goes as soon as possible after the first. That race gets its starts with no gun
+            time, to enter on the day; fleets the default start sequence sends off together share
+            one. Anything else that isn’t a time is reported against its row
+            rather than guessed at.
+          </p>
+          <p>
+            The columns are matched to fields and fleets for you; any the import doesn’t recognise
+            can be pointed at the right one, or ignored. The preview lists every race with its starts
+            before anything is created.
+          </p>
+        </Section>
+      )}
       {has('race-management-metadata') && (
         <Section id="race-management-metadata" title="Race conditions and the management team">
           <HelpShot
