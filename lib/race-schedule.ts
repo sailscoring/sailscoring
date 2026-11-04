@@ -3,9 +3,11 @@
  * should carry.
  *
  * A season is usually a run of races on a fixed weekday at a fixed cadence
- * (weekly or fortnightly). {@link generateRaceDates} expands a start date +
+ * (weekly or fortnightly); a regatta is a run of consecutive days. Either may
+ * sail several races a day. {@link generateRaceDates} expands a start date +
  * interval into the list of race dates, either a fixed count or up to an
- * inclusive end date.
+ * inclusive end date; {@link generateRaceSchedule} puts a number of races on
+ * each of those days.
  *
  * Date arithmetic is done on the calendar parts via `Date.UTC`, advancing with
  * `setUTCDate` — never by adding a fixed number of milliseconds. Millisecond
@@ -16,10 +18,13 @@
 /** Default hard cap on how many races one generation can create. */
 export const MAX_GENERATED_RACES = 120;
 
+/** Most races the generator will put on one day. */
+export const MAX_RACES_PER_DAY = 10;
+
 export interface RaceScheduleOptions {
   /** ISO date "YYYY-MM-DD" of the first race. */
   startDate: string;
-  /** Days between consecutive races: 7 = weekly, 14 = fortnightly. */
+  /** Days between consecutive race days: 1 = daily, 7 = weekly, 14 = fortnightly. */
   intervalDays: number;
   /** Mode A — generate exactly this many races. */
   count?: number;
@@ -159,4 +164,33 @@ export function generateRaceDates(opts: RaceScheduleOptions): string[] {
   }
 
   return [];
+}
+
+/** One day of a generated schedule: its date and how many races sail on it. */
+export interface RaceDay {
+  date: string;
+  races: number;
+}
+
+export interface RaceDayScheduleOptions extends RaceScheduleOptions {
+  /** Races sailed on each day, 1 to {@link MAX_RACES_PER_DAY}. */
+  racesPerDay: number;
+}
+
+/**
+ * Expand a recurring schedule into race days, each carrying `racesPerDay`
+ * races. `count` counts days, not races — a scorer setting up "four Sundays,
+ * three races each" thinks in Sundays.
+ *
+ * The `maxRaces` cap counts races, so a schedule of three races a day stops at
+ * a third as many days, and every day it returns is a full one. Returns `[]`
+ * for anything {@link generateRaceDates} would, and for a races-per-day outside
+ * 1 to {@link MAX_RACES_PER_DAY}.
+ */
+export function generateRaceSchedule(opts: RaceDayScheduleOptions): RaceDay[] {
+  const perDay = Math.floor(opts.racesPerDay);
+  if (!Number.isFinite(perDay) || perDay < 1 || perDay > MAX_RACES_PER_DAY) return [];
+  const cap = Math.max(0, Math.floor(opts.maxRaces ?? MAX_GENERATED_RACES));
+  const dates = generateRaceDates({ ...opts, maxRaces: Math.floor(cap / perDay) });
+  return dates.map((date) => ({ date, races: perDay }));
 }

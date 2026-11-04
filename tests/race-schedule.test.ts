@@ -3,8 +3,10 @@ import { describe, it, expect } from 'vitest';
 import {
   defaultRaceDate,
   generateRaceDates,
+  generateRaceSchedule,
   todayIsoDate,
   MAX_GENERATED_RACES,
+  MAX_RACES_PER_DAY,
 } from '@/lib/race-schedule';
 
 describe('generateRaceDates', () => {
@@ -129,6 +131,78 @@ describe('generateRaceDates', () => {
       maxRaces: 10,
     });
     expect(dates).toHaveLength(10);
+  });
+});
+
+describe('generateRaceSchedule', () => {
+  it('puts the same number of races on each day, counting days', () => {
+    expect(
+      generateRaceSchedule({ startDate: '2026-11-08', intervalDays: 7, count: 4, racesPerDay: 3 }),
+    ).toEqual([
+      { date: '2026-11-08', races: 3 },
+      { date: '2026-11-15', races: 3 },
+      { date: '2026-11-22', races: 3 },
+      { date: '2026-11-29', races: 3 },
+    ]);
+  });
+
+  it('runs a regatta on consecutive days', () => {
+    expect(
+      generateRaceSchedule({
+        startDate: '2026-08-23',
+        intervalDays: 1,
+        untilDate: '2026-08-26',
+        racesPerDay: 2,
+      }),
+    ).toEqual([
+      { date: '2026-08-23', races: 2 },
+      { date: '2026-08-24', races: 2 },
+      { date: '2026-08-25', races: 2 },
+      { date: '2026-08-26', races: 2 },
+    ]);
+  });
+
+  it('is one race a day when racesPerDay is 1, matching generateRaceDates', () => {
+    const opts = { startDate: '2026-05-05', intervalDays: 14, untilDate: '2026-06-16' };
+    expect(generateRaceSchedule({ ...opts, racesPerDay: 1 }).map((d) => d.date)).toEqual(
+      generateRaceDates(opts),
+    );
+  });
+
+  it('applies the cap to races, keeping every day whole', () => {
+    const days = generateRaceSchedule({
+      startDate: '2026-01-04',
+      intervalDays: 7,
+      count: 1000,
+      racesPerDay: 7,
+    });
+    expect(days).toHaveLength(Math.floor(MAX_GENERATED_RACES / 7));
+    expect(days.every((d) => d.races === 7)).toBe(true);
+  });
+
+  it('honours an explicit cap', () => {
+    expect(
+      generateRaceSchedule({
+        startDate: '2026-01-04',
+        intervalDays: 7,
+        count: 10,
+        racesPerDay: 3,
+        maxRaces: 7,
+      }),
+    ).toHaveLength(2);
+  });
+
+  it('returns nothing for a races-per-day out of range', () => {
+    const base = { startDate: '2026-05-05', intervalDays: 7, count: 4 };
+    expect(generateRaceSchedule({ ...base, racesPerDay: 0 })).toEqual([]);
+    expect(generateRaceSchedule({ ...base, racesPerDay: Number.NaN })).toEqual([]);
+    expect(generateRaceSchedule({ ...base, racesPerDay: MAX_RACES_PER_DAY + 1 })).toEqual([]);
+  });
+
+  it('returns nothing when the dates themselves are invalid', () => {
+    expect(
+      generateRaceSchedule({ startDate: 'nope', intervalDays: 7, count: 4, racesPerDay: 2 }),
+    ).toEqual([]);
   });
 });
 
