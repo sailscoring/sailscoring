@@ -544,6 +544,13 @@ export default function RunningASeries() {
           no gun time, since they start once the race before is in — enter each gun time on the day.
         </p>
         <p>
+          A calendar is rarely that even. In the preview, <strong className="text-foreground">−</strong>{' '}
+          and <strong className="text-foreground">+</strong> change one day’s races and{' '}
+          <strong className="text-foreground">×</strong> skips the day — a bank holiday, a club
+          event — and the race numbers follow. Those changes belong to the list as generated:
+          changing the dates, the repeat, the races each day or how many starts it again.
+        </p>
+        <p>
           Each race card shows how many finishes have been recorded. Click a race card to open the
           result entry screen for that race. The race date is shown beneath the heading there —
           click it to change it (handy after an import that guessed the date, or if a race is

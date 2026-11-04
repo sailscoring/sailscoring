@@ -41,7 +41,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { ChevronDown, ChevronsUpDown, Pencil, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronsUpDown, Minus, Pencil, Plus, Trash2, X } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -61,10 +61,15 @@ import { normalizeTimeInput } from '@/lib/time-parse';
 import { describeWriteFailure } from '@/lib/write-failure';
 import { hasTrackData } from '@/lib/track-data';
 import {
+  adjustRaceDay,
+  canAdjustRaceDay,
   defaultRaceDate,
   generateRaceSchedule,
   MAX_GENERATED_RACES,
   MAX_RACES_PER_DAY,
+  skipRaceDay,
+  totalRaces,
+  type RaceDay,
 } from '@/lib/race-schedule';
 import { groupRacesBySubSeries } from '@/lib/scoring';
 import { RaceSenseImport, type RaceSenseImportHandle } from '@/components/racesense-import';
@@ -407,6 +412,10 @@ export default function RacesPage({
   const [genStartDate, setGenStartDate] = useState('');
   const [genInterval, setGenInterval] = useState<GenInterval>('weekly');
   const [genRacesPerDay, setGenRacesPerDay] = useState('1');
+  // Per-day edits to the previewed schedule, tagged with the inputs they were
+  // made against: once any of those inputs changes the schedule is generated
+  // afresh and the edits no longer apply.
+  const [genEdits, setGenEdits] = useState<{ key: string; days: RaceDay[] } | null>(null);
   const [genMode, setGenMode] = useState<'count' | 'until'>('count');
   const [genCount, setGenCount] = useState('8');
   const [genUntilDate, setGenUntilDate] = useState('');
@@ -509,11 +518,30 @@ export default function RacesPage({
         untilDate: genMode === 'until' ? genUntilDate || undefined : undefined,
       })
     : [];
-  const genRaceTotal = genSchedule.reduce((n, day) => n + day.races, 0);
+  const genInputsKey = JSON.stringify([
+    genStartDate, genInterval, genRacesPerDay, genMode, genCount, genUntilDate,
+  ]);
+  const genEdited = genEdits !== null && genEdits.key === genInputsKey;
+  // The days the dialog will create: the generated run, as edited.
+  const genDays = genEdited ? genEdits.days : genSchedule;
+  const genRaceTotal = totalRaces(genDays);
+  const genSeveralADay = genMultiPerDay || genDays.some((day) => day.races > 1);
+  const existingCount = races?.length ?? 0;
+  // An edit to the previewed days, tagged with the inputs it was made against.
+  const editGenDays = (days: RaceDay[]) => {
+    setGenEdits({ key: genInputsKey, days });
+    setGenError('');
+    setGenErrorField(null);
+  };
+  // Race numbers run on across the days, so an edited day renumbers every
+  // day after it.
+  const genDayRows = genDays.map((day, i) => {
+    const first = existingCount + 1 + totalRaces(genDays.slice(0, i));
+    return { ...day, first, last: first + day.races - 1 };
+  });
   const genCountLabel = genMultiPerDay ? 'Number of race days' : 'Number of races';
   // Racing every day falls on every weekday, so there's none to name.
   const genWeekday = genInterval === 'daily' ? null : weekdayLabel(genStartDate);
-  const existingCount = races?.length ?? 0;
 
   const fleetNameById = new Map((fleets ?? []).map((f) => [f.id, f.name]));
 
@@ -777,6 +805,7 @@ export default function RacesPage({
     setGenStartDate(newRaceDate(races ?? []));
     setGenInterval('weekly');
     setGenRacesPerDay('1');
+    setGenEdits(null);
     setGenMode('count');
     setGenCount('8');
     setGenUntilDate('');
@@ -800,6 +829,7 @@ export default function RacesPage({
     setGenErrorField(null);
   }
 
+
   async function handleGenerateRaces() {
     if (generateRaces.isPending) return;
     if (!genStartDate) {
@@ -818,6 +848,10 @@ export default function RacesPage({
       failGen(`Enter how many races each day, from 1 to ${MAX_RACES_PER_DAY}.`, 'perDay');
       return;
     }
+    if (genSchedule.length > 0 && genDays.length === 0) {
+      failGen('Every race day is skipped. Start the list again to bring them back.', 'count');
+      return;
+    }
     if (genSchedule.length === 0) {
       if (genMode === 'until') {
         failGen('That range produces no races — check the dates.', 'until');
@@ -830,7 +864,7 @@ export default function RacesPage({
     const name = genName.trim() || null;
     // Each race remembers whether it's the first of its day: only that one
     // has a known gun time.
-    const planned = genSchedule.flatMap((day) =>
+    const planned = genDays.flatMap((day) =>
       Array.from({ length: day.races }, (_, i) => ({ date: day.date, firstOfDay: i === 0 })),
     );
     const newRaces: Race[] = planned.map(({ date }, i) => ({
@@ -1196,8 +1230,8 @@ export default function RacesPage({
             <DialogTitle>Add multiple races</DialogTitle>
             <DialogDescription>
               Generate a run of races on a fixed cadence, one or several each
-              day. Postpone, rename, or drop any single race afterwards like an
-              ordinary race.
+              day. Change any day’s races or skip it in the list before
+              creating them; afterwards each is an ordinary race.
             </DialogDescription>
           </DialogHeader>
           <div className="max-h-[60dvh] space-y-4 overflow-y-auto pr-1">
@@ -1326,31 +1360,73 @@ export default function RacesPage({
             {genSchedule.length > 0 && (
               <div className="space-y-1 rounded-md border p-2">
                 <p className="text-xs font-medium text-muted-foreground">
-                  {genRaceTotal} race{genRaceTotal === 1 ? '' : 's'}
-                  {genMultiPerDay && ` on ${genSchedule.length} day${genSchedule.length === 1 ? '' : 's'}`}
-                  {' '}will be created:
+                  {genDays.length === 0
+                    ? 'Every race day is skipped.'
+                    : `${genRaceTotal} race${genRaceTotal === 1 ? '' : 's'}${
+                        genSeveralADay ? ` on ${genDays.length} day${genDays.length === 1 ? '' : 's'}` : ''
+                      } will be created:`}
                 </p>
-                <div className="max-h-40 space-y-0.5 overflow-y-auto text-sm" data-testid="gen-preview">
-                  {genMultiPerDay
-                    ? genSchedule.map((day, d) => {
-                        const first = existingCount + d * day.races + 1;
-                        const last = first + day.races - 1;
-                        return (
-                          <p key={day.date} className="font-mono text-xs">
-                            {day.date} · Races {first}–{last}
-                          </p>
-                        );
-                      })
-                    : genSchedule.map((day, i) => (
-                        <p key={day.date} className="font-mono text-xs">
-                          {existingCount + i + 1}. {day.date}
-                        </p>
-                      ))}
-                </div>
+                <ul className="max-h-56 overflow-y-auto text-sm" data-testid="gen-preview">
+                  {genDayRows.map(({ first, last, ...day }) => (
+                        <li key={day.date} className="flex items-center gap-1">
+                          <span className="min-w-0 flex-1 font-mono text-xs">
+                            {day.date} · {day.races === 1 ? `Race ${first}` : `Races ${first}–${last}`}
+                          </span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            aria-label={`One race fewer on ${day.date}`}
+                            disabled={!canAdjustRaceDay(genDays, day.date, -1)}
+                            onClick={() => editGenDays(adjustRaceDay(genDays, day.date, -1))}
+                          >
+                            <Minus className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            aria-label={`One more race on ${day.date}`}
+                            disabled={!canAdjustRaceDay(genDays, day.date, 1)}
+                            onClick={() => editGenDays(adjustRaceDay(genDays, day.date, 1))}
+                          >
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            aria-label={`Skip ${day.date}`}
+                            onClick={() => editGenDays(skipRaceDay(genDays, day.date))}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </li>
+                  ))}
+                </ul>
                 {genMode === 'count' && Number(genCount) > genSchedule.length && (
                   <p className="text-xs text-muted-foreground">
                     Capped at {MAX_GENERATED_RACES} races per generation.
                   </p>
+                )}
+                {genEdited && (
+                  <div className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
+                    <p className="basis-full sm:basis-auto">
+                      Changing the dates, repeat, races each day or how many starts this list again.
+                    </p>
+                    <Button
+                      type="button"
+                      variant="link"
+                      size="sm"
+                      className="h-auto p-0 text-xs"
+                      onClick={() => { setGenEdits(null); clearGenError(); }}
+                    >
+                      Start again
+                    </Button>
+                  </div>
                 )}
               </div>
             )}

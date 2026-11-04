@@ -4,6 +4,10 @@ import {
   defaultRaceDate,
   generateRaceDates,
   generateRaceSchedule,
+  adjustRaceDay,
+  canAdjustRaceDay,
+  skipRaceDay,
+  totalRaces,
   todayIsoDate,
   MAX_GENERATED_RACES,
   MAX_RACES_PER_DAY,
@@ -203,6 +207,53 @@ describe('generateRaceSchedule', () => {
     expect(
       generateRaceSchedule({ startDate: 'nope', intervalDays: 7, count: 4, racesPerDay: 2 }),
     ).toEqual([]);
+  });
+});
+
+describe('editing a generated schedule', () => {
+  const days = [
+    { date: '2026-09-05', races: 1 },
+    { date: '2026-09-12', races: 1 },
+    { date: '2026-09-19', races: 1 },
+  ];
+
+  it('adds a race to one day only', () => {
+    const next = adjustRaceDay(days, '2026-09-12', 1);
+    expect(next.map((d) => d.races)).toEqual([1, 2, 1]);
+    expect(totalRaces(next)).toBe(4);
+    // The input is left alone.
+    expect(totalRaces(days)).toBe(3);
+  });
+
+  it('never steps a day below one race — skipping it is how a day goes', () => {
+    expect(canAdjustRaceDay(days, '2026-09-05', -1)).toBe(false);
+    expect(adjustRaceDay(days, '2026-09-05', -1)).toEqual(days);
+  });
+
+  it('stops at the races-per-day limit', () => {
+    const full = [{ date: '2026-09-05', races: MAX_RACES_PER_DAY }];
+    expect(canAdjustRaceDay(full, '2026-09-05', 1)).toBe(false);
+    expect(canAdjustRaceDay(full, '2026-09-05', -1)).toBe(true);
+  });
+
+  it('refuses an increase past the overall cap but allows a decrease', () => {
+    const two = [
+      { date: '2026-09-05', races: 2 },
+      { date: '2026-09-12', races: 2 },
+    ];
+    expect(canAdjustRaceDay(two, '2026-09-05', 1, 4)).toBe(false);
+    expect(canAdjustRaceDay(two, '2026-09-05', -1, 4)).toBe(true);
+  });
+
+  it('refuses a date the schedule does not have', () => {
+    expect(canAdjustRaceDay(days, '2026-01-01', 1)).toBe(false);
+  });
+
+  it('skips a day, keeping the others in order', () => {
+    expect(skipRaceDay(days, '2026-09-12').map((d) => d.date)).toEqual([
+      '2026-09-05',
+      '2026-09-19',
+    ]);
   });
 });
 

@@ -194,3 +194,43 @@ export function generateRaceSchedule(opts: RaceDayScheduleOptions): RaceDay[] {
   const dates = generateRaceDates({ ...opts, maxRaces: Math.floor(cap / perDay) });
   return dates.map((date) => ({ date, races: perDay }));
 }
+
+/** Total races across a schedule's days. */
+export function totalRaces(days: readonly RaceDay[]): number {
+  return days.reduce((n, day) => n + day.races, 0);
+}
+
+/**
+ * Whether one day's race count can move by `delta`: it stays within 1 to
+ * {@link MAX_RACES_PER_DAY}, and an increase keeps the schedule within the
+ * `maxRaces` cap. A day goes to no races by being skipped, not stepped down.
+ */
+export function canAdjustRaceDay(
+  days: readonly RaceDay[],
+  date: string,
+  delta: number,
+  maxRaces: number = MAX_GENERATED_RACES,
+): boolean {
+  const day = days.find((d) => d.date === date);
+  if (!day || !Number.isInteger(delta) || delta === 0) return false;
+  const next = day.races + delta;
+  if (next < 1 || next > MAX_RACES_PER_DAY) return false;
+  return delta < 0 || totalRaces(days) + delta <= maxRaces;
+}
+
+/** The schedule with one day's race count moved by `delta`, or unchanged
+ *  when {@link canAdjustRaceDay} says it can't move. */
+export function adjustRaceDay(
+  days: readonly RaceDay[],
+  date: string,
+  delta: number,
+  maxRaces: number = MAX_GENERATED_RACES,
+): RaceDay[] {
+  if (!canAdjustRaceDay(days, date, delta, maxRaces)) return [...days];
+  return days.map((d) => (d.date === date ? { ...d, races: d.races + delta } : d));
+}
+
+/** The schedule without one of its days — a bank holiday, a club event. */
+export function skipRaceDay(days: readonly RaceDay[], date: string): RaceDay[] {
+  return days.filter((d) => d.date !== date);
+}

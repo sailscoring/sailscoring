@@ -111,10 +111,10 @@ test('generate four Sundays with three races each', async ({ page }) => {
   await dialog.getByRole('spinbutton', { name: 'Number of race days' }).fill('4');
 
   await expect(dialog.getByText('12 races on 4 days will be created:')).toBeVisible();
-  const preview = dialog.getByTestId('gen-preview');
-  await expect(preview.locator('p')).toHaveCount(4);
-  await expect(preview.locator('p').first()).toHaveText('2026-11-08 · Races 1–3');
-  await expect(preview.locator('p').last()).toHaveText('2026-11-29 · Races 10–12');
+  const preview = dialog.getByTestId('gen-preview').getByRole('listitem');
+  await expect(preview).toHaveCount(4);
+  await expect(preview.first()).toHaveText('2026-11-08 · Races 1–3');
+  await expect(preview.last()).toHaveText('2026-11-29 · Races 10–12');
 
   await dialog.getByRole('button', { name: 'Create 12 races' }).click();
 
@@ -125,4 +125,60 @@ test('generate four Sundays with three races each', async ({ page }) => {
   await expect(rows.nth(3)).toContainText('2026-11-15');
   await expect(rows.nth(11)).toContainText('Race 12');
   await expect(rows.nth(11)).toContainText('2026-11-29');
+});
+
+/**
+ * An uneven calendar: six Saturdays, two races on some and one on others,
+ * and a date skipped. The preview renumbers as days change, and changing an
+ * input that generates the list throws the edits away.
+ */
+test('vary races per day and skip a date in the preview', async ({ page }) => {
+  await createSeriesQuick(page, { name: 'Autumn League', venue: 'Howth Yacht Club' });
+
+  await page.getByRole('link', { name: 'Races' }).click();
+  await expect(page).toHaveURL(/\/races$/);
+
+  await page.getByRole('button', { name: 'More add-race options' }).click();
+  await page.getByRole('menuitem', { name: 'Add multiple races…' }).click();
+
+  const dialog = page.getByRole('dialog');
+  await dialog.getByLabel('First race date').fill('2026-09-05');
+  await dialog.getByRole('spinbutton', { name: 'Number of races' }).fill('6');
+  await expect(dialog.getByText('6 races will be created:')).toBeVisible();
+
+  // A day already at one race can't be stepped down — skipping is how it goes.
+  await expect(dialog.getByRole('button', { name: 'One race fewer on 2026-09-05' })).toBeDisabled();
+
+  await dialog.getByRole('button', { name: 'One more race on 2026-09-05' }).click();
+  await dialog.getByRole('button', { name: 'One more race on 2026-09-19' }).click();
+  await dialog.getByRole('button', { name: 'Skip 2026-09-26' }).click();
+
+  await expect(dialog.getByText('7 races on 5 days will be created:')).toBeVisible();
+  const preview = dialog.getByTestId('gen-preview').getByRole('listitem');
+  await expect(preview).toHaveText([
+    '2026-09-05 · Races 1–2',
+    '2026-09-12 · Race 3',
+    '2026-09-19 · Races 4–5',
+    '2026-10-03 · Race 6',
+    '2026-10-10 · Race 7',
+  ]);
+
+  // Changing how many throws the edits away, as the dialog warns.
+  await expect(dialog.getByText(/starts this list again/)).toBeVisible();
+  await dialog.getByRole('spinbutton', { name: 'Number of races' }).fill('4');
+  await expect(dialog.getByText('4 races will be created:')).toBeVisible();
+  await expect(dialog.getByText(/starts this list again/)).toBeHidden();
+
+  // Edit again and create.
+  await dialog.getByRole('button', { name: 'One more race on 2026-09-12' }).click();
+  await dialog.getByRole('button', { name: 'Skip 2026-09-19' }).click();
+  await dialog.getByRole('button', { name: 'Create 4 races' }).click();
+
+  const rows = page.getByTestId('race-row');
+  await expect(rows).toHaveCount(4);
+  await expect(rows.nth(0)).toContainText('2026-09-05');
+  await expect(rows.nth(1)).toContainText('2026-09-12');
+  await expect(rows.nth(2)).toContainText('2026-09-12');
+  await expect(rows.nth(3)).toContainText('Race 4');
+  await expect(rows.nth(3)).toContainText('2026-09-26');
 });
