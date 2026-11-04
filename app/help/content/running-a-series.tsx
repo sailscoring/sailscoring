@@ -517,8 +517,8 @@ export default function RunningASeries() {
       <Section id="adding-races" title="Adding races">
         <HelpShot
           src="/help/shots/add-races-bulk.webp"
-          alt="Add multiple races previews every generated date before anything is created."
-          caption="Add multiple races previews every generated date before anything is created."
+          alt="Add multiple races previews every race day before anything is created."
+          caption="Add multiple races previews every race day before anything is created."
         />
         <p>
           On the <strong className="text-foreground">Races</strong> tab, create a race for each
@@ -534,6 +534,14 @@ export default function RunningASeries() {
           optional name is applied to every race, and for handicap series with a start sequence the
           first start time runs that sequence in each one. The races are appended after any existing
           ones — postpone, rename, or drop any single date afterwards exactly like a hand-added race.
+        </p>
+        <p>
+          Where several races are sailed each day — four Sundays of three races, or a regatta on
+          consecutive days (choose <strong className="text-foreground">Daily</strong>) — set{' '}
+          <strong className="text-foreground">Races each day</strong>. The count then counts race
+          days, and the preview lists each day with its race numbers. In a handicap series only the
+          first race of each day gets the first start time: the later ones get the same starts with
+          no gun time, since they start once the race before is in — enter each gun time on the day.
         </p>
         <p>
           Each race card shows how many finishes have been recorded. Click a race card to open the

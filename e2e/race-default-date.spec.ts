@@ -17,7 +17,7 @@ test('a new race takes the date of the last race in the series', async ({ page }
   await page.getByRole('menuitem', { name: 'Add multiple races…' }).click();
   const dialog = page.getByRole('dialog');
   await dialog.getByLabel('First race date').fill('2026-05-05');
-  await dialog.getByRole('spinbutton').fill('2');
+  await dialog.getByRole('spinbutton', { name: 'Number of races' }).fill('2');
   await dialog.getByRole('button', { name: 'Create 2 races' }).click();
 
   const rows = page.getByTestId('race-row');

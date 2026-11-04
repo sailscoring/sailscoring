@@ -60,7 +60,12 @@ import { generateStarts } from '@/lib/start-sequence';
 import { normalizeTimeInput } from '@/lib/time-parse';
 import { describeWriteFailure } from '@/lib/write-failure';
 import { hasTrackData } from '@/lib/track-data';
-import { defaultRaceDate, generateRaceDates, MAX_GENERATED_RACES } from '@/lib/race-schedule';
+import {
+  defaultRaceDate,
+  generateRaceSchedule,
+  MAX_GENERATED_RACES,
+  MAX_RACES_PER_DAY,
+} from '@/lib/race-schedule';
 import { groupRacesBySubSeries } from '@/lib/scoring';
 import { RaceSenseImport, type RaceSenseImportHandle } from '@/components/racesense-import';
 import { RaceScoringOptionsDialog } from '@/components/race-scoring-options-dialog';
@@ -297,10 +302,15 @@ function RaceRow({
   );
 }
 
+/** The "Add multiple races" controls an error can belong to. */
+type GenField = 'date' | 'perDay' | 'count' | 'until' | 'startTime';
+
+/** The generator's Repeat choices, as days between race days. */
+const GEN_INTERVAL_DAYS = { daily: 1, weekly: 7, fortnightly: 14 } as const;
+type GenInterval = keyof typeof GEN_INTERVAL_DAYS;
+
 /** Plural weekday label for an ISO date, e.g. "2026-05-05" → "Tuesdays".
  *  Interprets the date as UTC so the weekday doesn't drift by timezone. */
-/** The "Add multiple races" controls an error can belong to. */
-type GenField = 'date' | 'count' | 'until' | 'startTime';
 
 function weekdayLabel(isoDate: string): string | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) return null;
@@ -395,7 +405,8 @@ export default function RacesPage({
   // Recurring race generator ("Add multiple races") dialog state.
   const [showGenerateDialog, setShowGenerateDialog] = useState(false);
   const [genStartDate, setGenStartDate] = useState('');
-  const [genInterval, setGenInterval] = useState<'weekly' | 'fortnightly'>('weekly');
+  const [genInterval, setGenInterval] = useState<GenInterval>('weekly');
+  const [genRacesPerDay, setGenRacesPerDay] = useState('1');
   const [genMode, setGenMode] = useState<'count' | 'until'>('count');
   const [genCount, setGenCount] = useState('8');
   const [genUntilDate, setGenUntilDate] = useState('');
@@ -483,16 +494,25 @@ export default function RacesPage({
   // Generator: whether the first-start-time field applies, and the live
   // preview of the dates the current inputs would create.
   const genUsesStartTime = Boolean(isHandicap && hasStartSequence);
-  const genIntervalDays = genInterval === 'fortnightly' ? 14 : 7;
-  const genPreviewDates = genStartDate
-    ? generateRaceDates({
+  // More than one race a day turns the count into a count of days, and the
+  // preview into one row per day; at one a day the dialog reads as it always
+  // has. An unparseable entry is treated as one so the label doesn't flicker
+  // while the field is being retyped.
+  const genPerDay = Number(genRacesPerDay);
+  const genMultiPerDay = Number.isFinite(genPerDay) && genPerDay > 1;
+  const genSchedule = genStartDate
+    ? generateRaceSchedule({
         startDate: genStartDate,
-        intervalDays: genIntervalDays,
+        intervalDays: GEN_INTERVAL_DAYS[genInterval],
+        racesPerDay: genPerDay,
         count: genMode === 'count' ? Number(genCount) : undefined,
         untilDate: genMode === 'until' ? genUntilDate || undefined : undefined,
       })
     : [];
-  const genWeekday = weekdayLabel(genStartDate);
+  const genRaceTotal = genSchedule.reduce((n, day) => n + day.races, 0);
+  const genCountLabel = genMultiPerDay ? 'Number of race days' : 'Number of races';
+  // Racing every day falls on every weekday, so there's none to name.
+  const genWeekday = genInterval === 'daily' ? null : weekdayLabel(genStartDate);
   const existingCount = races?.length ?? 0;
 
   const fleetNameById = new Map((fleets ?? []).map((f) => [f.id, f.name]));
@@ -756,6 +776,7 @@ export default function RacesPage({
     // start date opens the dialog ready to generate from it.
     setGenStartDate(newRaceDate(races ?? []));
     setGenInterval('weekly');
+    setGenRacesPerDay('1');
     setGenMode('count');
     setGenCount('8');
     setGenUntilDate('');
@@ -793,23 +814,26 @@ export default function RacesPage({
         return;
       }
     }
-    const dates = generateRaceDates({
-      startDate: genStartDate,
-      intervalDays: genIntervalDays,
-      count: genMode === 'count' ? Number(genCount) : undefined,
-      untilDate: genMode === 'until' ? genUntilDate || undefined : undefined,
-    });
-    if (dates.length === 0) {
+    if (!Number.isInteger(genPerDay) || genPerDay < 1 || genPerDay > MAX_RACES_PER_DAY) {
+      failGen(`Enter how many races each day, from 1 to ${MAX_RACES_PER_DAY}.`, 'perDay');
+      return;
+    }
+    if (genSchedule.length === 0) {
       if (genMode === 'until') {
         failGen('That range produces no races — check the dates.', 'until');
       } else {
-        failGen('Enter how many races to create.', 'count');
+        failGen(genMultiPerDay ? 'Enter how many race days to create.' : 'Enter how many races to create.', 'count');
       }
       return;
     }
 
     const name = genName.trim() || null;
-    const newRaces: Race[] = dates.map((date, i) => ({
+    // Each race remembers whether it's the first of its day: only that one
+    // has a known gun time.
+    const planned = genSchedule.flatMap((day) =>
+      Array.from({ length: day.races }, (_, i) => ({ date: day.date, firstOfDay: i === 0 })),
+    );
+    const newRaces: Race[] = planned.map(({ date }, i) => ({
       id: crypto.randomUUID(),
       seriesId,
       // Server assigns authoritative numbers; this is only an ordering hint.
@@ -818,14 +842,17 @@ export default function RacesPage({
       date,
       createdAt: Date.now(),
     }));
+    // A later race on the same day starts once the one before it is in, so
+    // its time isn't known yet: it gets the sequence's starts — every fleet
+    // in its start — with the gun time left to fill in on the day.
     const starts =
       genUsesStartTime && startTime
-        ? newRaces.flatMap((race) =>
+        ? newRaces.flatMap((race, i) =>
             generateStarts(startSequence!, startTime!).map((start) => ({
               id: crypto.randomUUID(),
               raceId: race.id,
               fleetIds: start.fleetIds,
-              startTime: start.startTime,
+              ...(planned[i].firstOfDay ? { startTime: start.startTime } : {}),
             })),
           )
         : [];
@@ -1168,13 +1195,14 @@ export default function RacesPage({
           <DialogHeader>
             <DialogTitle>Add multiple races</DialogTitle>
             <DialogDescription>
-              Generate a run of races on a fixed weekday and cadence. Postpone,
-              rename, or drop any single date afterwards like an ordinary race.
+              Generate a run of races on a fixed cadence, one or several each
+              day. Postpone, rename, or drop any single race afterwards like an
+              ordinary race.
             </DialogDescription>
           </DialogHeader>
           <div className="max-h-[60dvh] space-y-4 overflow-y-auto pr-1">
             <div className="space-y-1.5">
-              <Label htmlFor="genStartDate">First race date</Label>
+              <Label htmlFor="genStartDate">{genMultiPerDay ? 'First race day' : 'First race date'}</Label>
               <Input
                 id="genStartDate"
                 type="date"
@@ -1194,11 +1222,27 @@ export default function RacesPage({
                 id="genInterval"
                 className="w-full rounded-md border bg-background px-3 py-2 text-sm"
                 value={genInterval}
-                onChange={(e) => setGenInterval(e.target.value as 'weekly' | 'fortnightly')}
+                onChange={(e) => setGenInterval(e.target.value as GenInterval)}
               >
+                <option value="daily">Daily</option>
                 <option value="weekly">Weekly</option>
                 <option value="fortnightly">Fortnightly</option>
               </select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="genRacesPerDay">Races each day</Label>
+              <Input
+                id="genRacesPerDay"
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={MAX_RACES_PER_DAY}
+                className="w-24"
+                value={genRacesPerDay}
+                ref={(el) => { genFieldRefs.current.perDay = el; }}
+                aria-invalid={genErrorField === 'perDay'}
+                onChange={(e) => { setGenRacesPerDay(e.target.value); clearGenError(); }}
+              />
             </div>
             <div className="space-y-2">
               <Label>How many</Label>
@@ -1212,11 +1256,11 @@ export default function RacesPage({
                     checked={genMode === 'count'}
                     onChange={() => { setGenMode('count'); clearGenError(); }}
                   />
-                  <span>Number of races</span>
+                  <span>{genCountLabel}</span>
                 </label>
                 <Input
                   type="number"
-                  aria-label="Number of races"
+                  aria-label={genCountLabel}
                   min={1}
                   max={MAX_GENERATED_RACES}
                   className="h-8 w-24"
@@ -1273,23 +1317,37 @@ export default function RacesPage({
                   placeholder="e.g. 14:05"
                 />
                 <p className="text-xs text-muted-foreground">
-                  The default start sequence runs from this time in every race.
+                  {genMultiPerDay
+                    ? 'The default start sequence runs from this time in the first race of each day. Later races that day get the same starts with no gun time, to fill in on the day.'
+                    : 'The default start sequence runs from this time in every race.'}
                 </p>
               </div>
             )}
-            {genPreviewDates.length > 0 && (
+            {genSchedule.length > 0 && (
               <div className="space-y-1 rounded-md border p-2">
                 <p className="text-xs font-medium text-muted-foreground">
-                  {genPreviewDates.length} race{genPreviewDates.length === 1 ? '' : 's'} will be created:
+                  {genRaceTotal} race{genRaceTotal === 1 ? '' : 's'}
+                  {genMultiPerDay && ` on ${genSchedule.length} day${genSchedule.length === 1 ? '' : 's'}`}
+                  {' '}will be created:
                 </p>
-                <div className="max-h-40 space-y-0.5 overflow-y-auto text-sm">
-                  {genPreviewDates.map((date, i) => (
-                    <p key={date} className="font-mono text-xs">
-                      {existingCount + i + 1}. {date}
-                    </p>
-                  ))}
+                <div className="max-h-40 space-y-0.5 overflow-y-auto text-sm" data-testid="gen-preview">
+                  {genMultiPerDay
+                    ? genSchedule.map((day, d) => {
+                        const first = existingCount + d * day.races + 1;
+                        const last = first + day.races - 1;
+                        return (
+                          <p key={day.date} className="font-mono text-xs">
+                            {day.date} · Races {first}–{last}
+                          </p>
+                        );
+                      })
+                    : genSchedule.map((day, i) => (
+                        <p key={day.date} className="font-mono text-xs">
+                          {existingCount + i + 1}. {day.date}
+                        </p>
+                      ))}
                 </div>
-                {genMode === 'count' && Number(genCount) > genPreviewDates.length && (
+                {genMode === 'count' && Number(genCount) > genSchedule.length && (
                   <p className="text-xs text-muted-foreground">
                     Capped at {MAX_GENERATED_RACES} races per generation.
                   </p>
@@ -1305,8 +1363,8 @@ export default function RacesPage({
           <DialogFooter>
             <Button variant="ghost" onClick={() => setShowGenerateDialog(false)}>Cancel</Button>
             <Button onClick={handleGenerateRaces} disabled={generateRaces.isPending}>
-              {genPreviewDates.length > 0
-                ? `Create ${genPreviewDates.length} race${genPreviewDates.length === 1 ? '' : 's'}`
+              {genRaceTotal > 0
+                ? `Create ${genRaceTotal} race${genRaceTotal === 1 ? '' : 's'}`
                 : 'Create races'}
             </Button>
           </DialogFooter>

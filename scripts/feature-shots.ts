@@ -232,9 +232,10 @@ const SHOTS: Shot[] = [
       await page.getByRole('menuitem', { name: 'Add multiple races…' }).click();
       const dialog = page.getByRole('dialog');
       await dialog.getByText('Add multiple races').waitFor();
-      await dialog.getByLabel('First race date').fill('2026-05-05'); // a Tuesday
-      await dialog.getByRole('spinbutton').fill('8');
-      await dialog.getByText('8 races will be created:').waitFor();
+      await dialog.getByLabel('First race date').fill('2026-11-08'); // a Sunday
+      await dialog.getByLabel('Races each day').fill('3');
+      await dialog.getByRole('spinbutton', { name: 'Number of race days' }).fill('4');
+      await dialog.getByText('12 races on 4 days will be created:').waitFor();
       await shot('add-races-bulk.png');
       await page.keyboard.press('Escape');
       await dialog.waitFor({ state: 'hidden' }).catch(() => {});

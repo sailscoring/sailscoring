@@ -113,7 +113,7 @@ test('three-start sequence at 5-minute intervals resolves to distinct start time
   await page.getByRole('menuitem', { name: 'Add multiple races…' }).click();
   const genDialog = page.getByRole('dialog');
   await genDialog.getByLabel('First race date').fill('2026-05-05');
-  await genDialog.getByRole('spinbutton').fill('20');
+  await genDialog.getByRole('spinbutton', { name: 'Number of races' }).fill('20');
   await expect(genDialog.getByText('20 races will be created:')).toBeVisible();
   const genStartTime = genDialog.getByLabel('First start time');
   await genStartTime.fill('half one');
@@ -122,6 +122,58 @@ test('three-start sequence at 5-minute intervals resolves to distinct start time
   await expect(genError).toBeVisible();
   await expect(genError).toBeInViewport();
   await expect(genStartTime).toHaveAttribute('aria-invalid', 'true');
+});
+
+/**
+ * Several races a day in a handicap series: the first race of each day gets
+ * the sequence at the first start time; the later ones get the same starts
+ * with no gun time, since they go once the race before is in.
+ */
+test('generating two races a day times only the first race of each day', async ({ page }) => {
+  await createSeriesQuick(page, { name: 'Regatta Days' });
+  await createFleets(page, ['Class A']);
+  await setScoringMode(page, 'handicap');
+
+  const fleetsRow = page.locator('h2', { hasText: 'Fleets' }).locator('..');
+  await fleetsRow.getByRole('button', { name: /Edit/ }).click();
+  const editor = page.getByText('Default start sequence').locator('..');
+  await editor.getByRole('button', { name: '+ Add start group' }).click();
+  await editor.getByRole('combobox').last().click();
+  await page.getByRole('option', { name: 'Class A' }).click();
+  await editor.getByRole('button', { name: 'Save sequence' }).click();
+  await expect(editor.getByRole('button', { name: 'Save sequence' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Done' }).first().click();
+
+  await page.getByRole('link', { name: 'Races' }).click();
+  await expect(page.getByRole('button', { name: 'Add race' })).toBeVisible();
+  await page.getByRole('button', { name: 'More add-race options' }).click();
+  await page.getByRole('menuitem', { name: 'Add multiple races…' }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByLabel('First race date').fill('2026-08-23');
+  await dialog.getByLabel('Repeat').selectOption('daily');
+  await dialog.getByLabel('Races each day').fill('2');
+  await dialog.getByRole('spinbutton', { name: 'Number of race days' }).fill('2');
+  await dialog.getByLabel('First start time').fill('11:00');
+  await expect(dialog.getByText('4 races on 2 days will be created:')).toBeVisible();
+  await dialog.getByRole('button', { name: 'Create 4 races' }).click();
+
+  const rows = page.getByTestId('race-row');
+  await expect(rows).toHaveCount(4);
+  await expect(rows.nth(1)).toContainText('2026-08-23');
+  await expect(rows.nth(2)).toContainText('2026-08-24');
+
+  // Race 3 opens day two: timed.
+  await rows.nth(2).getByText('Race 3', { exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Race starts' })).toBeVisible();
+  await expect(page.getByText('11:00:00')).toBeVisible();
+
+  // Race 4 follows it: same start, no gun time yet.
+  await page.getByRole('link', { name: 'Races' }).click();
+  await expect(page.getByRole('button', { name: 'Add race' })).toBeVisible();
+  await rows.nth(3).getByText('Race 4', { exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Race starts' })).toBeVisible();
+  await expect(page.getByText('No gun time')).toBeVisible();
+  await expect(page.getByText('11:00:00')).toHaveCount(0);
 });
 
 test('deleting a fleet strips it from the default start sequence and existing race starts', async ({ page }) => {
