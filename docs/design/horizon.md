@@ -1010,6 +1010,24 @@ chosen and whether it's capped (pursuit races usually run to a time limit, not a
 course); how mixed-handicap-system fleets are handled in one pursuit start sequence; and
 whether start times round to sensible whole seconds/minutes for a startable sequence.
 
+### Fixed-time distance races (corrected distance)
+
+The inverse of a timed race: every boat sails for a fixed time and the one that
+covers the furthest, corrected, wins. The 2026 ISORA season ran one, race 12 CW4,
+Pwllheli SC's 10-Hour Distance Race (`reference-docs:events/isora-2026/NoR-Race-12-CW4-10-Hour-Distance-Race.pdf`).
+Each boat's elapsed distance is laps started × course length, less the
+rhumb-line distance still to sail to the finish mark from the boat's position at
+the gun. That position comes from the tracker, or from a photograph of the boat's
+GPS. Corrected distance is elapsed distance ÷ TCF, to three decimals with the
+fourth always rounded up. Greatest corrected distance wins.
+
+ISORA entered the result as places, which Sail Scoring can already do through a
+start with no gun time, so the series scores correctly today. Doing it natively
+needs a per-boat "distance sailed" result (laps, plus distance to go), the course
+length on the start (`RaceStart.distanceNm` exists), and a correction step that
+divides where time-on-time multiplies. Worth building when a series runs these
+regularly; one race a season is easier entered as places.
+
 ### Combined-time races (legs summed into one result)
 
 Some races are sailed in legs, with a result for the whole race. GBSC's
@@ -1318,8 +1336,8 @@ The engine scores low-point (RRS Appendix A). Other published systems — **high
 (descending awards, e.g. 0 / 3 / 5.7 / 8 …) — are offered by Sailwave and HalSail. We
 don't have them and won't build them speculatively. Shape, when it comes: a per-series
 scoring-method selector that branches the points assignment and the A8 tie-break, with a
-fixture per method. The fleet-size-adjusted high-point family (below) is a
-separate, larger job.
+fixture per method. #745 builds that selector for ISORA's CHIPS3 (below), so
+another high-point system is a new formula behind it rather than a new model.
 
 **The first real user is Bray Sailing Club**, which has scored its dinghy series
 high-point for as long as anyone there remembers (Fiona Cassidy and Mark Henderson,
@@ -1345,61 +1363,20 @@ slight on Bray's turnout: the Sunday Dinghy Series 2025 had 49 entries and about
 starters a race, so a DNF would score about 11 against a DNC's 50. Settle which of
 the two Bray wants as part of the same conversation.
 
-### Fleet-size-adjusted high point: CHIPS3, Cox-Sprague, Rinderle B
+### Fleet-size-adjusted high point: CHIPS3 *(graduated to active work)*
 
-A distinct family from the plain high-point systems above, and the one with a
-named user on our doorstep. **ISORA** — the Irish Sea Offshore Racing
-Association, sailing between Ireland and Wales and scoring in Sailwave — has
-used it since 2011 ([scoring system](https://www.isora.org/index.php/racing/scoring-system),
-[the 2011 explanation](https://www.isora.org/images/2014/FormsAndRules/ISORAScoringSystem2011AnExplanation.pdf)).
-It exists because a long, loose offshore season breaks the assumptions
-Appendix A is built on: fields vary from 3 boats to 23 across the same series,
-races vary from a day coastal to a cross-channel passage, and most boats miss
-most races, so the DNC column dominates the standings. Two adjustments answer
-that, both on a high-point base where a win is 100:
+ISORA's system — high point, CHIPS3 fleet-size normalisation, a difficulty
+weight per race, best five to count — is no longer speculative. It is researched
+and validated against every table ISORA published for 2024–2026 in
+`docs/design/isora.md`, and tracked in #744. The engine work is #745, and the
+"best N" discards and per-sub-series discards it needs are #746 and #747.
 
-- **Fleet-size normalisation.** A place is worth points according to how many
-  boats it beat, not its ordinal. ISORA uses **CHIPS3**, the Chipstead system,
-  which Sailwave implements as an expression and which succeeded the older
-  **Rinderle B** (still used by the Gulf of Maine Racing Association) and
-  **Cox-Sprague** (RORC's). Its published closed form is
-  `S(p,n) = 95·[((n+1−p)/n)·(1 − 0.986682·e^(−0.1622·n)) + 0.81475·e^(−0.1622·n)] + 5`,
-  for place `p` in a fleet of `n`. The design targets are that first place
-  approaches but never reaches 100 and only in a big fleet, that the gap
-  between places narrows as the fleet grows, and that a mid-fleet place sits
-  near 50 whatever the fleet size — 1st of 5 scores 92.7, 1st of 20 scores
-  99.4, 5th of 5 scores 50.1, 10th of 20 scores 58.3.
-- **Per-race weighting.** Each race carries a difficulty multiplier applied to
-  the whole scale, so a win in a hard race is worth more than a win in an easy
-  one. ISORA sets the factors at its AGM and has revised them repeatedly: 2011
-  ran 1.0 / 1.1 / 1.2 by passage length, 2018 ran 0.9 day / 1.0 night / 1.2 /
-  1.3, and 2025 runs 0.7 day coastal, 0.9 night coastal, 1.1 offshore under 70
-  miles, 1.2 over 70, 1.3 for the James Eadie Race.
-
-The code behaviour is inverted with it: DNC scores **zero** — which is the
-point, since it costs nothing to score a boat that stayed home — and DNF is
-the points for last-plus-one. Ties are rare enough that the A8 tie-break
-matters much less.
-
-Shape of the change, and why it is bigger than the entry above: the per-race
-multiplier is a new field on `Race` and a new column in the published results,
-and unlike a scoring-method selector it touches everything downstream —
-discards (a discarded 130-point race is not a discarded 90-point race),
-standings presentation, sub-series, and the file format. The points function
-itself is the easy half: one formula over (place, starters), parameterised so
-CHIPS3, Rinderle B, and a straight percentage-of-fleet are the same code path
-with different constants. Handicap correction is orthogonal and unaffected —
-ISORA corrects on IRC and then scores the corrected order.
-
-How ISORA publishes the results — their "matrix tables", which is Sailwave's
-`ScoredSeperatelyMatrix` effect — graduated to active work as #604.
-
-Demand-driven like the rest of this section, but worth noting that the demand
-is a plausible phone call rather than a hypothetical: ISORA is an Irish Sea
-association publishing Sailwave output, which is exactly the profile of the
-users we already have. If that call comes, the first question to ask is
-whether they want the weighting *and* CHIPS3 or only one — they are separable,
-and the weighting alone is much the cheaper feature.
+The research corrected two assumptions this entry made. ISORA's DNF is not "the
+points for last-plus-one" but a fixed value — 10 × weight in 2024 and 2025, 15 ×
+weight in 2026. And since 2025 the fleet size is the boats *entered* in the race,
+not the starters. The other members of the family — Cox-Sprague (RORC's) and
+Rinderle B (the Gulf of Maine Racing Association's) — would be further formulas
+under #745's points-system choice; build them only for a user.
 
 ### Configurable minimum-competitors-per-race rule
 
@@ -1980,6 +1957,26 @@ escape hatch for the long tail a club invents, not a substitute for modelling.
 
 ---
 
+### Crew prizes from race-by-race crew lists (ISORA's Under 25 Sailor Prize)
+
+ISORA's 2026 NoR (Amendment 2, NoR 20.8) adds a season prize for **sailors**, not
+boats. Every sailor aged 25 or under on a qualifying boat earns points from the
+boat's **class** place in each race: 10 for a class win, down to 1 for 10th and
+below. A boat qualifies with at least two under-25 crew, or one if it is
+two-handed. Offshore and coastal races count equally. A sailor needs three races
+to be eligible, and age is fixed on the date of the season's first race. ISORA
+runs it from its CrewManager app, where skippers register each race's crew with
+dates of birth (2026 SIs 9.1–9.2).
+
+The arithmetic is trivial once the inputs exist. They don't: a competitor here
+carries one crew list for the series (`crewNames`), with no ages and nothing per
+race. The shape, if a club wants it: a per-race crew manifest imported from the
+organiser's crew app or a CSV (sailor, date of birth, boat, race), a person
+identity across boats (a sailor can change boats), and a crew-points table built
+from the class standings the engine already produces. It would be the first prize
+here awarded to a person rather than an entry, which is the reason to wait for a
+second club to ask.
+
 ## Results analytics
 
 Beyond the standings table itself, scorers and organisers want views that *interrogate*
@@ -1993,7 +1990,9 @@ Candidate analyses, roughly in order of usefulness:
 - **Time-to-win.** For a handicap race, how much faster each boat would have needed to
   sail to win — the corrected-time gap to first, expressed as elapsed time. Makes a
   handicap result legible to a sailor who only knows their own finish time ("you were 90
-  seconds off winning"). Pure post-processing of finishes already in the engine.
+  seconds off winning"). Pure post-processing of finishes already in the engine. The
+  per-race column — Sailwave's BCE, with BCR beside it — is now #755, because ISORA
+  publishes both on every race table. The series-level analysis below stays here.
 - **Handicap analysis.** Each boat's performance *relative to its own rating* across the
   series — are they consistently over- or under-performing their handicap? Distinct from
   the progressive-rating evolution captured under "Series-level rating-history page"
