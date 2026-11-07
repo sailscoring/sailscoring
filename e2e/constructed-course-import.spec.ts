@@ -274,6 +274,62 @@ test('a course with nowhere to read the variation at, kept in magnetic', async (
   expect(html).toContain('Magnetic north is up.');
 });
 
+test('a leg’s current typed in the table, and one a course arrived with', async ({ page }) => {
+  await openStartOnConstructedCourse(page, 'Current Legs 2026', { venue: '51 48.000 N 008 18.000 W' });
+  await page.getByRole('button', { name: 'Add leg' }).click();
+  await page.getByLabel('Leg 1 distance').fill('0.91');
+  await page.getByLabel('Leg 1 bearing').fill('55');
+  await page.getByLabel('Leg 1 wind direction').fill('350');
+  await page.getByLabel('Leg 1 wind speed').fill('11.5');
+  await expect(page.getByLabel('Leg 1 current direction')).toHaveCount(0);
+
+  // Asked for, the current gets its columns; a new leg starts with the
+  // last one's.
+  await page.getByRole('button', { name: 'Add current' }).click();
+  await expect(page.getByRole('button', { name: 'Add current' })).toHaveCount(0);
+  await page.getByLabel('Leg 1 current direction').fill('180');
+  await page.getByLabel('Leg 1 current rate').fill('0.5');
+  await page.getByRole('button', { name: 'Add leg' }).click();
+  await expect(page.getByLabel('Leg 2 current direction')).toHaveValue('180');
+  await expect(page.getByLabel('Leg 2 current rate')).toHaveValue('0.5');
+  await page.getByLabel('Leg 2 distance').fill('1.72');
+  await page.getByLabel('Leg 2 bearing').fill('359.5');
+  await page.getByLabel('Leg 2 wind direction').fill('350');
+  await page.getByLabel('Leg 2 wind speed').fill('11.5');
+
+  // Half a current says what's missing.
+  await page.getByLabel('Leg 2 current rate').fill('');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('dialog')).toContainText('needs both where it flows to and its rate');
+  await page.getByLabel('Leg 2 current rate').fill('0.8');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('dialog')).toBeHidden();
+
+  // Reopened, the current reads back in magnetic as it was typed.
+  await page.getByRole('button', { name: 'Edit start' }).click();
+  await expect(page.getByLabel('Leg 1 current direction')).toHaveValue('180');
+  await expect(page.getByLabel('Leg 2 current rate')).toHaveValue('0.8');
+
+  // A course that carries a current fills the same columns.
+  await page.getByTestId('import-course-disclosure').click();
+  await page.getByLabel('Course to import', { exact: true }).fill(JSON.stringify({
+    ...COURSE,
+    legs: COURSE.legs.map((leg) => ({ ...leg, currentDirection: 200, currentSpeed: 0.4 })),
+  }));
+  await expect(page.getByTestId('import-course-preview')).toContainText('current on every leg');
+  await page.getByTestId('import-course-use').click();
+  await page.getByTestId('confirm-dialog-confirm').click();
+  await expect(page.getByLabel('Leg 3 current direction')).toHaveValue('200');
+  await expect(page.getByLabel('Leg 3 current rate')).toHaveValue('0.4');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('dialog')).toBeHidden();
+
+  // Published in the leg record, since it is scored.
+  const html = await finishAndPublish(page);
+  expect(html).toContain('<th>Current</th>');
+  expect(html).toMatch(/0\.4 kt to 200°M/);
+});
+
 test('a course taken off a start goes with its legs', async ({ page }) => {
   await openStartOnConstructedCourse(page, 'Removed Course 2026');
   await page.getByTestId('import-course-disclosure').click();

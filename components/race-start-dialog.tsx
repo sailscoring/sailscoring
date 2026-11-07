@@ -24,9 +24,12 @@ import { CourseDrawing } from '@/components/constructed-course/course-drawing';
 import {
   BearingRefControl,
   LegTable,
+  currentFields,
   emptyLegRow,
   figureField,
   rowBearingTrue,
+  rowCurrent,
+  rowHasCurrent,
   rowWindTrue,
   rowsInRef,
   storedFigure,
@@ -230,9 +233,7 @@ function RaceStartDialogInner({
         wind: w.text,
         windKept: w.kept,
         windSpeed: leg.windSpeedKts != null ? String(leg.windSpeedKts) : '',
-        ...(leg.currentSpeedKts != null && leg.currentDirectionDeg != null
-          ? { current: { speedKts: leg.currentSpeedKts, directionDeg: leg.currentDirectionDeg } }
-          : {}),
+        ...currentFields(leg, seedDisplay),
       });
     }),
   );
@@ -260,6 +261,11 @@ function RaceStartDialogInner({
   const offerWindSpeed = optionScoresRecordedWind || legRows.some((r) => r.windSpeed.trim() !== '');
   // The race committee's names for the legs, where the course came with them.
   const [showLegNames, setShowLegNames] = useState(() => (seed?.courseLegs ?? []).some((leg) => leg.name));
+  // The current's columns, once the scorer asks for them — and wherever a
+  // leg already has one, so a current that is scored is always in the table.
+  const [currentAsked, setCurrentAsked] = useState(false);
+  const offerCurrent = currentAsked || legRows.some(rowHasCurrent);
+  const lastRow = legRows.at(-1);
   const [importOpen, setImportOpen] = useState(false);
 
   // The start's course (ORC constructed courses): its summary, its wind and
@@ -340,9 +346,7 @@ function RaceStartDialogInner({
         wind: wind?.text ?? '',
         ...(wind ? { windKept: wind.kept } : {}),
         windSpeed: leg.windSpeedKts != null ? String(leg.windSpeedKts) : '',
-        ...(leg.currentSpeedKts != null && leg.currentDirectionDeg != null
-          ? { current: { speedKts: leg.currentSpeedKts, directionDeg: leg.currentDirectionDeg } }
-          : {}),
+        ...currentFields(leg, at),
       });
     }));
     setShowLegNames(legs.some((leg) => leg.name));
@@ -402,6 +406,7 @@ function RaceStartDialogInner({
     setWindInput('');
     setWindKept(undefined);
     setShowLegNames(false);
+    setCurrentAsked(false);
     setLegsEdited(false);
     setSnapshot(undefined);
   }
@@ -508,7 +513,7 @@ function RaceStartDialogInner({
     }
     let courseLegs: OrcCourseLeg[] | undefined;
     const nonEmptyLegs = legRows.filter(
-      (r) => r.distance.trim() || r.bearing.trim() || r.wind.trim() || r.windSpeed.trim(),
+      (r) => r.distance.trim() || r.bearing.trim() || r.wind.trim() || r.windSpeed.trim() || rowHasCurrent(r),
     );
     if (nonEmptyLegs.length > 0) {
       courseLegs = [];
@@ -529,6 +534,11 @@ function RaceStartDialogInner({
           }
           legWindSpeed = kt;
         }
+        const current = rowCurrent(row, display);
+        if (!current.ok) {
+          setError(current.error);
+          return;
+        }
         const name = row.name.trim().slice(0, 80);
         courseLegs.push({
           // Kept to the precision a leg is measured to, however finely it
@@ -537,7 +547,9 @@ function RaceStartDialogInner({
           bearingDeg: bearing,
           windDirectionDeg: wind,
           ...(legWindSpeed != null ? { windSpeedKts: legWindSpeed } : {}),
-          ...(row.current ? { currentSpeedKts: row.current.speedKts, currentDirectionDeg: row.current.directionDeg } : {}),
+          ...(current.current
+            ? { currentSpeedKts: current.current.speedKts, currentDirectionDeg: current.current.directionDeg }
+            : {}),
           ...(name ? { name } : {}),
         });
       }
@@ -594,7 +606,9 @@ function RaceStartDialogInner({
 
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onCancel(); }}>
-      <DialogContent className={`${offerCourse ? 'max-w-lg' : offerOption ? 'max-w-md' : 'max-w-sm'}`}>
+      {/* Wider with the current's columns, so the leg table fits without
+          scrolling wherever there is room for it. */}
+      <DialogContent className={`${offerCourse ? (offerLegs && offerCurrent ? 'max-w-xl sm:max-w-xl' : 'max-w-lg') : offerOption ? 'max-w-md' : 'max-w-sm'}`}>
         <DialogHeader>
           <DialogTitle>{mode.kind === 'edit' ? 'Edit start' : 'Add start'}</DialogTitle>
           <DialogDescription>
@@ -775,29 +789,47 @@ function RaceStartDialogInner({
                   onChange={changeLegRows}
                   showWindSpeed={offerWindSpeed}
                   showName={showLegNames}
+                  showCurrent={offerCurrent}
                   actions={(
-                    <button
-                      type="button"
-                      className="flex items-center gap-1 text-xs text-muted-foreground"
-                      onClick={() => setImportOpen((v) => !v)}
-                      aria-expanded={importOpen}
-                      data-testid="import-course-disclosure"
-                    >
-                      <ChevronRight className={`h-3 w-3 transition-transform ${importOpen ? 'rotate-90' : ''}`} />
-                      Import a course
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        className="flex items-center gap-1 text-xs text-muted-foreground"
+                        onClick={() => setImportOpen((v) => !v)}
+                        aria-expanded={importOpen}
+                        data-testid="import-course-disclosure"
+                      >
+                        <ChevronRight className={`h-3 w-3 transition-transform ${importOpen ? 'rotate-90' : ''}`} />
+                        Import a course
+                      </button>
+                      {!offerCurrent && (
+                        <button
+                          type="button"
+                          className="text-xs text-muted-foreground underline-offset-2 hover:underline"
+                          onClick={() => setCurrentAsked(true)}
+                        >
+                          Add current
+                        </button>
+                      )}
+                    </>
                   )}
                   newRow={{
                     ...(snapshot && windDeg != null
                       ? { wind: figureField(windDeg, display).text, windKept: figureField(windDeg, display).kept }
                       : { wind: '' }),
                     windSpeed: offerWindSpeed && windKt != null ? String(windKt) : '',
+                    // The current seldom changes from one leg to the next,
+                    // so a new leg starts with the last one's.
+                    ...(offerCurrent && lastRow
+                      ? { currentSet: lastRow.currentSet, currentSetKept: lastRow.currentSetKept, currentRate: lastRow.currentRate }
+                      : {}),
                   }}
                 >
                   <p className="text-xs text-muted-foreground">
                     One row per leg, in sailing order; split a leg into two rows when
                     the wind shifts along it. The course distance is the total.
                     {optionScoresRecordedWind && ' This option scores at the wind recorded here, so every leg needs a speed.'}
+                    {offerCurrent && ' A leg’s current is where it flows to and its rate; leave both blank for none.'}
                   </p>
                 </LegTable>
                 {importOpen && (
