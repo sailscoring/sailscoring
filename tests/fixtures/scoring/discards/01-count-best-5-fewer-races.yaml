@@ -1,0 +1,290 @@
+description: "Count the best 5 — a fleet that sails fewer races than the series (ISORA 2026)"
+rrs_notes: >
+  RRS A2.1 — the sailing instructions may change the number of races excluded
+  from a boat's series score. ISORA's say how many count instead: "the best 5
+  results out of all sailed races".
+notes: |
+  ISORA's 2026 season: 18 races, the best 5 counting. The Two-Handed fleet had
+  no start in races 9, 11, 12, 13 and 16. Those races are not its races, so
+  they earn it no discards: the rule is worked out per fleet, from the races
+  that fleet sailed, as Sailwave does. ISORA's Two-Handed table shows 8
+  discards per boat, not the 13 its series-wide caption implies.
+
+  The Two-Handed boats are ISORA's, with their place in each race the order
+  of the points ISORA published for them. Three IRC boats, Pata Negra,
+  ReQuest and Crackajack, sail every race beside them, placed the same way.
+  ISORA scores high point, so the points are not ISORA's. Its DTP ("entered
+  but did not race") is entered here as DNS, which A5.2 scores the same as a
+  DNC.
+
+  Sail Scoring counts a race for a fleet once one of its boats came to the
+  start, where Sailwave counts every race whose starts included the fleet.
+  No Two-Handed boat came to races 1 or 3, so the fleet is scored over 11
+  races with 6 discards, where Sailwave's table has 13 races with 8: the two
+  extra discards drop the DNCs every boat has in races 1 and 3, so the nett
+  is the same either way. Nobody finished race 9, in ISORA's results as
+  here, so it counts for neither fleet, and the IRC fleet has 17 races and
+  12 discards.
+
+series:
+  discardThresholds: []
+  countBest: 5
+  dnfScoring: seriesEntries
+
+competitors:
+  - sailNumber: "GBR 4669"
+    name: "Pata Negra"
+    fleet: "IRC"
+  - sailNumber: "IRL 53196"
+    name: "ReQuest"
+    fleet: "IRC"
+  - sailNumber: "GBR7664T"
+    name: "Crackajack"
+    fleet: "IRC"
+  - sailNumber: "53308"
+    name: "Loinnir"
+    fleet: "Two-Handed"
+  - sailNumber: "SWE041"
+    name: "No Xcuse"
+    fleet: "Two-Handed"
+  - sailNumber: "GBR 723R"
+    name: "Hijacker"
+    fleet: "Two-Handed"
+  - sailNumber: "IRL 31310"
+    name: "Katanca"
+    fleet: "Two-Handed"
+  - sailNumber: "GBR 8593R"
+    name: "Paradox"
+    fleet: "Two-Handed"
+  - sailNumber: "IRL 5795"
+    name: "Blacksheep"
+    fleet: "Two-Handed"
+
+races:
+  - number: 1
+    startFleets: ["IRC", "Two-Handed"]
+    finishes:
+      - { sailor: "GBR 4669", position: 1 }
+      - { sailor: "GBR7664T", position: 2 }
+  - number: 2
+    startFleets: ["IRC", "Two-Handed"]
+    finishes:
+      - { sailor: "IRL 53196", position: 1 }
+      - { sailor: "IRL 31310", position: 2 }
+      - { sailor: "GBR 8593R", position: 1 }
+      - { sailor: "IRL 5795", position: 3 }
+  - number: 3
+    startFleets: ["IRC", "Two-Handed"]
+    finishes:
+      - { sailor: "GBR 4669", position: 1 }
+      - { sailor: "GBR7664T", position: 2 }
+  - number: 4
+    startFleets: ["IRC", "Two-Handed"]
+    finishes:
+      - { sailor: "IRL 53196", position: 1 }
+      - { sailor: "53308", position: 1 }
+      - { sailor: "SWE041", position: 2 }
+      - { sailor: "IRL 31310", position: 3 }
+  - number: 5
+    startFleets: ["IRC", "Two-Handed"]
+    finishes:
+      - { sailor: "GBR 4669", position: 1 }
+      - { sailor: "GBR7664T", position: 2 }
+      - { sailor: "GBR 8593R", code: DNS }
+  - number: 6
+    startFleets: ["IRC", "Two-Handed"]
+    finishes:
+      - { sailor: "GBR 4669", position: 1 }
+      - { sailor: "IRL 53196", position: 2 }
+      - { sailor: "53308", position: 1 }
+      - { sailor: "IRL 31310", code: DNF }
+  - number: 7
+    startFleets: ["IRC", "Two-Handed"]
+    finishes:
+      - { sailor: "GBR 4669", position: 1 }
+      - { sailor: "IRL 53196", position: 2 }
+      - { sailor: "SWE041", position: 1 }
+      - { sailor: "IRL 31310", position: 2 }
+  - number: 8
+    startFleets: ["IRC", "Two-Handed"]
+    finishes:
+      - { sailor: "GBR 4669", position: 1 }
+      - { sailor: "IRL 53196", position: 2 }
+      - { sailor: "GBR7664T", code: DNS }
+      - { sailor: "IRL 31310", code: DNS }
+  - number: 9
+    startFleets: ["IRC"]
+    finishes:
+      - { sailor: "GBR 4669", code: DNS }
+      - { sailor: "IRL 53196", code: DNS }
+      - { sailor: "GBR7664T", code: DNS }
+  - number: 10
+    startFleets: ["IRC", "Two-Handed"]
+    finishes:
+      - { sailor: "GBR 4669", position: 1 }
+      - { sailor: "SWE041", position: 1 }
+      - { sailor: "IRL 31310", code: DNF }
+  - number: 11
+    startFleets: ["IRC"]
+    finishes:
+      - { sailor: "IRL 53196", position: 1 }
+  - number: 12
+    startFleets: ["IRC"]
+    finishes:
+      - { sailor: "GBR7664T", position: 1 }
+  - number: 13
+    startFleets: ["IRC"]
+    finishes:
+      - { sailor: "GBR 4669", position: 1 }
+      - { sailor: "IRL 53196", position: 2 }
+      - { sailor: "GBR7664T", position: 3 }
+  - number: 14
+    startFleets: ["IRC", "Two-Handed"]
+    finishes:
+      - { sailor: "GBR 4669", position: 1 }
+      - { sailor: "IRL 53196", code: DNS }
+      - { sailor: "GBR7664T", position: 2 }
+      - { sailor: "53308", code: DNF }
+      - { sailor: "SWE041", position: 2 }
+      - { sailor: "GBR 723R", position: 1 }
+      - { sailor: "GBR 8593R", code: DNS }
+  - number: 15
+    startFleets: ["IRC", "Two-Handed"]
+    finishes:
+      - { sailor: "IRL 53196", position: 1 }
+      - { sailor: "53308", position: 1 }
+      - { sailor: "GBR 723R", position: 3 }
+      - { sailor: "IRL 31310", code: DNS }
+      - { sailor: "GBR 8593R", position: 2 }
+  - number: 16
+    startFleets: ["IRC"]
+    finishes:
+      - { sailor: "GBR 4669", code: DNS }
+      - { sailor: "GBR7664T", position: 1 }
+  - number: 17
+    startFleets: ["IRC", "Two-Handed"]
+    finishes:
+      - { sailor: "IRL 53196", position: 1 }
+      - { sailor: "53308", position: 2 }
+      - { sailor: "SWE041", position: 4 }
+      - { sailor: "GBR 723R", position: 1 }
+      - { sailor: "IRL 31310", position: 3 }
+      - { sailor: "GBR 8593R", code: DNS }
+  - number: 18
+    startFleets: ["IRC", "Two-Handed"]
+    finishes:
+      - { sailor: "GBR 4669", code: DNS }
+      - { sailor: "IRL 53196", position: 1 }
+      - { sailor: "GBR7664T", position: 2 }
+      - { sailor: "53308", position: 1 }
+      - { sailor: "SWE041", code: DNF }
+      - { sailor: "GBR 723R", position: 2 }
+      - { sailor: "IRL 31310", position: 3 }
+      - { sailor: "GBR 8593R", position: 4 }
+
+# IRC: 3 entries, so a DNC, DNF or DNS scores 4 (A5.2). 17 races
+# sailed (not counted: 9), so 12 discards and the best 5 count.
+#   ReQuest     (4) (1) (4) 1 (4) (2) (2) (2) - (4) 1 (4) (2) (4) 1 (4) 1 1  nett 5
+#   Pata Negra  (1) (4) (1) (4) (1) (1) 1 1 - 1 (4) (4) 1 1 (4) (4) (4) (4)  nett 5
+#   Crackajack  (2) (4) (2) (4) 2 (4) (4) (4) - (4) (4) 1 (3) 2 (4) 1 (4) 2  nett 8
+# Two-Handed: 6 entries, so a DNC, DNF or DNS scores 7 (A5.2). 11 races
+# sailed (not counted: 1, 3, 9, 11, 12, 13, 16), so 6 discards and the best 5 count.
+#   Loinnir     - (7) - 1 (7) 1 (7) (7) - (7) - - - (7) 1 - 2 1  nett 6
+#   No Xcuse    - (7) - 2 (7) (7) 1 (7) - 1 - - - 2 (7) - 4 (7)  nett 10
+#   Katanca     - 2 - 3 (7) (7) 2 (7) - (7) - - - (7) (7) - 3 3  nett 13
+#   Hijacker    - (7) - (7) (7) (7) (7) (7) - 7 - - - 1 3 - 1 2  nett 14
+#   Paradox     - 1 - (7) (7) (7) (7) (7) - (7) - - - 7 2 - 7 4  nett 21
+#   Blacksheep  - 3 - (7) (7) (7) (7) (7) - (7) - - - 7 7 - 7 7  nett 31
+# ReQuest and Pata Negra tie on 5, each counting five wins. A8.2 takes the
+# last race: ReQuest won it.
+expected:
+  standings:
+    - rank: 1
+      sailor: "IRL 53196"
+      fleet: "IRC"
+      racePoints: [4, 1, 4, 1, 4, 2, 2, 2, 0, 4, 1, 4, 2, 4, 1, 4, 1, 1]
+      raceCodes: ["DNC", null, "DNC", null, "DNC", null, null, null, "DNS", "DNC", null, "DNC", null, "DNS", null, "DNC", null, null]
+      raceDiscards: [true, true, true, false, true, true, true, true, false, true, false, true, true, true, false, true, false, false]
+      raceExcluded: [false, false, false, false, false, false, false, false, true, false, false, false, false, false, false, false, false, false]
+      totalPoints: 42
+      netPoints: 5
+
+    - rank: 2
+      sailor: "GBR 4669"
+      fleet: "IRC"
+      racePoints: [1, 4, 1, 4, 1, 1, 1, 1, 0, 1, 4, 4, 1, 1, 4, 4, 4, 4]
+      raceCodes: [null, "DNC", null, "DNC", null, null, null, null, "DNS", null, "DNC", "DNC", null, null, "DNC", "DNS", "DNC", "DNS"]
+      raceDiscards: [true, true, true, true, true, true, false, false, false, false, true, true, false, false, true, true, true, true]
+      raceExcluded: [false, false, false, false, false, false, false, false, true, false, false, false, false, false, false, false, false, false]
+      totalPoints: 41
+      netPoints: 5
+
+    - rank: 3
+      sailor: "GBR7664T"
+      fleet: "IRC"
+      racePoints: [2, 4, 2, 4, 2, 4, 4, 4, 0, 4, 4, 1, 3, 2, 4, 1, 4, 2]
+      raceCodes: [null, "DNC", null, "DNC", null, "DNC", "DNC", "DNS", "DNS", "DNC", "DNC", null, null, null, "DNC", null, "DNC", null]
+      raceDiscards: [true, true, true, true, false, true, true, true, false, true, true, false, true, false, true, false, true, false]
+      raceExcluded: [false, false, false, false, false, false, false, false, true, false, false, false, false, false, false, false, false, false]
+      totalPoints: 51
+      netPoints: 8
+
+    - rank: 1
+      sailor: "53308"
+      fleet: "Two-Handed"
+      racePoints: [0, 7, 0, 1, 7, 1, 7, 7, 0, 7, 0, 0, 0, 7, 1, 0, 2, 1]
+      raceCodes: ["DNC", "DNC", "DNC", null, "DNC", null, "DNC", "DNC", "DNC", "DNC", "DNC", "DNC", "DNC", "DNF", null, "DNC", null, null]
+      raceDiscards: [false, true, false, false, true, false, true, true, false, true, false, false, false, true, false, false, false, false]
+      raceExcluded: [true, false, true, false, false, false, false, false, true, false, true, true, true, false, false, true, false, false]
+      totalPoints: 48
+      netPoints: 6
+
+    - rank: 2
+      sailor: "SWE041"
+      fleet: "Two-Handed"
+      racePoints: [0, 7, 0, 2, 7, 7, 1, 7, 0, 1, 0, 0, 0, 2, 7, 0, 4, 7]
+      raceCodes: ["DNC", "DNC", "DNC", null, "DNC", "DNC", null, "DNC", "DNC", null, "DNC", "DNC", "DNC", null, "DNC", "DNC", null, "DNF"]
+      raceDiscards: [false, true, false, false, true, true, false, true, false, false, false, false, false, false, true, false, false, true]
+      raceExcluded: [true, false, true, false, false, false, false, false, true, false, true, true, true, false, false, true, false, false]
+      totalPoints: 52
+      netPoints: 10
+
+    - rank: 3
+      sailor: "IRL 31310"
+      fleet: "Two-Handed"
+      racePoints: [0, 2, 0, 3, 7, 7, 2, 7, 0, 7, 0, 0, 0, 7, 7, 0, 3, 3]
+      raceCodes: ["DNC", null, "DNC", null, "DNC", "DNF", null, "DNS", "DNC", "DNF", "DNC", "DNC", "DNC", "DNC", "DNS", "DNC", null, null]
+      raceDiscards: [false, false, false, false, true, true, false, true, false, true, false, false, false, true, true, false, false, false]
+      raceExcluded: [true, false, true, false, false, false, false, false, true, false, true, true, true, false, false, true, false, false]
+      totalPoints: 55
+      netPoints: 13
+
+    - rank: 4
+      sailor: "GBR 723R"
+      fleet: "Two-Handed"
+      racePoints: [0, 7, 0, 7, 7, 7, 7, 7, 0, 7, 0, 0, 0, 1, 3, 0, 1, 2]
+      raceCodes: ["DNC", "DNC", "DNC", "DNC", "DNC", "DNC", "DNC", "DNC", "DNC", "DNC", "DNC", "DNC", "DNC", null, null, "DNC", null, null]
+      raceDiscards: [false, true, false, true, true, true, true, true, false, false, false, false, false, false, false, false, false, false]
+      raceExcluded: [true, false, true, false, false, false, false, false, true, false, true, true, true, false, false, true, false, false]
+      totalPoints: 56
+      netPoints: 14
+
+    - rank: 5
+      sailor: "GBR 8593R"
+      fleet: "Two-Handed"
+      racePoints: [0, 1, 0, 7, 7, 7, 7, 7, 0, 7, 0, 0, 0, 7, 2, 0, 7, 4]
+      raceCodes: ["DNC", null, "DNC", "DNC", "DNS", "DNC", "DNC", "DNC", "DNC", "DNC", "DNC", "DNC", "DNC", "DNS", null, "DNC", "DNS", null]
+      raceDiscards: [false, false, false, true, true, true, true, true, false, true, false, false, false, false, false, false, false, false]
+      raceExcluded: [true, false, true, false, false, false, false, false, true, false, true, true, true, false, false, true, false, false]
+      totalPoints: 63
+      netPoints: 21
+
+    - rank: 6
+      sailor: "IRL 5795"
+      fleet: "Two-Handed"
+      racePoints: [0, 3, 0, 7, 7, 7, 7, 7, 0, 7, 0, 0, 0, 7, 7, 0, 7, 7]
+      raceCodes: ["DNC", null, "DNC", "DNC", "DNC", "DNC", "DNC", "DNC", "DNC", "DNC", "DNC", "DNC", "DNC", "DNC", "DNC", "DNC", "DNC", "DNC"]
+      raceDiscards: [false, false, false, true, true, true, true, true, false, true, false, false, false, false, false, false, false, false]
+      raceExcluded: [true, false, true, false, false, false, false, false, true, false, true, true, true, false, false, true, false, false]
+      totalPoints: 73
+      netPoints: 31

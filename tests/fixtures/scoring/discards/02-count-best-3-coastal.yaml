@@ -1,0 +1,245 @@
+description: "Count the best 3 — ISORA's 2025 Welsh Coastal Series, 5 races"
+rrs_notes: >
+  RRS A2.1 — the sailing instructions may change the number of races excluded
+  from a boat's series score. Here they say how many count instead: the best
+  3 results of the Welsh Coastal races.
+notes: |
+  ISORA's 2025 Welsh Coastal Series: 13 boats, five races, the best three
+  counting, so with five sailed every boat discards two. The roster and who
+  came to which race are ISORA's; a boat's place in each race is the order of
+  the points ISORA published for it.
+
+  ISORA scores high point, so the points here are not ISORA's. Its discards
+  drop a boat's lowest scores; low point drops the highest, and under A5.2 a
+  DNF and a DNC both score 14 where ISORA gives a DNF more than a DNC. Most
+  boats still discard the races ISORA discarded.
+
+  Equal scores: the earliest race goes first, as Sailwave does. Mojito has a
+  DNC in races 1, 2 and 4 and discards races 1 and 2, keeping race 4's, exactly
+  as ISORA's table shows; so do Pata Negra and Gelert. Tormilind, with five
+  scores of 14, discards races 1 and 2; ISORA kept her race 1 DNF, which it
+  scored above her DNCs.
+
+  Nothing in the series says "5 races". Had ISORA added a sixth Welsh race,
+  as a 2024 amendment to its notice of race did, the same rule would discard
+  three with no one editing it.
+
+series:
+  discardThresholds: []
+  countBest: 3
+  dnfScoring: seriesEntries
+
+competitors:
+  - sailNumber: "GBR 8859R"
+    name: "Jackknife"
+  - sailNumber: "GBR 4933R"
+    name: "Darling XX"
+  - sailNumber: "GBR2093R"
+    name: "AndromedA"
+  - sailNumber: "GBR 6939R"
+    name: "Finally"
+  - sailNumber: "GBR8992R"
+    name: "Lightning"
+  - sailNumber: "GBR 4882R"
+    name: "Mojito"
+  - sailNumber: "GBR 4669"
+    name: "Pata Negra"
+  - sailNumber: "GBR7664T"
+    name: "Crackajack"
+  - sailNumber: "GBR 8911R"
+    name: "Jezebel"
+  - sailNumber: "GBR X1"
+    name: "Faenol"
+  - sailNumber: "GBR 5608L"
+    name: "Excession"
+  - sailNumber: "GBR 1681"
+    name: "Gelert"
+  - sailNumber: "3994L"
+    name: "Tormilind"
+
+races:
+  - number: 1
+    # 02CW1
+    finishes:
+      - { sailor: "GBR 8859R", position: 1 }
+      - { sailor: "GBR2093R", position: 2 }
+      - { sailor: "GBR 4933R", position: 3 }
+      - { sailor: "GBR 6939R", position: 4 }
+      - { sailor: "GBR X1", position: 5 }
+      - { sailor: "GBR8992R", code: DNF }
+      - { sailor: "GBR7664T", code: DNF }
+      - { sailor: "GBR 5608L", code: DNF }
+      - { sailor: "3994L", code: DNF }
+    # DNC (no result): Mojito, Pata Negra, Jezebel, Gelert
+  - number: 2
+    # 04CW2
+    finishes:
+      - { sailor: "GBR 8859R", position: 1 }
+      - { sailor: "GBR 4933R", position: 2 }
+      - { sailor: "GBR2093R", position: 3 }
+      - { sailor: "GBR 6939R", position: 4 }
+      - { sailor: "GBR 8911R", position: 5 }
+      - { sailor: "GBR7664T", position: 6 }
+      - { sailor: "GBR8992R", position: 7 }
+      - { sailor: "GBR 5608L", code: DNF }
+    # DNC (no result): Mojito, Pata Negra, Faenol, Gelert, Tormilind
+  - number: 3
+    # 05CW3
+    finishes:
+      - { sailor: "GBR 4882R", position: 1 }
+      - { sailor: "GBR 8859R", position: 2 }
+      - { sailor: "GBR 4933R", position: 3 }
+      - { sailor: "GBR2093R", position: 4 }
+      - { sailor: "GBR 6939R", position: 5 }
+      - { sailor: "GBR 8911R", position: 6 }
+      - { sailor: "GBR 5608L", position: 7 }
+      - { sailor: "GBR8992R", position: 8 }
+      - { sailor: "GBR7664T", position: 9 }
+      - { sailor: "GBR X1", position: 10 }
+    # DNC (no result): Pata Negra, Gelert, Tormilind
+  - number: 4
+    # 11CW4
+    finishes:
+      - { sailor: "GBR 4669", position: 1 }
+      - { sailor: "GBR 4933R", position: 2 }
+      - { sailor: "GBR2093R", position: 3 }
+      - { sailor: "GBR8992R", position: 4 }
+      - { sailor: "GBR 6939R", position: 5 }
+      - { sailor: "GBR7664T", position: 6 }
+      - { sailor: "GBR 5608L", code: DNF }
+    # DNC (no result): Jackknife, Mojito, Jezebel, Faenol, Gelert, Tormilind
+  - number: 5
+    # 15CW5
+    finishes:
+      - { sailor: "GBR 4933R", position: 1 }
+      - { sailor: "GBR2093R", position: 2 }
+      - { sailor: "GBR8992R", position: 3 }
+      - { sailor: "GBR 4882R", position: 4 }
+      - { sailor: "GBR 1681", position: 5 }
+      - { sailor: "GBR 4669", position: 6 }
+      - { sailor: "GBR7664T", position: 7 }
+      - { sailor: "GBR 6939R", position: 8 }
+    # DNC (no result): Jackknife, Jezebel, Faenol, Excession, Tormilind
+
+# 13 entries, so a DNF or DNC scores 14 (A5.2). Each boat drops its two
+# worst races, the earlier first when they are equal:
+#   Jackknife   1 1 2 (14) (14)            = 32, nett 4
+#   Darling XX  (3) 2 (3) 2 1              = 11, nett 5
+#   AndromedA   2 (3) (4) 3 2              = 14, nett 7
+#   Finally     4 4 (5) 5 (8)              = 26, nett 13
+#   Lightning   (14) 7 (8) 4 3             = 36, nett 14
+#   Mojito      (14) (14) 1 14 4           = 47, nett 19
+#   Crackajack  (14) 6 (9) 6 7             = 42, nett 19
+#   Pata Negra  (14) (14) 14 1 6           = 49, nett 21
+#   Jezebel     (14) 5 6 (14) 14           = 53, nett 25
+#   Faenol      5 (14) 10 (14) 14          = 57, nett 29
+#   Gelert      (14) (14) 14 14 5          = 61, nett 33
+#   Excession   (14) (14) 7 14 14          = 63, nett 35
+#   Tormilind   (14) (14) 14 14 14         = 70, nett 42
+# Mojito and Crackajack tie on 19. A8.1 compares their kept scores best to
+# worst: Mojito's 1 beats Crackajack's 6.
+expected:
+  standings:
+    - rank: 1
+      sailor: "GBR 8859R"
+      racePoints: [1, 1, 2, 14, 14]
+      raceCodes: [null, null, null, DNC, DNC]
+      raceDiscards: [false, false, false, true, true]
+      totalPoints: 32
+      netPoints: 4
+
+    - rank: 2
+      sailor: "GBR 4933R"
+      racePoints: [3, 2, 3, 2, 1]
+      raceCodes: [null, null, null, null, null]
+      raceDiscards: [true, false, true, false, false]
+      totalPoints: 11
+      netPoints: 5
+
+    - rank: 3
+      sailor: "GBR2093R"
+      racePoints: [2, 3, 4, 3, 2]
+      raceCodes: [null, null, null, null, null]
+      raceDiscards: [false, true, true, false, false]
+      totalPoints: 14
+      netPoints: 7
+
+    - rank: 4
+      sailor: "GBR 6939R"
+      racePoints: [4, 4, 5, 5, 8]
+      raceCodes: [null, null, null, null, null]
+      raceDiscards: [false, false, true, false, true]
+      totalPoints: 26
+      netPoints: 13
+
+    - rank: 5
+      sailor: "GBR8992R"
+      racePoints: [14, 7, 8, 4, 3]
+      raceCodes: [DNF, null, null, null, null]
+      raceDiscards: [true, false, true, false, false]
+      totalPoints: 36
+      netPoints: 14
+
+    - rank: 6
+      sailor: "GBR 4882R"
+      racePoints: [14, 14, 1, 14, 4]
+      raceCodes: [DNC, DNC, null, DNC, null]
+      raceDiscards: [true, true, false, false, false]
+      totalPoints: 47
+      netPoints: 19
+
+    - rank: 7
+      sailor: "GBR7664T"
+      racePoints: [14, 6, 9, 6, 7]
+      raceCodes: [DNF, null, null, null, null]
+      raceDiscards: [true, false, true, false, false]
+      totalPoints: 42
+      netPoints: 19
+
+    - rank: 8
+      sailor: "GBR 4669"
+      racePoints: [14, 14, 14, 1, 6]
+      raceCodes: [DNC, DNC, DNC, null, null]
+      raceDiscards: [true, true, false, false, false]
+      totalPoints: 49
+      netPoints: 21
+
+    - rank: 9
+      sailor: "GBR 8911R"
+      racePoints: [14, 5, 6, 14, 14]
+      raceCodes: [DNC, null, null, DNC, DNC]
+      raceDiscards: [true, false, false, true, false]
+      totalPoints: 53
+      netPoints: 25
+
+    - rank: 10
+      sailor: "GBR X1"
+      racePoints: [5, 14, 10, 14, 14]
+      raceCodes: [null, DNC, null, DNC, DNC]
+      raceDiscards: [false, true, false, true, false]
+      totalPoints: 57
+      netPoints: 29
+
+    - rank: 11
+      sailor: "GBR 1681"
+      racePoints: [14, 14, 14, 14, 5]
+      raceCodes: [DNC, DNC, DNC, DNC, null]
+      raceDiscards: [true, true, false, false, false]
+      totalPoints: 61
+      netPoints: 33
+
+    - rank: 12
+      sailor: "GBR 5608L"
+      racePoints: [14, 14, 7, 14, 14]
+      raceCodes: [DNF, DNF, null, DNF, DNC]
+      raceDiscards: [true, true, false, false, false]
+      totalPoints: 63
+      netPoints: 35
+
+    - rank: 13
+      sailor: "3994L"
+      racePoints: [14, 14, 14, 14, 14]
+      raceCodes: [DNF, DNC, DNC, DNC, DNC]
+      raceDiscards: [true, true, false, false, false]
+      totalPoints: 70
+      netPoints: 42

@@ -1042,6 +1042,10 @@ const CATEGORY_META: Record<string, { title: string; intro: string }> = {
     title: 'Result codes',
     intro: 'Scoring behaviour for result codes: position-replacing codes (DNS, DNF, DSQ,\n  OCS, UFD, BFD, RET, NSC, DNC, DNE) and non-discardable penalties. Point\n  values and discard eligibility are governed by RRS Appendix A5 and Rule 30.',
   },
+  discards: {
+    title: 'Discards',
+    intro: "How many races each boat drops from its series score (RRS A2.1), stated\n  as the number of races that count. The allowance is worked out per fleet,\n  from the races that fleet sailed; among equal scores the earliest race is\n  discarded first.",
+  },
   'tcc-handicap': {
     title: 'TCC handicap scoring (IRC / PY)',
     intro: 'Time-on-time corrected scoring using a Time Correction Factor (TCF).\n  IRC boats use TCC directly; PY boats derive TCF = 1000 ÷ PY number.\n  Boats rank by lowest corrected time (CT = ET × TCF); penalty codes are unchanged.',
