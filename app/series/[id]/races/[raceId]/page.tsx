@@ -71,6 +71,8 @@ import { CheckInTab } from '@/components/check-in-tab';
 import { FinishSubmissionsPanel } from '@/components/race-entry/finish-submissions-panel';
 import { FinishTab } from '@/components/finish-tab';
 import { RatingsTab } from '@/components/ratings-tab';
+import { RaceFleetsSection } from '@/components/race-fleets-section';
+import { withRaceFleets } from '@/lib/race-fleets';
 import { SeriesTabFallback } from '@/components/series-tab-fallback';
 
 export default function ResultEntryPage({
@@ -94,14 +96,15 @@ export default function ResultEntryPage({
   const { data: allSeriesRaces } = useRacesBySeries(seriesId);
   const { data: raceStartsData } = useRaceStartsByRace(raceId);
   const raceStarts = useMemo(() => raceStartsData ?? [], [raceStartsData]);
-  // The competitors as this race sees them: at a championship that draws
-  // boats for each fleet, each carries the sail number of the boat she sails
-  // here, which is the number the race committee hails and the one every
-  // matcher below looks for. Only for matching and display: a competitor is
-  // saved from `storedCompetitors`, never from this list.
+  // The competitors as this race sees them: each carries its fleets in this
+  // race (a two-handed boat sailing it crewed is out of Two-Handed here), and
+  // at a championship that draws boats for each fleet, the sail number of the
+  // boat she sails here, which is the number the race committee hails and the
+  // one every matcher below looks for. Only for matching and display: a
+  // competitor is saved from `storedCompetitors`, never from this list.
   const competitors = useMemo(
-    () => storedCompetitors && withRaceSailNumbers(storedCompetitors, raceStarts),
-    [storedCompetitors, raceStarts],
+    () => storedCompetitors && withRaceSailNumbers(withRaceFleets(storedCompetitors, race ?? undefined), raceStarts),
+    [storedCompetitors, race, raceStarts],
   );
   const { has } = useFeatures();
   const { data: sfState } = useSplitFleetState(seriesId, { enabled: has('split-fleets') });
@@ -238,6 +241,21 @@ export default function ResultEntryPage({
 
   const fleetById = new Map((fleets ?? []).map((f) => [f.id, f]));
   const isHandicapSeries = series?.scoringMode === 'handicap';
+  // The fleets a boat can be moved in or out of race by race: split-fleet
+  // rounds manage their own fleets' membership.
+  const changeableFleets = useMemo(() => (fleets ?? []).filter((f) => !f.splitRoundId), [fleets]);
+  const showRaceFleets = has('race-fleet-membership') && changeableFleets.length > 1;
+  // The race fleets section lists every boat that could be on the sheet,
+  // by its series fleets or by this race's, so a boat taken out of its only
+  // racing fleet stays on the list to be put back.
+  const raceFleetCompetitors = useMemo(() => {
+    if (!showRaceFleets || !storedCompetitors || !competitors) return [];
+    const inRaceIds = new Set(inRaceCompetitors.map((c) => c.id));
+    const bySeriesFleets = new Set(
+      competitorsInRace(storedCompetitors.filter((c) => !c.excluded && !outsideRace.has(c.id)), raceStarts).map((c) => c.id),
+    );
+    return storedCompetitors.filter((c) => inRaceIds.has(c.id) || bySeriesFleets.has(c.id));
+  }, [showRaceFleets, storedCompetitors, competitors, inRaceCompetitors, outsideRace, raceStarts]);
   // Starts are available to handicap series (for gun times) and to any
   // multi-fleet series (to declare, via membership-only starts, which fleets
   // are in a race — the scoping signal #226 relies on).
@@ -492,7 +510,8 @@ export default function ResultEntryPage({
         activeTab={activeTab}
         onSelect={setActiveTab}
         presentCount={presentCount}
-        showRatings={isHandicapSeries}
+        showRatings={isHandicapSeries || showRaceFleets}
+        ratingsLabel={isHandicapSeries ? (showRaceFleets ? 'Ratings & fleets' : 'Ratings') : 'Fleets'}
       />
 
       {activeTab === 'checkin' && (
@@ -510,14 +529,25 @@ export default function ResultEntryPage({
       )}
 
       {activeTab === 'ratings' && (
-        <div className="bg-card border rounded-lg p-5">
-        <RatingsTab
-          seriesId={seriesId}
-          raceId={raceId}
-          competitors={inRaceCompetitors}
-          fleets={fleets ?? []}
-          readOnly={readOnly}
-        />
+        <div className="bg-card border rounded-lg p-5 space-y-6">
+        {showRaceFleets && race && (
+          <RaceFleetsSection
+            race={race}
+            competitors={raceFleetCompetitors}
+            fleets={changeableFleets}
+            readOnly={readOnly}
+            onSave={(fleetChanges) => saveRaceFields({ fleetChanges })}
+          />
+        )}
+        {isHandicapSeries && (
+          <RatingsTab
+            seriesId={seriesId}
+            raceId={raceId}
+            competitors={inRaceCompetitors}
+            fleets={fleets ?? []}
+            readOnly={readOnly}
+          />
+        )}
         </div>
       )}
 

@@ -5,17 +5,21 @@ import { cn } from '@/lib/utils';
 export type RaceEntryTab = 'finish' | 'checkin' | 'ratings';
 
 /** The result-entry tab strip: finish entry, start check-in (with a present
- *  count), and — for handicap series — ratings. */
+ *  count), and — for handicap series, or where boats change fleets race by
+ *  race — ratings and fleets. */
 export function RaceEntryTabs({
   activeTab,
   onSelect,
   presentCount,
   showRatings,
+  ratingsLabel = 'Ratings',
 }: {
   activeTab: RaceEntryTab;
   onSelect: (tab: RaceEntryTab) => void;
   presentCount: number;
   showRatings: boolean;
+  /** "Ratings", "Ratings & fleets", or "Fleets" for a scratch series. */
+  ratingsLabel?: string;
 }) {
   return (
     <div className="inline-flex flex-wrap gap-1 rounded-lg border bg-card p-1 shadow-sm">
@@ -53,11 +57,11 @@ export function RaceEntryTabs({
           className={cn(
             'rounded-md px-3.5 py-1.5 text-sm font-medium transition-colors',
             activeTab === 'ratings'
-              ? 'border-foreground text-foreground'
-              : 'border-transparent text-muted-foreground hover:text-foreground',
+              ? 'bg-primary text-primary-foreground shadow-sm'
+              : 'text-muted-foreground hover:bg-background/70 hover:text-foreground',
           )}
         >
-          Ratings
+          {ratingsLabel}
         </button>
       )}
     </div>

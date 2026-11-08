@@ -433,6 +433,19 @@ export const FEATURES = {
     helpSectionIds: ['high-point-scoring'],
     selfService: false,
   },
+  'race-fleet-membership': {
+    // A boat's fleets race by race: out of a two-handed division for a race
+    // sailed crewed, or in a new class from the race it was re-classed. The
+    // race page's Ratings & fleets tab, the finish sheet's fleet toggles and
+    // the competitor dialog's changes by race. Off by default and
+    // self-service: it changes scoring output, but a scorer with a division
+    // boats join race by race needs it and can turn it on. Only authoring is
+    // gated — the engine, the series file and the public export carry the
+    // changes regardless, so a series that has them scores the same with the
+    // gate off.
+    label: 'Race-by-race fleets',
+    helpSectionIds: ['race-by-race-fleets'],
+  },
   'connected-apps': {
     // Outside apps acting for a workspace's members (ADR-016): a member can
     // grant an app access to this workspace through the OAuth consent flow
