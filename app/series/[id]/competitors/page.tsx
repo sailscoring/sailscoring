@@ -18,6 +18,7 @@ import {
 } from '@/hooks/use-competitors';
 import { useFinishesBySeries } from '@/hooks/use-finishes';
 import { useRacesBySeries } from '@/hooks/use-races';
+import { CompetitorRaceFleets } from '@/components/competitor-race-fleets';
 import { resolveEntryStatuses } from '@/lib/scoring';
 import { queryKeys } from '@/hooks/query-keys';
 import { finishRepo, raceRatingOverrideRepo } from '@/lib/api-repository';
@@ -1277,6 +1278,15 @@ export default function CompetitorsPage({
               primaryLabel={primaryLabel}
               subdivisionAxes={axes}
               multiPersonFields={multiPersonFields}
+              fleetsByRace={
+                features.has('race-fleet-membership') && (racesForRule?.length ?? 0) > 0 && assignableFleets.length > 1 ? (
+                  <CompetitorRaceFleets
+                    competitor={editingCompetitor}
+                    races={racesForRule ?? []}
+                    fleets={assignableFleets}
+                  />
+                ) : undefined
+              }
             />
           </DialogBody>
           )}

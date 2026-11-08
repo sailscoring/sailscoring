@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -200,6 +200,7 @@ export function CompetitorForm({
   customFields = [],
   multiPersonFields,
   orcCert,
+  fleetsByRace,
 }: {
   initial: CompetitorFormData;
   onSave: (data: CompetitorFormData) => Promise<void>;
@@ -217,6 +218,9 @@ export function CompetitorForm({
   /** The boat's stored ORC certificate, shown read-only when editing — the
    *  certificate itself is imported via Update handicaps, never typed in. */
   orcCert?: OrcCertData;
+  /** Under the fleet choice when editing: the boat's fleets race by race,
+   *  which save to the races rather than with this form. */
+  fleetsByRace?: ReactNode;
 }) {
   const [data, setData] = useState(initial);
   const [saving, setSaving] = useState(false);
@@ -650,6 +654,7 @@ export function CompetitorForm({
                 </label>
               ))}
             </div>
+            {fleetsByRace}
           </div>
         )}
         {needsIrcTcc && (
