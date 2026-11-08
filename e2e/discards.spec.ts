@@ -247,3 +247,79 @@ test('a proportional rule scores the series and survives the gate being off', as
   await expect(page).toHaveURL(/\/settings$/);
   await expect(page.getByText('1 discard per 3 races sailed, from 3 races ·')).toBeVisible();
 });
+
+test('counting the best races discards the rest, and switching back clears it', async ({ page, signedInEmail }) => {
+  await enableFeatures(page, signedInEmail, ['proportional-discards']);
+  await createSeriesQuick(page, { name: 'Count Best Series' });
+
+  for (const c of competitors) {
+    await page.getByRole('button', { name: 'Add competitor' }).click();
+    await page.getByLabel('Sail number').fill(c.sailNumber);
+    await page.getByLabel('Competitor name').fill(c.name);
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.getByRole('cell', { name: c.sailNumber })).toBeVisible();
+  }
+
+  // ── Set the rule before any race: the card shows what it gives a season ───
+  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+  await expect(page).toHaveURL(/\/settings$/);
+  const scoringHeading = page.getByRole('heading', { name: 'Scoring', exact: true });
+  await expect(scoringHeading).toBeVisible();
+  await scoringHeading.locator('..').getByRole('button', { name: 'Edit ▸' }).click();
+
+  await page.getByRole('radio', { name: 'Count the best races' }).check();
+  await expect(page.getByLabel('Races that count')).toHaveValue('5');
+  await page.getByLabel('Races that count').fill('3');
+  await expect(page.getByText('4 races: 1 discard · 6 races: 3 · 9 races: 6')).toBeVisible();
+  await page.getByRole('button', { name: 'Done', exact: true }).click();
+  await expect(page.getByText('Best 3 count ·')).toBeVisible();
+
+  // ── Four races; Alice wins three and misses the fourth ───────────────────
+  await page.getByRole('link', { name: 'Races' }).click();
+  for (let i = 1; i <= 4; i++) {
+    await page.getByRole('button', { name: 'Add race' }).click();
+    await expect(page.getByText(`Race ${i}`)).toBeVisible();
+  }
+  const all = ['1001', '1002', '1003', '1004', '1005'];
+  for (const [race, sails] of [
+    ['Race 1', all],
+    ['Race 2', all],
+    ['Race 3', all],
+    ['Race 4', ['1002', '1003', '1004', '1005']],
+  ] as const) {
+    await page.getByText(race, { exact: true }).click();
+    for (const sail of sails) {
+      await page.getByLabel('Sail number').fill(sail);
+      await page.getByRole('button', { name: 'Add' }).click();
+    }
+    await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+    await page.getByRole('navigation').getByRole('link', { name: 'Races' }).click();
+    await expect(page).toHaveURL(/\/races$/);
+  }
+
+  // ── Four races sailed, best 3 count: one discard ─────────────────────────
+  // Alice drops her DNC (6) for nett 3; Bob drops a 2 for nett 5.
+  await page.getByRole('link', { name: 'Standings' }).click();
+  await expect(page).toHaveURL(/\/standings$/);
+  await expect(page.getByText('1 discard')).toBeVisible();
+  const aliceRow = page.getByRole('row').filter({ hasText: 'Alice Murphy' });
+  const bobRow = page.getByRole('row').filter({ hasText: 'Bob Kelly' });
+  await expect(aliceRow.getByRole('cell').nth(0)).toHaveText('1');
+
+  // The card now says what the rule gives the series' own races
+  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+  await expect(page).toHaveURL(/\/settings$/);
+  await scoringHeading.locator('..').getByRole('button', { name: 'Edit ▸' }).click();
+  await expect(page.getByText('With 4 races: 1 discard, 3 count.')).toBeVisible();
+
+  // ── Back to step rules: the series has none, so nothing is discarded ─────
+  await page.getByRole('radio', { name: 'A rule per step' }).check();
+  await page.getByRole('button', { name: 'Done', exact: true }).click();
+  await expect(page.getByText('No discards ·')).toBeVisible();
+
+  await page.getByRole('link', { name: 'Standings' }).click();
+  await expect(page).toHaveURL(/\/standings$/);
+  await expect(page.getByText('No discards')).toBeVisible();
+  // Alice 1+1+1+6 = 9, Bob 2+2+2+1 = 7: Bob leads.
+  await expect(bobRow.getByRole('cell').nth(0)).toHaveText('1');
+});

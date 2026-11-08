@@ -178,3 +178,57 @@ export function summarizeProportionalDiscard(rule: ProportionalDiscard): string 
   const races = (n: number) => `${n} ${plural(n, 'race', 'races')}`;
   return `1 discard per ${races(rule.everyRaces)} sailed, from ${races(rule.firstAt)}`;
 }
+
+// ─── Count the best N races ──────────────────────────────────────────────────
+
+export type DescribedCountBest = {
+  /** "With 18 races: 13 discards, 5 count." — or, with no races yet, a short
+   *  ladder of what the rule gives as the series grows. */
+  preview: string;
+  warnings: string[];
+};
+
+/** Race counts to show the rule at when the series has none of its own yet:
+ *  the first discard, then two larger seasons. */
+function countBestLadder(countBest: number): number[] {
+  return [...new Set([countBest + 1, countBest * 2, countBest * 3])].filter((n) => n > countBest);
+}
+
+/**
+ * A count-best rule is one number, so what it means for this series is the
+ * check: how many discards the series' races give, and a warning where the
+ * number can't be what the sailing instructions meant.
+ *
+ * `raceCount` is the series' races. Each fleet's own allowance comes from the
+ * races it sailed, which can be fewer; the preview speaks for the series.
+ */
+export function describeCountBest(countBest: number, raceCount: number): DescribedCountBest {
+  if (countBest < 1) {
+    return { preview: '', warnings: ['Enter how many races count — at least 1.'] };
+  }
+  const discards = (sailed: number) => Math.max(0, sailed - countBest);
+  const warnings: string[] = [];
+  if (raceCount > 0 && countBest > raceCount) {
+    warnings.push(
+      `The series has ${raceCount} ${plural(raceCount, 'race', 'races')}, so every race counts until it has more than ${countBest}.`,
+    );
+  }
+  if (raceCount === 0) {
+    const ladder = countBestLadder(countBest).map((n, i) => {
+      const d = discards(n);
+      return i === 0 ? `${n} races: ${d} ${plural(d, 'discard', 'discards')}` : `${n} races: ${d}`;
+    });
+    return { preview: ladder.join(' · '), warnings };
+  }
+  const d = discards(raceCount);
+  const counted = raceCount - d;
+  return {
+    preview: `With ${raceCount} ${plural(raceCount, 'race', 'races')}: ${d} ${plural(d, 'discard', 'discards')}, ${counted} ${plural(counted, 'counts', 'count')}.`,
+    warnings,
+  };
+}
+
+/** The collapsed-card line for a count-best rule. */
+export function summarizeCountBest(countBest: number): string {
+  return `Best ${countBest} count`;
+}

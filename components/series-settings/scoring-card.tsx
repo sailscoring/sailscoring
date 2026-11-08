@@ -6,8 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
+  describeCountBest,
   describeDiscardRules,
   describeProportionalDiscard,
+  summarizeCountBest,
   summarizeDiscardRules,
   summarizeProportionalDiscard,
 } from '@/lib/discard-rules';
@@ -17,12 +19,27 @@ import { ScoringCodesLine } from '@/components/series-settings/scoring-codes-lin
 import { codesSummary, codesSummaryText } from '@/lib/scoring-codes-text';
 import { useSettingsAutosave } from '@/hooks/use-settings-autosave';
 
-export type ScoringValues = Pick<Series, 'discardThresholds' | 'proportionalDiscard' | 'dnfScoring' | 'excludeDncOnlyCompetitors' | 'scoringCodes'>;
+export type ScoringValues = Pick<Series, 'discardThresholds' | 'proportionalDiscard' | 'countBest' | 'dnfScoring' | 'excludeDncOnlyCompetitors' | 'scoringCodes'>;
 
 /** What a scorer gets on switching to a proportional rule: one discard per
  *  three races sailed, the commonest wording found in club sailing
  *  instructions. */
 const DEFAULT_PROPORTIONAL: ProportionalDiscard = { firstAt: 3, everyRaces: 3 };
+
+/** What a scorer gets on switching to "count the best races": the number
+ *  ISORA's season counts, and a round one to edit from. */
+const DEFAULT_COUNT_BEST = 5;
+
+/** The way a series states its discards; the stored fields decide it. */
+type DiscardMode = 'steps' | 'proportional' | 'countBest';
+
+/** The words for a rule the scorer can't edit here, because the gate that
+ *  authors it is off. */
+function lockedRuleSummary(countBest: number | undefined, proportional: ProportionalDiscard | undefined): string | null {
+  if (countBest != null) return summarizeCountBest(countBest);
+  if (proportional) return summarizeProportionalDiscard(proportional);
+  return null;
+}
 
 /** Tidied into order when the card closes, and never before: a row that moves
  *  as its number is typed takes the next keystroke with it, and the engine
@@ -38,15 +55,19 @@ export type ScoringCardProps = {
   seriesId?: string;
   onChange: (patch: Partial<ScoringValues>) => void | Promise<void>;
   mode?: 'settings' | 'wizard';
+  /** The series' races, for saying what a count-best rule gives. Absent or
+   *  zero, the card shows what the rule gives as a season grows instead. */
+  raceCount?: number;
 };
 
-export function ScoringCard({ value, onChange, seriesId, mode = 'settings' }: ScoringCardProps) {
+export function ScoringCard({ value, onChange, seriesId, mode = 'settings', raceCount = 0 }: ScoringCardProps) {
   const isWizard = mode === 'wizard';
   const { has } = useFeatures();
   const proportionalAllowed = has('proportional-discards');
   const [expanded, setExpanded] = useState(isWizard);
   const [thresholds, setThresholds] = useState<DiscardThreshold[]>(value.discardThresholds ?? []);
   const [proportional, setProportional] = useState<ProportionalDiscard | undefined>(value.proportionalDiscard);
+  const [countBest, setCountBest] = useState<number | undefined>(value.countBest);
   const [dnfScoring, setDnfScoring] = useState<Series['dnfScoring']>(value.dnfScoring ?? 'seriesEntries');
   const [excludeDncOnly, setExcludeDncOnly] = useState(value.excludeDncOnlyCompetitors ?? false);
   const autosave = useSettingsAutosave<ScoringValues>({ save: onChange });
@@ -66,6 +87,7 @@ export function ScoringCard({ value, onChange, seriesId, mode = 'settings' }: Sc
     if (!expanded) {
       setThresholds(value.discardThresholds ?? []);
       setProportional(value.proportionalDiscard);
+      setCountBest(value.countBest);
       setDnfScoring(value.dnfScoring ?? 'seriesEntries');
       setExcludeDncOnly(value.excludeDncOnlyCompetitors ?? false);
     }
@@ -91,6 +113,32 @@ export function ScoringCard({ value, onChange, seriesId, mode = 'settings' }: Sc
     setProportional(next);
     if (isWizard) fireWizardSave({ proportionalDiscard: next });
     else autosave.commit({ proportionalDiscard: next }, opts);
+  }
+
+  /** Typed, so coalesced like the rows. A count cleared mid-edit is held as 0
+   *  rather than dropped, which would quietly switch the series back to its
+   *  step rules while the scorer is still typing. */
+  function updateCountBest(next: number) {
+    setCountBest(next);
+    if (next < 1) return;
+    if (isWizard) fireWizardSave({ countBest: next });
+    else autosave.commit({ countBest: next }, { defer: true });
+  }
+
+  /** Choosing a mode is what selects it. The count-best rule wins over a
+   *  proportional one, so switching to it leaves the proportional rule to come
+   *  back to; switching away from it clears it. Step rules are always kept. */
+  function chooseMode(next: DiscardMode) {
+    const patch: Partial<ScoringValues> =
+      next === 'countBest'
+        ? { countBest: countBest && countBest >= 1 ? countBest : DEFAULT_COUNT_BEST }
+        : next === 'proportional'
+          ? { countBest: undefined, proportionalDiscard: proportional ?? DEFAULT_PROPORTIONAL }
+          : { countBest: undefined, proportionalDiscard: undefined };
+    if ('countBest' in patch) setCountBest(patch.countBest);
+    if ('proportionalDiscard' in patch) setProportional(patch.proportionalDiscard);
+    if (isWizard) fireWizardSave(patch);
+    else autosave.commit(patch);
   }
 
   function updateProportionalField(field: keyof ProportionalDiscard, fieldValue: number) {
@@ -133,6 +181,8 @@ export function ScoringCard({ value, onChange, seriesId, mode = 'settings' }: Sc
 
   const described = describeDiscardRules(thresholds);
   const describedProportional = proportional ? describeProportionalDiscard(proportional) : null;
+  const discardMode: DiscardMode = countBest != null ? 'countBest' : proportional ? 'proportional' : 'steps';
+  const describedCountBest = countBest != null ? describeCountBest(countBest, raceCount) : null;
 
   const stepRules = (
     <>
@@ -226,6 +276,37 @@ export function ScoringCard({ value, onChange, seriesId, mode = 'settings' }: Sc
     </div>
   );
 
+  const countBestRule = (
+    <div className="space-y-1">
+      <div className="flex items-center gap-2 text-sm">
+        <span>Count the best</span>
+        <Input
+          type="number"
+          min={1}
+          aria-label="Races that count"
+          value={countBest || ''}
+          onChange={(e) => updateCountBest(parseInt(e.target.value) || 0)}
+          className="h-8 w-14 text-base md:text-sm"
+        />
+        <span>races</span>
+      </div>
+      {/* One number: what it gives this series is the check against the SI. */}
+      {describedCountBest?.preview && (
+        <p className="text-xs text-muted-foreground">{describedCountBest.preview}</p>
+      )}
+      {describedCountBest?.warnings.map((warning) => (
+        <p key={warning} className="text-xs text-amber-600 dark:text-amber-500">
+          {warning}
+        </p>
+      ))}
+      <p className="text-xs text-muted-foreground">
+        Each fleet discards the rest of the races it sailed.
+      </p>
+    </div>
+  );
+
+  const lockedRule = lockedRuleSummary(countBest, proportional);
+
   const thresholdTable = (
     <>
       <p className="text-xs text-muted-foreground">
@@ -238,8 +319,8 @@ export function ScoringCard({ value, onChange, seriesId, mode = 'settings' }: Sc
               <input
                 type="radio"
                 name="discardMode"
-                checked={!proportional}
-                onChange={() => updateProportional(undefined)}
+                checked={discardMode === 'steps'}
+                onChange={() => chooseMode('steps')}
               />
               A rule per step
             </label>
@@ -247,23 +328,33 @@ export function ScoringCard({ value, onChange, seriesId, mode = 'settings' }: Sc
               <input
                 type="radio"
                 name="discardMode"
-                checked={!!proportional}
-                onChange={() => updateProportional(proportional ?? DEFAULT_PROPORTIONAL)}
+                checked={discardMode === 'proportional'}
+                onChange={() => chooseMode('proportional')}
               />
               One per so many races
             </label>
+            <label className="flex items-center gap-2 cursor-pointer text-sm">
+              <input
+                type="radio"
+                name="discardMode"
+                checked={discardMode === 'countBest'}
+                onChange={() => chooseMode('countBest')}
+              />
+              Count the best races
+            </label>
           </div>
-          {proportional ? proportionalRule : stepRules}
+          {discardMode === 'countBest' ? countBestRule : discardMode === 'proportional' ? proportionalRule : stepRules}
         </>
-      ) : proportional ? (
-        // The rule is authored behind a gate, but a series that already carries
-        // one scores with it regardless — so state it rather than showing an
-        // empty threshold editor that misrepresents how the series is scored.
+      ) : lockedRule ? (
+        // The rules are authored behind a gate, but a series that already
+        // carries one scores with it regardless — so state it rather than
+        // showing an empty threshold editor that misrepresents how the series
+        // is scored.
         <div className="space-y-1">
-          <p className="text-sm">{summarizeProportionalDiscard(proportional)}</p>
+          <p className="text-sm">{lockedRule}</p>
           <p className="text-xs text-muted-foreground">
-            This series uses a proportional discard rule. Turn on{' '}
-            <strong className="text-foreground">Proportional discards</strong> in Workspace
+            This series states its discards another way. Turn on{' '}
+            <strong className="text-foreground">Alternative discard rules</strong> in Workspace
             settings to edit it.
           </p>
         </div>
@@ -336,9 +427,9 @@ export function ScoringCard({ value, onChange, seriesId, mode = 'settings' }: Sc
 
   const dnfMode = value.dnfScoring ?? 'seriesEntries';
   const dnfLabel = dnfMode === 'startingArea' ? 'DNF: starting area' : 'DNF: series entries';
-  const discardSummary = value.proportionalDiscard
-    ? summarizeProportionalDiscard(value.proportionalDiscard)
-    : summarizeDiscardRules(value.discardThresholds ?? []);
+  const discardSummary =
+    lockedRuleSummary(value.countBest, value.proportionalDiscard)
+    ?? summarizeDiscardRules(value.discardThresholds ?? []);
   const codesText = codesSummaryText(codesSummary(dnfMode, value.scoringCodes));
   const summary =
     `${discardSummary} · ${dnfLabel}` +

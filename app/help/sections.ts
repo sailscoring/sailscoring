@@ -77,7 +77,7 @@ export const HELP_GROUPS: HelpGroupDef[] = [
     label: 'Scoring correctness',
     blurb: 'Discards, per-race options, and the scoring rules behind the standings.',
     sections: [
-      { id: 'discard-rules', title: 'Discard rules', keywords: ['drop', 'throw out', 'worst score', 'nett', 'net points', 'discard threshold', 'proportional'] },
+      { id: 'discard-rules', title: 'Discard rules', keywords: ['drop', 'throw out', 'worst score', 'nett', 'net points', 'discard threshold', 'proportional', 'best', 'count', 'to count'] },
       { id: 'race-scoring-options', title: 'Per-race scoring options', feature: 'race-scoring-options', keywords: ['must count', 'non-discardable', 'weighted', 'double points', 'multiplier', 'medal race points'] },
       { id: 'a53-scoring', title: 'A5.3 starting-area scoring', keywords: ['a5 3', 'starting area', 'dnf points', 'dnc points', 'starters plus one', 'entries plus one', 'appendix a'] },
       { id: 'custom-scoring-codes', title: 'Scoring codes your instructions change or add', feature: 'custom-scoring-codes', keywords: ['tle', 'time limit expired', 'custom code', 'scoring code', 'sign out penalty', 'tally penalty', 'finishers plus one', 'dnf finishers', 'sailwave codes', 'changed code'] },

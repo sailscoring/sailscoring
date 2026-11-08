@@ -4,6 +4,7 @@ import { use } from 'react';
 import * as repos from '@/lib/api-repository';
 import { useSeries, useUpdateSeries } from '@/hooks/use-series';
 import { useFleetsBySeries } from '@/hooks/use-fleets';
+import { useRacesBySeries } from '@/hooks/use-races';
 import { isDuplicateSeriesName } from '@/lib/series-name';
 import { BasicsCard } from '@/components/series-settings/basics-card';
 import { ScoringCard } from '@/components/series-settings/scoring-card';
@@ -38,6 +39,7 @@ export default function SettingsPage({
   const { data: series, isLoading } = useSeries(seriesId);
   const { data: fleetsData } = useFleetsBySeries(seriesId);
   const { data: subSeriesList } = useSubSeriesBySeries(seriesId);
+  const { data: races } = useRacesBySeries(seriesId);
   const fleets = fleetsData ?? [];
   const updateSeries = useUpdateSeries();
 
@@ -139,6 +141,7 @@ export default function SettingsPage({
         <ScoringCard
           value={series}
           seriesId={seriesId}
+          raceCount={races?.length ?? 0}
           onChange={async (patch) => {
             await updateSeries.mutateAsync({
               id: seriesId,

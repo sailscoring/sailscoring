@@ -83,6 +83,31 @@ export default function ScoringCorrectness() {
               <strong className="text-foreground">replaces</strong> the step rules rather than
               adding to them; the step rules are kept, so switching back loses nothing.
             </p>
+
+            <h3 className="text-base font-medium text-foreground pt-2">
+              Counting the best races
+            </h3>
+            <p>
+              Many sailing instructions say how many races <em>count</em> rather than how many are
+              discarded — <em>“the best 5 results out of all sailed races”</em>. Sailwave writes it
+              as the expression <code>s-5</code>. Rules per step can only approximate it by listing
+              every race count, and stop being right the day the organiser adds a race the schedule
+              didn’t have.
+            </p>
+            <p>
+              Switch the <strong className="text-foreground">Scoring</strong> card to{' '}
+              <strong className="text-foreground">Count the best races</strong> and enter the
+              number. The card says what it gives the series as it stands —{' '}
+              <em>With 18 races: 13 discards, 5 count</em> — and warns if more races count than the
+              series has. With fewer races sailed than the number, every race counts.
+            </p>
+            <p>
+              The discards are worked out <strong className="text-foreground">per fleet</strong>,
+              from the races that fleet sailed: a two-handed fleet that started 13 of 18 races
+              discards 8, not 13. Like a proportional rule it replaces the step rules, which are
+              kept. A Sailwave file whose discard profile is <code>s-5</code> imports with this rule
+              set.
+            </p>
           </>
         )}
       </Section>

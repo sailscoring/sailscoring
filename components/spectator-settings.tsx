@@ -105,6 +105,9 @@ const SCORING_SYSTEM_LABELS: Record<Fleet['scoringSystem'], string> = {
 };
 
 function discardsLabel(series: Series): string {
+  if (series.countBest != null) {
+    return `The best ${series.countBest} races count; each fleet discards the rest of the races it sailed`;
+  }
   if (series.proportionalDiscard) {
     const { firstAt, everyRaces } = series.proportionalDiscard;
     return `First discard at ${firstAt} races, then one per ${everyRaces} more`;

@@ -405,8 +405,10 @@ export const FEATURES = {
     helpSectionIds: ['race-management-metadata'],
   },
   'proportional-discards': {
-    // A discard allowance stated as a proportion (#341) — "one discard for
-    // every three races sailed" — instead of a threshold per step-up. Off by
+    // The alternatives to a threshold per step-up: a discard allowance stated
+    // as a proportion — "one discard for every three races sailed" — or as the
+    // number of races that count ("the best 5 results"). The key keeps the
+    // name it had when the proportional rule was the only one. Off by
     // default and self-service, on the same reasoning as race-scoring-options:
     // it changes scoring output, so the authoring surface stays contained until
     // the wording has been run against real sailing instructions, but a scorer
@@ -415,7 +417,7 @@ export const FEATURES = {
     // scores identically everywhere. The discard-rules help section is shared
     // with the threshold editor, so the new part is gated inline rather than by
     // hiding the section.
-    label: 'Proportional discards',
+    label: 'Alternative discard rules',
     helpSectionIds: [],
   },
   'connected-apps': {
