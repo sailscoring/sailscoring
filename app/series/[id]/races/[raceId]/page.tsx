@@ -575,6 +575,7 @@ export default function ResultEntryPage({
             competitors={inRaceCompetitors}
             fleets={fleets ?? []}
             readOnly={readOnly}
+            declareCertificates={has('per-race-certificates')}
           />
         )}
         </div>
