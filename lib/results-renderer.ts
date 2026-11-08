@@ -416,6 +416,10 @@ export interface RaceResultData {
    *  1000/n to three places is IRC's presentation, not the yardstick's. */
   yardstickNumber?: number;
   tccOverride?: boolean;     // true when tcc is a per-race override (mid-series rating change)
+  /** IRC only: which of the boat's certificates the race scored on — P, its
+   *  primary, or S, the secondary it declared for the race. Absent for a
+   *  typed per-race number, which is neither. */
+  certificate?: 'P' | 'S';
   /** IRC only: the certificate the boat's TCC was read off (#615). Carried on
    *  the rating cell so a reader asking where a rating came from can answer
    *  it from the page — the question that, unanswerable, is how a boat spent
@@ -2709,6 +2713,9 @@ function renderRaceTable(
   const ratingLabel = race.ratingColumnLabel
     ?? (isOrcTod ? 'ToD' : isOrcTot ? 'ToT' : (isEcho ? 'Starting H' : (isNhc ? 'TCF' : 'TCC')));
   const ratingColClass = isEcho ? 'starth' : (isNhc ? 'tcf' : 'tcc');
+  // The certificate each boat raced on, where the series publishes it: an
+  // IRC race's P and S.
+  const showCertificate = view.scoringShown('certificate') && race.results.some((r) => r.certificate != null);
   // The Delta column measures each ranked boat's corrected time from the
   // best one in this table — the table is what ranks the boats together, a
   // fleet or a split fleet's own ranking. A coded boat may still show a CT
@@ -2757,6 +2764,14 @@ function renderRaceTable(
           cell: (r: RaceResultData) =>
             `<td class="mono"${r.ircCertNumber ? ` title="IRC certificate ${esc(r.ircCertNumber)}"` : ''}>${r.yardstickNumber != null ? formatRatingValue(r.yardstickNumber, 'py') : r.tcc != null ? r.tcc.toFixed(isOrcTod ? 1 : isOrcTot ? 4 : 3) : ''}${r.tccOverride ? '<span class="override-marker" title="Per-race rating override">*</span>' : ''}</td>`,
         },
+        ...(showCertificate
+          ? [{
+              key: 'certificate' as const,
+              col: '<col class="cert" />',
+              th: head('certificate', 'Cert', ' title="The IRC certificate the boat raced on: P primary, S secondary"'),
+              cell: (r: RaceResultData) => `<td class="mono">${r.certificate ?? ''}</td>`,
+            }]
+          : []),
         {
           key: 'corrected' as const,
           col: '<col class="ct" />',
@@ -3683,8 +3698,8 @@ export function assembleSeriesResultsData(
     raceNotScored?: boolean[];
     raceNotInFleet?: boolean[];
   }>,
-  raceScoresByRaceId: Map<string, Map<string, { points: number; place: number | null; rank: number | null; resultCode: ResultCode | null; penaltyCode?: PenaltyCode | null; penaltyOverride?: number | null; penaltyInPoints?: boolean; penaltyLabel?: string; finishTime?: string | null; elapsedSecs?: number | null; trackData?: FinishTrackData | null; tcfApplied?: number | null; tccOverride?: boolean; newTcf?: number | null; elapsedTime?: number | null; courseElapsedTime?: number; laps?: number; correctedTime?: number | null; orc?: OrcRaceCalc; nhc?: { fairTcf: number; compScore: number; isExtreme: boolean; extremeDirection?: 'fast' | 'slow'; alphaApplied: number; provisionalTcf: number; adjustment: number }; echo?: { ctRatio: number; fairTcf: number; adjustment: number; alphaApplied: number } }>>,
-  competitorsById: Map<string, { sailNumber: string; bowNumber?: string; entryNumber?: string; tallyNumber?: string; boatName?: string; boatClass?: string; names: string[]; owners?: string[]; helms?: string[]; crewNames?: string[]; clubs?: string[]; nationality?: string; worldSailingId?: string; subdivisions?: Record<string, string>; customFields?: Record<string, string>; gender?: 'M' | 'F' | ''; age?: number | null; ircTcc?: number; vprsTcc?: number; fixedTcf?: number; pyNumber?: number; ytcNumber?: number; orcCert?: OrcCertData; ircCert?: { certNumber?: string } }>,
+  raceScoresByRaceId: Map<string, Map<string, { points: number; place: number | null; rank: number | null; resultCode: ResultCode | null; penaltyCode?: PenaltyCode | null; penaltyOverride?: number | null; penaltyInPoints?: boolean; penaltyLabel?: string; finishTime?: string | null; elapsedSecs?: number | null; trackData?: FinishTrackData | null; tcfApplied?: number | null; tccOverride?: boolean; certificate?: 'secondary'; newTcf?: number | null; elapsedTime?: number | null; courseElapsedTime?: number; laps?: number; correctedTime?: number | null; orc?: OrcRaceCalc; nhc?: { fairTcf: number; compScore: number; isExtreme: boolean; extremeDirection?: 'fast' | 'slow'; alphaApplied: number; provisionalTcf: number; adjustment: number }; echo?: { ctRatio: number; fairTcf: number; adjustment: number; alphaApplied: number } }>>,
+  competitorsById: Map<string, { sailNumber: string; bowNumber?: string; entryNumber?: string; tallyNumber?: string; boatName?: string; boatClass?: string; names: string[]; owners?: string[]; helms?: string[]; crewNames?: string[]; clubs?: string[]; nationality?: string; worldSailingId?: string; subdivisions?: Record<string, string>; customFields?: Record<string, string>; gender?: 'M' | 'F' | ''; age?: number | null; ircTcc?: number; vprsTcc?: number; fixedTcf?: number; pyNumber?: number; ytcNumber?: number; orcCert?: OrcCertData; ircCert?: { certNumber?: string }; ircSecondaryCert?: { certNumber?: string } }>,
   enabledCompetitorFields: CompetitorFieldKey[],
   generatedAt: Date,
   fleetName?: string,
@@ -3990,11 +4005,18 @@ export function assembleSeriesResultsData(
         // 1000 ÷ 1000/n.
         ...((scoringSystem === 'py' || scoringSystem === 'ytc') && tcc != null ? { yardstickNumber: Math.round((1000 / tcc) * 1000) / 1000 } : {}),
         ...(score.tccOverride ? { tccOverride: true } : {}),
+        ...(scoringSystem === 'irc' && !score.tccOverride
+          ? { certificate: score.certificate === 'secondary' ? ('S' as const) : ('P' as const) }
+          : {}),
         // Only where the number on the page is the one the certificate gave:
         // a per-race override is the scorer's figure, not the certificate's,
-        // and naming a certificate beside it would misattribute it.
-        ...(scoringSystem === 'irc' && !score.tccOverride && competitor.ircCert?.certNumber
-          ? { ircCertNumber: competitor.ircCert.certNumber }
+        // and naming a certificate beside it would misattribute it. A race
+        // declared on the secondary names the secondary's certificate.
+        ...(scoringSystem === 'irc' && !score.tccOverride
+          ? (() => {
+              const cert = score.certificate === 'secondary' ? competitor.ircSecondaryCert : competitor.ircCert;
+              return cert?.certNumber ? { ircCertNumber: cert.certNumber } : {};
+            })()
           : {}),
         ...(score.orc?.impliedWind != null ? { impliedWind: score.orc.impliedWind } : {}),
         // A handicap table carries its own Finish/ET as the working behind a

@@ -1090,6 +1090,8 @@ export async function buildFleetHtmlFiles(
       elapsedSecs?: number | null;
       trackData?: FinishTrackData | null;
       tcfApplied?: number | null;
+      tccOverride?: boolean;
+      certificate?: 'secondary';
       newTcf?: number | null;
       elapsedTime?: number | null;
       courseElapsedTime?: number;
@@ -1206,11 +1208,15 @@ export async function buildFleetHtmlFiles(
         // fleet's system, keyed by competitor.
         const overrideField = staticRatingField(fleet.scoringSystem);
         const overrideByComp = new Map<string, number>();
+        // Boats declared on their secondary certificate for this race: their
+        // rating is the certificate's, not a typed number.
+        const secondaryComp = new Set<string>();
         if (overrideField) {
           const competitorById = new Map(fleetCompetitors.map((c) => [c.id, c]));
           for (const o of allRatingOverrides) {
             if (o.raceId === race.id && o.field === overrideField) {
               overrideByComp.set(o.competitorId, overrideRatingValue(o, competitorById.get(o.competitorId)));
+              if (o.certificate === 'secondary') secondaryComp.add(o.competitorId);
             }
           }
         }
@@ -1315,7 +1321,9 @@ export async function buildFleetHtmlFiles(
                 ...('correctedTime' in s ? { correctedTime: (s as { correctedTime: number | null }).correctedTime } : {}),
                 ...('laps' in s && s.laps != null ? { laps: s.laps as number } : {}),
                 ...(orcCalcByComp?.has(id) ? { orc: orcCalcByComp.get(id) } : {}),
-                ...(overrideByComp.has(id) ? { tccOverride: true } : {}),
+                ...(secondaryComp.has(id)
+                  ? { certificate: 'secondary' as const }
+                  : overrideByComp.has(id) ? { tccOverride: true } : {}),
               },
             ]),
         );

@@ -96,6 +96,7 @@ export const RACE_SCORING_COLUMNS = [
   'finish',
   'elapsed',
   'rating',
+  'certificate',
   'corrected',
   'delta',
   'impliedWind',
@@ -112,6 +113,10 @@ export const RACE_SCORING_COLUMNS = [
 
 export type StandingsScoringColumnKey = (typeof STANDINGS_SCORING_COLUMNS)[number];
 export type RaceScoringColumnKey = (typeof RACE_SCORING_COLUMNS)[number];
+
+/** Scoring columns a table shows only when the series turns them on: the
+ *  certificate a boat raced on is for organisers who publish the declaration. */
+export const OPT_IN_SCORING_COLUMNS: readonly string[] = ['certificate'];
 
 /** Scoring columns that can be retitled but not hidden: a race table is its
  *  points. */
@@ -555,8 +560,9 @@ export function scoringColumnShown(
 ): boolean {
   if (settings.resultsColumns) {
     const column = settings.resultsColumns.find((c) => c.key === key);
-    return column ? column.hidden !== true || UNHIDEABLE_SCORING_COLUMNS.includes(key) : true;
+    return column ? column.hidden !== true || UNHIDEABLE_SCORING_COLUMNS.includes(key) : !OPT_IN_SCORING_COLUMNS.includes(key);
   }
+  if (OPT_IN_SCORING_COLUMNS.includes(key)) return false;
   if (key === 'ratingCalculations') return settings.publishRatingCalculations ?? true;
   if (key === 'perRaceRatings') return settings.showPerRaceRatingsInSummary ?? true;
   return true;
@@ -744,6 +750,8 @@ export interface ScoringColumnContext {
   fixedRating: boolean;
   progressive: boolean;
   orc: boolean;
+  /** A fleet scored on IRC, whose boats may declare a secondary certificate. */
+  irc?: boolean;
   trackData: boolean;
 }
 
@@ -762,6 +770,7 @@ export function applicableScoringColumns(ctx: ScoringColumnContext): {
       if (key === 'points') return true;
       if (key.startsWith('track:')) return ctx.trackData;
       if (key === 'impliedWind') return ctx.orc;
+      if (key === 'certificate') return ctx.irc ?? false;
       if (key === 'newRating' || key === 'ratingCalculations') return ctx.progressive;
       return ctx.handicap;
     }),
@@ -778,6 +787,7 @@ export const SCORING_COLUMN_NAMES: Record<StandingsScoringColumnKey | RaceScorin
   finish: { name: 'Finish', titled: true },
   elapsed: { name: 'ET', detail: 'Elapsed time', titled: true },
   rating: { name: 'Rating', detail: 'TCC, TCF, Starting H or the club’s own name', titled: true },
+  certificate: { name: 'Certificate', detail: 'P or S: the IRC certificate a boat declared', titled: true },
   corrected: { name: 'CT', detail: 'Corrected time', titled: true },
   delta: { name: 'Delta', detail: 'Corrected time behind the winner', titled: true },
   impliedWind: { name: 'Implied wind', detail: 'ORC performance curves', titled: true },

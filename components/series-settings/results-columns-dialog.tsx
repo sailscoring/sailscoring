@@ -112,6 +112,7 @@ export function ResultsColumnsDialog({ open, onOpenChange, series }: ResultsColu
     fixedRating: (fleets ?? []).some((f) => standingsRatingLabel(f) != null),
     progressive: (fleets ?? []).some((f) => f.scoringSystem === 'nhc' || f.scoringSystem === 'echo'),
     orc: (fleets ?? []).some((f) => f.scoringSystem === 'orc'),
+    irc: (fleets ?? []).some((f) => f.scoringSystem === 'irc'),
     trackData: series.publishTrackData === true,
   });
   // The rows the list shows: competitor columns whose field is still on.
