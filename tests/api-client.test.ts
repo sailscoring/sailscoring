@@ -6,6 +6,8 @@ import {
   ConflictApiError,
   ForbiddenApiError,
   NotFoundApiError,
+  RateLimitedApiError,
+  SecurityCheckApiError,
   ValidationApiError,
   apiFetch,
 } from '@/lib/api-client';
@@ -83,6 +85,28 @@ describe('apiFetch', () => {
     const err = await apiFetch('/x', { method: 'PUT' }).catch((e) => e);
     expect(err).toBeInstanceOf(ValidationApiError);
     expect((err as ValidationApiError).issues).toEqual([{ path: 'x', message: 'bad' }]);
+  });
+
+  test('throws RateLimitedApiError on the app’s own 429, with the wait', async () => {
+    fetchMock.mockResolvedValueOnce(makeResponse(429, { error: 'rate-limited', retryAfter: 30 }));
+    const err = await apiFetch('/x', { method: 'POST' }).catch((e) => e);
+    expect(err).toBeInstanceOf(RateLimitedApiError);
+    expect((err as RateLimitedApiError).retryAfterSeconds).toBe(30);
+  });
+
+  test('throws SecurityCheckApiError on Vercel’s Bot Protection challenge', async () => {
+    // The Security Checkpoint is an HTML page, not the app's JSON envelope;
+    // the header is what says the firewall sent it.
+    fetchMock.mockResolvedValueOnce(
+      new Response('<!doctype html><title>Vercel Security Checkpoint</title>', {
+        status: 429,
+        headers: { 'content-type': 'text/html', 'x-vercel-mitigated': 'challenge' },
+      }),
+    );
+    const err = await apiFetch('/x', { method: 'DELETE' }).catch((e) => e);
+    expect(err).toBeInstanceOf(SecurityCheckApiError);
+    expect(err).not.toBeInstanceOf(RateLimitedApiError);
+    expect((err as Error).message).toContain('Reload the page');
   });
 
   test('falls back to ApiError for other non-OK statuses', async () => {

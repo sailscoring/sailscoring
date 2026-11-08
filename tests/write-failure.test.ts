@@ -11,12 +11,19 @@ import {
   ArchivedApiError,
   ForbiddenApiError,
   NotFoundApiError,
+  SecurityCheckApiError,
   UpstreamApiError,
   ValidationApiError,
 } from '@/lib/api-client';
 import { describeWriteFailure } from '@/lib/write-failure';
 
 describe('describeWriteFailure', () => {
+  test('the firewall’s browser check says to reload, not that anything was rate-limited', () => {
+    const message = describeWriteFailure(new SecurityCheckApiError());
+    expect(message).toContain('Reload the page');
+    expect(message).not.toMatch(/rate|limit/i);
+  });
+
   test('a read-only series says which read-only state it is in', () => {
     expect(describeWriteFailure(new ArchivedApiError('series-archived'))).toContain(
       'Unarchive it first',

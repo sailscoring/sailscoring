@@ -3,6 +3,7 @@ import {
   ArchivedApiError,
   ForbiddenApiError,
   NotFoundApiError,
+  SecurityCheckApiError,
   UpstreamApiError,
   ValidationApiError,
 } from '@/lib/api-client';
@@ -41,6 +42,13 @@ export function describeWriteFailure(err: unknown): string {
   // A third party the server read on the scorer's behalf failed, and the
   // server wrote that sentence for them.
   if (err instanceof UpstreamApiError) return err.message;
+
+  // The firewall held the request back to check the browser; the app never
+  // saw it. Repeating the click is refused the same way — only a reload,
+  // which lets the browser pass the check, gets the write through.
+  if (err instanceof SecurityCheckApiError) {
+    return 'Couldn’t save — your browser needs to pass a quick security check. Reload the page, then make the change again.';
+  }
 
   // The server rejected the shape of what we sent. Deterministic, so a retry
   // does nothing; it's ours to fix, not theirs.

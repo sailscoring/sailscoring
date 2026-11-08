@@ -35,7 +35,7 @@ import {
   conflictNoticeMessage,
   useNotice,
 } from '@/components/notice';
-import { AuthError, ConflictApiError } from '@/lib/api-client';
+import { AuthError, ConflictApiError, SecurityCheckApiError } from '@/lib/api-client';
 import { authClient } from '@/lib/auth-client';
 import { stripAuthErrorParam } from '@/lib/safe-redirect';
 import { describeWriteFailure } from '@/lib/write-failure';
@@ -194,9 +194,12 @@ export function createQueryClient(): QueryClient {
         staleTime: 1000 * 30,
         refetchOnWindowFocus: false,
         // A 401 won't heal on retry, so fail fast and let the handler above
-        // decide between a re-fetch and a sign-out.
+        // decide between a re-fetch and a sign-out. Nor will the firewall's
+        // browser check: only a page load passes it.
         retry: (failureCount, error) =>
-          !(error instanceof AuthError) && failureCount < 3,
+          !(error instanceof AuthError) &&
+          !(error instanceof SecurityCheckApiError) &&
+          failureCount < 3,
       },
     },
   });

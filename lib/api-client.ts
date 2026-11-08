@@ -66,6 +66,26 @@ export class RateLimitedApiError extends ApiError {
   }
 }
 
+/**
+ * Vercel's firewall stopped the request to check the browser, not the app.
+ * Bot Protection answers a request it doesn't trust with a JavaScript page
+ * served as a 429 carrying `x-vercel-mitigated: challenge`. A page load
+ * passes it; a `fetch` from inside the app can't, so the only way through is
+ * a reload. Not a `RateLimitedApiError`: there is no wait that helps, and
+ * calling it a rate limit sends the scorer looking for something they did too
+ * often. The message is the sentence shown, because many callers render
+ * `err.message` as it stands.
+ */
+export class SecurityCheckApiError extends ApiError {
+  constructor() {
+    super(
+      'Your browser needs to pass a quick security check. Reload the page, then try again.',
+      429,
+    );
+    this.name = 'SecurityCheckApiError';
+  }
+}
+
 export class ConflictApiError extends ApiError {
   constructor(public readonly detail?: ConflictDetail) {
     super('conflict', 409);
@@ -192,6 +212,9 @@ export async function apiFetch<T = unknown>(
         typeof errBody === 'object' ? errBody?.issues : undefined,
         typeof message === 'string' ? message : undefined,
       );
+    }
+    if (res.status === 429 && res.headers.get('x-vercel-mitigated') === 'challenge') {
+      throw new SecurityCheckApiError();
     }
     if (res.status === 429) {
       const retryAfter = typeof errBody === 'object' ? errBody?.retryAfter : undefined;
