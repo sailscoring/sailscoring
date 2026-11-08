@@ -180,6 +180,9 @@ export const series = pgTable(
     // set. Nullable rather than defaulted: absent is the common case and is
     // what selects the threshold-list mode.
     proportionalDiscard: jsonb('proportional_discard').$type<ProportionalDiscard>(),
+    // The number of races that count, replacing both rules above when set.
+    // Nullable for the same reason: absent selects one of the other modes.
+    countBest: integer('count_best'),
     dnfScoring: text('dnf_scoring').notNull().default('seriesEntries'),
     // The automatic all-DNC rule for the whole series; see
     // Series.excludeDncOnlyCompetitors.

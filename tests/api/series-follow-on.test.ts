@@ -254,6 +254,7 @@ describe.skipIf(skip)('createFollowOnSeries', () => {
       venuePosition: { lat: 51.8, lng: -8.3 },
       orcScoringOptions,
       proportionalDiscard: { firstAt: 4, everyRaces: 4 },
+      countBest: 5,
       excludeDncOnlyCompetitors: true,
       publishTrackData: true,
       prizes: [{
@@ -286,6 +287,7 @@ describe.skipIf(skip)('createFollowOnSeries', () => {
       // pickers and published pages show raw field names.
       orcScoringOptions,
       proportionalDiscard: { firstAt: 4, everyRaces: 4 },
+      countBest: 5,
       excludeDncOnlyCompetitors: true,
       publishTrackData: true,
     });

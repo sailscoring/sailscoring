@@ -911,6 +911,7 @@ export async function createFollowOnSeries(
         : null,
       discardThresholds: source.discardThresholds,
       proportionalDiscard: source.proportionalDiscard ?? null,
+      countBest: source.countBest ?? null,
       dnfScoring: source.dnfScoring,
       excludeDncOnlyCompetitors: source.excludeDncOnlyCompetitors ?? false,
       // Same SIs, next series of the season: the codes roll over.

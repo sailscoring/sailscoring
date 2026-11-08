@@ -91,6 +91,7 @@ describe.skipIf(skip)('schema round-trip', () => {
       // Set alongside the thresholds on purpose: the rule replaces them for
       // scoring, but both are stored so switching modes loses nothing.
       proportionalDiscard: { firstAt: 3, everyRaces: 3 },
+      countBest: 5,
       dnfScoring: 'startingArea',
       // JSONB, no FK — arbitrary uuids exercise the column round-trip.
       raceFleetExclusions: [{ raceId: uuid(), fleetId: uuid() }],
@@ -136,6 +137,7 @@ describe.skipIf(skip)('schema round-trip', () => {
       defaultStartSequence: seriesRow.defaultStartSequence,
       discardThresholds: seriesRow.discardThresholds,
       proportionalDiscard: seriesRow.proportionalDiscard,
+      countBest: seriesRow.countBest,
       dnfScoring: seriesRow.dnfScoring,
       raceFleetExclusions: seriesRow.raceFleetExclusions,
       ftpHost: seriesRow.ftpHost,
@@ -304,6 +306,7 @@ describe.skipIf(skip)('schema round-trip', () => {
       defaultStartSequence: seriesRow.defaultStartSequence,
       discardThresholds: seriesRow.discardThresholds,
       proportionalDiscard: seriesRow.proportionalDiscard,
+      countBest: seriesRow.countBest,
       dnfScoring: seriesRow.dnfScoring,
       raceFleetExclusions: seriesRow.raceFleetExclusions,
       ftpHost: seriesRow.ftpHost,

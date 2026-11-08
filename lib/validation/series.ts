@@ -233,6 +233,9 @@ export const seriesSchema = z.object({
   // A proportional allowance in place of the threshold list. Optional on the
   // wire so sparse creation and older clients round-trip cleanly.
   proportionalDiscard: proportionalDiscardSchema.optional(),
+  // Races that count, in place of both. At least one: a series where no race
+  // counts has no standings to rank.
+  countBest: z.number().int().positive().optional(),
   dnfScoring: z.enum(['seriesEntries', 'startingArea']),
   excludeDncOnlyCompetitors: z.boolean().optional(),
   // Custom scoring codes. Optional on the wire; absent = the RRS codes.

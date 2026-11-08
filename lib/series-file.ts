@@ -648,9 +648,14 @@ export interface SeriesFileRepos {
  *  v76 adds the `ytc` fleet scoring system (RYA Yacht Time Correction) and
  *  the optional `Competitor.ytcNumber`, with `ytcNumber` as a per-race
  *  rating-override field. An older build has no such system to score a YTC
- *  fleet on, hence a bump. */
-export const FORMAT_VERSION = 76;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76];
+ *  fleet on, hence a bump.
+ *
+ *  v77 adds `series.countBest`: a discard allowance stated as the number of
+ *  races that count ("best 5 results"), in place of both the thresholds and
+ *  `proportionalDiscard`. Sparse. An older build would score the series with
+ *  the rule it replaces, hence a bump. */
+export const FORMAT_VERSION = 77;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -724,6 +729,7 @@ interface SeriesFileSeries {
   venuePosition?: { lat: number; lng: number };  // v65+; where the racing is, for magnetic variation
   discardThresholds: DiscardThreshold[];
   proportionalDiscard?: ProportionalDiscard;  // v26+; replaces the thresholds when set
+  countBest?: number;  // v77+; races that count, replacing both rules above when set
   dnfScoring: DnfScoring;
   excludeDncOnlyCompetitors?: boolean;  // v44+; all-DNC boats are non-entrants (absent = off)
   scoringCodes?: SeriesScoringCode[];  // v74+; custom scoring codes (absent = the RRS codes)
@@ -1112,6 +1118,7 @@ export async function buildSeriesFile(
       ...(series.venuePosition ? { venuePosition: series.venuePosition } : {}),
       discardThresholds: series.discardThresholds,
       ...(series.proportionalDiscard ? { proportionalDiscard: series.proportionalDiscard } : {}),
+      ...(series.countBest != null ? { countBest: series.countBest } : {}),
       dnfScoring: series.dnfScoring,
       ...(series.excludeDncOnlyCompetitors ? { excludeDncOnlyCompetitors: true } : {}),
       ...(series.scoringCodes && series.scoringCodes.length > 0 ? { scoringCodes: series.scoringCodes } : {}),
@@ -1737,6 +1744,7 @@ export async function openSeriesFromFile(
     defaultStartSequence: remapStartSequence(file.series.defaultStartSequence, fleetIdMap),
     discardThresholds: file.series.discardThresholds,
     proportionalDiscard: file.series.proportionalDiscard,
+    countBest: file.series.countBest,
     dnfScoring: file.series.dnfScoring,
     excludeDncOnlyCompetitors: file.series.excludeDncOnlyCompetitors ?? false,
     scoringCodes: file.series.scoringCodes ?? [],
@@ -1853,6 +1861,7 @@ export async function restoreSeriesFromFile(
     defaultStartSequence: remapStartSequence(file.series.defaultStartSequence, fleetIdMap),
     discardThresholds: file.series.discardThresholds,
     proportionalDiscard: file.series.proportionalDiscard,
+    countBest: file.series.countBest,
     dnfScoring: file.series.dnfScoring,
     excludeDncOnlyCompetitors: file.series.excludeDncOnlyCompetitors ?? false,
     scoringCodes: file.series.scoringCodes ?? [],
@@ -1966,6 +1975,7 @@ async function updateSeriesFromFileInner(
     defaultStartSequence: remapStartSequence(file.series.defaultStartSequence, fleetIdMap),
     discardThresholds: file.series.discardThresholds,
     proportionalDiscard: file.series.proportionalDiscard,
+    countBest: file.series.countBest,
     dnfScoring: file.series.dnfScoring,
     excludeDncOnlyCompetitors: file.series.excludeDncOnlyCompetitors ?? false,
     scoringCodes: file.series.scoringCodes ?? [],
@@ -2160,6 +2170,7 @@ async function updateSeriesFromSailwaveInner(
     ...current,
     discardThresholds: file.series.discardThresholds,
     proportionalDiscard: file.series.proportionalDiscard,
+    countBest: file.series.countBest,
     dnfScoring: file.series.dnfScoring,
     excludeDncOnlyCompetitors: file.series.excludeDncOnlyCompetitors ?? false,
     scoringCodes: file.series.scoringCodes ?? [],

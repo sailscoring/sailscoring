@@ -149,6 +149,21 @@ describe.skipIf(skip)('postgres repositories', () => {
     await repos.series.delete(s.id);
   });
 
+  test('SeriesRepository.save sets and clears the count-best rule', async () => {
+    const repos = createRepos({ db, workspaceId: workspaceA });
+    const s = { ...makeSeries(), countBest: 5 };
+
+    await repos.series.save(s);
+    expect((await repos.series.get(s.id))?.countBest).toBe(5);
+
+    // As for the proportional rule: switching modes leaves the field
+    // undefined, and the update has to clear the column.
+    await repos.series.save({ ...s, countBest: undefined });
+    expect((await repos.series.get(s.id))?.countBest).toBeUndefined();
+
+    await repos.series.delete(s.id);
+  });
+
   test('SeriesRepository.save sets and clears custom fields and results columns', async () => {
     const repos = createRepos({ db, workspaceId: workspaceA });
     const customFields = [{ id: 'f-rig', label: 'Rig' }];

@@ -81,7 +81,7 @@ const FACETS: readonly Facet[] = [
   },
   {
     key: 'discards',
-    fields: ['discardThresholds', 'proportionalDiscard'],
+    fields: ['discardThresholds', 'proportionalDiscard', 'countBest'],
     action: 'series.scoring-updated',
     summary: () => 'Changed the discard profile',
   },

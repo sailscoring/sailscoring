@@ -18,6 +18,20 @@ export interface ProportionalDiscard {
   everyRaces: number;   // one further discard per this many races after that
 }
 
+/** A discard allowance stated as the number of races that count — "the best 5
+ *  results out of all sailed races", Sailwave's `s-5`. Each fleet discards
+ *  `max(0, sailed - countBest)`: with fewer than `countBest` races sailed,
+ *  every race counts. Stated this way the rule stays right when the organiser
+ *  adds a race the schedule didn't have, which a threshold list does not. */
+export interface CountBestDiscard {
+  countBest: number;
+}
+
+/** A discard rule in place of the threshold list: one of the two alternative
+ *  ways a series can state its allowance. `discardRuleOf` reads it off a
+ *  series. */
+export type DiscardRule = ProportionalDiscard | CountBestDiscard;
+
 /** Optional competitor fields that can be shown or hidden per series.
  *  Sail number and the primary person slot (`Competitor.name`, labelled per
  *  `Series.primaryPersonLabel`) are always shown and are not configurable.
@@ -415,6 +429,11 @@ export interface Series {
   // for scoring; the thresholds are kept so switching back in the editor loses
   // nothing. Absent is the common case.
   proportionalDiscard?: ProportionalDiscard;
+  // The number of races that count ("best 5 results"): each fleet discards
+  // (races sailed − countBest). When set it replaces both discardThresholds
+  // and proportionalDiscard for scoring, which are kept so switching back in
+  // the editor loses nothing. Absent is the common case.
+  countBest?: number;
   dnfScoring: DnfScoring;  // A5.2 or A5.3
   // Treat a boat with no result other than DNC across the series as not
   // entered: off the standings and out of the A5.2 entry count, exactly as

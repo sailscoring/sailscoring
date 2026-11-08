@@ -75,7 +75,7 @@ describe('custom fields and results columns in the .sailscoring file', () => {
   it('writes them, with the competitors’ values, and restores them on import', async () => {
     const file = await buildSeriesFile('s1', makeFileRepos(snapshot).repos);
     expect(file.formatVersion).toBe(FORMAT_VERSION);
-    expect(FORMAT_VERSION).toBe(76);
+    expect(FORMAT_VERSION).toBe(77);
     expect(file.series.customFields).toEqual([RIG, SPONSOR]);
     expect(file.series.resultsColumns).toEqual(COLUMNS);
     expect(file.competitors.find((c) => c.sailNumber === '101')?.customFields).toEqual({ 'f-rig': '8.2', 'f-sponsor': 'Acme' });
