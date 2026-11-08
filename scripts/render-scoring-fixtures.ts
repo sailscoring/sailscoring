@@ -287,7 +287,8 @@ function renderExpectedStandingsTable(
     const racePointsCells = s.racePoints.map((p, i) => {
       const code = s.raceCodes[i];
       const discard = s.raceDiscards[i];
-      const inner = code ? `${code}` : fmtPoints(p);
+      // Not in the fleet for the race: its points, with a dash for a code.
+      const inner = s.raceNotInFleet?.[i] ? `${fmtPoints(p)} —` : code ? `${code}` : fmtPoints(p);
       return `<td class="mono"${discard ? ' style="text-decoration:line-through;color:#888;"' : ''}>${esc(inner)}</td>`;
     }).join('');
     return `<tr>
@@ -310,7 +311,7 @@ function renderExpectedStandingsTable(
 <tbody>
 ${rows}
 </tbody>
-</table>`;
+</table>${standings.some((s) => s.raceNotInFleet?.some(Boolean)) ? '\n<p style="font-size:90%; color:#444;">— did not race in this fleet.</p>' : ''}`;
 }
 
 function renderStandingsTable(fixture: Fixture): string {
@@ -346,7 +347,10 @@ function generateHandicapFixtureHtml(fixture: Fixture, yamlSource: string): stri
     // race's `orcOption`), else the fleet default.
     const orcProfile = sys === 'orc' ? orcRaceProfile(fleet, raceStart) : null;
     const isOrcTod = orcProfile?.kind === 'tod';
-    const raceFinishes = finishes.filter((f) => f.raceId === raceId);
+    // A boat out of the fleet for this race is not in its race: its finish
+    // scores in the fleets it was in, and this table is the fleet's.
+    const out = boatsOutOfFleet(competitors, fleet.id, races[ri]);
+    const raceFinishes = finishes.filter((f) => f.raceId === raceId && !(f.competitorId && out.has(f.competitorId)));
     const ratingField = staticRatingField(fleet.scoringSystem);
     // A per-race override pins this race to the rating the boat held then,
     // as the engine does — the arithmetic shown must be the arithmetic scored.
@@ -369,10 +373,16 @@ function generateHandicapFixtureHtml(fixture: Fixture, yamlSource: string): stri
       }
     }
     const ratedCompetitors = competitors.filter((c) => tcfMap.has(c.id));
+    const outNote = out.size > 0
+      ? `\n<p style="font-size:90%; color:#444;">Not in ${esc(fleet.name)} for this race: ${esc(
+          competitors.filter((c) => out.has(c.id)).map((c) => formatPrimaryNames(c.names)).join(', '),
+        )}. Scores 0 here, shown as a dash.</p>`
+      : '';
     const todContext = isOrcTod && raceStart.distanceNm != null && tcfMap.size > 0
       ? { distanceNm: raceStart.distanceNm, scratchTod: Math.min(...tcfMap.values()) }
       : undefined;
     const { scores } = calculateHandicapRaceScores(raceFinishes, ratedCompetitors, raceStart, tcfMap, codes, todContext);
+    for (const id of out) scores.delete(id);
 
     const finishTimeByCompetitorId = new Map(
       raceFinishes.filter((f) => f.competitorId && f.finishTime).map((f) => [f.competitorId!, f.finishTime!]),
@@ -426,7 +436,7 @@ function generateHandicapFixtureHtml(fixture: Fixture, yamlSource: string): stri
 <tbody>
 ${rows}
 </tbody>
-</table>${overrideByComp.size > 0 ? '\n<p style="font-size:90%; color:#444;">* Per-race rating override: the rating the boat held when this race was sailed.</p>' : ''}`;
+</table>${overrideByComp.size > 0 ? '\n<p style="font-size:90%; color:#444;">* Per-race rating override: the rating the boat held when this race was sailed.</p>' : ''}${outNote}`;
   }).join('\n');
 
   const notesHtml = fixture.rrs_notes

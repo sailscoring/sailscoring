@@ -1,0 +1,239 @@
+description: "CHIPS3 in a two-handed division boats join race by race — ISORA 2026, Two-Handed, 18 races, best 5 count"
+rrs_notes: >
+  ISORA NoR 5.9 and 7.3: the Two-Handed class is a division within IRC, and a
+  boat races in it for the races it sails two-handed. A race sailed crewed is
+  not a Two-Handed race for the boat: it takes no place in it and is not one
+  of the boats in it, so it scores 0 there, as a boat that didn't come does.
+notes: |
+  ISORA's 2026 Two-Handed table: six boats over the season's 18 races, scored
+  CHIPS3 for the boats in each Two-Handed race, × the race's weight, the best
+  five counting, as in the IRC Class 1 season (high-point/10).
+
+  Several of the six sailed some races crewed: Loinnir 07O2, 09O4 and 10O5;
+  Hijacker 06O1, 07O2, 8O3, 09O4, 11CI3 and 13O6; Paradox 04CI2, 06O1, 09O4
+  and 10O5; Blacksheep 04CI2, 15CI4 and 17CI5N; No Xcuse 8O3, 09O4 and 15CI4.
+  Each of those finishes is recorded once, from ISORA's overall table, and
+  the boat is out of Two-Handed for the race. Left in, each would be placed
+  in the Two-Handed race, changing n and every two-handed boat's points.
+  Only the Two-Handed fleet is scored here; in the series the same finishes
+  also score in Overall and the boat's class.
+
+  ISORA keeps a second record for each two-handed boat (a Sailwave alias),
+  and in two races the two records disagree. In 05CW3 Paradox is DTP in the
+  two-handed record and has no result at all in the overall one. In 14O7 the
+  two-handed records measure from an 08:00 start and the overall ones from
+  07:30, so Hijacker's elapsed time differs by half an hour, and Paradox,
+  DTP in the two-handed record, finished in the overall one. One record per
+  boat can't hold both; this fixture follows the two-handed records, so it
+  reproduces ISORA's Two-Handed table.
+
+  Ratings are ISORA's per race, as per-race overrides where they changed.
+  Races 05CW3 and 12CW4 were scored by place and have no start here. Five
+  races had no two-handed boat in them (01CW1, 03CW2, 12CW4, 16CW5, and
+  09O4, which every two-handed boat sailed crewed), and two more had only a
+  crewed one (11CI3, 13O6); they count for no one. ISORA's table has a
+  column of DNCs for 01CW1 and 03CW2 and discards them; here they aren't
+  races the fleet sailed, so each boat discards two fewer zeros. No total
+  changes. Every race score, total, nett and rank is ISORA's.
+
+series:
+  discardThresholds: []
+  countBest: 5
+  dnfScoring: seriesEntries
+  pointsSystem: highPoint
+  highPointFormula: chips3
+  scoringCodes:
+    - { code: DNF, kind: replace, rule: { type: fixedPoints, points: 15 }, discardable: true }
+    - { code: DTP, description: "Declared to race, did not race (NoR 13.2)", kind: replace, rule: { type: fixedPoints, points: 8 }, discardable: true, countsInFleetSize: true }
+
+fleet:
+  name: "Two-Handed"
+  scoringSystem: irc
+
+competitors:
+  - { sailNumber: "53308", name: "Loinnir", ircTcc: 1.017 }
+  - { sailNumber: "SWE041", name: "No Xcuse", ircTcc: 1.079 }
+  - { sailNumber: "GBR 723R", name: "Hijacker", ircTcc: 1.029 }
+  - { sailNumber: "IRL 31310", name: "Katanca", ircTcc: 0.917 }
+  - { sailNumber: "GBR 8593R", name: "Paradox", ircTcc: 1.027 }
+  - { sailNumber: "IRL 5795", name: "Blacksheep", ircTcc: 0.904 }
+
+races:
+  - number: 1   # 01CW1   (no two-handed boat sailed it)
+    startTime: "09:05:00"
+    pointsMultiplier: 0.7
+    finishes: []
+  - number: 2   # 02CI1
+    startTime: "11:00:00"
+    pointsMultiplier: 0.7
+    finishes:
+      - { sailor: "IRL 31310", elapsed: "5:25:30" }
+      - { sailor: "GBR 8593R", elapsed: "4:24:55" }
+      - { sailor: "IRL 5795", elapsed: "5:37:53" }
+  - number: 3   # 03CW2   (no two-handed boat sailed it)
+    startTime: "08:05:00"
+    pointsMultiplier: 0.7
+    finishes: []
+  - number: 4   # 04CI2
+    startTime: "11:00:00"
+    pointsMultiplier: 0.7
+    fleetChanges:
+      - { sailor: "GBR 8593R", drop: ["Two-Handed"] }
+      - { sailor: "IRL 5795", drop: ["Two-Handed"] }
+    finishes:
+      - { sailor: "53308", elapsed: "3:33:15" }
+      - { sailor: "SWE041", elapsed: "3:52:26" }
+      - { sailor: "IRL 31310", elapsed: "4:42:40" }
+      - { sailor: "GBR 8593R", elapsed: "3:45:49" }   # crewed
+      - { sailor: "IRL 5795", elapsed: "4:21:47" }   # crewed
+  - number: 5   # 05CW3
+    pointsMultiplier: 0.7
+    finishes:
+      - { sailor: "GBR 8593R", code: DTP }
+  - number: 6   # 06O1
+    startTime: "08:00:00"
+    pointsMultiplier: 1.1
+    fleetChanges:
+      - { sailor: "GBR 723R", drop: ["Two-Handed"] }
+      - { sailor: "GBR 8593R", drop: ["Two-Handed"] }
+    finishes:
+      - { sailor: "53308", elapsed: "6:31:21" }
+      - { sailor: "GBR 723R", elapsed: "7:06:01" }   # crewed
+      - { sailor: "IRL 31310", code: DNF }
+      - { sailor: "GBR 8593R", elapsed: "6:48:09" }   # crewed
+  - number: 7   # 07O2
+    startTime: "08:30:00"
+    pointsMultiplier: 1.1
+    fleetChanges:
+      - { sailor: "53308", drop: ["Two-Handed"] }
+      - { sailor: "GBR 723R", drop: ["Two-Handed"] }
+    finishes:
+      - { sailor: "53308", elapsed: "6:55:37" }   # crewed
+      - { sailor: "SWE041", elapsed: "7:18:57" }
+      - { sailor: "GBR 723R", elapsed: "7:34:41" }   # crewed
+      - { sailor: "IRL 31310", elapsed: "8:49:06" }
+  - number: 8   # 8O3
+    startTime: "15:06:00"
+    pointsMultiplier: 1.2
+    fleetChanges:
+      - { sailor: "SWE041", drop: ["Two-Handed"] }
+      - { sailor: "GBR 723R", drop: ["Two-Handed"] }
+    finishes:
+      - { sailor: "SWE041", code: DTP }   # crewed
+      - { sailor: "GBR 723R", code: DTP }   # crewed
+      - { sailor: "IRL 31310", code: DTP }
+  - number: 9   # 09O4
+    startTime: "07:30:00"
+    pointsMultiplier: 1.2
+    fleetChanges:
+      - { sailor: "53308", drop: ["Two-Handed"] }
+      - { sailor: "SWE041", drop: ["Two-Handed"] }
+      - { sailor: "GBR 723R", drop: ["Two-Handed"] }
+      - { sailor: "GBR 8593R", drop: ["Two-Handed"] }
+    finishes:
+      - { sailor: "53308", code: DTP }   # crewed
+      - { sailor: "SWE041", code: DTP }   # crewed
+      - { sailor: "GBR 723R", code: DTP }   # crewed
+      - { sailor: "GBR 8593R", code: DTP }   # crewed
+  - number: 10   # 10O5
+    startTime: "14:00:00"
+    pointsMultiplier: 1.2
+    fleetChanges:
+      - { sailor: "53308", drop: ["Two-Handed"] }
+      - { sailor: "GBR 8593R", drop: ["Two-Handed"] }
+    ratingOverrides:
+      - { sailor: "SWE041", field: ircTcc, value: 1.069 }
+    finishes:
+      - { sailor: "53308", elapsed: "142:01:04" }   # crewed
+      - { sailor: "SWE041", elapsed: "164:10:21" }
+      - { sailor: "IRL 31310", code: DNF }
+      - { sailor: "GBR 8593R", elapsed: "153:21:36" }   # crewed
+  - number: 11   # 11CI3
+    startTime: "10:00:00"
+    pointsMultiplier: 0.7
+    fleetChanges:
+      - { sailor: "GBR 723R", drop: ["Two-Handed"] }
+    finishes:
+      - { sailor: "GBR 723R", elapsed: "3:53:51" }   # crewed
+  - number: 12   # 12CW4   (no two-handed boat sailed it)
+    pointsMultiplier: 0.7
+    finishes: []
+  - number: 13   # 13O6
+    startTime: "14:00:00"
+    pointsMultiplier: 1.2
+    fleetChanges:
+      - { sailor: "GBR 723R", drop: ["Two-Handed"] }
+    finishes:
+      - { sailor: "GBR 723R", elapsed: "28:47:21" }   # crewed
+  - number: 14   # 14O7 (1407 in ISORA's file)
+    startTime: "08:00:00"
+    pointsMultiplier: 1.2
+    ratingOverrides:
+      - { sailor: "53308", field: ircTcc, value: 1.022 }
+      - { sailor: "SWE041", field: ircTcc, value: 1.069 }
+      - { sailor: "GBR 8593R", field: ircTcc, value: 1.026 }
+    finishes:
+      - { sailor: "53308", code: DNF }
+      - { sailor: "SWE041", elapsed: "12:21:26" }
+      - { sailor: "GBR 723R", elapsed: "11:39:10" }
+      - { sailor: "GBR 8593R", code: DTP }
+  - number: 15   # 15CI4
+    startTime: "11:00:00"
+    pointsMultiplier: 0.7
+    fleetChanges:
+      - { sailor: "SWE041", drop: ["Two-Handed"] }
+      - { sailor: "IRL 5795", drop: ["Two-Handed"] }
+    ratingOverrides:
+      - { sailor: "53308", field: ircTcc, value: 1.022 }
+      - { sailor: "GBR 8593R", field: ircTcc, value: 1.026 }
+    finishes:
+      - { sailor: "53308", elapsed: "4:32:47" }
+      - { sailor: "SWE041", code: DTP }   # crewed
+      - { sailor: "GBR 723R", elapsed: "4:52:06" }
+      - { sailor: "IRL 31310", code: DTP }
+      - { sailor: "GBR 8593R", elapsed: "4:36:22" }
+      - { sailor: "IRL 5795", elapsed: "5:38:00" }   # crewed
+  - number: 16   # 16CW5   (no two-handed boat sailed it)
+    startTime: "20:05:00"
+    pointsMultiplier: 0.7
+    finishes: []
+  - number: 17   # 17CI5N
+    startTime: "19:00:00"
+    pointsMultiplier: 0.9
+    fleetChanges:
+      - { sailor: "IRL 5795", drop: ["Two-Handed"] }
+    ratingOverrides:
+      - { sailor: "53308", field: ircTcc, value: 1.019 }
+      - { sailor: "SWE041", field: ircTcc, value: 1.069 }
+      - { sailor: "GBR 723R", field: ircTcc, value: 1.023 }
+      - { sailor: "GBR 8593R", field: ircTcc, value: 1.026 }
+    finishes:
+      - { sailor: "53308", elapsed: "4:18:30" }
+      - { sailor: "SWE041", elapsed: "4:49:50" }
+      - { sailor: "GBR 723R", elapsed: "4:16:26" }
+      - { sailor: "IRL 31310", elapsed: "5:10:54" }
+      - { sailor: "GBR 8593R", code: DTP }
+      - { sailor: "IRL 5795", code: DTP }   # crewed
+  - number: 18   # 18O8
+    startTime: "08:00:00"
+    pointsMultiplier: 1.2
+    ratingOverrides:
+      - { sailor: "53308", field: ircTcc, value: 1.019 }
+      - { sailor: "SWE041", field: ircTcc, value: 1.069 }
+      - { sailor: "GBR 723R", field: ircTcc, value: 1.023 }
+      - { sailor: "GBR 8593R", field: ircTcc, value: 1.026 }
+    finishes:
+      - { sailor: "53308", elapsed: "12:18:33" }
+      - { sailor: "SWE041", code: DNF }
+      - { sailor: "GBR 723R", elapsed: "12:28:56" }
+      - { sailor: "IRL 31310", elapsed: "14:39:48" }
+      - { sailor: "GBR 8593R", elapsed: "13:10:52" }
+
+expected:
+  standings:
+    - { rank: 1, sailor: "53308", racePoints: [0, 0, 0, 63, 0, 97, 0, 0, 0, 0, 0, 0, 0, 18, 64, 0, 73.9, 111.3], raceCodes: [DNC, DNC, DNC, null, DNC, null, null, DNC, null, null, DNC, DNC, DNC, DNF, null, DNC, null, null], raceNotInFleet: [false, false, false, false, false, false, true, false, true, true, false, false, false, false, false, false, false, false], raceDiscards: [false, true, false, false, true, false, true, true, false, true, false, false, false, true, false, false, false, false], totalPoints: 427.2, netPoints: 409.2 }
+    - { rank: 2, sailor: "SWE041", racePoints: [0, 0, 0, 54.2, 0, 0, 97, 0, 0, 105.8, 0, 0, 0, 96, 0, 0, 54.7, 18], raceCodes: [DNC, DNC, DNC, null, DNC, DNC, null, null, null, null, DNC, DNC, DNC, null, null, DNC, null, DNF], raceNotInFleet: [false, false, false, false, false, false, false, true, true, false, false, false, false, false, true, false, false, false], raceDiscards: [false, true, false, false, true, true, false, true, false, false, false, false, false, false, true, false, false, true], totalPoints: 425.7, netPoints: 407.7 }
+    - { rank: 3, sailor: "GBR 723R", racePoints: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 109.8, 47.9, 0, 83.5, 98.5], raceCodes: [DNC, DNC, DNC, DNC, DNC, null, null, null, null, DNC, null, DNC, null, null, null, DNC, null, null], raceNotInFleet: [false, false, false, false, false, true, true, true, true, false, true, false, true, false, false, false, false, false], raceDiscards: [false, true, false, true, true, true, true, true, false, false, false, false, false, false, false, false, false, false], totalPoints: 339.7, netPoints: 339.7 }
+    - { rank: 4, sailor: "IRL 31310", racePoints: [0, 54.2, 0, 45.5, 0, 16.5, 82, 9.6, 0, 18, 0, 0, 0, 0, 5.6, 0, 64.3, 85.7], raceCodes: [DNC, null, DNC, null, DNC, DNF, null, DTP, DNC, DNF, DNC, DNC, DNC, DNC, DTP, DNC, null, null], raceDiscards: [false, false, false, false, true, true, false, true, false, true, false, false, false, true, true, false, false, false], totalPoints: 381.4, netPoints: 331.7 }
+    - { rank: 5, sailor: "GBR 8593R", racePoints: [0, 63, 0, 0, 5.6, 0, 0, 0, 0, 0, 0, 0, 0, 9.6, 56, 0, 7.2, 72.9], raceCodes: [DNC, null, DNC, null, DTP, null, DNC, DNC, null, null, DNC, DNC, DNC, DTP, null, DNC, DTP, null], raceNotInFleet: [false, false, false, true, false, true, false, false, true, true, false, false, false, false, false, false, false, false], raceDiscards: [false, false, false, true, true, true, true, true, false, true, false, false, false, false, false, false, false, false], totalPoints: 214.3, netPoints: 208.7 }
+    - { rank: 6, sailor: "IRL 5795", racePoints: [0, 45.5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], raceCodes: [DNC, null, DNC, null, DNC, DNC, DNC, DNC, DNC, DNC, DNC, DNC, DNC, DNC, null, DNC, null, DNC], raceNotInFleet: [false, false, false, true, false, false, false, false, false, false, false, false, false, false, true, false, true, false], raceDiscards: [false, false, false, true, true, true, true, true, false, true, false, false, false, false, false, false, false, false], totalPoints: 45.5, netPoints: 45.5 }
