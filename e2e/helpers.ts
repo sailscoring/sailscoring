@@ -1282,3 +1282,29 @@ export async function registerOAuthClient(
   }
   return clientId;
 }
+
+/**
+ * Click a button on the OAuth workspace or consent page (ADR-016) until its
+ * click has taken.
+ *
+ * Both pages arrive by a full navigation (`window.location.assign`), so the
+ * button is server-rendered HTML for a moment before React hydrates it. A
+ * click in that window has no handler to land on and is swallowed: the
+ * button stays enabled and nothing is sent. The caller's next step, waiting
+ * for the app's redirect, then times out (#742).
+ *
+ * When a hydrated click does land, the handler disables the button while it
+ * works and the page then navigates away. So click again only while the
+ * button is still there and enabled, and stop once it is busy or gone. The
+ * button must still be enabled before each click, so a click that arrived
+ * late is never sent a second time.
+ */
+export async function clickOAuthButton(button: Locator): Promise<void> {
+  const ready = button.and(button.page().locator(':enabled'));
+  // The page may still be loading; "gone" below must not mean "not here yet".
+  await expect(ready).toBeVisible();
+  await expect(async () => {
+    if ((await ready.count()) > 0) await ready.click({ timeout: 1_000 });
+    await expect(ready).toHaveCount(0, { timeout: 1_000 });
+  }).toPass({ timeout: 15_000 });
+}

@@ -2,6 +2,7 @@ import { createHash, randomBytes } from 'node:crypto';
 
 import { test, expect } from './fixtures';
 import {
+  clickOAuthButton,
   enableFeatures,
   readLatestMagicLink,
   registerOAuthClient,
@@ -53,7 +54,7 @@ test.describe('connecting an app', () => {
     await expect(page.getByTestId('oauth-workspace')).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Connect Course plotter' })).toBeVisible();
     await expect(page.getByRole('radio', { name: 'My Workspace' })).toBeChecked();
-    await page.getByRole('button', { name: 'Continue' }).click();
+    await clickOAuthButton(page.getByRole('button', { name: 'Continue' }));
 
     await expect(page.getByTestId('oauth-consent')).toBeVisible();
     const scopes = page.getByTestId('oauth-consent-scopes');
@@ -61,7 +62,7 @@ test.describe('connecting an app', () => {
     await expect(scopes).toContainText('set each start’s course');
     await expect(scopes).not.toContainText('Publish');
     const backAtApp = page.waitForRequest((r) => r.url().startsWith(REDIRECT));
-    await page.getByTestId('oauth-consent-allow').click();
+    await clickOAuthButton(page.getByTestId('oauth-consent-allow'));
     const back = new URL((await backAtApp).url());
     expect(back.searchParams.get('state')).toBe('e2e-state');
     const code = back.searchParams.get('code');

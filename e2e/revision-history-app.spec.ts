@@ -1,7 +1,13 @@
 import { createHash, randomBytes } from 'node:crypto';
 
 import { test, expect } from './fixtures';
-import { createSeriesQuick, enableFeatures, registerOAuthClient, signInFreshUser } from './helpers';
+import {
+  clickOAuthButton,
+  createSeriesQuick,
+  enableFeatures,
+  registerOAuthClient,
+  signInFreshUser,
+} from './helpers';
 
 /**
  * History names the outside app a change was made through (ADR-016), as the
@@ -31,9 +37,9 @@ test('history names the app a change came through', async ({ page, request }) =>
     code_challenge_method: 'S256',
   });
   await page.goto(`/api/auth/oauth2/authorize?${query}`);
-  await page.getByRole('button', { name: 'Continue' }).click();
+  await clickOAuthButton(page.getByRole('button', { name: 'Continue' }));
   const backAtApp = page.waitForRequest((r) => r.url().startsWith(REDIRECT));
-  await page.getByTestId('oauth-consent-allow').click();
+  await clickOAuthButton(page.getByTestId('oauth-consent-allow'));
   const code = new URL((await backAtApp).url()).searchParams.get('code')!;
   await page.unroute(`${REDIRECT}**`);
   const token = await request.post('/api/auth/oauth2/token', {
