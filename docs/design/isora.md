@@ -119,7 +119,7 @@ both coastal series and the Royal Dee championship, which are complete.
 
 | ISORA | Sail Scoring |
 |---|---|
-| High point, CHIPS3 | `pointsSystem: 'highPoint'` (#745) |
+| High point, CHIPS3 | `pointsSystem: 'highPoint'` with the CHIPS3 formula (#745) |
 | Weight per race | `Race.pointsMultiplier` (exists) |
 | Best 5 / best 3 | count-best discards (#746); per-sub-series rule (#747) |
 | Irish / Welsh coastal series | sub-series of one series, not separate files |

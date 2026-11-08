@@ -1336,8 +1336,9 @@ The engine scores low-point (RRS Appendix A). Other published systems — **high
 (descending awards, e.g. 0 / 3 / 5.7 / 8 …) — are offered by Sailwave and HalSail. We
 don't have them and won't build them speculatively. Shape, when it comes: a per-series
 scoring-method selector that branches the points assignment and the A8 tie-break, with a
-fixture per method. #745 builds that selector for ISORA's CHIPS3 (below), so
-another high-point system is a new formula behind it rather than a new model.
+fixture per method. #745 builds that selector with two high-point formulas, boats
+beaten (Bray's, below) and ISORA's CHIPS3, so another high-point system is a new
+formula behind it rather than a new model.
 
 **The first real user is Bray Sailing Club**, which has scored its dinghy series
 high-point for as long as anyone there remembers (Fiona Cassidy and Mark Henderson,
@@ -1345,12 +1346,12 @@ October 2026). They are open to moving to low point, so the first conversation i
 whether they want high point carried over or would rather switch. The system is
 HalSail's "HP scoring": **one point for competing, one for finishing, one for each
 boat beaten**, so a DNF/DNS/RET/OCS scores 1, a DNC scores 0, and the lowest scores
-are the ones discarded. The `bray-archive` captures (Summer and Sunday Dinghy, Winter
-Series, 2024–2026) agree with that rule once RDG boats are left out of the count of
-boats beaten, and give a ready-made parity corpus, RDG averages and ties included. The
-2023/24 and 2024 Sailwave-published series used a custom Sailwave system named "Bray
-Sailing Club"; check that it is the same scale before assuming so. Until then the
-as-published archive displays these series but can't score them.
+are the ones discarded. The 2023/24 and 2024 series, published from Sailwave under a
+system named "Bray Sailing Club", score the same without the point for competing,
+with DNS, DNF and RET at 1. #745 builds both, as its boats-beaten formula with and
+without that point. Every finish and code in the six `bray-archive` series matches
+once boats given redress are left out of the count of boats beaten; the redress
+averages are still to confirm.
 
 If Bray switches, it wants to keep what its high-point scale does for a boat that
 came out and didn't finish: DNF and DNS get a slight edge over a boat that didn't
