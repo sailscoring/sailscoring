@@ -65,6 +65,7 @@ import {
 import { loadSeriesSnapshot, type SeriesSnapshot } from './series-snapshot';
 import { summariseSnapshot } from './publication-summary';
 import { fleetOwnRaces } from './race-membership';
+import { boatsOutOfFleet, withRaceFleets } from './race-fleets';
 import { championshipRacesView, championshipStandingsView } from './public-api/championship-view';
 import type { PageView } from './public-api/published-view';
 import {
@@ -664,6 +665,7 @@ function standingOverRaces(s: Standing, indices: readonly number[]): Standing {
     raceRedressFlags: pick(s.raceRedressFlags),
     raceExcluded: pick(s.raceExcluded),
     ...(s.raceNotScored ? { raceNotScored: pick(s.raceNotScored) } : {}),
+    ...(s.raceNotInFleet ? { raceNotInFleet: pick(s.raceNotInFleet) } : {}),
   };
 }
 
@@ -1099,15 +1101,25 @@ export async function buildFleetHtmlFiles(
     const codeTable = seriesCodeTable(series);
     const raceScoresByRaceId = new Map<string, Map<string, RaceScoreCellForRender>>(
       viewRaces.map((race) => {
+        const fleetCompetitors = competitors.filter((c) => fleetCompetitorIds.has(c.id));
+        // A boat out of this fleet for the race is not in its race table: its
+        // finish is shown in the fleets it sailed the race in. The fleet that
+        // boats in no fleet are scored under is no boat's, so it leaves no
+        // one out.
+        const outOfFleet = fleet.id === UNKNOWN_FLEET_ID
+          ? new Set<string>()
+          : boatsOutOfFleet(fleetCompetitors, fleet.id, race);
         // An ORC fleet's times as it was scored on them, so the finish and
         // elapsed columns show the second the corrected time was worked from.
-        const finishesForRace = finishesScoredFor(fleet, allFinishes.filter((f) => f.raceId === race.id));
+        const finishesForRace = finishesScoredFor(
+          fleet,
+          allFinishes.filter((f) => f.raceId === race.id && !(f.competitorId && outOfFleet.has(f.competitorId))),
+        );
         const finishByCompetitorId = new Map(
           finishesForRace
             .filter((f): f is typeof f & { competitorId: string } => f.competitorId !== null)
             .map((f) => [f.competitorId, f]),
         );
-        const fleetCompetitors = competitors.filter((c) => fleetCompetitorIds.has(c.id));
         const raceStart = raceStartByRaceId.get(race.id);
 
         // Per-race tables list only competitors with an explicit Finish row
@@ -1270,7 +1282,7 @@ export async function buildFleetHtmlFiles(
             fleetCompetitors,
             seriesCodeTable(series),
             fleet.id,
-            startKeyResolver(fleetCompetitors, allRaceStarts.filter((rs) => rs.raceId === race.id)),
+            startKeyResolver(withRaceFleets(fleetCompetitors, race), allRaceStarts.filter((rs) => rs.raceId === race.id)),
           );
         }
         const scoreMap = new Map<string, RaceScoreCellForRender>(

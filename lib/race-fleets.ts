@@ -82,6 +82,9 @@ export function withRaceFleets<C extends Pick<Competitor, 'id' | 'fleetIds'>>(
  * The boats on a fleet's list that are out of the fleet for one race. A
  * fleet's race table leaves them out, and its scoring takes their finishes
  * out of the race while still counting them among the fleet's entries.
+ *
+ * For a fleet boats can belong to: the bucket boats in no fleet are scored
+ * under is in no boat's fleets, and every boat would read as out of it.
  */
 export function boatsOutOfFleet(
   fleetCompetitors: readonly Pick<Competitor, 'id' | 'fleetIds'>[],

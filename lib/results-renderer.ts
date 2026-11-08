@@ -554,6 +554,10 @@ export interface RaceScoreData {
    *  been scored yet — its start carries no course for the fleet's ORC option
    *  to correct over — rather than because nobody finished it. */
   isNotScored?: boolean;
+  /** The boat was not in this fleet for the race — a two-handed boat that
+   *  sailed it crewed. It scores the race as not sailed here, and the cell
+   *  carries a dash where a code would be. */
+  isNotInFleet?: boolean;
   podiumRank: 1 | 2 | 3 | null;
   /** Applied rating for this competitor in this race (NHC TCF / ECHO H).
    *  Surfaced beneath the score when the summary table is rendering per-race
@@ -2550,11 +2554,12 @@ function renderSummaryTable(
           ]
             .filter(Boolean)
             .join(' ');
-          const text = renderScoreText(score.points, score.resultCode, score.penaltyCode, score.penaltyOverride, score.isDiscard, score.isRedress, score.penaltyLabel, score.penaltyInPoints);
+          const text = renderScoreText(score.points, cellCode(score), score.penaltyCode, score.penaltyOverride, score.isDiscard, score.isRedress, score.penaltyLabel, score.penaltyInPoints);
+          const titleAttr = score.isNotInFleet ? ` title="${esc(NOT_IN_FLEET_TITLE)}"` : '';
           const ratingSpan = hasSeedCol && score.appliedRating != null
             ? `<span class="rating">${score.appliedRating.toFixed(3)}</span>`
             : '';
-          return classes ? `<td class="${classes}">${text}${ratingSpan}</td>` : `<td>${text}${ratingSpan}</td>`;
+          return classes ? `<td class="${classes}"${titleAttr}>${text}${ratingSpan}</td>` : `<td${titleAttr}>${text}${ratingSpan}</td>`;
         })
         .join('\n');
 
@@ -2600,6 +2605,11 @@ function renderSummaryTable(
   // race deserves better than a column that looks abandoned, and the sentence
   // is also what tells them the standings are not yet the whole story.
   const notScoredLegend = notYetScoredLegend(standings, races);
+  // A boat in this fleet for some races only scores the others as not sailed
+  // here, and the dash in its cell has to say so.
+  const notInFleetLegend = standings.some((s) => s.raceScores.some((sc) => sc.isNotInFleet))
+    ? `\n<p class="raceoptions">${esc(NOT_IN_FLEET_LEGEND)}</p>`
+    : '';
   const placeholderNote = placeholder
     ? '\n<p class="raceoptions">No races have been sailed yet. Standings will appear here once the first race is scored.</p>'
     : '';
@@ -2616,7 +2626,7 @@ ${headerCells}
 <tbody>
 ${rows}
 </tbody>
-</table></div>${optionsLegend}${labelsLegend ? `\n${labelsLegend}` : ''}${notScoredLegend ? `\n${notScoredLegend}` : ''}${placeholderNote}`;
+</table></div>${optionsLegend}${labelsLegend ? `\n${labelsLegend}` : ''}${notScoredLegend ? `\n${notScoredLegend}` : ''}${notInFleetLegend}${placeholderNote}`;
 }
 
 // ---- Race detail table ----
@@ -3371,6 +3381,18 @@ export function formatTimeBehind(totalSeconds: number): string {
   return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}${fracText}`;
 }
 
+/** A score cell's code: its result code, or for a race the boat sailed in
+ *  another fleet, a dash in its place. */
+export function cellCode(score: Pick<RaceScoreData, 'resultCode' | 'isNotInFleet'>): ResultCode | null {
+  return score.isNotInFleet ? '—' : score.resultCode;
+}
+
+/** A not-in-fleet cell's tooltip, and the sentence under a table that has
+ *  one. */
+export const NOT_IN_FLEET_TITLE = 'Did not race in this fleet';
+export const NOT_IN_FLEET_LEGEND =
+  '— did not race in this fleet: the boat sailed the race, in another of its fleets, and scores it here as not sailed.';
+
 function renderScoreText(
   points: number,
   resultCode: ResultCode | null,
@@ -3659,6 +3681,7 @@ export function assembleSeriesResultsData(
     raceDiscards: boolean[];
     raceExcluded?: boolean[];
     raceNotScored?: boolean[];
+    raceNotInFleet?: boolean[];
   }>,
   raceScoresByRaceId: Map<string, Map<string, { points: number; place: number | null; rank: number | null; resultCode: ResultCode | null; penaltyCode?: PenaltyCode | null; penaltyOverride?: number | null; penaltyInPoints?: boolean; penaltyLabel?: string; finishTime?: string | null; elapsedSecs?: number | null; trackData?: FinishTrackData | null; tcfApplied?: number | null; tccOverride?: boolean; newTcf?: number | null; elapsedTime?: number | null; courseElapsedTime?: number; laps?: number; correctedTime?: number | null; orc?: OrcRaceCalc; nhc?: { fairTcf: number; compScore: number; isExtreme: boolean; extremeDirection?: 'fast' | 'slow'; alphaApplied: number; provisionalTcf: number; adjustment: number }; echo?: { ctRatio: number; fairTcf: number; adjustment: number; alphaApplied: number } }>>,
   competitorsById: Map<string, { sailNumber: string; bowNumber?: string; entryNumber?: string; tallyNumber?: string; boatName?: string; boatClass?: string; names: string[]; owners?: string[]; helms?: string[]; crewNames?: string[]; clubs?: string[]; nationality?: string; worldSailingId?: string; subdivisions?: Record<string, string>; customFields?: Record<string, string>; gender?: 'M' | 'F' | ''; age?: number | null; ircTcc?: number; vprsTcc?: number; fixedTcf?: number; pyNumber?: number; ytcNumber?: number; orcCert?: OrcCertData; ircCert?: { certNumber?: string } }>,
@@ -4106,6 +4129,7 @@ export function assembleSeriesResultsData(
           isRedress,
           isExcluded: s.raceExcluded?.[i] ?? false,
           ...(s.raceNotScored?.[i] ? { isNotScored: true } : {}),
+          ...(s.raceNotInFleet?.[i] ? { isNotInFleet: true } : {}),
           podiumRank,
           ...(appliedRating != null ? { appliedRating } : {}),
         };

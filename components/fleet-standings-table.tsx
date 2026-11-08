@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from 'react';
 import { penaltyAmountText } from '@/lib/scoring-codes';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, CircleDashed } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -393,6 +393,7 @@ export function FleetStandingsTable({
             key={standing.competitor.id}
             index={index}
             standing={standing}
+            fleetName={fleetName}
             races={races}
             raceCount={races.length}
             showTotal={showTotal}
@@ -413,6 +414,12 @@ export function FleetStandingsTable({
         {optionNotes.join(' ')}
       </p>
     )}
+    {standings.some((s) => s.raceNotInFleet?.some(Boolean)) && (
+      <p className="text-xs text-muted-foreground" data-testid="not-in-fleet-legend">
+        — did not race in this fleet: the boat sailed the race in another of its fleets, and scores it
+        here as not sailed.
+      </p>
+    )}
     </>
   );
 }
@@ -421,6 +428,9 @@ interface StandingRowProps {
   /** Position in the table, for alternate-row shading. */
   index: number;
   standing: Standing;
+  /** The table's fleet, named in the note on a boat that raced in it for some
+   *  races only. */
+  fleetName?: string;
   races: FleetStandingsTableProps['races'];
   raceCount: number;
   showTotal: boolean;
@@ -438,6 +448,7 @@ interface StandingRowProps {
 function StandingRow({
   index,
   standing,
+  fleetName,
   races,
   raceCount,
   showTotal,
@@ -453,6 +464,12 @@ function StandingRow({
 
   const isFirst = rank === 1;
   const pinnedIn = includedByOverride?.has(competitor.id) ?? false;
+  // Races this boat sailed in another of its fleets rather than this one.
+  const notInFleetCount = standing.raceNotInFleet?.filter(Boolean).length ?? 0;
+  const inFleetCount = racePoints.length - notInFleetCount;
+  const partNote = fleetName
+    ? `${fleetName} in ${inFleetCount} of ${racePoints.length} races`
+    : `In this fleet for ${inFleetCount} of ${racePoints.length} races`;
   // The sail number opens the entry's menu for an editor.
   const sailCell = (
       <>
@@ -486,6 +503,16 @@ function StandingRow({
           </DropdownMenu>
         ) : (
           competitor.sailNumber
+        )}
+        {notInFleetCount > 0 && (
+          <span
+            className="ml-1 inline-flex align-middle text-amber-600 dark:text-amber-400"
+            title={partNote}
+            aria-label={partNote}
+            data-testid="fleet-part-marker"
+          >
+            <CircleDashed className="h-3 w-3" aria-hidden />
+          </span>
         )}
       </>
   );
@@ -552,7 +579,12 @@ function StandingRow({
             : raceRank !== null
               ? `${ordinal(raceRank)} × ${multiplier} = ${points}`
               : `Counts ×${multiplier}`;
-        const scoreText = isRedress ? (
+        const isNotInFleet = standing.raceNotInFleet?.[i] ?? false;
+        const scoreText = isNotInFleet ? (
+          <span className="text-xs text-muted-foreground" title="Did not race in this fleet">
+            {points} —
+          </span>
+        ) : isRedress ? (
           <span className="text-xs text-amber-600 dark:text-amber-400">
             RDG({points})
           </span>

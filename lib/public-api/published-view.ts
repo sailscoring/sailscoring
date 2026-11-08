@@ -25,6 +25,7 @@ import {
   formatPoints,
   raceResultPointsText,
   scoreDisplayText,
+  cellCode,
   type CompetitorListGroup,
   type RaceResultData,
   type SeriesResultsData,
@@ -474,7 +475,7 @@ function resultsSectionParts(
           ? '—'
           : scoreDisplayText(
               score.points,
-              score.resultCode,
+              cellCode(score),
               score.penaltyCode,
               score.penaltyOverride,
               score.isDiscard,
