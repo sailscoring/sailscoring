@@ -447,6 +447,13 @@ function resultsSectionParts(
     scoringSystem: section.scoringSystem,
     namesLabel: namesLabelOf(display),
     ...(data.standingsRatingLabel ? { ratingLabel: data.standingsRatingLabel } : {}),
+    ...(data.highPoint
+      ? {
+          pointsSystem: 'highPoint' as const,
+          highPointFormula: data.highPoint.formula,
+          ...(data.highPoint.pointForComingToStart ? { pointForComingToStart: true } : {}),
+        }
+      : {}),
     races: data.races.map((r) => ({
       race: r.order ?? r.raceNumber,
       label: r.label,

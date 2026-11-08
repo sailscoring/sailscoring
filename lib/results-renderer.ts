@@ -1,4 +1,5 @@
 import type { CustomField, ResultsColumn, FinishTrackData, Fleet, ResultCode, PenaltyCode, CompetitorFieldKey, MultiPersonFieldKey, OrcCertData, OrcCourseLeg, OrcRaceCalc, OrcScoringOptionCatalog, PrimaryPersonLabel, RaceConditions, RaceDiscardPolicy, RaceOfficial, RaceStartCourse, SubdivisionAxis } from './types';
+import type { HighPointScoring } from './high-point';
 import { buildOrcMix, type OrcMix } from './orc-mix';
 import { penaltyAmountText } from './scoring-codes';
 import type { ScoringCodeNote } from './scoring-codes-text';
@@ -118,6 +119,11 @@ export interface SeriesResultsData {
    *  RRS codes, and on a split-fleet championship, whose Scoring notes page
    *  lists them once. */
   scoringCodeNotes?: ScoringCodeNote[];
+  /** High point: how the series scored points, stated under the results so a
+   *  reader knows the highest total wins. Absent for low point. */
+  pointsNote?: string;
+  /** High point: how the series scored, for the published-results API. */
+  highPoint?: HighPointScoring;
   /** Full import URL. Embedded payload (`/import#data=<base64url>`) for
    *  standalone artifacts; a reference (`/import?from=/p/...`) on published
    *  pages, whose data lives in the publication's data file (ADR-012). When
@@ -188,6 +194,10 @@ export interface RaceData {
    *  states it in words. Absent on an ordinary race. */
   discardPolicy?: RaceDiscardPolicy;
   pointsMultiplier?: number;
+  /** High point: the fleet size and weight the race's points were scored
+   *  from, stated above its table — "High point · 11 boats in the race ·
+   *  weight 1.2". The table's points are then the weighted scores. */
+  highPointCaption?: string;
   /** What the race was sailed in, and the course used (#338). Stated in words
    *  above the race table. */
   conditions?: RaceConditions;
@@ -906,16 +916,25 @@ function codesUsed(sections: readonly SeriesResultsData[]): Set<string> {
  * the page uses none. `all` lists every note whether used or not, for the
  * split-fleet Scoring notes page.
  */
+/** A high-point series' note on how it scored, under the results. */
+export function renderPointsNote(note: string | undefined): string {
+  return note ? `<div class="scoringcodes pointsnote"><p>${esc(note)}</p></div>` : '';
+}
+
 export function renderScoringCodeNotes(
   notes: readonly ScoringCodeNote[] | undefined,
   used?: ReadonlySet<string>,
+  /** A high-point series' codes differ from the high-point defaults, not
+   *  the RRS. */
+  highPoint?: boolean,
 ): string {
   const shown = (notes ?? []).filter((n) => !used || used.has(n.code));
   if (shown.length === 0) return '';
+  const standard = highPoint ? 'default' : 'RRS';
   const items = shown
-    .map((n) => `<li><strong>${esc(n.code)}</strong> ${esc(n.name)}. ${esc(n.sentence)}${n.rrs ? ` <span class="rrs">(RRS: ${esc(n.rrs)})</span>` : ''}</li>`)
+    .map((n) => `<li><strong>${esc(n.code)}</strong> ${esc(n.name)}. ${esc(n.sentence)}${n.rrs ? ` <span class="rrs">(${standard}: ${esc(n.rrs)})</span>` : ''}</li>`)
     .join('\n');
-  return `<div class="scoringcodes"><p>Scoring codes that differ from the RRS</p>\n<ul>\n${items}\n</ul></div>`;
+  return `<div class="scoringcodes"><p>Scoring codes that differ from ${highPoint ? 'the high-point defaults' : 'the RRS'}</p>\n<ul>\n${items}\n</ul></div>`;
 }
 
 export function renderSeriesHtml(
@@ -931,7 +950,8 @@ export function renderSeriesHtml(
     hasNhcDetail ? renderNhcToggle() + '\n' + renderNhcExplainer() : '',
     hasEchoDetail ? renderEchoToggle() + '\n' + renderEchoExplainer() : '',
     renderSectionTables(data, view, { detail, linkRaceLabels: detail === 'full' }),
-    renderScoringCodeNotes(data.scoringCodeNotes, codesUsed([data])),
+    renderPointsNote(data.pointsNote),
+    renderScoringCodeNotes(data.scoringCodeNotes, codesUsed([data]), !!data.highPoint),
   ].join('\n');
   const flagDefs =
     renderFlagDefs(collectReferencedCodes([data]), data.flagSvgByCode) + renderCourseChartDefs([data], content);
@@ -1066,7 +1086,8 @@ export function renderCombinedSeriesHtml(
     hasEchoDetail ? renderEchoToggle() + '\n' + renderEchoExplainer() : '',
     sectionHtml,
     // One list for the page: every section is the same series.
-    renderScoringCodeNotes(sections[0]?.scoringCodeNotes, codesUsed(sections)),
+    renderPointsNote(sections[0]?.pointsNote),
+    renderScoringCodeNotes(sections[0]?.scoringCodeNotes, codesUsed(sections), !!sections[0]?.highPoint),
   ].join('\n');
   const flagDefs =
     renderFlagDefs(collectReferencedCodes(sections), flagSvgByCode) + renderCourseChartDefs(sections, content);
@@ -2932,7 +2953,13 @@ function renderRaceTable(
   const nameStr = race.name ? `${esc(race.name)}&nbsp;&mdash;&nbsp;` : '';
   // The Points column here is the race's own score at face value; the
   // multiplier applies in the series total, so say so where the two differ.
-  const optionsNote = hasScoringOptions(race) ? scoringOptionsLegend(race, 'This race') : '';
+  // In high point the Points column is the weighted score already, and the
+  // caption below gives the weight, so only the discard policy is left to say.
+  const optionsRace = race.highPointCaption ? { ...race, pointsMultiplier: undefined } : race;
+  const optionsNote = hasScoringOptions(optionsRace) ? scoringOptionsLegend(optionsRace, 'This race') : '';
+  const highPointSubheading = race.highPointCaption
+    ? `<p class="racehighpoint" style="text-align:center; margin: 0 0 6px 0; font-size: 0.9em;">${esc(race.highPointCaption)}</p>\n`
+    : '';
   const labelsLegend = penaltyLabelLegend(race.results.map((r) => r.penaltyLabel ?? ''));
   const optionsSubheading = optionsNote
     ? `<p class="raceoptions" style="text-align:center; margin: 0 0 6px 0; font-size: 0.9em;">${esc(optionsNote)}</p>\n`
@@ -2949,7 +2976,7 @@ function renderRaceTable(
   const labelStr = opts?.suppressLabel ? '' : `${esc(race.label)}&nbsp;&mdash;&nbsp;`;
   const anchorAttr = opts?.suppressAnchor ? '' : ` id="${esc(race.anchorId)}"`;
   return `<h3 class="racetitle"${anchorAttr}>${labelStr}${nameStr}${dateStr}${startStr}</h3>
-${optionsSubheading}${conditionsSubheading}${officialsSubheading}${orcSubheading}${nhcSubheading}${echoSubheading}<div class="tablewrap"><table class="racetable" cellspacing="0" cellpadding="0" border="0">
+${highPointSubheading}${optionsSubheading}${conditionsSubheading}${officialsSubheading}${orcSubheading}${nhcSubheading}${echoSubheading}<div class="tablewrap"><table class="racetable" cellspacing="0" cellpadding="0" border="0">
 <colgroup span="${colCount}">
 ${columns.map((c) => `<col class="${columnClass(c.key)}" />\n`).join('')}${handicapCols}${orcIwCol}${nhcNewTcfCol}${echoNewHCol}${nhcCols}${echoCols}
 <col class="points" />${trackCols}

@@ -119,3 +119,20 @@ export function pointsSystemSummary(s: Partial<PointsSystemFields>): string {
   if (hp.formula === 'chips3') return 'High point (CHIPS3)';
   return hp.pointForComingToStart ? 'High point (boats beaten, +1 for coming to the start)' : 'High point (boats beaten)';
 }
+
+/** The note a published page carries under its results, saying how points
+ *  were scored — a reader used to low point needs telling the order runs the
+ *  other way. */
+export function pointsSystemNote(hp: HighPointScoring): string {
+  if (hp.formula === 'chips3') {
+    return 'High point: each race scores CHIPS3 for the boats in it, × the race’s weighting; highest total wins.';
+  }
+  return `High point: 1 point for finishing and 1 for each boat beaten${hp.pointForComingToStart ? ', and 1 for coming to the start' : ''}; highest total wins.`;
+}
+
+/** A high-point race table's caption: what a reader needs to check a score —
+ *  "High point · 11 boats in the race · weight 1.2". */
+export function highPointRaceCaption(fleetSize: number, multiplier: number | undefined): string {
+  const boats = `${fleetSize} ${fleetSize === 1 ? 'boat' : 'boats'} in the race`;
+  return `High point · ${boats}${multiplier != null && multiplier !== 1 ? ` · weight ${multiplier}` : ''}`;
+}

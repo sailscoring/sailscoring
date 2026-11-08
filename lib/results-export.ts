@@ -17,6 +17,8 @@ import {
 } from './scoring';
 import { seriesCodeTable } from './scoring-codes';
 import { scoringCodeNotes } from './scoring-codes-text';
+import { highPointRaceCaption, pointsSystemNote } from './high-point';
+import { raceTablePoints } from './race-scoring-options';
 import {
   renderSeriesHtml,
   renderCombinedSeriesHtml,
@@ -1091,6 +1093,7 @@ export async function buildFleetHtmlFiles(
       nhc?: { fairTcf: number; compScore: number; isExtreme: boolean; extremeDirection?: 'fast' | 'slow'; alphaApplied: number; provisionalTcf: number; adjustment: number };
       echo?: { ctRatio: number; fairTcf: number; adjustment: number; alphaApplied: number };
     };
+    const codeTable = seriesCodeTable(series);
     const raceScoresByRaceId = new Map<string, Map<string, RaceScoreCellForRender>>(
       viewRaces.map((race) => {
         // An ORC fleet's times as it was scored on them, so the finish and
@@ -1301,6 +1304,23 @@ export async function buildFleetHtmlFiles(
       }),
     );
 
+    // High point: a race table shows each boat's score as it counts,
+    // weighted and rounded, under a caption giving the fleet size and weight
+    // it was scored from — n being the boats whose result counts toward it.
+    const highPointCaptionByRaceId = new Map<string, string>();
+    if (codeTable.highPoint) {
+      for (const race of viewRaces) {
+        const cells = raceScoresByRaceId.get(race.id);
+        if (!cells) continue;
+        let fleetSize = 0;
+        for (const [id, cell] of cells) {
+          if (cell.resultCode === null || codeTable.countsInFleetSize(cell.resultCode)) fleetSize++;
+          cells.set(id, { ...cell, points: raceTablePoints(cell.points, race.pointsMultiplier, true) });
+        }
+        if (fleetSize > 0) highPointCaptionByRaceId.set(race.id, highPointRaceCaption(fleetSize, race.pointsMultiplier));
+      }
+    }
+
     const competitorsById = new Map(competitors.map((c) => [c.id, c]));
     const fleetName = isSingleDefault ? undefined : fleet.name;
 
@@ -1365,7 +1385,7 @@ export async function buildFleetHtmlFiles(
     // axis-sectioned page (#390) renders the same fleet several times over,
     // once per subdivision value, each with its own heading and its own 1..n
     // ranks. Everything else — race scores, discards, chrome — is the fleet's.
-    const codeNotes = scoringCodeNotes(series.dnfScoring ?? 'seriesEntries', series.scoringCodes);
+    const codeNotes = scoringCodeNotes(series.dnfScoring ?? 'seriesEntries', series.scoringCodes, codeTable.highPoint);
     const assemble = (
       anchorPrefix?: string,
       section?: { name: string; standings: typeof standings; axisId: string },
@@ -1433,6 +1453,14 @@ export async function buildFleetHtmlFiles(
       // The series' codes that differ from the RRS, so the page can say what
       // a TLE in a cell is, or that a DNC is scored from the starting area.
       if (codeNotes.length > 0) data.scoringCodeNotes = codeNotes;
+      if (codeTable.highPoint) {
+        data.pointsNote = pointsSystemNote(codeTable.highPoint);
+        data.highPoint = codeTable.highPoint;
+        for (const r of data.races) {
+          const caption = r.raceId ? highPointCaptionByRaceId.get(r.raceId) : undefined;
+          if (caption) r.highPointCaption = caption;
+        }
+      }
       return data;
     };
     // The whole fleet, unsectioned, is wanted twice — its own page, and the

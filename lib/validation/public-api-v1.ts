@@ -158,6 +158,18 @@ export const standingsTableSchema = named(
       .optional()
       .describe('What the rows\' `rating` is headed — `TCC`, `PY`, the club\'s name for a fixed TCF, or `APH ToT` for ORC. Present on a fixed-handicap fleet\'s table when the series shows each boat\'s rating in its standings.'),
     caption: z.string().optional(),
+    pointsSystem: z
+      .literal('highPoint')
+      .optional()
+      .describe('`highPoint` when the series scores high point: a boat scores for the boats she beats, and the highest total ranks first. Absent for low point (RRS Appendix A), where the lowest does.'),
+    highPointFormula: z
+      .enum(['boatsBeaten', 'chips3'])
+      .optional()
+      .describe('How high point scores a place: `boatsBeaten`, n + 1 − place, with n the boats in the fleet\'s race that count toward its size; or `chips3`, Chipstead SC\'s CHIPS3. Present only in high point.'),
+    pointForComingToStart: z
+      .boolean()
+      .optional()
+      .describe('Boats beaten only: every boat that came to the start scores a point more. Present only when it does.'),
     races: z.array(standingsRaceSchema),
     rows: z.array(standingsRowSchema),
     scoringCodes: z

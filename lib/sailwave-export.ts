@@ -292,6 +292,15 @@ export function buildSailwaveBlw(file: SeriesFile): SailwaveExportResult {
 
   const w = new BlwWriter();
   const { series } = file;
+  // Sailwave can score high point, but only through its own scoring-system
+  // presets and custom formulas, which this export doesn't write yet: the
+  // file goes across as low point, and Sailwave would rank it upside down.
+  if (series.pointsSystem === 'highPoint') {
+    warn(
+      'high-point',
+      `This series scores high point (${series.highPointFormula === 'chips3' ? 'CHIPS3' : 'boats beaten'}); the Sailwave file is scored low point. Set Sailwave's scoring system to high point after opening it.`,
+    );
+  }
   const fleets = [...file.fleets].sort((a, b) => a.displayOrder - b.displayOrder);
   const fleetById = new Map(fleets.map((f) => [f.id, f]));
   const fleetName = new Map(fleets.map((f) => [f.id, safeSelectorName(f.name)]));

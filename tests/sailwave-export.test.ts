@@ -114,6 +114,15 @@ describe('buildSailwaveBlw', () => {
     expect(back.series.countBest).toBe(5);
   });
 
+  it('warns that a high-point series goes across low point', () => {
+    const original = importFixture(`${HYC}/2026 Tues Series 1.blw`);
+    original.series.pointsSystem = 'highPoint';
+    original.series.highPointFormula = 'chips3';
+    const { warnings } = buildSailwaveBlw(original);
+    expect(warnings.map((w) => w.code)).toContain('high-point');
+    expect(warnings.find((w) => w.code === 'high-point')!.message).toMatch(/CHIPS3.*scored low point/);
+  });
+
   it('writes Sailwave-shaped rows: quoted, CRLF, four columns', () => {
     const original = importFixture(`${HYC}/2026 Tues Series 1.blw`);
     const { blw } = roundTrip(original);

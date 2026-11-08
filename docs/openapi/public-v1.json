@@ -3618,6 +3618,23 @@
           "caption": {
             "type": "string"
           },
+          "pointsSystem": {
+            "description": "`highPoint` when the series scores high point: a boat scores for the boats she beats, and the highest total ranks first. Absent for low point (RRS Appendix A), where the lowest does.",
+            "type": "string",
+            "const": "highPoint"
+          },
+          "highPointFormula": {
+            "description": "How high point scores a place: `boatsBeaten`, n + 1 − place, with n the boats in the fleet's race that count toward its size; or `chips3`, Chipstead SC's CHIPS3. Present only in high point.",
+            "type": "string",
+            "enum": [
+              "boatsBeaten",
+              "chips3"
+            ]
+          },
+          "pointForComingToStart": {
+            "description": "Boats beaten only: every boat that came to the start scores a point more. Present only when it does.",
+            "type": "boolean"
+          },
           "races": {
             "type": "array",
             "items": {
