@@ -13,9 +13,12 @@ import {
   buildRaceFleetExclusionMap,
   resolveEntrants,
   resolveEntryStatuses,
+  subSeriesDiscardsOf,
   type EntryResolutionOptions,
   type EntryStatus,
 } from '@/lib/scoring';
+import { discardCaption } from '@/lib/discard-rules';
+import { highPointOf } from '@/lib/high-point';
 import { seriesCodeTable } from '@/lib/scoring-codes';
 import { displayCompetitorLabel, subdivisionAxes } from '@/lib/competitor-fields';
 import { SeriesTabFallback } from '@/components/series-tab-fallback';
@@ -176,6 +179,7 @@ export default function StandingsPage({
 
   const discardThresholds: DiscardThreshold[] = series.discardThresholds ?? [];
   const discardRule = discardRuleOf(series);
+  const pointsLabel = highPointOf(series) ? 'High Point' : 'Low Point';
   const enabledFields = data.enabledFields;
   const axes = subdivisionAxes(series);
   const isSingleFleet = fleets.length <= 1;
@@ -242,7 +246,9 @@ export default function StandingsPage({
     }));
     fleetResults = selected.fleetStandings;
     circularRedressRaces = selected.circularRedressRaces;
-    const blockDiscards = getDiscardCount(selected.races.length, discardThresholds, discardRule);
+    // The block's own discard rule, or the series' over the block's races.
+    const blockRule = subSeriesDiscardsOf(selected.subSeries, discardThresholds, discardRule);
+    const blockDiscards = getDiscardCount(selected.races.length, blockRule.thresholds, blockRule.rule);
     // The boats this block actually scores — its flag and its overrides
     // applied — so the count agrees with the table beneath it.
     const blockRaceIds = new Set(selected.races.map((r) => r.id));
@@ -263,10 +269,8 @@ export default function StandingsPage({
     const blockFleetCount = selected.fleetStandings.filter((fs) => fs.fleet.id !== '__unknown__').length;
     const blockFleetCountLabel = blockFleetCount > 1 ? ` · ${blockFleetCount} fleets` : '';
     summary =
-      `${selected.races.length} race${selected.races.length === 1 ? '' : 's'}${blockFleetCountLabel} · Low Point · ` +
-      (blockDiscards > 0
-        ? `${blockDiscards} discard${blockDiscards > 1 ? 's' : ''}`
-        : 'No discards') +
+      `${selected.races.length} race${selected.races.length === 1 ? '' : 's'}${blockFleetCountLabel} · ${pointsLabel} · ` +
+      discardCaption(selected.races.length, blockDiscards, blockRule.rule) +
       ` · ${entrantCount} entrant${entrantCount === 1 ? '' : 's'}`;
   } else {
     const whole = calculateFleetStandings(
@@ -293,10 +297,8 @@ export default function StandingsPage({
       excludeDncOnlyCompetitors: series.excludeDncOnlyCompetitors,
     }).length;
     summary =
-      `${races.length} race${races.length === 1 ? '' : 's'}${fleetCountLabel} · Low Point · ` +
-      (discardCount > 0
-        ? `${discardCount} discard${discardCount > 1 ? 's' : ''}`
-        : 'No discards') +
+      `${races.length} race${races.length === 1 ? '' : 's'}${fleetCountLabel} · ${pointsLabel} · ` +
+      discardCaption(races.length, discardCount, discardRule) +
       ` · ${entrantCount} competitor${entrantCount === 1 ? '' : 's'}`;
   }
 

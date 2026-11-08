@@ -261,3 +261,29 @@ export function summarizeSubSeriesDiscards(discards: SubSeriesDiscards): string 
       return summarizeProportionalDiscard(discards);
   }
 }
+
+/**
+ * The standings caption's discard part for the races there are: "Best 3 of
+ * 5 count" for a count-best rule once it discards, else "2 discards" or "No
+ * discards". Spoken for the scope's races; a fleet that sailed fewer
+ * discards fewer.
+ */
+export function discardCaption(raceCount: number, discardCount: number, rule: DiscardRule | undefined): string {
+  if (rule && 'countBest' in rule && discardCount > 0) {
+    return `Best ${rule.countBest} of ${raceCount} count`;
+  }
+  return discardCount > 0 ? `${discardCount} discard${discardCount > 1 ? 's' : ''}` : 'No discards';
+}
+
+/** What a published sub-series page says of a discard rule of its own. */
+export function subSeriesDiscardsNote(discards: SubSeriesDiscards): string {
+  switch (discards.kind) {
+    case 'none':
+      return 'Every race in this sub-series counts: there are no discards.';
+    case 'countBest':
+      return `This sub-series counts each boat's best ${discards.countBest} ${plural(discards.countBest, 'race', 'races')}.`;
+    case 'steps':
+    case 'proportional':
+      return `Discards in this sub-series: ${summarizeSubSeriesDiscards(discards)}.`;
+  }
+}

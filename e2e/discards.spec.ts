@@ -301,7 +301,7 @@ test('counting the best races discards the rest, and switching back clears it', 
   // Alice drops her DNC (6) for nett 3; Bob drops a 2 for nett 5.
   await page.getByRole('link', { name: 'Standings' }).click();
   await expect(page).toHaveURL(/\/standings$/);
-  await expect(page.getByText('1 discard')).toBeVisible();
+  await expect(page.getByText('4 races · Low Point · Best 3 of 4 count')).toBeVisible();
   const aliceRow = page.getByRole('row').filter({ hasText: 'Alice Murphy' });
   const bobRow = page.getByRole('row').filter({ hasText: 'Bob Kelly' });
   await expect(aliceRow.getByRole('cell').nth(0)).toHaveText('1');

@@ -17,6 +17,7 @@ import {
 } from './scoring';
 import { seriesCodeTable } from './scoring-codes';
 import { scoringCodeNotes } from './scoring-codes-text';
+import { subSeriesDiscardsNote } from './discard-rules';
 import { highPointRaceCaption, pointsSystemNote } from './high-point';
 import { raceTablePoints } from './race-scoring-options';
 import {
@@ -1034,6 +1035,8 @@ export async function buildFleetHtmlFiles(
     struckByFleet: Map<string, Set<string>> | undefined,
     subSeriesName?: string,
     skipFleetIds?: Set<string>,
+    /** A sub-series' own discard rule, stated on its pages. */
+    discardsNote?: string,
   ): Map<string, SectionAssembler> => {
   const assemblerByFleetId = new Map<string, SectionAssembler>();
   const viewSeriesInfo = subSeriesName
@@ -1453,6 +1456,7 @@ export async function buildFleetHtmlFiles(
       // The series' codes that differ from the RRS, so the page can say what
       // a TLE in a cell is, or that a DNC is scored from the starting area.
       if (codeNotes.length > 0) data.scoringCodeNotes = codeNotes;
+      if (discardsNote) data.discardsNote = discardsNote;
       if (codeTable.highPoint) {
         data.pointsNote = pointsSystemNote(codeTable.highPoint);
         data.highPoint = codeTable.highPoint;
@@ -1523,6 +1527,7 @@ export async function buildFleetHtmlFiles(
     viewRaces: typeof races,
     struckByFleet: Map<string, Set<string>> | undefined,
     subSeriesName?: string,
+    discardsNote?: string,
   ) => {
     const viewFleets = viewFleetResults.map((fr) => fr.fleet);
     const standingsByFleetId = new Map(
@@ -1543,7 +1548,7 @@ export async function buildFleetHtmlFiles(
       : undefined;
 
     const clusterStart = results.length;
-    const assemblerByFleetId = renderView(viewFleetResults, viewRaces, struckByFleet, subSeriesName, suppressed);
+    const assemblerByFleetId = renderView(viewFleetResults, viewRaces, struckByFleet, subSeriesName, suppressed, discardsNote);
 
     // Extra pages lead the cluster — the series index and preview show them
     // first, ahead of the per-fleet pages they draw on.
@@ -1648,6 +1653,7 @@ export async function buildFleetHtmlFiles(
         renumbered,
         buildRaceFleetExclusionMap(block.subSeries.raceFleetExclusions),
         block.subSeries.name,
+        block.subSeries.discards ? subSeriesDiscardsNote(block.subSeries.discards) : undefined,
       );
     }
   } else {

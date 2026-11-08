@@ -403,3 +403,24 @@ describe('buildFleetHtmlFiles — combined pages on a block series (#255)', () =
     ]);
   });
 });
+
+describe('buildFleetHtmlFiles — a sub-series with its own discard rule', () => {
+  it('states the rule on its pages, fleet and combined, and nowhere else', async () => {
+    const blocks = [
+      { id: 'ss-w', seriesId: 's1', name: 'Winter', displayOrder: 0, raceIds: ['r1'] },
+      { id: 'ss-c', seriesId: 's1', name: 'Coastal', displayOrder: 1, raceIds: ['r1'], discards: { kind: 'countBest', countBest: 3 } },
+    ];
+    const repos = {
+      ...makeRepos(makeSeries([OVERALL])),
+      subSeriesRepo: { listBySeries: async () => blocks },
+    } as unknown as ExportRepos;
+    const files = await buildFleetFiles(repos, 's1');
+    const note = "This sub-series counts each boat's best 3 races.";
+    const coastal = files!.filter((f) => f.subSeriesName === 'Coastal');
+    expect(coastal.length).toBeGreaterThan(1);
+    for (const f of coastal) expect(f.html).toContain(note);
+    for (const f of files!.filter((f) => f.subSeriesName === 'Winter')) {
+      expect(f.html).not.toContain('This sub-series counts');
+    }
+  });
+});

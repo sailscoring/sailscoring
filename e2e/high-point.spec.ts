@@ -73,6 +73,7 @@ test('boats beaten scores a race and ranks the highest total first', async ({ pa
   await expect(page).toHaveURL(/\/races$/);
   await page.getByRole('link', { name: 'Standings' }).click();
   await expect(page).toHaveURL(/\/standings$/);
+  await expect(page.getByText('1 race · High Point · No discards')).toBeVisible();
   const rows = page.getByRole('row');
   await expect(rows.filter({ hasText: 'Alice' }).getByRole('cell').first()).toContainText('1');
   await expect(rows.filter({ hasText: 'Alice' })).toContainText('4');

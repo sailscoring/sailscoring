@@ -122,6 +122,10 @@ export interface SeriesResultsData {
   /** High point: how the series scored points, stated under the results so a
    *  reader knows the highest total wins. Absent for low point. */
   pointsNote?: string;
+  /** A sub-series with its own discard rule states it under the results,
+   *  since it differs from the series' ("This sub-series counts each boat's
+   *  best 3 races."). Absent when the page takes the series' rule. */
+  discardsNote?: string;
   /** High point: how the series scored, for the published-results API. */
   highPoint?: HighPointScoring;
   /** Full import URL. Embedded payload (`/import#data=<base64url>`) for
@@ -917,8 +921,11 @@ function codesUsed(sections: readonly SeriesResultsData[]): Set<string> {
  * split-fleet Scoring notes page.
  */
 /** A high-point series' note on how it scored, under the results. */
-export function renderPointsNote(note: string | undefined): string {
-  return note ? `<div class="scoringcodes pointsnote"><p>${esc(note)}</p></div>` : '';
+export function renderPointsNote(note: string | undefined, discardsNote?: string): string {
+  const lines = [note, discardsNote].filter((n): n is string => !!n);
+  return lines.length > 0
+    ? `<div class="scoringcodes pointsnote">${lines.map((n) => `<p>${esc(n)}</p>`).join('')}</div>`
+    : '';
 }
 
 export function renderScoringCodeNotes(
@@ -950,7 +957,7 @@ export function renderSeriesHtml(
     hasNhcDetail ? renderNhcToggle() + '\n' + renderNhcExplainer() : '',
     hasEchoDetail ? renderEchoToggle() + '\n' + renderEchoExplainer() : '',
     renderSectionTables(data, view, { detail, linkRaceLabels: detail === 'full' }),
-    renderPointsNote(data.pointsNote),
+    renderPointsNote(data.pointsNote, data.discardsNote),
     renderScoringCodeNotes(data.scoringCodeNotes, codesUsed([data]), !!data.highPoint),
   ].join('\n');
   const flagDefs =
@@ -1086,7 +1093,7 @@ export function renderCombinedSeriesHtml(
     hasEchoDetail ? renderEchoToggle() + '\n' + renderEchoExplainer() : '',
     sectionHtml,
     // One list for the page: every section is the same series.
-    renderPointsNote(sections[0]?.pointsNote),
+    renderPointsNote(sections[0]?.pointsNote, sections[0]?.discardsNote),
     renderScoringCodeNotes(sections[0]?.scoringCodeNotes, codesUsed(sections), !!sections[0]?.highPoint),
   ].join('\n');
   const flagDefs =

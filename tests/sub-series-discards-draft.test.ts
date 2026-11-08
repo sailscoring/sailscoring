@@ -45,3 +45,13 @@ describe('a discard rule in a line', () => {
     expect(summarizeSubSeriesDiscards({ kind: 'proportional', firstAt: 3, everyRaces: 3 })).toBe('1 discard per 3 races sailed, from 3 races');
   });
 });
+
+describe('the standings caption\'s discards', () => {
+  it('says how many count once a count-best rule discards', async () => {
+    const { discardCaption } = await import('@/lib/discard-rules');
+    expect(discardCaption(5, 2, { countBest: 3 })).toBe('Best 3 of 5 count');
+    expect(discardCaption(3, 0, { countBest: 3 })).toBe('No discards');
+    expect(discardCaption(6, 2, undefined)).toBe('2 discards');
+    expect(discardCaption(4, 1, { firstAt: 3, everyRaces: 3 })).toBe('1 discard');
+  });
+});
