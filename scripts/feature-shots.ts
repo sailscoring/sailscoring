@@ -1373,6 +1373,33 @@ const SHOTS: Shot[] = [
     },
   },
   {
+    // Inventory: High-point scoring — the Scoring card set to high point,
+    // boats beaten with the point for coming to the start, and the table of
+    // what a race scores. Operator-gated, so local mode flips the gate. The
+    // demo series has races, so each switch asks first; the capture puts the
+    // series back to low point before the next shot reads its standings.
+    slug: 'high-point-scoring',
+    group: 'Scoring correctness',
+    async capture({ page, seriesId, shot }) {
+      await dbEnableOperatorFeature('high-point-scoring');
+      await page.goto(`${BASE}/series/${await seriesId()}/settings`);
+      await settle(page);
+      const heading = page.getByRole('heading', { name: 'Scoring', exact: true });
+      await heading.locator('..').getByRole('button', { name: 'Edit ▸' }).click();
+      await page.getByRole('radio', { name: /^High point/ }).click();
+      await page.getByRole('button', { name: 'Rescore' }).click();
+      await page.getByRole('checkbox', { name: /And 1 point for coming to the start/ }).click();
+      await page.getByRole('button', { name: 'Rescore' }).click();
+      await page.getByTestId('high-point-preview').waitFor();
+      await settle(page);
+      await scrollTo(page.getByText('Scoring', { exact: true }).first());
+      await shot('high-point-scoring.png');
+      await page.getByRole('radio', { name: /^Low point/ }).click();
+      await page.getByRole('button', { name: 'Rescore' }).click();
+      await page.getByRole('button', { name: 'Done', exact: true }).click();
+    },
+  },
+  {
     // Inventory: ECHO — the Update-handicaps dialog on the Irish Sailing
     // national list, previewed only. Needs network.
     slug: 'update-handicaps-echo',

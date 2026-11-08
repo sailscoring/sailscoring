@@ -207,6 +207,86 @@ export default function ScoringCorrectness() {
           unticked there — so if check-in is not done, the finish records alone decide it.
         </p>
       </Section>
+      {has('high-point-scoring') && (
+        <Section id="high-point-scoring" title="High-point scoring">
+          <HelpShot
+            src="/help/shots/high-point-scoring.webp"
+            alt="The Scoring card set to high point, boats beaten with a point for coming to the start, and what a race scores at 2, 5, 10 and 20 boats."
+            caption="High point on the Scoring card: the formula, and what a race scores."
+          />
+          <p>
+            RRS Appendix A scores <strong className="text-foreground">low point</strong>: 1st
+            scores 1 and the lowest total wins. Some clubs score a long series{' '}
+            <strong className="text-foreground">high point</strong> instead: a boat scores for the
+            boats she beats, a race she misses scores 0, and the highest total wins. On the{' '}
+            <strong className="text-foreground">Settings</strong> tab, open the{' '}
+            <strong className="text-foreground">Scoring</strong> card and choose{' '}
+            <strong className="text-foreground">High point</strong> under Points, then a formula:
+          </p>
+          <ul className="list-disc space-y-1 pl-5">
+            <li>
+              <strong className="text-foreground">Boats beaten</strong> — 1 point for finishing and
+              1 for each boat beaten, so the winner of a 12-boat race scores 12. Tick{' '}
+              <strong className="text-foreground">And 1 point for coming to the start</strong> for
+              HalSail’s “HP scoring”, under which every boat that came to the start scores a point
+              more. Sailwave’s custom formula <code>r-p+1</code> is boats beaten without it.
+            </li>
+            <li>
+              <strong className="text-foreground">CHIPS3</strong> — Chipstead SC’s formula, which
+              ISORA scores with: a win scores 86 to 100 whatever the fleet size, and the rest of the
+              fleet spreads down towards 5, so one big turnout can’t decide a season.
+            </li>
+          </ul>
+          <p>
+            The card shows what a race scores at 2, 5, 10 and 20 boats, to check against your
+            sailing instructions. Changing the system or the formula on a series with races asks
+            first, since every race is rescored.
+          </p>
+          <h3 className="text-base font-medium text-foreground pt-2">The fleet size</h3>
+          <p>
+            Points are worked out per fleet, from <em>n</em>: the boats in that fleet’s race whose
+            result counts toward the fleet size. A finisher beats every boat in <em>n</em> placed
+            behind her, a DNF included. Finishers count, and so does each code marked to count. A
+            boat that didn’t come (DNC) doesn’t, and neither does a boat given redress, whom no boat
+            beat. Under CHIPS3 a boat that didn’t start (DNS) doesn’t count either, as Chipstead’s
+            definition has it. Tied boats share the average of their places’ points.
+          </p>
+          <h3 className="text-base font-medium text-foreground pt-2">Codes</h3>
+          <p>
+            In high point a code scores points instead of a place. Under boats beaten DNC scores 0
+            and every other code the place after the last boat: 0, or 1 with the point for coming
+            to the start. Under CHIPS3 a retirement scores the place after the last, and DNC, DNS
+            and a disqualification (OCS included) score 0. The A5.2/A5.3 choice is a low-point rule
+            and is hidden.
+          </p>
+          <p>
+            Change them in <strong className="text-foreground">Change scoring codes…</strong>,
+            which in high point offers a fixed number of points, the place after the last boat, or
+            the same as another code, and a <strong className="text-foreground">Counts toward the
+            fleet size</strong> box for each code. ISORA’s 2026 season, for example, scores DNF a
+            fixed 15 and has a code of its own, DTP, a fixed 8 that counts, for a boat that declared
+            she would race and didn’t. When a series has such a code, a race’s page offers{' '}
+            <strong className="text-foreground">Mark declared boats…</strong> to give it to the boats
+            that declared. Codes that add to a finishing place — ZFP, SCP, DPI — can’t be scored
+            high point yet, and neither can a split-fleet championship.
+          </p>
+          <h3 className="text-base font-medium text-foreground pt-2">Weighting, discards and ties</h3>
+          <p>
+            A race weighted on its scoring options multiplies its points, and each race’s score is
+            rounded once to a tenth, after the weighting. Discards drop each boat’s{' '}
+            <em>lowest</em> scores, the earliest race first among equals. A tie is broken by listing
+            each boat’s counted scores from best — the highest — to worst and taking the first
+            difference (RRS A8.1), then by the last race, the one before, and so on (A8.2).
+          </p>
+          <p>
+            A race’s page says what its points were scored from —{' '}
+            <em>High point · 11 boats in the race · weight 1.2</em> — and so does each race table
+            on a published page, where the points are the weighted scores. A note under the results
+            says how points were scored and that the highest total wins. A race nobody finished
+            still counts once a boat in it has a result that counts toward the fleet size.
+          </p>
+        </Section>
+      )}
       {has('custom-scoring-codes') && (
         <Section id="custom-scoring-codes" title="Scoring codes your instructions change or add">
           <HelpShot
