@@ -19,6 +19,7 @@ import {
 import { useFinishesBySeries } from '@/hooks/use-finishes';
 import { useRacesBySeries } from '@/hooks/use-races';
 import { CompetitorRaceFleets } from '@/components/competitor-race-fleets';
+import { useRaceRatingOverridesBySeries } from '@/hooks/use-race-rating-overrides';
 import { resolveEntryStatuses } from '@/lib/scoring';
 import { queryKeys } from '@/hooks/query-keys';
 import { finishRepo, raceRatingOverrideRepo } from '@/lib/api-repository';
@@ -213,6 +214,11 @@ export default function CompetitorsPage({
   // only fetched while the rule is on; the race list is small and cached.
   const autoRule = series?.excludeDncOnlyCompetitors ?? false;
   const { data: racesForRule } = useRacesBySeries(seriesId);
+  const { has: hasFeature } = useFeatures();
+  // The races a boat is declared on its secondary for, listed in its dialog.
+  const { data: seriesOverrides } = useRaceRatingOverridesBySeries(seriesId, {
+    enabled: hasFeature('per-race-certificates'),
+  });
   const { data: finishesForRule } = useFinishesBySeries(seriesId, { enabled: autoRule });
   const autoExcluded = new Set(
     autoRule && racesForRule && finishesForRule
@@ -594,7 +600,23 @@ export default function CompetitorsPage({
         return values ? { customFields: values } : {};
       })(),
       ...ratingFieldsFromForm(data),
+      // The secondary certificate is the form's to set only while it shows
+      // the field; otherwise the boat keeps whatever it holds.
+      ...((): { ircSecondaryTcc?: number } => {
+        if (!features.has('per-race-certificates')) return {};
+        const v = data.ircSecondaryTcc.trim() ? parseFloat(data.ircSecondaryTcc.trim()) : NaN;
+        return { ircSecondaryTcc: isNaN(v) ? undefined : v };
+      })(),
     };
+    if (features.has('per-race-certificates') && updated.ircSecondaryTcc === undefined) {
+      delete updated.ircSecondaryTcc;
+      delete updated.ircSecondaryCert;
+    }
+    // A typed secondary that differs from the certificate on record leaves
+    // that record describing a number the boat no longer holds.
+    if (updated.ircSecondaryCert && updated.ircSecondaryTcc !== editingCompetitor.ircSecondaryTcc) {
+      delete updated.ircSecondaryCert;
+    }
     // Clear ratings no longer relevant
     if (!updated.ircTcc) delete updated.ircTcc;
     if (!updated.vprsTcc) delete updated.vprsTcc;
@@ -1262,6 +1284,7 @@ export default function CompetitorsPage({
                 excluded: editingCompetitor.excluded ?? false,
                 fleetIds: editingCompetitor.fleetIds,
                 ircTcc: editingCompetitor.ircTcc?.toString() ?? '',
+                ircSecondaryTcc: editingCompetitor.ircSecondaryTcc?.toString() ?? '',
                 vprsTcc: editingCompetitor.vprsTcc?.toString() ?? '',
                 fixedTcf: editingCompetitor.fixedTcf?.toString() ?? '',
                 pyNumber: editingCompetitor.pyNumber?.toString() ?? '',
@@ -1278,6 +1301,18 @@ export default function CompetitorsPage({
               primaryLabel={primaryLabel}
               subdivisionAxes={axes}
               multiPersonFields={multiPersonFields}
+              secondaryCertificate={
+                features.has('per-race-certificates')
+                  ? {
+                      declaredRaces: (seriesOverrides ?? [])
+                        .filter((o) => o.competitorId === editingCompetitor.id && o.certificate === 'secondary')
+                        .map((o) => racesForRule?.find((r) => r.id === o.raceId))
+                        .filter((r): r is NonNullable<typeof r> => r != null)
+                        .sort((a, b) => a.raceNumber - b.raceNumber)
+                        .map((r) => `R${r.raceNumber}`),
+                    }
+                  : undefined
+              }
               fleetsByRace={
                 features.has('race-fleet-membership') && (racesForRule?.length ?? 0) > 0 && assignableFleets.length > 1 ? (
                   <CompetitorRaceFleets

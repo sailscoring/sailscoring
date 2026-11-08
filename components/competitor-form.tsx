@@ -55,6 +55,7 @@ export interface CompetitorFormData {
   excluded: boolean;    // on the list but not an entrant (Competitor.excluded)
   fleetIds: string[];   // IDs of existing fleets to assign the competitor to
   ircTcc: string;       // decimal string, e.g. "0.972"; empty if not set
+  ircSecondaryTcc: string; // the secondary IRC certificate's TCC; empty if none
   vprsTcc: string;      // decimal string, e.g. "0.992"; empty if not set
   fixedTcf: string;     // decimal string, e.g. "0.865"; empty if not set
   pyNumber: string;     // integer string, e.g. "1034"; empty if not set
@@ -87,6 +88,7 @@ export const emptyCompetitorForm: CompetitorFormData = {
   excluded: false,
   fleetIds: [],
   ircTcc: '',
+  ircSecondaryTcc: '',
   vprsTcc: '',
   fixedTcf: '',
   pyNumber: '',
@@ -201,6 +203,7 @@ export function CompetitorForm({
   multiPersonFields,
   orcCert,
   fleetsByRace,
+  secondaryCertificate,
 }: {
   initial: CompetitorFormData;
   onSave: (data: CompetitorFormData) => Promise<void>;
@@ -221,6 +224,9 @@ export function CompetitorForm({
   /** Under the fleet choice when editing: the boat's fleets race by race,
    *  which save to the races rather than with this form. */
   fleetsByRace?: ReactNode;
+  /** Offer the boat's secondary IRC certificate, with the races declared on
+   *  it (labels, e.g. "R3"). Absent hides the field. */
+  secondaryCertificate?: { declaredRaces: string[] };
 }) {
   const [data, setData] = useState(initial);
   const [saving, setSaving] = useState(false);
@@ -304,6 +310,13 @@ export function CompetitorForm({
       const tcc = parseFloat(data.ircTcc);
       if (isNaN(tcc) || tcc < 0.5 || tcc > 1.5) {
         setError('TCC must be a decimal number between 0.5 and 1.5 (e.g. 0.972).');
+        return;
+      }
+    }
+    if (needsIrcTcc && secondaryCertificate && data.ircSecondaryTcc.trim()) {
+      const tcc = parseFloat(data.ircSecondaryTcc);
+      if (isNaN(tcc) || tcc < 0.5 || tcc > 1.5) {
+        setError('The secondary TCC must be a decimal number between 0.5 and 1.5 (e.g. 0.972).');
         return;
       }
     }
@@ -671,6 +684,22 @@ export function CompetitorForm({
             )}
           </div>
         )}
+        {needsIrcTcc && secondaryCertificate && (
+          <div className="space-y-1.5">
+            <Label htmlFor="ircSecondaryTcc">IRC secondary TCC</Label>
+            <Input
+              id="ircSecondaryTcc"
+              value={data.ircSecondaryTcc}
+              onChange={(e) => set('ircSecondaryTcc', e.target.value)}
+              placeholder="e.g. 1.014"
+            />
+            <SecondaryCertificateNote
+              declaredRaces={secondaryCertificate.declaredRaces}
+              initial={initial.ircSecondaryTcc}
+              current={data.ircSecondaryTcc}
+            />
+          </div>
+        )}
         {needsVprsTcc && (
           <div className="space-y-1.5">
             <Label htmlFor="vprsTcc">VPRS TCC</Label>
@@ -840,3 +869,40 @@ export function CompetitorForm({
   );
 }
 
+
+/**
+ * Which races a boat's secondary IRC certificate scores, and — when the
+ * scorer changes it — what that does to them: a race declared on the
+ * secondary scores on whatever secondary the boat holds, so a re-issue moves
+ * every one of them.
+ */
+function SecondaryCertificateNote({
+  declaredRaces,
+  initial,
+  current,
+}: {
+  declaredRaces: string[];
+  initial: string;
+  current: string;
+}) {
+  const n = declaredRaces.length;
+  const races = `${n} race${n === 1 ? '' : 's'}`;
+  if (n === 0) {
+    return (
+      <p className="text-xs text-muted-foreground">
+        The other certificate a race can be declared on. Every race uses the primary unless the race
+        says otherwise.
+      </p>
+    );
+  }
+  const changed = current.trim() !== initial.trim();
+  return (
+    <p className={`text-xs ${changed ? 'text-amber-600' : 'text-muted-foreground'}`}>
+      {changed
+        ? current.trim()
+          ? `Re-issued — ${races} declared on the secondary (${declaredRaces.join(', ')}) will score on ${current.trim()} from now on.`
+          : `Cleared — ${races} declared on the secondary (${declaredRaces.join(', ')}) will score on the number each last used.`
+        : `Declared for ${races}: ${declaredRaces.join(', ')}.`}
+    </p>
+  );
+}

@@ -14,6 +14,15 @@ export function useRaceRatingOverridesByRace(raceId: string) {
   });
 }
 
+/** Every rating override across a series' races, in one request. */
+export function useRaceRatingOverridesBySeries(seriesId: string, opts?: { enabled?: boolean }) {
+  return useQuery<RaceRatingOverride[]>({
+    queryKey: queryKeys.raceRatingOverrides.bySeries(seriesId),
+    queryFn: () => raceRatingOverrideRepo.listBySeries(seriesId),
+    enabled: opts?.enabled ?? true,
+  });
+}
+
 function invalidate(qc: ReturnType<typeof useQueryClient>, raceId: string) {
   qc.invalidateQueries({ queryKey: queryKeys.raceRatingOverrides.byRace(raceId) });
   qc.invalidateQueries({ queryKey: queryKeys.raceRatingOverrides.all });

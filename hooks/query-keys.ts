@@ -81,6 +81,7 @@ export const queryKeys = {
   raceRatingOverrides: {
     all: ['raceRatingOverrides'] as const,
     byRace: (raceId: string) => ['raceRatingOverrides', 'byRace', raceId] as const,
+    bySeries: (seriesId: string) => ['raceRatingOverrides', 'bySeries', seriesId] as const,
   },
   ftpServers: {
     all: ['ftpServers'] as const,
