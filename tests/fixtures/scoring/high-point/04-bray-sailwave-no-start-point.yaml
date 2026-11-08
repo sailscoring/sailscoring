@@ -1,0 +1,58 @@
+description: "Boats beaten without the start point, DNS fixed at 1 — Bray SC Winter Series 2023/24, race 1"
+notes: |
+  Bray's Sailwave-era scoring system, "Bray Sailing Club": n + 1 − place,
+  with DNS, DNF and RET changed to score a fixed 1 point. Six finishers and
+  five DNS: every DNS came to the start, so n = 11, the winner scores 11 and
+  6th scores 6. Every number below is Sailwave's.
+
+series:
+  discardThresholds: []
+  dnfScoring: seriesEntries
+  pointsSystem: highPoint
+  highPointFormula: boatsBeaten
+  scoringCodes:
+    - { code: DNS, kind: replace, rule: { type: fixedPoints, points: 1 }, discardable: true }
+    - { code: DNF, kind: replace, rule: { type: fixedPoints, points: 1 }, discardable: true }
+    - { code: RET, kind: replace, rule: { type: fixedPoints, points: 1 }, discardable: true }
+
+competitors:
+  - { sailNumber: "802", name: "David Sweeney" }
+  - { sailNumber: "180236", name: "David McIlwee" }
+  - { sailNumber: "3639", name: "Colbert Byrne" }
+  - { sailNumber: "2853", name: "Philip O'Reilly" }
+  - { sailNumber: "2919", name: "Fiona Cassidy" }
+  - { sailNumber: "3774", name: "Eamon Farrell" }
+  - { sailNumber: "170857", name: "Gareth Keenan" }
+  - { sailNumber: "196535", name: "Jason Bryars" }
+  - { sailNumber: "455", name: "Donach Lonergain" }
+  - { sailNumber: "11554", name: "Tony Proudfoot/Ina Gogan" }
+  - { sailNumber: "194785", name: "Finn Lundy" }
+
+races:
+  - number: 1
+    finishes:
+      - { sailor: "802", position: 1 }
+      - { sailor: "180236", position: 2 }
+      - { sailor: "3639", position: 3 }
+      - { sailor: "2853", position: 4 }
+      - { sailor: "2919", position: 5 }
+      - { sailor: "3774", position: 6 }
+      - { sailor: "170857", code: DNS }
+      - { sailor: "196535", code: DNS }
+      - { sailor: "455", code: DNS }
+      - { sailor: "11554", code: DNS }
+      - { sailor: "194785", code: DNS }
+
+expected:
+  standings:
+    - { rank: 1, sailor: "802", racePoints: [11], raceCodes: [null], raceDiscards: [false], totalPoints: 11, netPoints: 11 }
+    - { rank: 2, sailor: "180236", racePoints: [10], raceCodes: [null], raceDiscards: [false], totalPoints: 10, netPoints: 10 }
+    - { rank: 3, sailor: "3639", racePoints: [9], raceCodes: [null], raceDiscards: [false], totalPoints: 9, netPoints: 9 }
+    - { rank: 4, sailor: "2853", racePoints: [8], raceCodes: [null], raceDiscards: [false], totalPoints: 8, netPoints: 8 }
+    - { rank: 5, sailor: "2919", racePoints: [7], raceCodes: [null], raceDiscards: [false], totalPoints: 7, netPoints: 7 }
+    - { rank: 6, sailor: "3774", racePoints: [6], raceCodes: [null], raceDiscards: [false], totalPoints: 6, netPoints: 6 }
+    - { rank: 7, sailor: "170857", racePoints: [1], raceCodes: [DNS], raceDiscards: [false], totalPoints: 1, netPoints: 1 }
+    - { rank: 7, sailor: "196535", racePoints: [1], raceCodes: [DNS], raceDiscards: [false], totalPoints: 1, netPoints: 1 }
+    - { rank: 7, sailor: "455", racePoints: [1], raceCodes: [DNS], raceDiscards: [false], totalPoints: 1, netPoints: 1 }
+    - { rank: 7, sailor: "11554", racePoints: [1], raceCodes: [DNS], raceDiscards: [false], totalPoints: 1, netPoints: 1 }
+    - { rank: 7, sailor: "194785", racePoints: [1], raceCodes: [DNS], raceDiscards: [false], totalPoints: 1, netPoints: 1 }

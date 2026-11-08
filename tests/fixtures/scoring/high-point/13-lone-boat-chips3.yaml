@@ -1,0 +1,34 @@
+description: "CHIPS3 — a lone boat scores 86.1, never 100"
+notes: |
+  CHIPS3 still scores a boat alone in her fleet: with n = 1,
+  CHIPS3(1, 1) = 95 · [1 · (1 − 0.986682 · e^−0.1622) + 0.81475 · e^−0.1622] + 5
+  = 86.11, so 86.1. A win approaches 100 only as the fleet grows: 1st of 2
+  scores 88.2, 1st of 20 would score 99.4.
+
+  In race 2 a second boat joins and wins: 88.2 to her, CHIPS3(2, 2) = 74.6
+  to the lone boat of race 1. The boat that didn't come to race 1 scores 0
+  for it.
+
+series:
+  discardThresholds: []
+  dnfScoring: seriesEntries
+  pointsSystem: highPoint
+  highPointFormula: chips3
+
+competitors:
+  - { sailNumber: "101", name: "Solo" }
+  - { sailNumber: "102", name: "Latecomer" }
+
+races:
+  - number: 1
+    finishes:
+      - { sailor: "101", position: 1 }
+  - number: 2
+    finishes:
+      - { sailor: "102", position: 1 }
+      - { sailor: "101", position: 2 }
+
+expected:
+  standings:
+    - { rank: 1, sailor: "101", racePoints: [86.1, 74.6], raceCodes: [null, null], raceDiscards: [false, false], totalPoints: 160.7, netPoints: 160.7 }
+    - { rank: 2, sailor: "102", racePoints: [0, 88.2], raceCodes: [DNC, null], raceDiscards: [false, false], totalPoints: 88.2, netPoints: 88.2 }

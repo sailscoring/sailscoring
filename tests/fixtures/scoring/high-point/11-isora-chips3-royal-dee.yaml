@@ -1,0 +1,211 @@
+description: "CHIPS3 with weighted and unweighted races — ISORA 2025, Royal Dee Offshore Championship"
+notes: |
+  ISORA's 2025 Royal Dee Offshore Championship: 28 boats in one IRC fleet,
+  five races, no discards. Race 12O5 is weighted 1.2; the four Volvo Dún
+  Laoghaire Regatta races carry no weight, so count once.
+
+  Every race score here is rounded once, to a tenth, after its weight —
+  the race at × 1 included. Sailwave didn't: it kept a race with no weight
+  set at full precision, rounding only the weighted one, and summed what it
+  stored. Its race cells show the rounded figures, so every race score
+  below is ISORA's; but its totals are the sum of the unrounded ones, and 9
+  of the 28 differ from the sum of the printed scores by 0.1 or 0.2. The
+  expected totals are this engine's: each is the sum of the scores printed
+  beside it. No boat changes place.
+
+  Elapsed times and IRC ratings are ISORA's.
+
+series:
+  discardThresholds: []
+  dnfScoring: seriesEntries
+  pointsSystem: highPoint
+  highPointFormula: chips3
+  scoringCodes:
+    - { code: DNF, kind: replace, rule: { type: fixedPoints, points: 10 }, discardable: true }
+
+fleet:
+  scoringSystem: irc
+
+competitors:
+  - { sailNumber: "GBR 4669", name: "Pata Negra", ircTcc: 1.155 }
+  - { sailNumber: "IRL 35950", name: "Aurelia", ircTcc: 1.074 }
+  - { sailNumber: "GBR 4882R", name: "Mojito", ircTcc: 1.087 }
+  - { sailNumber: "GBR 1030X", name: "Coquine", ircTcc: 1.022 }
+  - { sailNumber: "IRL 1543", name: "Indian", ircTcc: 1.001 }
+  - { sailNumber: "IRL 4344", name: "Elixir", ircTcc: 1.025 }
+  - { sailNumber: "GBR2093R", name: "AndromedA", ircTcc: 1.014 }
+  - { sailNumber: "GBR 8911R", name: "Jezebel", ircTcc: 1.087 }
+  - { sailNumber: "IRL13500", name: "D-Tox", ircTcc: 1.028 }
+  - { sailNumber: "SWE041", name: "No Xcuse", ircTcc: 1.079 }
+  - { sailNumber: "IRL 66", name: "Checkmate XX", ircTcc: 1.115 }
+  - { sailNumber: "IRL 3721", name: "ValenTina", ircTcc: 1.049 }
+  - { sailNumber: "IRL 1080", name: "Rockabill VI", ircTcc: 1.049 }
+  - { sailNumber: "GBR704R", name: "Game Changer", ircTcc: 1.036 }
+  - { sailNumber: "9470", name: "Banshee", ircTcc: 1.032 }
+  - { sailNumber: "IRL 1383", name: "Ruth", ircTcc: 1.007 }
+  - { sailNumber: "9740", name: "SloopjohnT", ircTcc: 1.029 }
+  - { sailNumber: "34", name: "Xaviera", ircTcc: 1.085 }
+  - { sailNumber: "1367", name: "Boomerang", ircTcc: 0.998 }
+  - { sailNumber: "IRL 4007", name: "Tsunami", ircTcc: 1.047 }
+  - { sailNumber: "GBR 4933R", name: "Darling XX", ircTcc: 1.003 }
+  - { sailNumber: "GBR 9496T", name: "BoJangles", ircTcc: 0.996 }
+  - { sailNumber: "1129", name: "Jump The Gun", ircTcc: 1.002 }
+  - { sailNumber: "811", name: "Raptor", ircTcc: 1.007 }
+  - { sailNumber: "9898", name: "Indecision", ircTcc: 1.003 }
+  - { sailNumber: "GBR7536R", name: "Hot Cookie", ircTcc: 1.032 }
+  - { sailNumber: "IRL 44444", name: "Magic Touch", ircTcc: 0.975 }
+  - { sailNumber: "IRL 5880", name: "Pillaban", ircTcc: 1.02 }
+
+races:
+  - number: 1   # 12O5
+    startTime: "08:30:00"
+    pointsMultiplier: 1.2
+    finishes:
+      - { sailor: "GBR 4669", elapsed: "9:20:02" }
+      - { sailor: "IRL 35950", elapsed: "10:42:08" }
+      - { sailor: "GBR 4882R", elapsed: "10:37:55" }
+      - { sailor: "GBR 1030X", elapsed: "11:20:27" }
+      - { sailor: "IRL 1543", elapsed: "11:47:03" }
+      - { sailor: "IRL 4344", elapsed: "11:46:45" }
+      - { sailor: "GBR2093R", elapsed: "12:13:10" }
+      - { sailor: "GBR 8911R", elapsed: "11:31:06" }
+      - { sailor: "IRL13500", elapsed: "12:23:14" }
+      - { sailor: "SWE041", elapsed: "12:15:02" }
+  - number: 2   # VDLR C1
+    startTime: "14:50:00"
+    finishes:
+      - { sailor: "IRL 66", elapsed: "2:04:53" }
+      - { sailor: "IRL 3721", elapsed: "2:15:13" }
+      - { sailor: "GBR 1030X", elapsed: "2:20:34" }
+      - { sailor: "IRL 1080", elapsed: "2:19:29" }
+      - { sailor: "GBR704R", elapsed: "2:22:35" }
+      - { sailor: "IRL 35950", elapsed: "2:18:11" }
+      - { sailor: "GBR 4882R", elapsed: "2:16:39" }
+      - { sailor: "GBR 4669", elapsed: "2:08:42" }
+      - { sailor: "9470", elapsed: "2:24:16" }
+      - { sailor: "IRL 1383", elapsed: "2:28:00" }
+      - { sailor: "9740", elapsed: "2:25:09" }
+      - { sailor: "34", elapsed: "2:17:44" }
+      - { sailor: "1367", elapsed: "2:32:37" }
+      - { sailor: "IRL 4007", elapsed: "2:27:49" }
+      - { sailor: "GBR 4933R", elapsed: "2:34:25" }
+      - { sailor: "GBR2093R", elapsed: "2:32:54" }
+      - { sailor: "GBR 9496T", elapsed: "2:36:04" }
+      - { sailor: "IRL13500", elapsed: "2:32:17" }
+      - { sailor: "1129", elapsed: "2:36:17" }
+      - { sailor: "811", elapsed: "2:37:12" }
+      - { sailor: "9898", elapsed: "2:38:18" }
+      - { sailor: "GBR7536R", elapsed: "2:33:58" }
+      - { sailor: "IRL 44444", elapsed: "2:45:32" }
+      - { sailor: "IRL 5880", elapsed: "2:43:17" }
+  - number: 3   # VDLR C2
+    startTime: "11:00:00"
+    finishes:
+      - { sailor: "IRL 66", elapsed: "3:22:00" }
+      - { sailor: "IRL 1080", elapsed: "3:37:30" }
+      - { sailor: "IRL 1383", elapsed: "3:46:39" }
+      - { sailor: "GBR2093R", elapsed: "3:46:53" }
+      - { sailor: "GBR 4669", elapsed: "3:19:24" }
+      - { sailor: "GBR 1030X", elapsed: "3:45:37" }
+      - { sailor: "GBR 4882R", elapsed: "3:33:43" }
+      - { sailor: "GBR 4933R", elapsed: "3:52:17" }
+      - { sailor: "GBR704R", elapsed: "3:45:35" }
+      - { sailor: "IRL 3721", elapsed: "3:45:03" }
+      - { sailor: "IRL 35950", elapsed: "3:41:09" }
+      - { sailor: "9470", elapsed: "3:52:00" }
+      - { sailor: "9898", elapsed: "4:00:30" }
+      - { sailor: "1367", elapsed: "4:02:09" }
+      - { sailor: "9740", elapsed: "3:57:50" }
+      - { sailor: "IRL 44444", elapsed: "4:22:10" }
+      - { sailor: "GBR 9496T", elapsed: "4:18:00" }
+      - { sailor: "GBR7536R", elapsed: "4:11:30" }
+      - { sailor: "1129", elapsed: "4:19:04" }
+      - { sailor: "IRL 4007", elapsed: "4:08:16" }
+      - { sailor: "34", elapsed: "3:59:55" }
+      - { sailor: "811", elapsed: "4:21:55" }
+      - { sailor: "IRL13500", elapsed: "4:17:10" }
+  - number: 4   # VDLR C3
+    startTime: "11:30:00"
+    finishes:
+      - { sailor: "IRL 66", elapsed: "2:49:58" }
+      - { sailor: "9740", elapsed: "3:08:12" }
+      - { sailor: "GBR 4882R", elapsed: "3:01:28" }
+      - { sailor: "9470", elapsed: "3:13:48" }
+      - { sailor: "IRL 1080", elapsed: "3:11:30" }
+      - { sailor: "GBR704R", elapsed: "3:13:55" }
+      - { sailor: "IRL 35950", elapsed: "3:09:20" }
+      - { sailor: "IRL13500", elapsed: "3:18:50" }
+      - { sailor: "1129", elapsed: "3:26:08" }
+      - { sailor: "GBR 1030X", elapsed: "3:22:46" }
+      - { sailor: "GBR 4669", elapsed: "2:59:57" }
+      - { sailor: "1367", elapsed: "3:29:43" }
+      - { sailor: "IRL 4007", elapsed: "3:20:23" }
+      - { sailor: "IRL 3721", elapsed: "3:20:18" }
+      - { sailor: "GBR2093R", elapsed: "3:28:38" }
+      - { sailor: "IRL 1383", elapsed: "3:30:22" }
+      - { sailor: "GBR 4933R", elapsed: "3:31:14" }
+      - { sailor: "IRL 5880", elapsed: "3:28:58" }
+      - { sailor: "811", elapsed: "3:32:10" }
+      - { sailor: "GBR 9496T", elapsed: "3:35:31" }
+      - { sailor: "34", elapsed: "3:19:50" }
+      - { sailor: "GBR7536R", elapsed: "3:31:23" }
+      - { sailor: "9898", elapsed: "3:43:00" }
+      - { sailor: "IRL 44444", elapsed: "3:54:50" }
+  - number: 5   # VDLR C4
+    startTime: "10:30:00"
+    finishes:
+      - { sailor: "IRL 66", elapsed: "2:41:55" }
+      - { sailor: "IRL 3721", elapsed: "2:55:49" }
+      - { sailor: "GBR 4882R", elapsed: "2:50:45" }
+      - { sailor: "IRL 35950", elapsed: "2:54:37" }
+      - { sailor: "GBR 4669", elapsed: "2:43:07" }
+      - { sailor: "811", elapsed: "3:07:52" }
+      - { sailor: "GBR704R", elapsed: "3:03:25" }
+      - { sailor: "9470", elapsed: "3:04:09" }
+      - { sailor: "9740", elapsed: "3:05:51" }
+      - { sailor: "IRL 1383", elapsed: "3:10:00" }
+      - { sailor: "GBR2093R", elapsed: "3:10:04" }
+      - { sailor: "1367", elapsed: "3:13:51" }
+      - { sailor: "GBR 1030X", elapsed: "3:09:36" }
+      - { sailor: "IRL 1080", elapsed: "3:05:39" }
+      - { sailor: "GBR 4933R", elapsed: "3:14:26" }
+      - { sailor: "IRL 4007", elapsed: "3:06:51" }
+      - { sailor: "34", elapsed: "3:00:50" }
+      - { sailor: "9898", elapsed: "3:16:47" }
+      - { sailor: "1129", elapsed: "3:18:59" }
+      - { sailor: "IRL13500", elapsed: "3:14:16" }
+      - { sailor: "GBR7536R", elapsed: "3:14:52" }
+      - { sailor: "GBR 9496T", elapsed: "3:24:27" }
+      - { sailor: "IRL 44444", elapsed: "3:30:45" }
+      - { sailor: "IRL 5880", elapsed: "3:22:14" }
+
+expected:
+  standings:
+    - { rank: 1, sailor: "GBR 4882R", racePoints: [97.8, 76.4, 75.4, 91.9, 91.9], raceCodes: [null, null, null, null, null], raceDiscards: [false, false, false, false, false], totalPoints: 433.4, netPoints: 433.4 }
+    - { rank: 2, sailor: "GBR 4669", racePoints: [116.1, 72.5, 83.5, 60.9, 84.2], raceCodes: [null, null, null, null, null], raceDiscards: [false, false, false, false, false], totalPoints: 417.2, netPoints: 417.2 }
+    - { rank: 3, sailor: "IRL 35950", racePoints: [107, 80.3, 59.3, 76.4, 88], raceCodes: [null, null, null, null, null], raceDiscards: [false, false, false, false, false], totalPoints: 411, netPoints: 411 }
+    - { rank: 4, sailor: "IRL 66", racePoints: [0, 99.7, 99.6, 99.7, 99.7], raceCodes: [DNC, null, null, null, null], raceDiscards: [false, false, false, false, false], totalPoints: 398.7, netPoints: 398.7 }
+    - { rank: 5, sailor: "GBR 1030X", racePoints: [88.6, 91.9, 79.4, 64.8, 53.1], raceCodes: [null, null, null, null, null], raceDiscards: [false, false, false, false, false], totalPoints: 377.8, netPoints: 377.8 }
+    - { rank: 6, sailor: "IRL 1080", racePoints: [0, 88, 95.6, 84.2, 49.2], raceCodes: [DNC, null, null, null, null], raceDiscards: [false, false, false, false, false], totalPoints: 317, netPoints: 317 }
+    - { rank: 7, sailor: "GBR704R", racePoints: [0, 84.2, 67.3, 80.3, 76.4], raceCodes: [DNC, null, null, null, null], raceDiscards: [false, false, false, false, false], totalPoints: 308.2, netPoints: 308.2 }
+    - { rank: 8, sailor: "IRL 3721", racePoints: [0, 95.8, 63.3, 49.2, 95.8], raceCodes: [DNC, null, null, null, null], raceDiscards: [false, false, false, false, false], totalPoints: 304.1, netPoints: 304.1 }
+    - { rank: 9, sailor: "GBR2093R", racePoints: [61.1, 41.5, 87.5, 45.4, 60.9], raceCodes: [null, null, null, null, null], raceDiscards: [false, false, false, false, false], totalPoints: 296.4, netPoints: 296.4 }
+    - { rank: 10, sailor: "9470", racePoints: [0, 68.6, 55.2, 88, 72.5], raceCodes: [DNC, null, null, null, null], raceDiscards: [false, false, false, false, false], totalPoints: 284.3, netPoints: 284.3 }
+    - { rank: 11, sailor: "9740", racePoints: [0, 60.9, 43.2, 95.8, 68.6], raceCodes: [DNC, null, null, null, null], raceDiscards: [false, false, false, false, false], totalPoints: 268.5, netPoints: 268.5 }
+    - { rank: 12, sailor: "IRL 1383", racePoints: [0, 64.8, 91.5, 41.5, 64.8], raceCodes: [DNC, null, null, null, null], raceDiscards: [false, false, false, false, false], totalPoints: 262.6, netPoints: 262.6 }
+    - { rank: 13, sailor: "1367", racePoints: [0, 53.1, 47.2, 57, 57], raceCodes: [DNC, null, null, null, null], raceDiscards: [false, false, false, false, false], totalPoints: 214.3, netPoints: 214.3 }
+    - { rank: 14, sailor: "GBR 4933R", racePoints: [0, 45.4, 71.4, 37.6, 45.4], raceCodes: [DNC, null, null, null, null], raceDiscards: [false, false, false, false, false], totalPoints: 199.8, netPoints: 199.8 }
+    - { rank: 15, sailor: "IRL13500", racePoints: [42.7, 33.7, 10.9, 72.5, 26], raceCodes: [null, null, null, null, null], raceDiscards: [false, false, false, false, false], totalPoints: 185.8, netPoints: 185.8 }
+    - { rank: 16, sailor: "IRL 4007", racePoints: [0, 49.2, 23, 53.1, 41.5], raceCodes: [DNC, null, null, null, null], raceDiscards: [false, false, false, false, false], totalPoints: 166.8, netPoints: 166.8 }
+    - { rank: 17, sailor: "1129", racePoints: [0, 29.9, 27, 68.6, 29.9], raceCodes: [DNC, null, null, null, null], raceDiscards: [false, false, false, false, false], totalPoints: 155.4, netPoints: 155.4 }
+    - { rank: 18, sailor: "811", racePoints: [0, 26, 14.9, 29.9, 80.3], raceCodes: [DNC, null, null, null, null], raceDiscards: [false, false, false, false, false], totalPoints: 151.1, netPoints: 151.1 }
+    - { rank: 19, sailor: "34", racePoints: [0, 57, 19, 22.1, 37.6], raceCodes: [DNC, null, null, null, null], raceDiscards: [false, false, false, false, false], totalPoints: 135.7, netPoints: 135.7 }
+    - { rank: 20, sailor: "9898", racePoints: [0, 22.1, 51.2, 14.3, 33.7], raceCodes: [DNC, null, null, null, null], raceDiscards: [false, false, false, false, false], totalPoints: 121.3, netPoints: 121.3 }
+    - { rank: 21, sailor: "GBR 9496T", racePoints: [0, 37.6, 35.1, 26, 18.2], raceCodes: [DNC, null, null, null, null], raceDiscards: [false, false, false, false, false], totalPoints: 116.9, netPoints: 116.9 }
+    - { rank: 22, sailor: "GBR7536R", racePoints: [0, 18.2, 31.1, 18.2, 22.1], raceCodes: [DNC, null, null, null, null], raceDiscards: [false, false, false, false, false], totalPoints: 89.6, netPoints: 89.6 }
+    - { rank: 23, sailor: "IRL 1543", racePoints: [79.4, 0, 0, 0, 0], raceCodes: [null, DNC, DNC, DNC, DNC], raceDiscards: [false, false, false, false, false], totalPoints: 79.4, netPoints: 79.4 }
+    - { rank: 24, sailor: "IRL 44444", racePoints: [0, 14.3, 39.1, 10.5, 14.3], raceCodes: [DNC, null, null, null, null], raceDiscards: [false, false, false, false, false], totalPoints: 78.2, netPoints: 78.2 }
+    - { rank: 25, sailor: "IRL 4344", racePoints: [70.2, 0, 0, 0, 0], raceCodes: [null, DNC, DNC, DNC, DNC], raceDiscards: [false, false, false, false, false], totalPoints: 70.2, netPoints: 70.2 }
+    - { rank: 26, sailor: "IRL 5880", racePoints: [0, 10.5, 0, 33.7, 10.5], raceCodes: [DNC, null, DNC, null, null], raceDiscards: [false, false, false, false, false], totalPoints: 54.7, netPoints: 54.7 }
+    - { rank: 27, sailor: "GBR 8911R", racePoints: [51.9, 0, 0, 0, 0], raceCodes: [null, DNC, DNC, DNC, DNC], raceDiscards: [false, false, false, false, false], totalPoints: 51.9, netPoints: 51.9 }
+    - { rank: 28, sailor: "SWE041", racePoints: [33.5, 0, 0, 0, 0], raceCodes: [null, DNC, DNC, DNC, DNC], raceDiscards: [false, false, false, false, false], totalPoints: 33.5, netPoints: 33.5 }

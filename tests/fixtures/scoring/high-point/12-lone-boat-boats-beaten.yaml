@@ -1,0 +1,34 @@
+description: "Boats beaten — a lone boat scores 1, or 2 with the point for coming to the start"
+notes: |
+  A boat alone in her fleet beats nobody. Under boats beaten she scores 1
+  point for finishing: n + 1 − place = 1 + 1 − 1 = 1. With the point for
+  coming to the start (HalSail's HP scoring) she scores 2.
+
+  Two races: in race 1 she sails alone; in race 2 a second boat joins and
+  beats her, and the boat that didn't come to race 1 scores 0 for it. Scored
+  here with the start point.
+
+series:
+  discardThresholds: []
+  dnfScoring: seriesEntries
+  pointsSystem: highPoint
+  highPointFormula: boatsBeaten
+  pointForComingToStart: true
+
+competitors:
+  - { sailNumber: "101", name: "Solo" }
+  - { sailNumber: "102", name: "Latecomer" }
+
+races:
+  - number: 1
+    finishes:
+      - { sailor: "101", position: 1 }
+  - number: 2
+    finishes:
+      - { sailor: "102", position: 1 }
+      - { sailor: "101", position: 2 }
+
+expected:
+  standings:
+    - { rank: 1, sailor: "101", racePoints: [2, 2], raceCodes: [null, null], raceDiscards: [false, false], totalPoints: 4, netPoints: 4 }
+    - { rank: 2, sailor: "102", racePoints: [0, 3], raceCodes: [DNC, null], raceDiscards: [false, false], totalPoints: 3, netPoints: 3 }

@@ -1,0 +1,70 @@
+description: "Boats beaten — a tie for 4th, Bray SC Sunday Dinghy Series 2025, race 44"
+notes: |
+  Fourteen finishers under HalSail's HP scoring (n + 2 − place). A boat
+  given redress is left out of n, so n = 14 and the winner scores 15, not 16.
+
+  Anna Cloney and Sean Lundy tied for 4th: they share the points for 4th
+  and 5th, (12 + 11) / 2 = 11.5 each, as HalSail published. The boat given
+  redress scored the average HalSail published (1.3), entered here as
+  stated points. Every number below is HalSail's.
+
+series:
+  discardThresholds: []
+  dnfScoring: seriesEntries
+  pointsSystem: highPoint
+  highPointFormula: boatsBeaten
+  pointForComingToStart: true
+
+competitors:
+  - { sailNumber: "8", name: "Chris Allen" }
+  - { sailNumber: "194644R", name: "Viv Kelly" }
+  - { sailNumber: "213508", name: "Orla O Callaghan" }
+  - { sailNumber: "182270", name: "Anna Cloney" }
+  - { sailNumber: "187581", name: "Sean Lundy" }
+  - { sailNumber: "122181", name: "David Garry" }
+  - { sailNumber: "196982", name: "Claire Henley" }
+  - { sailNumber: "210406", name: "Isabelle Allen" }
+  - { sailNumber: "161439", name: "Frank Daly" }
+  - { sailNumber: "eamon", name: "eamon" }
+  - { sailNumber: "10338", name: "Timofei Hrapelman" }
+  - { sailNumber: "196535", name: "Jason Bryars" }
+  - { sailNumber: "1954", name: "Caoilfhionn Walsh" }
+  - { sailNumber: "170857_FR", name: "Gareth Keenan" }
+  - { sailNumber: "455", name: "Donach O Lonargain" }
+
+races:
+  - number: 1
+    finishes:
+      - { sailor: "8", position: 1 }
+      - { sailor: "194644R", position: 2 }
+      - { sailor: "213508", position: 3 }
+      - { sailor: "182270", position: 4 }
+      - { sailor: "187581", position: 5, tiedWithPrevious: true }
+      - { sailor: "122181", position: 6 }
+      - { sailor: "196982", position: 7 }
+      - { sailor: "210406", position: 8 }
+      - { sailor: "161439", position: 9 }
+      - { sailor: "eamon", position: 10 }
+      - { sailor: "10338", position: 11 }
+      - { sailor: "196535", position: 12 }
+      - { sailor: "1954", position: 13 }
+      - { sailor: "170857_FR", position: 14 }
+      - { sailor: "455", code: RDG, redressMethod: stated, redressPoints: 1.3 }
+
+expected:
+  standings:
+    - { rank: 1, sailor: "8", racePoints: [15], raceCodes: [null], raceDiscards: [false], totalPoints: 15, netPoints: 15 }
+    - { rank: 2, sailor: "194644R", racePoints: [14], raceCodes: [null], raceDiscards: [false], totalPoints: 14, netPoints: 14 }
+    - { rank: 3, sailor: "213508", racePoints: [13], raceCodes: [null], raceDiscards: [false], totalPoints: 13, netPoints: 13 }
+    - { rank: 4, sailor: "182270", racePoints: [11.5], raceCodes: [null], raceDiscards: [false], totalPoints: 11.5, netPoints: 11.5 }
+    - { rank: 4, sailor: "187581", racePoints: [11.5], raceCodes: [null], raceDiscards: [false], totalPoints: 11.5, netPoints: 11.5 }
+    - { rank: 6, sailor: "122181", racePoints: [10], raceCodes: [null], raceDiscards: [false], totalPoints: 10, netPoints: 10 }
+    - { rank: 7, sailor: "196982", racePoints: [9], raceCodes: [null], raceDiscards: [false], totalPoints: 9, netPoints: 9 }
+    - { rank: 8, sailor: "210406", racePoints: [8], raceCodes: [null], raceDiscards: [false], totalPoints: 8, netPoints: 8 }
+    - { rank: 9, sailor: "161439", racePoints: [7], raceCodes: [null], raceDiscards: [false], totalPoints: 7, netPoints: 7 }
+    - { rank: 10, sailor: "eamon", racePoints: [6], raceCodes: [null], raceDiscards: [false], totalPoints: 6, netPoints: 6 }
+    - { rank: 11, sailor: "10338", racePoints: [5], raceCodes: [null], raceDiscards: [false], totalPoints: 5, netPoints: 5 }
+    - { rank: 12, sailor: "196535", racePoints: [4], raceCodes: [null], raceDiscards: [false], totalPoints: 4, netPoints: 4 }
+    - { rank: 13, sailor: "1954", racePoints: [3], raceCodes: [null], raceDiscards: [false], totalPoints: 3, netPoints: 3 }
+    - { rank: 14, sailor: "170857_FR", racePoints: [2], raceCodes: [null], raceDiscards: [false], totalPoints: 2, netPoints: 2 }
+    - { rank: 15, sailor: "455", racePoints: [1.3], raceCodes: [RDG], raceDiscards: [false], raceRedressFlags: [true], totalPoints: 1.3, netPoints: 1.3 }

@@ -1,0 +1,69 @@
+description: "CHIPS3 — a race nobody finished still counts, ISORA 2026, race 09O4"
+notes: |
+  Race 09O4, Douglas to Dun Laoghaire, was sailed by none of the boats that
+  declared for it: ISORA scored every one of them DTP, 8 points × the race's
+  weight of 1.2 = 9.6 each, and counted the race among the 18 sailed.
+
+  A low-point series strikes a race nobody finished. In high point a race
+  counts for a fleet once one of its boats has a result that counts toward
+  the fleet size, and DTP does. A race abandoned outright has no results,
+  so it is still struck.
+
+  Every expected number is the one ISORA published in the Wolf's Head (all
+  IRC classes) table.
+
+series:
+  discardThresholds: []
+  dnfScoring: seriesEntries
+  pointsSystem: highPoint
+  highPointFormula: chips3
+  scoringCodes:
+    - { code: DNF, kind: replace, rule: { type: fixedPoints, points: 15 }, discardable: true }
+    - { code: DTP, description: "Declared to race, did not race (NoR 13.2)", kind: replace, rule: { type: fixedPoints, points: 8 }, discardable: true, countsInFleetSize: true }
+
+fleet:
+  scoringSystem: irc
+
+competitors:
+  - { sailNumber: "GBR 4669", name: "Pata Negra", ircTcc: 1.149 }
+  - { sailNumber: "IRL 53196", name: "ReQuest", ircTcc: 1.022 }
+  - { sailNumber: "53308", name: "Loinnir", ircTcc: 1.022 }
+  - { sailNumber: "IRL 35950", name: "Aurelia", ircTcc: 1.077 }
+  - { sailNumber: "IRL 3429", name: "El Syd", ircTcc: 1.163 }
+  - { sailNumber: "GBR 723R", name: "Hijacker", ircTcc: 1.029 }
+  - { sailNumber: "IRL 7887", name: "Cristina", ircTcc: 1.203 }
+  - { sailNumber: "GBR 8593R", name: "Paradox", ircTcc: 1.026 }
+  - { sailNumber: "IRL 5880", name: "Pillaban", ircTcc: 1.02 }
+  - { sailNumber: "GBR7664T", name: "Crackajack", ircTcc: 1.014 }
+  - { sailNumber: "SWE041", name: "No Xcuse", ircTcc: 1.079 }
+
+races:
+  - number: 1   # 09O4
+    startTime: "07:30:00"
+    pointsMultiplier: 1.2
+    finishes:
+      - { sailor: "GBR 4669", code: DTP }
+      - { sailor: "IRL 53196", code: DTP }
+      - { sailor: "53308", code: DTP }
+      - { sailor: "IRL 35950", code: DTP }
+      - { sailor: "IRL 3429", code: DTP }
+      - { sailor: "GBR 723R", code: DTP }
+      - { sailor: "IRL 7887", code: DTP }
+      - { sailor: "GBR 8593R", code: DTP }
+      - { sailor: "IRL 5880", code: DTP }
+      - { sailor: "GBR7664T", code: DTP }
+      - { sailor: "SWE041", code: DTP }
+
+expected:
+  standings:
+    - { rank: 1, sailor: "GBR 4669", racePoints: [9.6], raceCodes: [DTP], raceDiscards: [false], totalPoints: 9.6, netPoints: 9.6 }
+    - { rank: 1, sailor: "IRL 53196", racePoints: [9.6], raceCodes: [DTP], raceDiscards: [false], totalPoints: 9.6, netPoints: 9.6 }
+    - { rank: 1, sailor: "53308", racePoints: [9.6], raceCodes: [DTP], raceDiscards: [false], totalPoints: 9.6, netPoints: 9.6 }
+    - { rank: 1, sailor: "IRL 35950", racePoints: [9.6], raceCodes: [DTP], raceDiscards: [false], totalPoints: 9.6, netPoints: 9.6 }
+    - { rank: 1, sailor: "IRL 3429", racePoints: [9.6], raceCodes: [DTP], raceDiscards: [false], totalPoints: 9.6, netPoints: 9.6 }
+    - { rank: 1, sailor: "GBR 723R", racePoints: [9.6], raceCodes: [DTP], raceDiscards: [false], totalPoints: 9.6, netPoints: 9.6 }
+    - { rank: 1, sailor: "IRL 7887", racePoints: [9.6], raceCodes: [DTP], raceDiscards: [false], totalPoints: 9.6, netPoints: 9.6 }
+    - { rank: 1, sailor: "GBR 8593R", racePoints: [9.6], raceCodes: [DTP], raceDiscards: [false], totalPoints: 9.6, netPoints: 9.6 }
+    - { rank: 1, sailor: "IRL 5880", racePoints: [9.6], raceCodes: [DTP], raceDiscards: [false], totalPoints: 9.6, netPoints: 9.6 }
+    - { rank: 1, sailor: "GBR7664T", racePoints: [9.6], raceCodes: [DTP], raceDiscards: [false], totalPoints: 9.6, netPoints: 9.6 }
+    - { rank: 1, sailor: "SWE041", racePoints: [9.6], raceCodes: [DTP], raceDiscards: [false], totalPoints: 9.6, netPoints: 9.6 }

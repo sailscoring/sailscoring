@@ -1,0 +1,56 @@
+description: "CHIPS3 with a DNS left out of the fleet size — ISORA 2024, race 04CW2"
+notes: |
+  In 2024 ISORA's fleet size counted the boats that started: Sailwave's
+  "starters", which is CHIPS3's own definition of n. Six finishers and a
+  DNS make n = 6, not 7, and the DNS scores 0.
+
+  The race is weighted 0.8. Jackknife wins: CHIPS3(1, 6) = 93.84, × 0.8 =
+  75.07, rounded once to 75.1. ISORA 2024 scored a retirement a fixed 10
+  points; no boat retired here.
+
+  Elapsed times and IRC ratings are ISORA's (the Class 2 boat started half
+  an hour earlier; her elapsed time is from her own gun). Every expected
+  number is the one ISORA published in the Welsh Coastal Series table.
+
+series:
+  discardThresholds: []
+  dnfScoring: seriesEntries
+  pointsSystem: highPoint
+  highPointFormula: chips3
+  scoringCodes:
+    - { code: DNF, kind: replace, rule: { type: fixedPoints, points: 10 }, discardable: true }
+
+fleet:
+  scoringSystem: irc
+
+competitors:
+  - { sailNumber: "GBR 8859R", name: "Jackknife", ircTcc: 1.144 }
+  - { sailNumber: "GBR 4882R", name: "Mojito..", ircTcc: 1.087 }
+  - { sailNumber: "IRL 1471", name: "Panache", ircTcc: 1.031 }
+  - { sailNumber: "GBR 5608L", name: "Excession", ircTcc: 1.049 }
+  - { sailNumber: "GBR 6939R", name: "Finally", ircTcc: 1.021 }
+  - { sailNumber: "GBR 9700X", name: "Jac Y Do", ircTcc: 0.96 }
+  - { sailNumber: "GBR 1681", name: "Gelert", ircTcc: 1.077 }
+
+races:
+  - number: 1   # 04CW2
+    startTime: "09:50:00"
+    pointsMultiplier: 0.8
+    finishes:
+      - { sailor: "GBR 8859R", elapsed: "2:53:46" }
+      - { sailor: "GBR 4882R", elapsed: "3:34:51" }
+      - { sailor: "IRL 1471", elapsed: "3:49:26" }
+      - { sailor: "GBR 5608L", elapsed: "3:51:56" }
+      - { sailor: "GBR 6939R", elapsed: "3:59:19" }
+      - { sailor: "GBR 9700X", elapsed: "4:23:54" }
+      - { sailor: "GBR 1681", code: DNS }
+
+expected:
+  standings:
+    - { rank: 1, sailor: "GBR 8859R", racePoints: [75.1], raceCodes: [null], raceDiscards: [false], totalPoints: 75.1, netPoints: 75.1 }
+    - { rank: 2, sailor: "GBR 4882R", racePoints: [67.1], raceCodes: [null], raceDiscards: [false], totalPoints: 67.1, netPoints: 67.1 }
+    - { rank: 3, sailor: "IRL 1471", racePoints: [59.2], raceCodes: [null], raceDiscards: [false], totalPoints: 59.2, netPoints: 59.2 }
+    - { rank: 4, sailor: "GBR 5608L", racePoints: [51.2], raceCodes: [null], raceDiscards: [false], totalPoints: 51.2, netPoints: 51.2 }
+    - { rank: 5, sailor: "GBR 6939R", racePoints: [43.3], raceCodes: [null], raceDiscards: [false], totalPoints: 43.3, netPoints: 43.3 }
+    - { rank: 6, sailor: "GBR 9700X", racePoints: [35.3], raceCodes: [null], raceDiscards: [false], totalPoints: 35.3, netPoints: 35.3 }
+    - { rank: 7, sailor: "GBR 1681", racePoints: [0], raceCodes: [DNS], raceDiscards: [false], totalPoints: 0, netPoints: 0 }

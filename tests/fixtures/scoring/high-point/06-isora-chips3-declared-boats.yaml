@@ -1,0 +1,56 @@
+description: "CHIPS3 with declared boats in the fleet size — ISORA 2026, race 01CW1"
+notes: |
+  ISORA's 2026 notice of race counts every boat that declared it would race
+  in the fleet size, and scores one that declared and didn't race DTP, a
+  fixed 8 points. Five finishers and two DTPs make n = 7.
+
+  The race is weighted 0.7. Pata Negra wins on corrected time:
+  CHIPS3(1, 7) = 94.75, × 0.7 = 66.33, rounded once to 66.3. The DTPs score
+  8 × 0.7 = 5.6. Rounding CHIPS3 to 94.8 before weighting would give 66.4.
+
+  Elapsed times and IRC ratings are ISORA's; every expected number is the
+  one ISORA published in the Wolf's Head (all IRC classes) table.
+
+series:
+  discardThresholds: []
+  dnfScoring: seriesEntries
+  pointsSystem: highPoint
+  highPointFormula: chips3
+  scoringCodes:
+    - { code: DNF, kind: replace, rule: { type: fixedPoints, points: 15 }, discardable: true }
+    - { code: DTP, description: "Declared to race, did not race (NoR 13.2)", kind: replace, rule: { type: fixedPoints, points: 8 }, discardable: true, countsInFleetSize: true }
+
+fleet:
+  scoringSystem: irc
+
+competitors:
+  - { sailNumber: "GBR 4669", name: "Pata Negra", ircTcc: 1.149 }
+  - { sailNumber: "GBR 4933R", name: "Darling XX", ircTcc: 1.003 }
+  - { sailNumber: "GBR 9700X", name: "Jac Y Do", ircTcc: 0.959 }
+  - { sailNumber: "GBR 6939R", name: "Finally", ircTcc: 1.019 }
+  - { sailNumber: "GBR7664T", name: "Crackajack", ircTcc: 1.013 }
+  - { sailNumber: "GBR8992R", name: "Lightning", ircTcc: 1.074 }
+  - { sailNumber: "GBR 5608L", name: "Excession", ircTcc: 1.047 }
+
+races:
+  - number: 1   # 01CW1
+    startTime: "09:05:00"
+    pointsMultiplier: 0.7
+    finishes:
+      - { sailor: "GBR 4669", elapsed: "2:57:00" }
+      - { sailor: "GBR 4933R", elapsed: "3:42:15" }
+      - { sailor: "GBR 9700X", elapsed: "4:05:00" }
+      - { sailor: "GBR 6939R", elapsed: "3:51:32" }
+      - { sailor: "GBR7664T", elapsed: "4:08:59" }
+      - { sailor: "GBR8992R", code: DTP }
+      - { sailor: "GBR 5608L", code: DTP }
+
+expected:
+  standings:
+    - { rank: 1, sailor: "GBR 4669", racePoints: [66.3], raceCodes: [null], raceDiscards: [false], totalPoints: 66.3, netPoints: 66.3 }
+    - { rank: 2, sailor: "GBR 4933R", racePoints: [59.8], raceCodes: [null], raceDiscards: [false], totalPoints: 59.8, netPoints: 59.8 }
+    - { rank: 3, sailor: "GBR 9700X", racePoints: [53.3], raceCodes: [null], raceDiscards: [false], totalPoints: 53.3, netPoints: 53.3 }
+    - { rank: 4, sailor: "GBR 6939R", racePoints: [46.9], raceCodes: [null], raceDiscards: [false], totalPoints: 46.9, netPoints: 46.9 }
+    - { rank: 5, sailor: "GBR7664T", racePoints: [40.4], raceCodes: [null], raceDiscards: [false], totalPoints: 40.4, netPoints: 40.4 }
+    - { rank: 6, sailor: "GBR8992R", racePoints: [5.6], raceCodes: [DTP], raceDiscards: [false], totalPoints: 5.6, netPoints: 5.6 }
+    - { rank: 6, sailor: "GBR 5608L", racePoints: [5.6], raceCodes: [DTP], raceDiscards: [false], totalPoints: 5.6, netPoints: 5.6 }

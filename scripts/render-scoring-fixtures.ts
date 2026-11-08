@@ -316,7 +316,7 @@ function generateHandicapFixtureHtml(fixture: Fixture, yamlSource: string): stri
   const sysUpper = sys === 'tcf'
     ? `Fixed ${fixture.fleet.ratingLabel ?? 'TCF'}`
     : sys.toUpperCase();
-  const { competitors, races, finishes, raceStarts, fleets, ratingOverrides } = buildFixtureInputs(fixture);
+  const { competitors, races, finishes, raceStarts, fleets, ratingOverrides, codes } = buildFixtureInputs(fixture);
   const competitorByIdMap = new Map(competitors.map((c) => [c.id, c]));
   const fleet = fleets[0];
 
@@ -354,7 +354,7 @@ function generateHandicapFixtureHtml(fixture: Fixture, yamlSource: string): stri
     const todContext = isOrcTod && raceStart.distanceNm != null && tcfMap.size > 0
       ? { distanceNm: raceStart.distanceNm, scratchTod: Math.min(...tcfMap.values()) }
       : undefined;
-    const { scores } = calculateHandicapRaceScores(raceFinishes, ratedCompetitors, raceStart, tcfMap, 'seriesEntries', todContext);
+    const { scores } = calculateHandicapRaceScores(raceFinishes, ratedCompetitors, raceStart, tcfMap, codes, todContext);
 
     const finishTimeByCompetitorId = new Map(
       raceFinishes.filter((f) => f.competitorId && f.finishTime).map((f) => [f.competitorId!, f.finishTime!]),
@@ -385,7 +385,7 @@ function generateHandicapFixtureHtml(fixture: Fixture, yamlSource: string): stri
   <td class="mono">${esc(fmtElapsed(score))}</td>
   <td class="mono">${esc(sys === 'orc' && isOrcTod ? (score.tcfApplied?.toFixed(1) ?? '—') : fmtTcf(score.tcfApplied, sys === 'orc' ? 'irc' : sys))}</td>
   <td class="mono">${esc(fmtSeconds(score.correctedTime))}</td>
-  <td>${esc(fmtPoints(score.points))}</td>
+  <td>${esc(fmtPoints(raceTablePoints(score.points, races[ri].pointsMultiplier, !!codes.highPoint)))}</td>
 </tr>`;
     }).join('\n');
 

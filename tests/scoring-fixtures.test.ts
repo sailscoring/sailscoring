@@ -81,7 +81,7 @@ describe('scoring fixtures', () => {
     const loaded = loadFixturesFromDir(join(fixtureDir, subdir));
     for (const { yamlPath, fixture } of loaded) {
       it(`${subdir}/${yamlPath.split('/').pop()} — ${fixture.description}`, () => {
-        const { competitors, fleets, races, finishes, raceStarts, discardThresholds, discardRule, codes, excludeDncOnlyCompetitors, subSeriesList } =
+        const { competitors, fleets, races, finishes, raceStarts, ratingOverrides, discardThresholds, discardRule, codes, excludeDncOnlyCompetitors, subSeriesList } =
           buildFixtureInputs(fixture);
 
         if (fixture.expected.standings) {
@@ -93,7 +93,7 @@ describe('scoring fixtures', () => {
             discardThresholds,
             codes,
             raceStarts,
-            undefined,
+            ratingOverrides,
             undefined,
             undefined,
             discardRule,
@@ -112,7 +112,7 @@ describe('scoring fixtures', () => {
             discardThresholds,
             codes,
             raceStarts,
-            [],
+            ratingOverrides,
             excludeDncOnlyCompetitors,
             discardRule,
           );

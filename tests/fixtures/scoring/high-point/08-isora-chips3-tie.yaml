@@ -1,0 +1,57 @@
+description: "CHIPS3 with a tie on corrected time — ISORA 2024, race 03CI2"
+notes: |
+  Aurelia and Rockabill VI both correct to 2:27:00 (8251 s × 1.069 and
+  8416 s × 1.048, each 8820 s to the second), so they share 1st and 2nd.
+  Eight boats finished: n = 8. The tie averages the unrounded points for
+  the two places, (CHIPS3(1, 8) + CHIPS3(2, 8)) / 2 = (95.54 + 86.86) / 2 =
+  91.20, then the race's weight of 0.8 applies once: 72.96, rounded to 73.0
+  each, as ISORA published.
+
+  Elapsed times and IRC ratings are ISORA's; every expected number is the
+  one ISORA published in the Irish Coastal Series table.
+
+series:
+  discardThresholds: []
+  dnfScoring: seriesEntries
+  pointsSystem: highPoint
+  highPointFormula: chips3
+  scoringCodes:
+    - { code: DNF, kind: replace, rule: { type: fixedPoints, points: 10 }, discardable: true }
+
+fleet:
+  scoringSystem: irc
+
+competitors:
+  - { sailNumber: "IRL 1080", name: "Rockabill VI", ircTcc: 1.048 }
+  - { sailNumber: "IRL 35950", name: "Aurelia", ircTcc: 1.069 }
+  - { sailNumber: "IRL 1383", name: "Ruth", ircTcc: 1.008 }
+  - { sailNumber: "IRL 1543", name: "Indian", ircTcc: 1.003 }
+  - { sailNumber: "GBR7536R", name: "Hot Cookie", ircTcc: 1.036 }
+  - { sailNumber: "IRL 638", name: "State O'Shassis", ircTcc: 0.956 }
+  - { sailNumber: "IRL 1799", name: "MisterOllie", ircTcc: 1.012 }
+  - { sailNumber: "IRL 3435", name: "Albireo", ircTcc: 0.918 }
+
+races:
+  - number: 1   # 03CI2
+    startTime: "11:00:00"
+    pointsMultiplier: 0.8
+    finishes:
+      - { sailor: "IRL 1080", elapsed: "2:20:16" }
+      - { sailor: "IRL 35950", elapsed: "2:17:31" }
+      - { sailor: "IRL 1383", elapsed: "2:34:05" }
+      - { sailor: "IRL 1543", elapsed: "2:46:37" }
+      - { sailor: "GBR7536R", elapsed: "2:41:44" }
+      - { sailor: "IRL 638", elapsed: "3:13:28" }
+      - { sailor: "IRL 1799", elapsed: "3:07:27" }
+      - { sailor: "IRL 3435", elapsed: "4:05:18" }
+
+expected:
+  standings:
+    - { rank: 1, sailor: "IRL 1080", racePoints: [73], raceCodes: [null], raceDiscards: [false], totalPoints: 73, netPoints: 73 }
+    - { rank: 1, sailor: "IRL 35950", racePoints: [73], raceCodes: [null], raceDiscards: [false], totalPoints: 73, netPoints: 73 }
+    - { rank: 3, sailor: "IRL 1383", racePoints: [62.6], raceCodes: [null], raceDiscards: [false], totalPoints: 62.6, netPoints: 62.6 }
+    - { rank: 4, sailor: "IRL 1543", racePoints: [55.6], raceCodes: [null], raceDiscards: [false], totalPoints: 55.6, netPoints: 55.6 }
+    - { rank: 5, sailor: "GBR7536R", racePoints: [48.7], raceCodes: [null], raceDiscards: [false], totalPoints: 48.7, netPoints: 48.7 }
+    - { rank: 6, sailor: "IRL 638", racePoints: [41.7], raceCodes: [null], raceDiscards: [false], totalPoints: 41.7, netPoints: 41.7 }
+    - { rank: 7, sailor: "IRL 1799", racePoints: [34.8], raceCodes: [null], raceDiscards: [false], totalPoints: 34.8, netPoints: 34.8 }
+    - { rank: 8, sailor: "IRL 3435", racePoints: [27.9], raceCodes: [null], raceDiscards: [false], totalPoints: 27.9, netPoints: 27.9 }
