@@ -20,6 +20,7 @@ import type {
   RaceRatingOverride,
   RaceStart,
   Series,
+  SubSeries,
 } from '@/lib/types';
 
 function makeSeries(id: string): Series {
@@ -55,7 +56,7 @@ const crackajack: Competitor = {
   id: 'c1', seriesId: 's1', fleetIds: ['fl-1'], sailNumber: 'GBR7664T', names: ['Crackajack'], clubs: [], gender: '', age: null, createdAt: 0,
   ircTcc: 1.013,
   ircSecondaryTcc: 1.014,
-  ircSecondaryCert: { certNumber: '50719', tcc: 1.014 },
+  ircSecondaryCert: { certNumber: '50719', tcc: 1.014, appliedAt: 0 },
 };
 
 const snapshot: SeriesSnapshot = {

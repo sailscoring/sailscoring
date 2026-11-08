@@ -1,0 +1,104 @@
+description: "Primary and secondary IRC certificates race by race — ISORA 2026, Crackajack, IRC Class 1"
+rrs_notes: >
+  ISORA NoR 6.2–6.5: a boat with two IRC certificates declares, race by race,
+  which it races on; without a declaration the primary applies. Crackajack
+  holds a primary at TCC 1.013 and a secondary at 1.014, and declared the
+  secondary for the Welsh coastal races.
+notes: |
+  Four races of ISORA's 2026 IRC Class 1 season: 01CW1, 03CW2, 13O6 (the
+  K2Q) and 16CW5, each scored CHIPS3 × its weight, every race counting.
+  Crackajack keeps both certificates. 01CW1 and 13O6 score on the primary,
+  1.013; 03CW2 and 16CW5 are declared on the secondary, 1.014, and score on
+  it. Two other boats raced 13O6 on a different TCC than the rest of their
+  season; those are typed per-race ratings, as before.
+
+  Every elapsed time, rating, rank and corrected time is the one ISORA
+  published in its IRC Class 1 race tables, and so is each weighted race
+  score in the standings. The per-race points below are CHIPS3 before the
+  race's weight.
+
+series:
+  discardThresholds: []
+  dnfScoring: seriesEntries
+  pointsSystem: highPoint
+  highPointFormula: chips3
+  scoringCodes:
+    - { code: DNF, kind: replace, rule: { type: fixedPoints, points: 15 }, discardable: true }
+    - { code: DTP, description: "Declared to race, did not race (NoR 13.2)", kind: replace, rule: { type: fixedPoints, points: 8 }, discardable: true, countsInFleetSize: true }
+
+fleet:
+  scoringSystem: irc
+
+competitors:
+  - { sailNumber: "IRL 53196", name: "ReQuest", ircTcc: 1.022 }
+  - { sailNumber: "GBR 723R", name: "Hijacker", ircTcc: 1.029 }
+  - { sailNumber: "GBR 6939R", name: "Finally", ircTcc: 1.019 }
+  - { sailNumber: "GBR7664T", name: "Crackajack", ircTcc: 1.013, ircSecondaryTcc: 1.014 }
+  - { sailNumber: "IRL 1858", name: "Razorbill", ircTcc: 1.028 }
+  - { sailNumber: "IRL13500", name: "D-Tox", ircTcc: 1.029 }
+  - { sailNumber: "GBR 5608L", name: "Excession", ircTcc: 1.047 }
+
+races:
+  - number: 1   # 01CW1
+    startTime: "09:05:00"
+    pointsMultiplier: 0.7
+    finishes:
+      - { sailor: "GBR 6939R", elapsed: "3:51:32" }
+      - { sailor: "GBR7664T", elapsed: "4:08:59" }
+      - { sailor: "GBR 5608L", code: DTP }
+    expected:
+      - { sailor: "GBR 6939R", rank: 1, points: 89.95956276695223, tcfApplied: 1.019, correctedTime: 14156 }
+      - { sailor: "GBR7664T", rank: 2, points: 77.49955665984407, tcfApplied: 1.013, correctedTime: 15133 }
+      - { sailor: "GBR 5608L", rank: null, points: 8, tcfApplied: 1.047, correctedTime: null }
+  - number: 2   # 03CW2
+    startTime: "08:05:00"
+    pointsMultiplier: 0.7
+    ratingOverrides:
+      - { sailor: "GBR7664T", field: ircTcc, certificate: secondary }   # declared secondary
+    finishes:
+      - { sailor: "GBR 6939R", elapsed: "2:44:03" }
+      - { sailor: "GBR 5608L", elapsed: "2:46:42" }
+      - { sailor: "GBR7664T", elapsed: "2:56:52" }
+    expected:
+      - { sailor: "GBR 6939R", rank: 1, points: 89.95956276695223, tcfApplied: 1.019, correctedTime: 10030 }
+      - { sailor: "GBR 5608L", rank: 2, points: 77.49955665984407, tcfApplied: 1.047, correctedTime: 10472 }
+      - { sailor: "GBR7664T", rank: 3, points: 65.03955055273592, tcfApplied: 1.014, correctedTime: 10761 }
+  - number: 3   # 13O6
+    startTime: "14:00:00"
+    pointsMultiplier: 1.2
+    ratingOverrides:
+      - { sailor: "GBR 723R", field: ircTcc, value: 1.023 }
+      - { sailor: "IRL13500", field: ircTcc, value: 1.027 }
+    finishes:
+      - { sailor: "IRL 53196", elapsed: "27:49:48" }
+      - { sailor: "GBR 723R", elapsed: "28:47:21" }
+      - { sailor: "IRL 1858", elapsed: "30:39:14" }
+      - { sailor: "GBR7664T", elapsed: "33:46:37" }
+      - { sailor: "IRL13500", code: DNF }
+    expected:
+      - { sailor: "IRL 53196", rank: 1, points: 92.74115545620113, tcfApplied: 1.022, correctedTime: 102392 }
+      - { sailor: "GBR 723R", rank: 2, points: 82.07255537263852, tcfApplied: 1.023, correctedTime: 106025 }
+      - { sailor: "IRL 1858", rank: 3, points: 71.4039552890759, tcfApplied: 1.028, correctedTime: 113444 }
+      - { sailor: "GBR7664T", rank: 4, points: 60.73535520551328, tcfApplied: 1.013, correctedTime: 123178 }
+      - { sailor: "IRL13500", rank: null, points: 15, tcfApplied: 1.027, correctedTime: null }
+  - number: 4   # 16CW5
+    startTime: "20:05:00"
+    pointsMultiplier: 0.7
+    ratingOverrides:
+      - { sailor: "GBR7664T", field: ircTcc, certificate: secondary }   # declared secondary
+    finishes:
+      - { sailor: "GBR 6939R", elapsed: "5:50:42" }
+      - { sailor: "GBR7664T", elapsed: "6:13:14" }
+    expected:
+      - { sailor: "GBR 6939R", rank: 1, points: 88.19148758585177, tcfApplied: 1.019, correctedTime: 21442 }
+      - { sailor: "GBR7664T", rank: 2, points: 74.57478634878306, tcfApplied: 1.014, correctedTime: 22708 }
+
+expected:
+  standings:
+    - { rank: 1, sailor: "GBR7664T", racePoints: [54.2, 45.5, 72.9, 52.2], raceCodes: [null, null, null, null], raceDiscards: [false, false, false, false], totalPoints: 224.8, netPoints: 224.8 }
+    - { rank: 2, sailor: "GBR 6939R", racePoints: [63, 63, 0, 61.7], raceCodes: [null, null, DNC, null], raceDiscards: [false, false, false, false], totalPoints: 187.7, netPoints: 187.7 }
+    - { rank: 3, sailor: "IRL 53196", racePoints: [0, 0, 111.3, 0], raceCodes: [DNC, DNC, null, DNC], raceDiscards: [false, false, false, false], totalPoints: 111.3, netPoints: 111.3 }
+    - { rank: 4, sailor: "GBR 723R", racePoints: [0, 0, 98.5, 0], raceCodes: [DNC, DNC, null, DNC], raceDiscards: [false, false, false, false], totalPoints: 98.5, netPoints: 98.5 }
+    - { rank: 5, sailor: "IRL 1858", racePoints: [0, 0, 85.7, 0], raceCodes: [DNC, DNC, null, DNC], raceDiscards: [false, false, false, false], totalPoints: 85.7, netPoints: 85.7 }
+    - { rank: 6, sailor: "GBR 5608L", racePoints: [5.6, 54.2, 0, 0], raceCodes: [DTP, null, DNC, DNC], raceDiscards: [false, false, false, false], totalPoints: 59.8, netPoints: 59.8 }
+    - { rank: 7, sailor: "IRL13500", racePoints: [0, 0, 18, 0], raceCodes: [DNC, DNC, DNF, DNC], raceDiscards: [false, false, false, false], totalPoints: 18, netPoints: 18 }

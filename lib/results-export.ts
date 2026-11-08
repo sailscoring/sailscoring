@@ -66,6 +66,7 @@ import { loadSeriesSnapshot, type SeriesSnapshot } from './series-snapshot';
 import { summariseSnapshot } from './publication-summary';
 import { fleetOwnRaces } from './race-membership';
 import { boatsOutOfFleet, withRaceFleets } from './race-fleets';
+import { overrideRatingValue } from './race-ratings';
 import { championshipRacesView, championshipStandingsView } from './public-api/championship-view';
 import type { PageView } from './public-api/published-view';
 import {
@@ -1206,8 +1207,11 @@ export async function buildFleetHtmlFiles(
         const overrideField = staticRatingField(fleet.scoringSystem);
         const overrideByComp = new Map<string, number>();
         if (overrideField) {
+          const competitorById = new Map(fleetCompetitors.map((c) => [c.id, c]));
           for (const o of allRatingOverrides) {
-            if (o.raceId === race.id && o.field === overrideField) overrideByComp.set(o.competitorId, o.value);
+            if (o.raceId === race.id && o.field === overrideField) {
+              overrideByComp.set(o.competitorId, overrideRatingValue(o, competitorById.get(o.competitorId)));
+            }
           }
         }
         // ORC scoring options resolve per race: the start's option (else the

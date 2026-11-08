@@ -171,7 +171,15 @@ export interface FixtureRace {
    *  for it only. Become `Race.fleetChanges`. */
   fleetChanges?: { sailor: string; add?: string[]; drop?: string[] }[];
   /** Per-race static-rating overrides (mid-series rating change). */
-  ratingOverrides?: { sailor: string; field: 'ircTcc' | 'pyNumber' | 'vprsTcc' | 'fixedTcf' | 'ytcNumber'; value: number }[];
+  ratingOverrides?: {
+    sailor: string;
+    field: 'ircTcc' | 'pyNumber' | 'vprsTcc' | 'fixedTcf' | 'ytcNumber';
+    /** The rating. With `certificate`, the number the declaration last
+     *  resolved to; absent, the boat's secondary TCC. */
+    value?: number;
+    /** IRC only: the race is declared on the boat's secondary certificate. */
+    certificate?: 'secondary';
+  }[];
 }
 
 export interface FixtureStanding {
@@ -199,6 +207,8 @@ export interface FixtureCompetitor {
    *  division of it). An alternative to `fleet`. */
   fleets?: string[];
   ircTcc?: number;
+  /** The boat's secondary IRC certificate, which a race may be declared on. */
+  ircSecondaryTcc?: number;
   vprsTcc?: number;
   fixedTcf?: number;
   pyNumber?: number;
@@ -394,6 +404,7 @@ export function buildFixtureInputs(fixture: Fixture): FixtureInputs {
       age: null,
       createdAt: 0,
       ...(c.ircTcc != null ? { ircTcc: c.ircTcc } : {}),
+      ...(c.ircSecondaryTcc != null ? { ircSecondaryTcc: c.ircSecondaryTcc } : {}),
       ...(c.vprsTcc != null ? { vprsTcc: c.vprsTcc } : {}),
       ...(c.fixedTcf != null ? { fixedTcf: c.fixedTcf } : {}),
       ...(c.pyNumber != null ? { pyNumber: c.pyNumber } : {}),
@@ -524,7 +535,20 @@ export function buildFixtureInputs(fixture: Fixture): FixtureInputs {
       if (!competitorId) {
         throw new Error(`Fixture "${fixture.description}": unknown sailor "${o.sailor}" in ratingOverrides`);
       }
-      ratingOverrides.push({ id: `ro-${ri}-${o.sailor}-${o.field}`, raceId, competitorId, field: o.field, value: o.value });
+      const value = o.value ?? (o.certificate === 'secondary'
+        ? fixture.competitors.find((c) => c.sailNumber === o.sailor)?.ircSecondaryTcc
+        : undefined);
+      if (value == null) {
+        throw new Error(`Fixture "${fixture.description}": rating override for "${o.sailor}" has no value and no secondary certificate`);
+      }
+      ratingOverrides.push({
+        id: `ro-${ri}-${o.sailor}-${o.field}`,
+        raceId,
+        competitorId,
+        field: o.field,
+        value,
+        ...(o.certificate ? { certificate: o.certificate } : {}),
+      });
     }
     if (fr.startTime || fr.startFleets) {
       const startFleetIds = fr.startFleets

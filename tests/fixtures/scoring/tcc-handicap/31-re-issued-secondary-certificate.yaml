@@ -1,0 +1,56 @@
+description: "A re-issued secondary IRC certificate reaches the races declared on it, and only those"
+rrs_notes: >
+  A race declared on a boat's secondary certificate scores on the secondary
+  the boat holds when the race is scored, not on the number written down
+  when it was declared. A re-issued secondary therefore reaches every race
+  declared on it; races on the primary are untouched.
+notes: |
+  Crackajack declared its secondary for race 1, when the secondary was TCC
+  1.014; the declaration still records that number. The secondary has since
+  been re-issued at 1.012, and race 1 scores on 1.012. Race 2 is on the
+  primary, 1.013, and is unchanged.
+
+  Race 1, elapsed times 1:00:00 and 1:00:45:
+    Crackajack  3600 × 1.012 = 3643.2   1st   (on the old 1.014: 3650.4, 2nd)
+    Bluebird    3645 × 1.000 = 3645.0   2nd
+
+  Race 2, elapsed times 1:00:00 and 1:00:50:
+    Crackajack  3600 × 1.013 = 3646.8   1st
+    Bluebird    3650 × 1.000 = 3650.0   2nd
+
+  Corrected times are rounded to the second: 3643, 3645, 3647, 3650.
+
+series:
+  discardThresholds: []
+
+fleet:
+  scoringSystem: irc
+
+competitors:
+  - { sailNumber: "GBR7664T", name: "Crackajack", ircTcc: 1.013, ircSecondaryTcc: 1.012 }
+  - { sailNumber: "IRL 1000", name: "Bluebird", ircTcc: 1.000 }
+
+races:
+  - number: 1
+    startTime: "10:00:00"
+    ratingOverrides:
+      - { sailor: "GBR7664T", field: ircTcc, certificate: secondary, value: 1.014 }
+    finishes:
+      - { sailor: "GBR7664T", elapsed: "1:00:00" }
+      - { sailor: "IRL 1000", elapsed: "1:00:45" }
+    expected:
+      - { sailor: "GBR7664T", rank: 1, points: 1, tcfApplied: 1.012, correctedTime: 3643 }
+      - { sailor: "IRL 1000", rank: 2, points: 2, tcfApplied: 1, correctedTime: 3645 }
+  - number: 2
+    startTime: "10:00:00"
+    finishes:
+      - { sailor: "GBR7664T", elapsed: "1:00:00" }
+      - { sailor: "IRL 1000", elapsed: "1:00:50" }
+    expected:
+      - { sailor: "GBR7664T", rank: 1, points: 1, tcfApplied: 1.013, correctedTime: 3647 }
+      - { sailor: "IRL 1000", rank: 2, points: 2, tcfApplied: 1, correctedTime: 3650 }
+
+expected:
+  standings:
+    - { rank: 1, sailor: "GBR7664T", racePoints: [1, 1], raceCodes: [null, null], raceDiscards: [false, false], totalPoints: 2, netPoints: 2 }
+    - { rank: 2, sailor: "IRL 1000", racePoints: [2, 2], raceCodes: [null, null], raceDiscards: [false, false], totalPoints: 4, netPoints: 4 }

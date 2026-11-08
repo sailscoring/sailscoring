@@ -11,6 +11,7 @@ import { highPointTiedPoints } from './high-point';
 import { parseHmsToSeconds } from './time-parse';
 import { racesFleetIsNotIn } from './race-membership';
 import { fleetsInAnyRace, fleetsInRace, withRaceFleets } from './race-fleets';
+import { overrideRatingValue } from './race-ratings';
 
 export const ECHO_DEFAULT_ALPHA = 0.25;  // Irish Sailing 2022 ECHO Guide: 75/25 club racing
 export const ECHO_REGATTA_ALPHA = 0.50;  // Irish Sailing 2022 ECHO Guide: 50/50 regattas/major events
@@ -1983,9 +1984,10 @@ function calculateHandicapStandings(
   const overrideField = staticRatingField(fleet.scoringSystem);
   const overrideTcfByRace = new Map<string, Map<string, number>>();
   if (overrideField && !isProgressive) {
+    const competitorById = new Map(competitors.map((c) => [c.id, c]));
     for (const o of ratingOverrides) {
       if (o.field !== overrideField) continue;
-      const tcf = ratingFieldTcf(overrideField, o.value);
+      const tcf = ratingFieldTcf(overrideField, overrideRatingValue(o, competitorById.get(o.competitorId)));
       if (tcf == null) continue;
       if (!overrideTcfByRace.has(o.raceId)) overrideTcfByRace.set(o.raceId, new Map());
       overrideTcfByRace.get(o.raceId)!.set(o.competitorId, tcf);

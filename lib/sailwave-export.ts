@@ -18,6 +18,7 @@
  * Pure module — no DOM, no repository access. Feed it the `SeriesFile` that
  * `buildSeriesFile` produces.
  */
+import { overrideRatingValue } from './race-ratings';
 import type { SeriesFile } from './series-file';
 import type { DiscardRule, DiscardThreshold, ResultCode, ResultsColumn, SeriesScoringCode } from './types';
 import { getCodeDefinition } from './scoring-codes';
@@ -507,7 +508,9 @@ export function buildSailwaveBlw(file: SeriesFile): SailwaveExportResult {
     }
 
     const overrides = new Map<string, number>();
-    for (const o of race.ratingOverrides ?? []) overrides.set(o.competitorId, o.value);
+    for (const o of race.ratingOverrides ?? []) {
+      overrides.set(o.competitorId, overrideRatingValue(o, file.competitors.find((c) => c.id === o.competitorId)));
+    }
 
     // Crossing order within each fleet, for place-scored starts.
     const finishers = race.finishes

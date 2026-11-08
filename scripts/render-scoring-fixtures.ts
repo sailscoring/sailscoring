@@ -36,6 +36,7 @@ import { defaultEnabledCompetitorFields, formatPrimaryNames } from '../lib/compe
 import type { DiscardThreshold, ProportionalDiscard, SubSeriesDiscards, ResultCode, PenaltyCode } from '../lib/types';
 import { buildFixtureInputs, type Fixture, type FixtureStanding } from '../tests/fixtures/scoring/types';
 import { boatsOutOfFleet, fleetsInAnyRace } from '../lib/race-fleets';
+import { overrideRatingValue } from '../lib/race-ratings';
 import { repechageStandings, splitFleetStandings, stageRaceLabel } from '../lib/split-fleets';
 import type { StoredStage } from '../lib/split-fleets';
 import {
@@ -357,7 +358,14 @@ function generateHandicapFixtureHtml(fixture: Fixture, yamlSource: string): stri
     const overrideByComp = new Map(
       ratingOverrides
         .filter((o) => o.raceId === raceId && o.field === ratingField)
-        .map((o) => [o.competitorId, o.value] as const),
+        .map((o) => [o.competitorId, overrideRatingValue(o, competitors.find((c) => c.id === o.competitorId))] as const),
+    );
+    // A race declared on a boat's secondary certificate is marked as such,
+    // rather than as a typed number.
+    const secondaryIds = new Set(
+      ratingOverrides
+        .filter((o) => o.raceId === raceId && o.field === ratingField && o.certificate === 'secondary')
+        .map((o) => o.competitorId),
     );
     const ratingFor = (c: (typeof competitors)[number]): number | undefined =>
       ratingField ? overrideByComp.get(c.id) ?? c[ratingField] : undefined;
@@ -400,7 +408,7 @@ function generateHandicapFixtureHtml(fixture: Fixture, yamlSource: string): stri
       const ratingDisplay = sys === 'orc'
         ? (tcfMap.has(cId) ? tcfMap.get(cId)!.toFixed(isOrcTod ? 1 : 4) : '—')
         : ratingField
-          ? `${formatRatingValue(ratingFor(c), sys)}${overrideByComp.has(cId) ? ' *' : ''}`
+          ? `${formatRatingValue(ratingFor(c), sys)}${secondaryIds.has(cId) ? ' S' : overrideByComp.has(cId) ? ' *' : ''}`
           : '—';
       const finishTimeDisplay = finishTimeByCompetitorId.get(cId) ?? (score.resultCode ?? '—');
       const rankDisplay = score.rank !== null ? score.rank.toString() : '—';
@@ -436,7 +444,7 @@ function generateHandicapFixtureHtml(fixture: Fixture, yamlSource: string): stri
 <tbody>
 ${rows}
 </tbody>
-</table>${overrideByComp.size > 0 ? '\n<p style="font-size:90%; color:#444;">* Per-race rating override: the rating the boat held when this race was sailed.</p>' : ''}${outNote}`;
+</table>${overrideByComp.size > secondaryIds.size ? '\n<p style="font-size:90%; color:#444;">* Per-race rating override: the rating the boat held when this race was sailed.</p>' : ''}${secondaryIds.size > 0 ? '\n<p style="font-size:90%; color:#444;">S Declared on the boat\'s secondary IRC certificate for this race.</p>' : ''}${outNote}`;
   }).join('\n');
 
   const notesHtml = fixture.rrs_notes

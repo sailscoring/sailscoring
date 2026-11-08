@@ -11,6 +11,7 @@
 import { describe, it, expect } from 'vitest';
 import { join } from 'node:path';
 import { orcProfileRating, orcRaceProfile } from '@/lib/orc-certificate';
+import { overrideRatingValue } from '@/lib/race-ratings';
 import { calculateFleetStandings, calculateHandicapRaceScores, finishesScoredFor, orcCertificateTodContext, ratingFieldTcf, staticRatingField } from '@/lib/scoring';
 import { buildFixtureInputs, loadFixturesFromDir } from './fixtures/scoring/types';
 import type { Finish } from '@/lib/types';
@@ -45,7 +46,7 @@ describe('TCC handicap scoring fixtures', () => {
         const overrideByComp = new Map(
           ratingOverrides
             .filter((o) => o.raceId === raceId && o.field === field)
-            .map((o) => [o.competitorId, o.value] as const),
+            .map((o) => [o.competitorId, overrideRatingValue(o, competitors.find((c) => c.id === o.competitorId))] as const),
         );
         const tcfMap = new Map<string, number>();
         for (const c of competitors) {
