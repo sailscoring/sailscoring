@@ -25,26 +25,24 @@ function assertExpectedStandings(
   fleetStandings: FleetStandingsEntry[],
   context: string,
 ) {
-  // Flatten to a map keyed by sailNumber (plus an optional per-sailor fleet
-  // name, needed for multi-fleet fixtures where two competitors can share
-  // a sail number across fleets).
-  const standingsBySail = new Map<string, Standing>();
-  const fleetNameBySail = new Map<string, string>();
-  for (const { fleet, standings } of fleetStandings) {
-    for (const s of standings) {
-      standingsBySail.set(s.competitor.sailNumber, s);
-      fleetNameBySail.set(s.competitor.sailNumber, fleet.name);
-    }
-  }
+  // Every standing, with its fleet's name. A boat in two fleets has a row in
+  // each, so an expected row that names its fleet is matched on both; one
+  // that doesn't is matched on the sail number alone.
+  const rows = fleetStandings.flatMap(({ fleet, standings }) => standings.map((s) => ({ fleet: fleet.name, s })));
+  const matches = (e: FixtureStanding, r: (typeof rows)[number]) =>
+    r.s.competitor.sailNumber === e.sailor && (e.fleet === undefined || e.fleet === r.fleet);
 
-  const expectedSailors = new Set(expectedStandings.map((e) => e.sailor));
-  for (const sail of standingsBySail.keys()) {
-    expect(expectedSailors.has(sail), `${context}: unexpected sailor ${sail} in standings`).toBe(true);
+  for (const r of rows) {
+    expect(
+      expectedStandings.some((e) => matches(e, r)),
+      `${context}: unexpected sailor ${r.s.competitor.sailNumber} in ${r.fleet} standings`,
+    ).toBe(true);
   }
 
   for (const expected of expectedStandings) {
-    const standing = standingsBySail.get(expected.sailor);
-    expect(standing, `${context}: no standing for sailor ${expected.sailor}`).toBeDefined();
+    const found = rows.filter((r) => matches(expected, r));
+    expect(found.length, `${context}: standings for sailor ${expected.sailor}${expected.fleet ? ` in ${expected.fleet}` : ''}`).toBe(1);
+    const standing = found[0]?.s;
     if (!standing) continue;
     const label = `${context}: sailor ${expected.sailor}`;
 
@@ -61,6 +59,9 @@ function assertExpectedStandings(
     if (expected.raceNotScored !== undefined) {
       expect(standing.raceNotScored, `${label}: raceNotScored`).toEqual(expected.raceNotScored);
     }
+    if (expected.raceNotInFleet !== undefined) {
+      expect(standing.raceNotInFleet, `${label}: raceNotInFleet`).toEqual(expected.raceNotInFleet);
+    }
     if (expected.racePenaltyCodes !== undefined) {
       expect(standing.racePenaltyCodes, `${label}: racePenaltyCodes`).toEqual(expected.racePenaltyCodes);
     }
@@ -69,10 +70,6 @@ function assertExpectedStandings(
     }
     expect(standing.totalPoints, `${label}: totalPoints`).toBe(expected.totalPoints);
     expect(standing.netPoints, `${label}: netPoints`).toBe(expected.netPoints);
-
-    if (expected.fleet !== undefined) {
-      expect(fleetNameBySail.get(expected.sailor), `${label}: fleet`).toBe(expected.fleet);
-    }
   }
 }
 

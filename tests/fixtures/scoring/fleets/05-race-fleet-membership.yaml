@@ -1,0 +1,143 @@
+description: "A two-handed division boats join race by race: out of it for a race sailed crewed, in it for one race only"
+rrs_notes: >
+  The Two-Handed fleet is a division of Overall: a boat is in it for the races
+  it sails two-handed. A boat out of a fleet for a race is not in that fleet's
+  race at all — it takes no place, and boats behind it move up — but it is one
+  of the fleet's entries, so it scores the race as a boat that didn't come to
+  the start does (RRS A5.2, entries + 1), shown as a dash rather than DNC. Its
+  finish is entered once and scores in every fleet it was in.
+
+series:
+  discardThresholds: []
+
+competitors:
+  - sailNumber: "53308"
+    name: "Loinnir"
+    fleets: ["Overall", "Two-Handed"]
+  - sailNumber: "SWE041"
+    name: "No Xcuse"
+    fleets: ["Overall", "Two-Handed"]
+  - sailNumber: "IRL 31310"
+    name: "Katanca"
+    fleets: ["Overall", "Two-Handed"]
+  - sailNumber: "IRL 1720"
+    name: "Jedi"
+    fleets: ["Overall"]
+
+races:
+  - number: 1
+    # Everyone in their series fleets. Jedi finishes 3rd but isn't
+    # two-handed, so Katanca is 3rd in Two-Handed.
+    finishes:
+      - { sailor: "53308", position: 1 }
+      - { sailor: "SWE041", position: 2 }
+      - { sailor: "IRL 1720", position: 3 }
+      - { sailor: "IRL 31310", position: 4 }
+
+  - number: 2
+    # Loinnir sails this one crewed: first across the line and first in
+    # Overall, but not in the Two-Handed race, where Katanca wins.
+    fleetChanges:
+      - { sailor: "53308", drop: ["Two-Handed"] }
+    finishes:
+      - { sailor: "53308", position: 1 }
+      - { sailor: "IRL 31310", position: 2 }
+      - { sailor: "IRL 1720", position: 3 }
+      - { sailor: "SWE041", position: 4 }
+
+  - number: 3
+    # Jedi sails this one two-handed, its only race in the division.
+    fleetChanges:
+      - { sailor: "IRL 1720", add: ["Two-Handed"] }
+    finishes:
+      - { sailor: "SWE041", position: 1 }
+      - { sailor: "IRL 1720", position: 2 }
+      - { sailor: "53308", position: 3 }
+      - { sailor: "IRL 31310", position: 4 }
+
+# Two-Handed has four entries — every boat in it for at least one race — so a
+# race not sailed in it scores 4 + 1 = 5.
+#
+#   Two-Handed     R1        R2          R3     Total
+#   No Xcuse       2         2 (2nd)     1      5
+#   Katanca        3         1 (1st)     4      8
+#   Loinnir        1         5 —         3      9
+#   Jedi           5 —       5 —         2      12
+#
+# Had Loinnir been left in Two-Handed for race 2 it would have won it, and
+# Katanca and No Xcuse would each have scored a point more.
+#
+#   Overall        R1   R2   R3   Total
+#   Loinnir        1    1    3    5
+#   No Xcuse       2    4    1    7
+#   Jedi           3    3    2    8
+#   Katanca        4    2    4    10
+expected:
+  standings:
+    - rank: 1
+      sailor: "53308"
+      fleet: "Overall"
+      racePoints: [1, 1, 3]
+      raceCodes: [null, null, null]
+      raceDiscards: [false, false, false]
+      totalPoints: 5
+      netPoints: 5
+    - rank: 2
+      sailor: "SWE041"
+      fleet: "Overall"
+      racePoints: [2, 4, 1]
+      raceCodes: [null, null, null]
+      raceDiscards: [false, false, false]
+      totalPoints: 7
+      netPoints: 7
+    - rank: 3
+      sailor: "IRL 1720"
+      fleet: "Overall"
+      racePoints: [3, 3, 2]
+      raceCodes: [null, null, null]
+      raceDiscards: [false, false, false]
+      totalPoints: 8
+      netPoints: 8
+    - rank: 4
+      sailor: "IRL 31310"
+      fleet: "Overall"
+      racePoints: [4, 2, 4]
+      raceCodes: [null, null, null]
+      raceDiscards: [false, false, false]
+      totalPoints: 10
+      netPoints: 10
+
+    - rank: 1
+      sailor: "SWE041"
+      fleet: "Two-Handed"
+      racePoints: [2, 2, 1]
+      raceCodes: [null, null, null]
+      raceDiscards: [false, false, false]
+      totalPoints: 5
+      netPoints: 5
+    - rank: 2
+      sailor: "IRL 31310"
+      fleet: "Two-Handed"
+      racePoints: [3, 1, 4]
+      raceCodes: [null, null, null]
+      raceDiscards: [false, false, false]
+      totalPoints: 8
+      netPoints: 8
+    - rank: 3
+      sailor: "53308"
+      fleet: "Two-Handed"
+      racePoints: [1, 5, 3]
+      raceCodes: [null, null, null]
+      raceNotInFleet: [false, true, false]
+      raceDiscards: [false, false, false]
+      totalPoints: 9
+      netPoints: 9
+    - rank: 4
+      sailor: "IRL 1720"
+      fleet: "Two-Handed"
+      racePoints: [5, 5, 2]
+      raceCodes: [null, null, null]
+      raceNotInFleet: [true, true, false]
+      raceDiscards: [false, false, false]
+      totalPoints: 12
+      netPoints: 12

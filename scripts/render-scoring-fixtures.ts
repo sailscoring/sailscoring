@@ -35,6 +35,7 @@ import { orcProfileRating, orcRaceProfile } from '../lib/orc-certificate';
 import { defaultEnabledCompetitorFields, formatPrimaryNames } from '../lib/competitor-fields';
 import type { DiscardThreshold, ProportionalDiscard, SubSeriesDiscards, ResultCode, PenaltyCode } from '../lib/types';
 import { buildFixtureInputs, type Fixture, type FixtureStanding } from '../tests/fixtures/scoring/types';
+import { boatsOutOfFleet, fleetsInAnyRace } from '../lib/race-fleets';
 import { repechageStandings, splitFleetStandings, stageRaceLabel } from '../lib/split-fleets';
 import type { StoredStage } from '../lib/split-fleets';
 import {
@@ -148,19 +149,22 @@ function generateScratchFixtureHtml(fixture: Fixture, yamlSource: string): strin
     const sections: string[] = [];
 
     for (const { fleet, standings } of fleetResults) {
-      const fleetCompetitorIds = new Set(
-        competitors.filter((c) => c.fleetIds.includes(fleet.id)).map((c) => c.id),
-      );
+      // The fleet's list is every boat in it for at least one race; each
+      // race's table leaves out the boats that were not in it for that race.
+      const fleetCompetitors = competitors.filter((c) => fleetsInAnyRace(c, races).includes(fleet.id));
+      const fleetCompetitorIds = new Set(fleetCompetitors.map((c) => c.id));
       const raceScoresByRaceId = new Map<
         string,
         Map<string, { points: number; place: number | null; rank: number | null; resultCode: ResultCode | null; penaltyCode: PenaltyCode | null; penaltyOverride: number | null; penaltyInPoints?: boolean }>
       >();
       for (const race of races) {
+        const out = boatsOutOfFleet(fleetCompetitors, fleet.id, race);
         const raceFinishes = finishes.filter(
-          (f) => f.raceId === race.id && f.competitorId !== null && fleetCompetitorIds.has(f.competitorId),
+          (f) => f.raceId === race.id && f.competitorId !== null && fleetCompetitorIds.has(f.competitorId) && !out.has(f.competitorId),
         );
         const finishByCompetitorId = new Map(raceFinishes.filter((f) => f.competitorId !== null).map((f) => [f.competitorId!, f]));
-        const scores = calculateRaceScores(raceFinishes, competitors.filter((c) => fleetCompetitorIds.has(c.id)), codes);
+        const scores = calculateRaceScores(raceFinishes, fleetCompetitors, codes);
+        for (const id of out) scores.delete(id);
         raceScoresByRaceId.set(race.id, new Map([...scores.entries()].map(([id, s]) => [
           id,
           { points: raceTablePoints(s.points, race.pointsMultiplier, !!codes.highPoint), place: s.place, rank: s.rank, resultCode: s.resultCode, penaltyCode: finishByCompetitorId.get(id)?.penaltyCode ?? null, penaltyOverride: finishByCompetitorId.get(id)?.penaltyOverride ?? null, penaltyInPoints: finishByCompetitorId.get(id)?.penaltyInPoints },

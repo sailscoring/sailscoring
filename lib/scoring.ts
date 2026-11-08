@@ -10,6 +10,7 @@ import { weightedRacePoints } from './race-scoring-options';
 import { highPointTiedPoints } from './high-point';
 import { parseHmsToSeconds } from './time-parse';
 import { racesFleetIsNotIn } from './race-membership';
+import { fleetsInAnyRace, fleetsInRace, withRaceFleets } from './race-fleets';
 
 export const ECHO_DEFAULT_ALPHA = 0.25;  // Irish Sailing 2022 ECHO Guide: 75/25 club racing
 export const ECHO_REGATTA_ALPHA = 0.50;  // Irish Sailing 2022 ECHO Guide: 50/50 regattas/major events
@@ -1282,6 +1283,9 @@ function resolveRedressScore(
   discardAllowance: number,
   fleetId?: string,
   highPoint = false,
+  /** Races the boat was not in this fleet for: not sailed here, so no part
+   *  of its average. */
+  notInFleet?: boolean[],
 ): number {
   if (finish.redressMethod === 'stated') {
     const { value, gap } = resolvePerFleetScalar(finish.redressPointsByFleet, finish.redressPoints, fleetId);
@@ -1323,7 +1327,7 @@ function resolveRedressScore(
     poolIndices = races.map((_, i) => i).filter((i) => i !== raceIdx);
   }
 
-  poolIndices = poolIndices.filter((i) => !raceExcluded[i]);
+  poolIndices = poolIndices.filter((i) => !raceExcluded[i] && !notInFleet?.[i]);
 
   // A redress score is itself an average of other races; never fold one redress
   // result into another's pool. Otherwise a boat with RDG in two races gets
@@ -1441,6 +1445,8 @@ interface PerCompetitorSeries {
   racePenaltyLabels: Map<string, (string | null)[]>;
   racePenaltyInPoints: Map<string, boolean[]>;
   raceRedressFlags: Map<string, boolean[]>;
+  /** Races the boat was not in this fleet for (`Race.fleetChanges`). */
+  raceNotInFleet: Map<string, boolean[]>;
 }
 
 function initPerCompetitorSeries(competitors: Competitor[]): PerCompetitorSeries {
@@ -1453,6 +1459,7 @@ function initPerCompetitorSeries(competitors: Competitor[]): PerCompetitorSeries
     racePenaltyLabels: new Map(),
     racePenaltyInPoints: new Map(),
     raceRedressFlags: new Map(),
+    raceNotInFleet: new Map(),
   };
   for (const c of competitors) {
     per.racePoints.set(c.id, []);
@@ -1463,6 +1470,7 @@ function initPerCompetitorSeries(competitors: Competitor[]): PerCompetitorSeries
     per.racePenaltyLabels.set(c.id, []);
     per.racePenaltyInPoints.set(c.id, []);
     per.raceRedressFlags.set(c.id, []);
+    per.raceNotInFleet.set(c.id, []);
   }
   return per;
 }
@@ -1573,9 +1581,10 @@ function computeDiscardCounts(
 function collectAndResolveRdg(args: {
   races: Race[];
   finishesByRace: Map<string, Finish[]>;
-  /** Whether a competitor participates in this fleet's standings — fleet
-   *  membership, and for handicap fleets, not rejected for a missing rating. */
-  eligible: (competitorId: string) => boolean;
+  /** Whether a competitor participates in this fleet's race — fleet
+   *  membership in that race, and for handicap fleets, not rejected for a
+   *  missing rating. */
+  eligible: (competitorId: string, raceId: string) => boolean;
   per: PerCompetitorSeries;
   raceExcluded: boolean[];
   fallbackPoints: number;
@@ -1590,7 +1599,7 @@ function collectAndResolveRdg(args: {
   const rdgCountByRaceId = new Map<string, number>();
   for (let raceIdx = 0; raceIdx < races.length; raceIdx++) {
     for (const f of finishesByRace.get(races[raceIdx].id) ?? []) {
-      if (f.resultCode === 'RDG' && f.competitorId !== null && eligible(f.competitorId)) {
+      if (f.resultCode === 'RDG' && f.competitorId !== null && eligible(f.competitorId, races[raceIdx].id)) {
         rdgAssignments.push({ competitorId: f.competitorId, raceIdx, finish: f });
         rdgCountByRaceId.set(
           races[raceIdx].id,
@@ -1623,6 +1632,7 @@ function collectAndResolveRdg(args: {
       args.discardAllowance,
       args.fleetId,
       args.highPoint,
+      per.raceNotInFleet.get(competitorId),
     );
     per.raceRedressFlags.get(competitorId)![raceIdx] = true;
     // resultCode 'RDG' is already in per.raceCodes from the race loop
@@ -1667,6 +1677,7 @@ function assembleStandings(
     const racePenaltyLabels = per.racePenaltyLabels.get(competitor.id)!;
     const racePenaltyInPoints = per.racePenaltyInPoints.get(competitor.id)!;
     const raceRedressFlags = per.raceRedressFlags.get(competitor.id)!;
+    const raceNotInFleet = per.raceNotInFleet.get(competitor.id)!;
     // roundToTenth on the series totals: every per-race score is a multiple of
     // 0.1, so summing them is exact in principle but accumulates IEEE noise
     // (e.g. 6.6 - 2.6 = 3.9999999999999996) that would show in the UI.
@@ -1708,7 +1719,7 @@ function assembleStandings(
       0,
     ));
 
-    return { rank: 0, competitor, racePoints, raceRanks, raceCodes, racePenaltyCodes, racePenaltyOverrides, racePenaltyLabels, racePenaltyInPoints, raceRedressFlags, totalPoints, netPoints, raceDiscards, raceNonDiscardable, raceExcluded: [...raceExcluded], ...(raceNotScored?.some(Boolean) ? { raceNotScored: [...raceNotScored] } : {}) };
+    return { rank: 0, competitor, racePoints, raceRanks, raceCodes, racePenaltyCodes, racePenaltyOverrides, racePenaltyLabels, racePenaltyInPoints, raceRedressFlags, totalPoints, netPoints, raceDiscards, raceNonDiscardable, raceExcluded: [...raceExcluded], ...(raceNotScored?.some(Boolean) ? { raceNotScored: [...raceNotScored] } : {}), ...(raceNotInFleet.some(Boolean) ? { raceNotInFleet: [...raceNotInFleet] } : {}) };
   });
 }
 
@@ -1769,6 +1780,9 @@ export function calculateStandings(
    *  was measured from, when deciding whether two boats crossed together —
    *  omitted, an elapsed-time tie needs the scorer's own flag. */
   raceStarts: readonly RaceStart[] = [],
+  /** Race id → the boats on this fleet's list that were not in the fleet for
+   *  that race (see {@link notInFleetByRace}). */
+  notInFleet?: ReadonlyMap<string, ReadonlySet<string>>,
 ): { standings: Standing[]; circularRedressRaces: number[] } {
   const competitorIds = new Set(competitors.map((c) => c.id));
 
@@ -1786,24 +1800,36 @@ export function calculateStandings(
   for (let raceIdx = 0; raceIdx < races.length; raceIdx++) {
     const race = races[raceIdx];
     const allRaceFinishes = finishesByRace.get(race.id) ?? [];
-    const raceFinishes = allRaceFinishes.filter((f) => f.competitorId !== null && competitorIds.has(f.competitorId));
+    // A boat out of this fleet for the race has no result in the fleet's race:
+    // its finish counts in the fleets it was in, and here it is one of the
+    // entries (A5.2) and nothing else — no place, not a starter, not a
+    // finisher, not one of high point's n.
+    const outOfFleet = notInFleet?.get(race.id);
+    const raceFinishes = allRaceFinishes.filter(
+      (f) => f.competitorId !== null && competitorIds.has(f.competitorId) && !outOfFleet?.has(f.competitorId),
+    );
     const raceFinishMap = new Map(raceFinishes.map((f) => [f.competitorId!, f]));
     const scores = calculateRaceScores(
       raceFinishes,
       competitors,
       codes,
       fleetId,
-      startKeyResolver(competitors, raceStarts.filter((rs) => rs.raceId === race.id)),
+      startKeyResolver(withRaceFleets(competitors, race), raceStarts.filter((rs) => rs.raceId === race.id)),
     );
     raceExcluded[raceIdx] =
       computeRaceExclusion(allRaceFinishes, raceFinishes, codes) || (excludedRaceIds?.has(race.id) ?? false);
     for (const competitor of competitors) {
       const score = scores.get(competitor.id);
       const rawPoints = score?.points ?? missing;
-      const code = score ? score.resultCode : 'DNC';
+      // Not in the fleet for the race: it scores what a boat that didn't come
+      // to the start scores, carrying no code — it isn't a DNC in a race it
+      // sailed, only a race it didn't sail in this fleet.
+      const out = outOfFleet?.has(competitor.id) ?? false;
+      const code = out ? null : score ? score.resultCode : 'DNC';
       const finish = raceFinishMap.get(competitor.id);
       per.racePoints.get(competitor.id)!.push(raceExcluded[raceIdx] ? 0 : rawPoints);
       per.raceRanks.get(competitor.id)!.push(raceExcluded[raceIdx] ? null : (score?.rank ?? null));
+      per.raceNotInFleet.get(competitor.id)!.push(out);
       per.raceCodes.get(competitor.id)!.push(code);
       per.racePenaltyCodes.get(competitor.id)!.push(finish?.penaltyCode ?? null);
       per.racePenaltyOverrides.get(competitor.id)!.push(finish?.penaltyOverride ?? null);
@@ -1822,7 +1848,7 @@ export function calculateStandings(
   const circularRedressRaces = collectAndResolveRdg({
     races,
     finishesByRace,
-    eligible: (competitorId) => competitorIds.has(competitorId),
+    eligible: (competitorId, raceId) => competitorIds.has(competitorId) && !notInFleet?.get(raceId)?.has(competitorId),
     per,
     raceExcluded,
     fallbackPoints: missing,
@@ -1866,6 +1892,9 @@ function calculateHandicapStandings(
   startingTcfOverrides?: Map<string, number>,
   excludedRaceIds?: Set<string>,
   discardRule?: DiscardRule,
+  /** Race id → the boats on this fleet's list that were not in the fleet for
+   *  that race (see {@link notInFleetByRace}). */
+  notInFleet?: ReadonlyMap<string, ReadonlySet<string>>,
 ): {
   standings: Standing[];
   rejections: ScoringRejection[];
@@ -2040,7 +2069,15 @@ function calculateHandicapStandings(
 
   for (let raceIdx = 0; raceIdx < races.length; raceIdx++) {
     const race = races[raceIdx];
-    const raceFinishes = finishesByRace.get(race.id) ?? [];
+    // The whole sheet, which says whether the race was held at all, and the
+    // part of it that is this fleet's to score: a boat out of the fleet for
+    // the race is one of its entries and nothing else — no place, not a
+    // starter, not a finisher, not one of high point's n.
+    const sheetFinishes = finishesByRace.get(race.id) ?? [];
+    const outOfFleet = notInFleet?.get(race.id);
+    const raceFinishes = outOfFleet?.size
+      ? sheetFinishes.filter((f) => f.competitorId === null || !outOfFleet.has(f.competitorId))
+      : sheetFinishes;
     const raceStart = startsByRaceId.get(race.id);
     // A race struck for this fleet scores 0 and — crucially — must not advance
     // the progressive chain, so Phase B is skipped below (the handicap holds
@@ -2195,7 +2232,7 @@ function calculateHandicapStandings(
         competitors,
         dnfScoring,
         fleet.id,
-        startKeyResolver(competitors, raceStarts.filter((rs) => rs.raceId === race.id)),
+        startKeyResolver(withRaceFleets(competitors, race), raceStarts.filter((rs) => rs.raceId === race.id)),
       );
       scores = new Map(
         [...scratchScores.entries()].map(([id, s]) => [
@@ -2228,7 +2265,7 @@ function calculateHandicapStandings(
     // fleet (issue #129 — see computeRaceExclusion).
     const fleetRaceFinishes = raceFinishes.filter((f) => f.competitorId !== null && fleetCompetitorIds.has(f.competitorId));
     raceExcluded[raceIdx] =
-      computeRaceExclusion(raceFinishes, fleetRaceFinishes, codes) || forcedExcluded || fleetNotInRace;
+      computeRaceExclusion(sheetFinishes, fleetRaceFinishes, codes) || forcedExcluded || fleetNotInRace;
 
     // Nobody in this race is scored: the option it resolved to corrects over a
     // course the start doesn't carry.
@@ -2249,7 +2286,7 @@ function calculateHandicapStandings(
     // hasn't been scored yet; that is what the standings should say, and
     // `raceNotScored` is what tells the page to say it in those words rather
     // than "nobody finished".
-    const fleetSatOutAHeldRace = raceExcluded[raceIdx] && raceWasHeld(raceFinishes);
+    const fleetSatOutAHeldRace = raceExcluded[raceIdx] && raceWasHeld(sheetFinishes);
     if (orcCourseMissing && !forcedExcluded && !fleetSatOutAHeldRace) {
       raceGaps.push({
         raceId: race.id,
@@ -2302,13 +2339,17 @@ function calculateHandicapStandings(
       const finish = finishMap.get(competitor.id);
       const isFinisher = score?.place != null;
       const points = isFinisher && !codes.highPoint ? applyAdditivePenalty(rawPoints, finish, penaltyCap, fleet.id, codes) : rawPoints;
+      // Not in the fleet for the race: it scores what a boat that didn't come
+      // to the start scores, carrying no code.
+      const out = outOfFleet?.has(competitor.id) ?? false;
       per.racePoints.get(competitor.id)!.push(raceExcluded[raceIdx] ? 0 : points);
       per.raceRanks.get(competitor.id)!.push(raceExcluded[raceIdx] ? null : (score?.rank ?? null));
+      per.raceNotInFleet.get(competitor.id)!.push(out);
       // Nothing is scored in a race that isn't scored yet, and that includes
       // the codes: the boats in it finished, and the DNC an unscored boat
       // otherwise takes would say they never started.
       per.raceCodes.get(competitor.id)!.push(
-        raceNotScored[raceIdx] ? null : (score !== undefined ? score.resultCode : 'DNC'),
+        raceNotScored[raceIdx] || out ? null : (score !== undefined ? score.resultCode : 'DNC'),
       );
       per.racePenaltyCodes.get(competitor.id)!.push(isFinisher ? (finish?.penaltyCode ?? null) : null);
       per.racePenaltyOverrides.get(competitor.id)!.push(isFinisher ? (finish?.penaltyOverride ?? null) : null);
@@ -2330,8 +2371,8 @@ function calculateHandicapStandings(
   const circularRedressRaces = collectAndResolveRdg({
     races,
     finishesByRace,
-    eligible: (competitorId) =>
-      fleetCompetitorIds.has(competitorId) && !rejectedIds.has(competitorId),
+    eligible: (competitorId, raceId) =>
+      fleetCompetitorIds.has(competitorId) && !rejectedIds.has(competitorId) && !notInFleet?.get(raceId)?.has(competitorId),
     per,
     raceExcluded,
     fallbackPoints: codes.missingPoints({ entries: competitors.length, startingArea: 0, finishers: 0 }),
@@ -2554,15 +2595,44 @@ function scratchLapsGaps(
   allFinishes: Finish[],
   notIn: Set<string>,
   excluded: Set<string> | undefined,
+  outOfFleet?: ReadonlyMap<string, ReadonlySet<string>>,
 ): RaceScoringGap[] {
   const ids = new Set(fleetCompetitors.map((c) => c.id));
   const gaps: RaceScoringGap[] = [];
   for (const race of races) {
     if (notIn.has(race.id) || excluded?.has(race.id)) continue;
-    const rows = allFinishes.filter((f) => f.raceId === race.id && f.competitorId !== null && ids.has(f.competitorId));
+    const out = outOfFleet?.get(race.id);
+    const rows = allFinishes.filter(
+      (f) => f.raceId === race.id && f.competitorId !== null && ids.has(f.competitorId) && !out?.has(f.competitorId),
+    );
     if (lapsDiffer(finishedRows(rows))) gaps.push({ raceId: race.id, fleetId: fleet.id, reason: 'laps_not_applied' });
   }
   return gaps;
+}
+
+/**
+ * For one fleet: race id → the boats on its list that were not in it for
+ * that race. Undefined when every boat was in the fleet for every race, the
+ * common case. See {@link boatsOutOfFleet} for one race.
+ */
+export function notInFleetByRace(
+  fleetId: string,
+  fleetCompetitors: readonly Competitor[],
+  races: readonly Race[],
+): Map<string, Set<string>> | undefined {
+  let out: Map<string, Set<string>> | undefined;
+  // A race with no changes still leaves out a boat that is on the list only
+  // because it was added to the fleet for some other race.
+  for (const race of races) {
+    for (const c of fleetCompetitors) {
+      if (fleetsInRace(c, race).includes(fleetId)) continue;
+      out ??= new Map();
+      const set = out.get(race.id) ?? new Set<string>();
+      set.add(c.id);
+      out.set(race.id, set);
+    }
+  }
+  return out;
 }
 
 export function calculateFleetStandings(
@@ -2585,11 +2655,14 @@ export function calculateFleetStandings(
   // Only entrants are scored; see resolveEntryStatuses for what decides that.
   const entrants = resolveEntrants(competitors, races, allFinishes, entry);
 
+  // A boat is on a fleet's list when it sails in the fleet in at least one
+  // of these races — its series fleets, less any it is out of for every race,
+  // plus any it was added to for one (`Race.fleetChanges`).
   const competitorsByFleet = new Map<string, Competitor[]>();
   const orphans: Competitor[] = [];
   for (const competitor of entrants) {
     let placedInAtLeastOneFleet = false;
-    for (const fleetId of competitor.fleetIds) {
+    for (const fleetId of fleetsInAnyRace(competitor, races)) {
       if (knownFleetIds.has(fleetId)) {
         const list = competitorsByFleet.get(fleetId) ?? [];
         list.push(competitor);
@@ -2605,6 +2678,7 @@ export function calculateFleetStandings(
   const allCircular: number[] = [];
   const fleetStandings = sorted.map((fleet) => {
     const fleetCompetitors = competitorsByFleet.get(fleet.id) ?? [];
+    const outOfFleet = notInFleetByRace(fleet.id, fleetCompetitors, races);
     // A race excluded for this fleet is struck like an abandoned heat: it stays
     // a column in the block (so the per-race arrays line up with the other
     // fleets) but scores 0, earns no discard credit, and — for progressive
@@ -2623,6 +2697,7 @@ export function calculateFleetStandings(
         progressiveSeedTcfs?.get(fleet.id),
         excluded,
         discardRule,
+        outOfFleet,
       );
       allCircular.push(...circularRedressRaces);
       return { fleet, standings, rejections: [...rejections, ...detectPerFleetGaps(fleet, fleetCompetitors, allFinishes)], raceGaps, nhcRaceScoresByRaceId, nhcAggregatesByRaceId, echoRaceScoresByRaceId, echoAggregatesByRaceId, orcRaceScoresByRaceId, tcfHistory };
@@ -2641,9 +2716,10 @@ export function calculateFleetStandings(
       notIn.size > 0 ? new Set([...(excluded ?? []), ...notIn]) : excluded,
       discardRule,
       raceStarts,
+      outOfFleet,
     );
     allCircular.push(...circularRedressRaces);
-    const raceGaps = scratchLapsGaps(fleet, fleetCompetitors, races, allFinishes, notIn, excluded);
+    const raceGaps = scratchLapsGaps(fleet, fleetCompetitors, races, allFinishes, notIn, excluded, outOfFleet);
     return { fleet, standings, rejections: detectPerFleetGaps(fleet, fleetCompetitors, allFinishes), raceGaps };
   });
 
@@ -2818,8 +2894,10 @@ export function calculateSubSeriesFleetStandings(
       excludeDncOnlyCompetitors: subSeries.excludeDncOnlyCompetitors ?? excludeDncOnlyCompetitors,
       competitorOverrides: subSeries.competitorOverrides,
     };
+    // A boat is in scope when it sails in one of the scoped fleets in one of
+    // the block's races — which can be a fleet it joined for one race only.
     const inScope = competitors.filter(
-      (c) => scopedFleetIds === null || c.fleetIds.some((fid) => scopedFleetIds.has(fid)),
+      (c) => scopedFleetIds === null || fleetsInAnyRace(c, blockRaces).some((fid) => scopedFleetIds.has(fid)),
     );
 
     // Per-fleet race exclusions → fleetId → set of struck raceIds.

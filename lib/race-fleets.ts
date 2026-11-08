@@ -32,6 +32,22 @@ export function fleetsInRace(
   return [...kept, ...added];
 }
 
+/**
+ * The fleets a boat sails in across some races: every fleet it is in for at
+ * least one of them. This is which fleets' standings it appears in. With no
+ * races yet it is the boat's series fleets.
+ */
+export function fleetsInAnyRace(
+  competitor: Pick<Competitor, 'id' | 'fleetIds'>,
+  races: readonly RaceWithChanges[],
+): string[] {
+  if (races.length === 0) return competitor.fleetIds;
+  const out = new Set<string>();
+  for (const race of races) for (const id of fleetsInRace(competitor, race)) out.add(id);
+  // Series fleets first, in their own order, then fleets added race by race.
+  return [...competitor.fleetIds.filter((id) => out.has(id)), ...[...out].filter((id) => !competitor.fleetIds.includes(id))];
+}
+
 /** Whether a boat sails in a fleet in a race. */
 export function inFleetForRace(
   competitor: Pick<Competitor, 'id' | 'fleetIds'>,
@@ -60,6 +76,23 @@ export function withRaceFleets<C extends Pick<Competitor, 'id' | 'fleetIds'>>(
     const change = fleetChangeFor(race, c.id);
     return change ? { ...c, fleetIds: fleetsInRace(c, race) } : c;
   });
+}
+
+/**
+ * The boats on a fleet's list that are out of the fleet for one race. A
+ * fleet's race table leaves them out, and its scoring takes their finishes
+ * out of the race while still counting them among the fleet's entries.
+ */
+export function boatsOutOfFleet(
+  fleetCompetitors: readonly Pick<Competitor, 'id' | 'fleetIds'>[],
+  fleetId: string,
+  race: RaceWithChanges | undefined,
+): Set<string> {
+  // A race with no changes still leaves out a boat that is on the list only
+  // because it was added to the fleet for some other race.
+  const out = new Set<string>();
+  for (const c of fleetCompetitors) if (!fleetsInRace(c, race).includes(fleetId)) out.add(c.id);
+  return out;
 }
 
 /** Whether a boat's fleets differ from its series fleets in any of these

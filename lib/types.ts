@@ -1909,6 +1909,11 @@ export interface Standing {
   // it is, and only this one is something the scorer can go and fix. Sparse:
   // absent when no race in the fleet is waiting on a course.
   raceNotScored?: boolean[];
+  // true = the boat was not in this fleet for this race (`Race.fleetChanges`):
+  // a two-handed boat sailing the race crewed. It scores the race as not
+  // sailed in the fleet — DNC points, shown as a dash rather than a code.
+  // Sparse: absent when the boat was in the fleet for every race.
+  raceNotInFleet?: boolean[];
 }
 
 export type ScoringRejectionReason =

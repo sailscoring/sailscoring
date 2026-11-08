@@ -166,6 +166,10 @@ export interface FixtureRace {
   expected?: FixtureRaceExpected[];
   aggregates?: FixtureAggregates;
   rejected?: FixtureRejection[];
+  /** Boats whose fleets in this race differ from their series fleets: the
+   *  fleets (by name) they are out of for the race, and the ones they sail in
+   *  for it only. Become `Race.fleetChanges`. */
+  fleetChanges?: { sailor: string; add?: string[]; drop?: string[] }[];
   /** Per-race static-rating overrides (mid-series rating change). */
   ratingOverrides?: { sailor: string; field: 'ircTcc' | 'pyNumber' | 'vprsTcc' | 'fixedTcf' | 'ytcNumber'; value: number }[];
 }
@@ -180,6 +184,7 @@ export interface FixtureStanding {
   raceNonDiscardable?: boolean[];
   raceExcluded?: boolean[];
   raceNotScored?: boolean[];
+  raceNotInFleet?: boolean[];
   racePenaltyCodes?: (PenaltyCode | null)[];
   raceRedressFlags?: boolean[];
   totalPoints: number;
@@ -190,6 +195,9 @@ export interface FixtureCompetitor {
   sailNumber: string;
   name: string;
   fleet?: string;            // multi-fleet scratch fixtures
+  /** A boat in several scratch fleets, by name (an overall fleet and a
+   *  division of it). An alternative to `fleet`. */
+  fleets?: string[];
   ircTcc?: number;
   vprsTcc?: number;
   fixedTcf?: number;
@@ -207,6 +215,9 @@ export interface FixtureCompetitor {
 }
 
 export interface FixtureFleet {
+  /** The fleet's name, which `fleetChanges` refer to it by. Absent is
+   *  "Fleet". */
+  name?: string;
   scoringSystem: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo' | 'vprs' | 'orc' | 'tcf' | 'ytc';
   // Fixed TCF only — what the club calls the handicap ("HPH"); heads the
   // rating column on the rendered fixture. Absent means the generic "TCF".
@@ -313,7 +324,8 @@ export interface FixtureInputs {
 
 export function buildFixtureInputs(fixture: Fixture): FixtureInputs {
   const topFleet = fixture.fleet;
-  const hasPerCompetitorFleet = fixture.competitors.some((c) => c.fleet);
+  const topFleetName = topFleet?.name ?? 'Fleet';
+  const hasPerCompetitorFleet = fixture.competitors.some((c) => c.fleet || c.fleets);
 
   // Build fleets. Three modes:
   //   - top-level `fleet:` present → single fleet with that scoring system
@@ -325,7 +337,7 @@ export function buildFixtureInputs(fixture: Fixture): FixtureInputs {
     fleets = [{
       id: 'fl-0',
       seriesId: 's1',
-      name: 'Fleet',
+      name: topFleetName,
       displayOrder: 0,
       scoringSystem: topFleet.scoringSystem,
       ...(topFleet.scoringSystem === 'echo' && topFleet.alpha != null
@@ -341,9 +353,9 @@ export function buildFixtureInputs(fixture: Fixture): FixtureInputs {
         ? { ratingLabel: topFleet.ratingLabel }
         : {}),
     }];
-    fleetIdByName = new Map([['Fleet', 'fl-0']]);
+    fleetIdByName = new Map([[topFleetName, 'fl-0']]);
   } else if (hasPerCompetitorFleet) {
-    const names = [...new Set(fixture.competitors.map((c) => c.fleet ?? 'Default'))];
+    const names = [...new Set(fixture.competitors.flatMap((c) => c.fleets ?? [c.fleet ?? 'Default']))];
     fleets = names.map((name, i) => ({
       id: `fl-${i}`,
       seriesId: 's1',
@@ -364,14 +376,17 @@ export function buildFixtureInputs(fixture: Fixture): FixtureInputs {
   }
 
   const sailToId = new Map(fixture.competitors.map((c, i) => [c.sailNumber, `c-${i}`]));
+  const fleetIdOf = (name: string, what: string): string => {
+    const id = fleetIdByName.get(name);
+    if (!id) throw new Error(`Fixture ${what} references unknown fleet "${name}"`);
+    return id;
+  };
   const competitors: Competitor[] = fixture.competitors.map((c, i) => {
-    const fleetName = topFleet ? 'Fleet' : (c.fleet ?? 'Default');
-    const fleetId = fleetIdByName.get(fleetName);
-    if (!fleetId) throw new Error(`Fixture competitor ${c.sailNumber} references unknown fleet "${fleetName}"`);
+    const fleetNames = topFleet ? [topFleetName] : (c.fleets ?? [c.fleet ?? 'Default']);
     return {
       id: `c-${i}`,
       seriesId: 's1',
-      fleetIds: [fleetId],
+      fleetIds: fleetNames.map((n) => fleetIdOf(n, `competitor ${c.sailNumber}`)),
       sailNumber: c.sailNumber,
       names: [c.name],
       clubs: [],
@@ -415,6 +430,20 @@ export function buildFixtureInputs(fixture: Fixture): FixtureInputs {
     date: '2025-01-01',
     ...(r.discardPolicy ? { discardPolicy: r.discardPolicy } : {}),
     ...(r.pointsMultiplier != null ? { pointsMultiplier: r.pointsMultiplier } : {}),
+    ...(r.fleetChanges?.length
+      ? {
+          fleetChanges: r.fleetChanges.map((fc) => {
+            const competitorId = sailToId.get(fc.sailor);
+            if (!competitorId) throw new Error(`Fixture race ${r.number ?? i + 1} changes the fleets of unknown sailor "${fc.sailor}"`);
+            const what = `race ${r.number ?? i + 1} fleet change`;
+            return {
+              competitorId,
+              ...(fc.add?.length ? { add: fc.add.map((n) => fleetIdOf(n, what)) } : {}),
+              ...(fc.drop?.length ? { drop: fc.drop.map((n) => fleetIdOf(n, what)) } : {}),
+            };
+          }),
+        }
+      : {}),
     createdAt: 0,
   }));
 
