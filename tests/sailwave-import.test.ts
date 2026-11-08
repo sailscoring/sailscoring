@@ -12,6 +12,7 @@ import {
   parseStartString,
   parseSailwaveRaceDate,
   parseDiscardThresholds,
+  parseCountBest,
   sailwaveTimeToColon,
   inferBareNameSystem,
   SailwaveImportError,
@@ -455,6 +456,43 @@ describe('parseDiscardThresholds', () => {
   // where `s` is races sailed). We model only the list — but importing such a
   // file with no discards and saying nothing produces standings that are wrong
   // in a way nobody is told about.
+  describe('a best-N-count profile', () => {
+    it.each(['s-5', 's - 5', ' S-5 '])('reads the expression %j as the best 5 counting', (expr) => {
+      expect(parseCountBest(rawWithDiscardList(expr))).toBe(5);
+      const { warnings } = analyzeSailwaveScoring(rawWithDiscardList(expr));
+      expect(warnings.filter((w) => w.kind === 'discardProfile')).toEqual([]);
+    });
+
+    it('reads a list that is max(0, races − N) at every position as the rule', () => {
+      expect(parseCountBest(rawWithDiscardList('0,0,0,1,2,3,4,5'))).toBe(3);
+      // The thresholds the list compresses to are kept beside the rule.
+      expect(parseDiscardThresholds(rawWithDiscardList('0,0,0,1,2'))).toHaveLength(2);
+    });
+
+    it('leaves a list that departs from the rule anywhere as thresholds', () => {
+      expect(parseCountBest(rawWithDiscardList('0,0,0,1,2,2,3'))).toBeUndefined();
+      expect(parseCountBest(rawWithDiscardList('0,0,0,1,1,1,1,2,2,2,2'))).toBeUndefined();
+    });
+
+    it('does not read a single step-up as the rule', () => {
+      // One discard from 4 races, or the best 3? The list can't say.
+      expect(parseCountBest(rawWithDiscardList('0,0,0,1'))).toBeUndefined();
+    });
+
+    it('does not read s-0 or a discard from the first race', () => {
+      expect(parseCountBest(rawWithDiscardList('s-0'))).toBeUndefined();
+      expect(parseCountBest(rawWithDiscardList('1,2,3'))).toBeUndefined();
+    });
+
+    it('imports the series with the rule', () => {
+      const raw = loadFile(`${HYC}/2026 Tues Series 1.blw`);
+      const root = raw.globals!.serscoringhandle!;
+      raw['scoring-systems']![root].scrdiscardlist = 's-5';
+      expect(buildSeriesFileFromSailwave(raw, DEFAULT_OPTS).series.countBest).toBe(5);
+      expect(inspectSailwave(raw).detectedCountBest).toBe(5);
+    });
+  });
+
   describe('a profile that is not a list', () => {
     it('still imports with no discards', () => {
       expect(parseDiscardThresholds(rawWithDiscardList('s/4'))).toEqual([]);

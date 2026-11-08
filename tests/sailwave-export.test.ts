@@ -107,6 +107,13 @@ describe('buildSailwaveBlw', () => {
     expect(warnings).toEqual([]);
   });
 
+  it('round-trips a count-best rule through the importer', () => {
+    const original = importFixture(`${HYC}/2026 Tues Series 1.blw`);
+    original.series.countBest = 5;
+    const { back } = roundTrip(original);
+    expect(back.series.countBest).toBe(5);
+  });
+
   it('writes Sailwave-shaped rows: quoted, CRLF, four columns', () => {
     const original = importFixture(`${HYC}/2026 Tues Series 1.blw`);
     const { blw } = roundTrip(original);

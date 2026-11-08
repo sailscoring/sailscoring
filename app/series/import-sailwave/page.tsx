@@ -335,7 +335,9 @@ function Wizard({
                 DNF scoring: {preview.detectedDnfScoring === 'seriesEntries' ? 'A5.2 (entries)' : 'A5.3 (starters)'}
               </Badge>
             )}
-            {preview.detectedDiscardThresholds.length > 0 && (
+            {preview.detectedCountBest !== undefined ? (
+              <Badge variant="outline">Discards: best {preview.detectedCountBest} count</Badge>
+            ) : preview.detectedDiscardThresholds.length > 0 && (
               <Badge variant="outline">
                 Discards: {preview.detectedDiscardThresholds
                   .map((t) => `${t.discardCount} after ${t.minRaces}`)

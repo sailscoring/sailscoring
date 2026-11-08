@@ -802,6 +802,9 @@ export interface SailwavePreview {
    *  Sailwave defines no discards (or its config is missing). Shown as a
    *  detected default the scorer can override in Settings after import. */
   detectedDiscardThresholds: DiscardThreshold[];
+  /** A "best N races count" rule detected in the same place, which replaces
+   *  the thresholds when present. */
+  detectedCountBest?: number;
   hasResults: boolean;
   /** Labels of the detected subdivision axes (custom column title, else a
    *  per-source default), in order. Empty when the file carries no subdivision
@@ -883,6 +886,7 @@ export function inspectSailwave(
     fleets,
     detectedDnfScoring: scoring.dnfScoring,
     detectedDiscardThresholds: parseDiscardThresholds(raw),
+    ...(parseCountBest(raw) !== undefined ? { detectedCountBest: parseCountBest(raw) } : {}),
     // A `.blw` carries a cell for every competitor×race even when nothing has
     // been sailed (rrestyp=0), so "any cell exists" overcounts. Only report
     // results when at least one is actually entered.
@@ -1323,7 +1327,7 @@ export function analyzeSailwaveScoring(
   }
 
   const discardList = readDiscardList(raw);
-  if (discardList.source !== null && discardList.counts === null) {
+  if (discardList.source !== null && discardList.counts === null && discardList.countBest === undefined) {
     warnings.push({
       kind: 'discardProfile',
       detail: `The discard profile "${discardList.source}" isn't a list of counts — Sailwave also accepts an expression here. Sail Scoring imports the series with no discards; set them on the Settings tab afterwards.`,
@@ -1350,19 +1354,26 @@ export function analyzeSailwaveScoring(
 /** The root system's raw discard profile and, when it reads as one, the list of
  *  counts it denotes.
  *
- *  `counts` is null for a profile we can't read — Sailwave accepts an
- *  *expression* in this field as well as a list (`s/4`, `(s-1)*0.8`, where `s`
- *  is races sailed), and we model only the list. Position is significant, so a
- *  single bad token spoils the whole profile; there is no partial reading.
- *  Callers must not treat a null as "no discards" silently — that imports a
+ *  `counts` is null for a profile we can't read as a list — Sailwave accepts an
+ *  *expression* in this field as well as a list (`s/4`, `(s-1)*0.8`, `s-5`,
+ *  where `s` is races sailed). Position is significant, so a single bad token
+ *  spoils the whole list; there is no partial reading. Of the expressions only
+ *  `s-N` is read, as `countBest`: "the best N races count". Callers must not
+ *  treat a null with no `countBest` as "no discards" silently — that imports a
  *  series whose standings are wrong in a way nobody is told about. */
-function readDiscardList(raw: SailwaveRaw): { source: string | null; counts: number[] | null } {
+function readDiscardList(raw: SailwaveRaw): { source: string | null; counts: number[] | null; countBest?: number } {
   const globals = raw.globals ?? {};
   const handle = globals.serscoringhandle;
   const systems = raw['scoring-systems'] ?? {};
   if (!handle || !(handle in systems)) return { source: null, counts: null };
   const list = systems[handle]?.scrdiscardlist;
   if (!list) return { source: null, counts: null };
+
+  const expression = /^\s*s\s*-\s*(\d+)\s*$/i.exec(list);
+  if (expression) {
+    const n = Number.parseInt(expression[1], 10);
+    if (n > 0) return { source: list, counts: null, countBest: n };
+  }
 
   const counts: number[] = [];
   for (const token of list.split(',')) {
@@ -1372,7 +1383,27 @@ function readDiscardList(raw: SailwaveRaw): { source: string | null; counts: num
     if (!Number.isFinite(n)) return { source: list, counts: null };
     counts.push(n);
   }
-  return { source: list, counts };
+  const countBest = countBestOfList(counts);
+  return { source: list, counts, ...(countBest !== undefined ? { countBest } : {}) };
+}
+
+/** The N for which a discard list is `max(0, sailed − N)` at every position,
+ *  if there is one: a "best N count" rule Sailwave was given as a list, as our
+ *  own export writes it. The list must climb to at least two discards to say
+ *  so — `0,0,0,1` is as much "one discard from 4 races" as it is "best 3". */
+function countBestOfList(counts: number[]): number | undefined {
+  const first = counts.findIndex((c) => c > 0);
+  if (first < 1 || counts[counts.length - 1] < 2) return undefined;
+  // The first discard comes at N + 1 races sailed, which is index N.
+  const n = first;
+  return counts.every((c, i) => c === Math.max(0, i + 1 - n)) ? n : undefined;
+}
+
+/** The "best N races count" rule the file states, if it states one: the
+ *  expression `s-N`, or a list that is that rule at every position. The
+ *  thresholds `parseDiscardThresholds` reads from a list are kept beside it. */
+export function parseCountBest(raw: SailwaveRaw): number | undefined {
+  return readDiscardList(raw).countBest;
 }
 
 export function parseDiscardThresholds(raw: SailwaveRaw): DiscardThreshold[] {
@@ -1839,6 +1870,7 @@ export function buildSeriesFileFromSailwave(
       venueUrl: (globals.servenuewebsite ?? '').trim(),
       eventUrl: (globals.sereventwebsite ?? '').trim(),
       discardThresholds: parseDiscardThresholds(raw),
+      ...(parseCountBest(raw) !== undefined ? { countBest: parseCountBest(raw) } : {}),
       dnfScoring,
       ...(scoringCodes.length > 0 ? { scoringCodes } : {}),
       ftpHost: '',
