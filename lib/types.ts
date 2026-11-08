@@ -1230,8 +1230,32 @@ export interface Race {
   // Written by the RaceSense import, which reads it back to match the same
   // RaceSense race to the same series race next time. Sparse.
   raceSenseLinks?: RaceSenseLink[];
+  // The boats whose fleets in this race differ from their series fleets: a
+  // boat sailing one race crewed is out of the two-handed fleet for it, and
+  // a boat re-classed mid-season moves class from that race on. Sparse —
+  // one entry per boat with a change. See `RaceFleetChange`.
+  fleetChanges?: RaceFleetChange[];
   createdAt: number;
   version?: number;    // server-side concurrency token (see Series.version)
+}
+
+/**
+ * How one boat's fleets in one race differ from its series fleets
+ * (`Competitor.fleetIds`): the fleets it is out of for this race, and the
+ * ones it sails in for this race only. Its fleets in the race are
+ * `(fleetIds − drop) ∪ add`; see `lib/race-fleets.ts`.
+ *
+ * Out of a fleet for a race, a boat is not in that fleet's race at all — no
+ * place, not counted in the fleet's numbers — and it scores that race in the
+ * fleet as not sailed in it. Its finish is entered once and scores in every
+ * fleet it was in.
+ */
+export interface RaceFleetChange {
+  competitorId: string;
+  /** Fleets the boat sails in for this race only. */
+  add?: string[];
+  /** Series fleets the boat is out of for this race. */
+  drop?: string[];
 }
 
 /**

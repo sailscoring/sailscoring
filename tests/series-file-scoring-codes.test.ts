@@ -95,7 +95,7 @@ describe('scoring codes in the .sailscoring file', () => {
 describe('scoring codes in the public JSON export', () => {
   it('carries the codes, scores a series code by them, and restores them on import', async () => {
     const data = buildPublicExportFromSnapshot(snapshot)!;
-    expect(data.version).toBe(17);
+    expect(data.version).toBe(18);
     expect(data.series.scoringCodes).toEqual([TLE, DNC_AS_DNF]);
     const tle = data.standings[0].rows.find((r) => r.sailNumber === '103')!;
     // The place after the two finishers.

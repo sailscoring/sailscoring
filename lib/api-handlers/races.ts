@@ -14,6 +14,7 @@ import {
   racesGenerateSchema,
   racesReorderSchema,
 } from '@/lib/validation/race';
+import { describeFleetChanges } from '@/lib/race-fleets';
 import type { Race, RaceStart } from '@/lib/types';
 
 async function assertSeriesInWorkspace(
@@ -79,6 +80,32 @@ export async function getRace(
   return race;
 }
 
+/** A race save's fleet changes, as the activity log says them: "Loinnir: not
+ *  in Two-Handed". Empty when the save changed none. */
+async function describeRaceFleetChanges(
+  repos: ReturnType<typeof createRepos>,
+  seriesId: string,
+  before: Race['fleetChanges'],
+  after: Race['fleetChanges'],
+): Promise<string[]> {
+  if (JSON.stringify(before ?? []) === JSON.stringify(after ?? [])) return [];
+  const [competitors, fleets] = await Promise.all([
+    repos.competitors.listBySeries(seriesId),
+    repos.fleets.listBySeries(seriesId),
+  ]);
+  const competitorById = new Map(competitors.map((c) => [c.id, c]));
+  const fleetById = new Map(fleets.map((f) => [f.id, f]));
+  return describeFleetChanges(
+    before,
+    after,
+    (id) => {
+      const c = competitorById.get(id);
+      return c ? (c.boatName?.trim() || c.sailNumber) : 'A removed boat';
+    },
+    (id) => fleetById.get(id)?.name ?? 'a removed fleet',
+  );
+}
+
 export async function putRace(
   workspace: WorkspaceContext,
   seriesId: string,
@@ -101,10 +128,13 @@ export async function putRace(
     { ...input, id },
     { expectedVersion: opts?.expectedVersion, updatedBy: workspace.userId },
   );
+  const fleetLines = await describeRaceFleetChanges(repos, seriesId, existing?.fleetChanges, saved.fleetChanges);
   await trackChange(workspace, {
     action: existing ? 'race.updated' : 'race.added',
     seriesId,
-    summary: `${existing ? 'Updated' : 'Added'} Race ${saved.raceNumber}`,
+    summary: fleetLines.length > 0
+      ? `${fleetLines.join('; ')} for Race ${saved.raceNumber}`
+      : `${existing ? 'Updated' : 'Added'} Race ${saved.raceNumber}`,
     sessionKey: 'races',
     // Edits to one race coalesce in the feed; an add is its own entry.
     dedupeKey: existing ? `race:${id}` : undefined,

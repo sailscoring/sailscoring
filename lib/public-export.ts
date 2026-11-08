@@ -25,6 +25,7 @@ import type {
   RaceConditions,
   RaceDiscardPolicy,
   Race,
+  RaceFleetChange,
   RaceOfficial,
   RaceStartCourse,
 } from './types';
@@ -102,6 +103,16 @@ export interface ExportOfficial {
   role: OfficialRole;
   name: string;
   customRole?: string;
+}
+
+/** One boat's fleets in one race, where they differ from its series fleets
+ *  (from v18). The boat is named by its export `ref`, with its sail number
+ *  beside it for a reader; the fleets by name. */
+export interface ExportFleetChange {
+  competitorRef: string;
+  sailNumber: string;
+  add?: string[];
+  drop?: string[];
 }
 
 /**
@@ -209,7 +220,7 @@ export interface PublicSeriesExport {
    *  sub-series' own discard rule (`subSeries[*].discards`). Readers
    *  accept them all, bringing an older export's courses forward as they
    *  read it. */
-  version: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17;
+  version: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18;
   /** Where the format, and what a reader may rely on, is documented. Written
    *  into every export so a reader handed only the file can find the
    *  contract. Optional: exports written before it was added lack it. */
@@ -487,6 +498,10 @@ export interface PublicSeriesExport {
     /** Who ran this race. Gated by the series' `publishOfficials`, like the
      *  standing team above. */
     officials?: ExportOfficial[];
+    /** The boats whose fleets in this race differ from their series fleets
+     *  (from v18): fleets they are out of for the race (`drop`) and fleets
+     *  they sail in for it only (`add`), by fleet name. */
+    fleetChanges?: ExportFleetChange[];
     /** @deprecated split-fleet stage identity on the race (older exports).
      *  Read for back-compat (copied onto the starts), not written; the
      *  per-start fields below are authoritative. */
@@ -1141,6 +1156,24 @@ export function buildPublicExportFromSnapshot(
   // bytes. An id no fleet answers to is kept verbatim (the importer matches on
   // it) and sorts last, having no order of its own.
   const fleetOrderById = new Map(fleets.map((f) => [f.id, f]));
+  // A race's fleet changes, by competitor ref and fleet name. A boat or
+  // fleet that no longer exists leaves nothing to export.
+  const exportFleetChanges = (changes: Race['fleetChanges']): ExportFleetChange[] =>
+    (changes ?? []).flatMap((c) => {
+      const ref = refById.get(c.competitorId);
+      if (!ref) return [];
+      const names = (ids: string[] | undefined) =>
+        (ids ?? []).map((id) => fleetNameById.get(id)).filter((n): n is string => n != null);
+      const add = names(c.add);
+      const drop = names(c.drop);
+      if (add.length === 0 && drop.length === 0) return [];
+      return [{
+        competitorRef: ref,
+        sailNumber: sailNumberById.get(c.competitorId)!,
+        ...(add.length > 0 ? { add } : {}),
+        ...(drop.length > 0 ? { drop } : {}),
+      }];
+    });
   const exportedFleetNames = (fleetIds: readonly string[]): string[] =>
     [...fleetIds]
       .sort((a, b) => {
@@ -1344,6 +1377,10 @@ export function buildPublicExportFromSnapshot(
       ...(race.pointsMultiplier != null && race.pointsMultiplier !== 1 ? { pointsMultiplier: race.pointsMultiplier } : {}),
       ...(hasConditions(race.conditions) ? { conditions: race.conditions } : {}),
       ...(exportOfficials(race.officials, publishOfficials)),
+      ...(() => {
+        const fleetChanges = exportFleetChanges(race.fleetChanges);
+        return fleetChanges.length > 0 ? { fleetChanges } : {};
+      })(),
       starts,
       finishes,
       ...(nhcByFleet ? { nhcByFleet } : {}),
@@ -1407,7 +1444,7 @@ export function buildPublicExportFromSnapshot(
     : undefined;
 
   return {
-    version: 17 as const,
+    version: 18 as const,
     formatDoc: PUBLIC_EXPORT_FORMAT_DOC,
     exportedAt: (opts?.exportedAt ?? new Date()).toISOString(),
     timeZone: instanceTimeZone(),
@@ -1693,7 +1730,7 @@ function importExportPrizes(
 /** Export format versions this build can read. A file written by a newer
  *  build is refused rather than half-read: the version is what says which
  *  fields mean what. Mirrors `SUPPORTED_FORMAT_VERSIONS` on the file side. */
-const SUPPORTED_EXPORT_VERSIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17];
+const SUPPORTED_EXPORT_VERSIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18];
 
 /**
  * Parse the text of a published `.sailscoring.json` data file.
@@ -2073,6 +2110,20 @@ export async function importPublicExport(
     return ids.length > 0 ? ids : null;
   };
 
+  // A race's fleet changes back onto the new ids. A boat or fleet that
+  // doesn't resolve is dropped, and so is a change left with nothing in it.
+  const importFleetChanges = (changes: ExportFleetChange[] | undefined): RaceFleetChange[] =>
+    (changes ?? []).flatMap((c) => {
+      const competitorId = competitorIdByRef.get(c.competitorRef);
+      if (!competitorId) return [];
+      const ids = (names: string[] | undefined) =>
+        (names ?? []).map((n) => fleetIdByName.get(n)).filter((id): id is string => id != null);
+      const add = ids(c.add);
+      const drop = ids(c.drop);
+      if (add.length === 0 && drop.length === 0) return [];
+      return [{ competitorId, ...(add.length > 0 ? { add } : {}), ...(drop.length > 0 ? { drop } : {}) }];
+    });
+
   // Races sequentially because their starts and finishes FK back to the
   // race row that has to exist first. Inside each race we batch.
   for (const race of data.races) {
@@ -2089,6 +2140,10 @@ export async function importPublicExport(
       ...(race.pointsMultiplier != null ? { pointsMultiplier: race.pointsMultiplier } : {}),
       ...(hasConditions(race.conditions) ? { conditions: race.conditions } : {}),
       ...(importOfficials(race.officials, newId)),
+      ...(() => {
+        const fleetChanges = importFleetChanges(race.fleetChanges);
+        return fleetChanges.length > 0 ? { fleetChanges } : {};
+      })(),
       createdAt: now,
     });
     for (const name of race.subSeries ?? []) {

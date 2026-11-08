@@ -39,6 +39,24 @@ export const raceSenseLinkSchema = z.object({
  *  handful of divisions, never hundreds. */
 const RACESENSE_LINKS_MAX = 50;
 
+/** One boat's fleets in a race, where they differ from its series fleets.
+ *  An entry that changes nothing is refused rather than stored. */
+export const raceFleetChangeSchema = z
+  .object({
+    competitorId: uuidSchema,
+    add: z.array(uuidSchema).max(50).optional(),
+    drop: z.array(uuidSchema).max(50).optional(),
+  })
+  .refine((c) => (c.add?.length ?? 0) + (c.drop?.length ?? 0) > 0, {
+    message: 'A fleet change adds or drops at least one fleet.',
+  })
+  .refine((c) => !(c.add ?? []).some((id) => (c.drop ?? []).includes(id)), {
+    message: 'A fleet change cannot both add and drop the same fleet.',
+  });
+
+/** One entry per boat with a change; a fleet has a few hundred boats at most. */
+const FLEET_CHANGES_MAX = 2000;
+
 export const raceSchema = z.object({
   id: uuidSchema,
   seriesId: uuidSchema,
@@ -61,6 +79,13 @@ export const raceSchema = z.object({
   conditions: raceConditionsSchema.optional(),
   officials: z.array(raceOfficialSchema).max(OFFICIALS_MAX).optional(),
   raceSenseLinks: z.array(raceSenseLinkSchema).max(RACESENSE_LINKS_MAX).optional(),
+  fleetChanges: z
+    .array(raceFleetChangeSchema)
+    .max(FLEET_CHANGES_MAX)
+    .refine((cs) => new Set(cs.map((c) => c.competitorId)).size === cs.length, {
+      message: 'A boat has one fleet change per race.',
+    })
+    .optional(),
   createdAt: epochMsSchema,
   version: versionSchema,
 });

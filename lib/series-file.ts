@@ -31,6 +31,7 @@ import type {
   RaceFleetExclusion,
   RaceOfficial,
   RaceSenseLink,
+  RaceFleetChange,
   PublishingGroup,
   ProtestTimeLimit,
   RrsOrgPushConfig,
@@ -50,6 +51,7 @@ import { isFleetRatingVariant } from './fleet-rating-variant';
 import { fleetIdFromPageKey, fleetPageKey } from './publish-pages';
 import { withoutPrizes } from './prizes';
 import { hasConditions } from './race-conditions';
+import { liveFleetChanges, remapFleetChanges } from './race-fleets';
 import { pointsSystemFields } from './high-point';
 import { RefusedSettingError } from './refused-setting-error';
 import {
@@ -667,9 +669,15 @@ export interface SeriesFileRepos {
  *  v79 adds `subSeries[*].discards`: a sub-series' own discard rule (none,
  *  the best N races, a threshold list or a proportional allowance) in place
  *  of the series'. Sparse; absent is the series' rule. An older build would
- *  score the sub-series with the series' rule, hence a bump. */
-export const FORMAT_VERSION = 79;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79];
+ *  score the sub-series with the series' rule, hence a bump.
+ *
+ *  v80 adds `races[*].fleetChanges`: the boats whose fleets in a race differ
+ *  from their series fleets — out of the two-handed fleet for a race sailed
+ *  crewed, or in a new class from the race it was re-classed. Sparse. An
+ *  older build would score each such boat in its series fleets, changing
+ *  every other boat's points in those races, hence a bump. */
+export const FORMAT_VERSION = 80;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -918,6 +926,7 @@ interface SeriesFileRace {
   conditions?: RaceConditions;
   officials?: RaceOfficial[];
   raceSenseLinks?: RaceSenseLink[];  // v64+; where a RaceSense import put each RaceSense race
+  fleetChanges?: RaceFleetChange[];  // v80+; boats whose fleets in this race differ from their series fleets
   /** @deprecated v23 split-fleet stage identity on the race; v24 carries it
    *  per start. Read for back-compat (copied onto the starts), not written. */
   stage?: 'qualifying' | 'final' | 'medal';
@@ -1107,6 +1116,11 @@ export async function buildSeriesFile(
     overridesByRace.get(o.raceId)!.push({ id: o.id, competitorId: o.competitorId, field: o.field, value: o.value });
   }
 
+  // A deleted competitor or fleet leaves its fleet changes behind on the
+  // races; they score nothing and are not written.
+  const liveCompetitorIds = new Set(competitors.map((c) => c.id));
+  const liveFleetIds = new Set(fleets.map((f) => f.id));
+
   const file: SeriesFile = {
     formatVersion: FORMAT_VERSION,
     seriesId: series.id,
@@ -1242,6 +1256,10 @@ export async function buildSeriesFile(
       ...(hasConditions(r.conditions) ? { conditions: r.conditions } : {}),
       ...(r.officials?.length ? { officials: r.officials } : {}),
       ...(r.raceSenseLinks?.length ? { raceSenseLinks: r.raceSenseLinks } : {}),
+      ...(() => {
+        const fleetChanges = liveFleetChanges(r.fleetChanges, liveCompetitorIds, liveFleetIds);
+        return fleetChanges.length > 0 ? { fleetChanges } : {};
+      })(),
       starts: startsByRace.get(r.id) ?? [],
       finishes: finishesByRace.get(r.id) ?? [],
       ...(overridesByRace.get(r.id)?.length ? { ratingOverrides: overridesByRace.get(r.id) } : {}),
@@ -2353,6 +2371,10 @@ async function writeFleetsCompetitorsRaces(
       ...(hasConditions(r.conditions) ? { conditions: r.conditions } : {}),
       ...(r.officials?.length ? { officials: r.officials } : {}),
       ...(remapRaceSenseLinks(r.raceSenseLinks, fleetIdMap)),
+      ...(() => {
+        const fleetChanges = remapFleetChanges(r.fleetChanges, competitorIdMap, fleetIdMap);
+        return fleetChanges.length > 0 ? { fleetChanges } : {};
+      })(),
       createdAt: now,
     });
 

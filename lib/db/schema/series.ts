@@ -55,6 +55,7 @@ import type {
   SubmittedStart,
   RaceOfficial,
   RaceSenseLink,
+  RaceFleetChange,
   RrsOrgPushConfig,
   PageNote,
   Prize,
@@ -952,6 +953,9 @@ export const races = pgTable(
     // The RaceSense races imported into this one, so the next import of the
     // same regatta matches them back. JSONB, sparse, never queried by content.
     raceSenseLinks: jsonb('racesense_links').$type<RaceSenseLink[]>(),
+    // The boats whose fleets in this race differ from their series fleets.
+    // JSONB, sparse, never queried by content; null = no changes.
+    fleetChanges: jsonb('fleet_changes').$type<RaceFleetChange[]>(),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),
