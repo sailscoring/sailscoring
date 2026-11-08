@@ -222,6 +222,11 @@ export function buildPreviewUpdateRows(
     }
     // The certificate rides alongside the number it explains.
     if (row.ircCert) update.ircCert = row.ircCert;
+    // Keeping both certificates: the secondary sits beside the primary.
+    if (row.ircSecondary) {
+      update.ircSecondaryTcc = row.ircSecondary.tcc;
+      update.ircSecondaryCert = row.ircSecondary.cert;
+    }
     const field = SYSTEM_FIELD[row.system];
     // Mutate via an unknown-cast index access — TS can't see that the
     // field name is statically one of the four optional number fields

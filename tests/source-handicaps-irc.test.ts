@@ -9,6 +9,7 @@ import {
   type PreviewRow,
   type RatingRecord,
 } from '@/lib/source-handicaps';
+import { KEEP_BOTH } from '@/lib/source-handicaps';
 import type { Competitor, Fleet } from '@/lib/types';
 
 function comp(
@@ -407,6 +408,54 @@ describe('planIrcUpdates — primary/secondary certificates (Secondary=SEC flag)
       certChoiceByCompetitor: { c1: 'cert:50718' },
     });
     expect(byKey(rows).get('c1::irc')).toMatchObject({ newTcf: 1.092 });
+  });
+
+  it('can keep both: the primary as the TCC, the secondary beside it', () => {
+    const rows = planIrcUpdates({
+      targetCompetitors: [comp('c1', 'IRL7404', ['f-irc'])],
+      targetFleets: fleets,
+      records: prettyPolly,
+      certChoiceByCompetitor: { c1: KEEP_BOTH },
+    });
+    const row = byKey(rows).get('c1::irc')!;
+    expect(row.newTcf).toBe(1.114);
+    expect(row.certChoice).toMatchObject({ chosen: KEEP_BOTH, keepBoth: { primaryTcc: 1.114, secondaryTcc: 1.092 } });
+    expect(row.ircSecondary).toMatchObject({ tcc: 1.092, cert: { certNumber: '50718' } });
+    expect(row.ircCert).toMatchObject({ certNumber: '11479' });
+  });
+
+  it('keeps both by default when asked to, until the scorer picks one', () => {
+    const plan = (certChoiceByCompetitor?: Record<string, string>) =>
+      byKey(planIrcUpdates({
+        targetCompetitors: [comp('c1', 'IRL7404', ['f-irc'])],
+        targetFleets: fleets,
+        records: prettyPolly,
+        keepBothByDefault: true,
+        certChoiceByCompetitor,
+      })).get('c1::irc')!;
+    expect(plan().ircSecondary?.tcc).toBe(1.092);
+    expect(plan({ c1: 'cert:50718' })).toMatchObject({ newTcf: 1.092 });
+    expect(plan({ c1: 'cert:50718' }).ircSecondary).toBeUndefined();
+  });
+
+  it('is a change when only the secondary differs from the one held', () => {
+    const held = { ...comp('c1', 'IRL7404', ['f-irc']), ircTcc: 1.114, ircSecondaryTcc: 1.09 };
+    const plan = (c: typeof held) =>
+      byKey(planIrcUpdates({ targetCompetitors: [c], targetFleets: fleets, records: prettyPolly, keepBothByDefault: true })).get('c1::irc')!;
+    expect(plan(held).status).toBe('change');
+    expect(plan({ ...held, ircSecondaryTcc: 1.092 }).status).toBe('unchanged');
+  });
+
+  it('offers no keep-both for two primaries', () => {
+    const rows = planIrcUpdates({
+      targetCompetitors: [comp('c1', 'IRL7404', ['f-irc'])],
+      targetFleets: fleets,
+      records: prettyPolly.map((r) => ({ ...r, isSecondary: false })),
+      keepBothByDefault: true,
+    });
+    const row = byKey(rows).get('c1::irc')!;
+    expect(row.certChoice?.keepBoth).toBeUndefined();
+    expect(row.ircSecondary).toBeUndefined();
   });
 });
 

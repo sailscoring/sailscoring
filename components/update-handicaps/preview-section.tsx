@@ -8,7 +8,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import type { PreviewRow } from '@/lib/source-handicaps';
+import { KEEP_BOTH, type PreviewRow } from '@/lib/source-handicaps';
 import type { Competitor, Fleet } from '@/lib/types';
 
 import { formatPrimaryNames } from '@/lib/competitor-fields';
@@ -132,6 +132,12 @@ export function PreviewSection({
                         onChange={(e) => onChooseCert(r.competitorId, e.target.value)}
                         className="mt-1 block rounded border bg-background px-1 py-0.5 text-xs"
                       >
+                        {r.certChoice.keepBoth && (
+                          <option value={KEEP_BOTH}>
+                            Keep both — primary {formatRatingValue(r.certChoice.keepBoth.primaryTcc, 'irc')}, secondary{' '}
+                            {formatRatingValue(r.certChoice.keepBoth.secondaryTcc, 'irc')}
+                          </option>
+                        )}
                         {r.certChoice.options.map((o) => (
                           <option key={o.certId} value={o.certId}>
                             {o.label}

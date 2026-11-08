@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
+import { useFeatures } from '@/components/features-provider';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
@@ -82,6 +83,10 @@ export function IrcRatingSourceStep({
   const seriesHasRaces = useSeriesHasRaces(seriesId);
   const competitorIdsWithResults = useCompetitorIdsWithResults(seriesId);
 
+  // A series that declares certificates race by race keeps both of a boat's
+  // certificates unless the scorer picks one.
+  const { has } = useFeatures();
+  const keepBothByDefault = has('per-race-certificates');
   const previewRows = useMemo<PreviewRow[]>(() => {
     if (!competitors || !fleets || !ircRatings.data) return [];
     return planIrcUpdates({
@@ -91,10 +96,11 @@ export function IrcRatingSourceStep({
       ircVariantByFleet,
       matchByName: sel.matchByName,
       certChoiceByCompetitor: sel.certChoiceByCompetitor,
+      keepBothByDefault,
       defaultCountry,
       source,
     });
-  }, [competitors, fleets, ircRatings.data, ircVariantByFleet, sel.matchByName, sel.certChoiceByCompetitor, defaultCountry, source]);
+  }, [competitors, fleets, ircRatings.data, ircVariantByFleet, sel.matchByName, sel.certChoiceByCompetitor, keepBothByDefault, defaultCountry, source]);
 
   const additionCandidates = useMemo<FleetAdditionCandidate[]>(() => {
     if (!competitors || !fleets || !ircRatings.data) return [];

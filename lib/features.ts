@@ -446,6 +446,16 @@ export const FEATURES = {
     label: 'Race-by-race fleets',
     helpSectionIds: ['race-by-race-fleets'],
   },
+  'per-race-certificates': {
+    // A boat's primary and secondary IRC certificates, the race choosing
+    // which it scores on (ISORA NoR 6.2): Update handicaps keeps both by
+    // default, the race's Ratings tab declares a boat on its secondary, and
+    // the competitor dialog holds the secondary TCC. Off by default and
+    // self-service. Only authoring is gated: a series with secondary
+    // declarations scores and publishes them with the gate off.
+    label: 'Primary and secondary certificates',
+    helpSectionIds: [],
+  },
   'connected-apps': {
     // Outside apps acting for a workspace's members (ADR-016): a member can
     // grant an app access to this workspace through the OAuth consent flow

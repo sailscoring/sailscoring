@@ -241,6 +241,9 @@ export interface PreviewRow {
    *  question "why is this boat rated like that?" has an answer afterwards
    *  (#615). Advisory — scoring reads the applied TCC, never this. */
   ircCert?: IrcCertRecord;
+  /** IRC rows where the scorer keeps both certificates: the secondary, stored
+   *  beside the primary in `newTcf`. */
+  ircSecondary?: { tcc: number; cert: IrcCertRecord };
   /** ORC rows only, and only when the certificate isn't from the fleet's own
    *  certificate family: which family it did come from. Set by the standard
    *  fallback, so the row can say what the boat would be scored on. */
@@ -266,9 +269,16 @@ export interface CertChoiceOption {
 
 export interface CertChoice {
   options: CertChoiceOption[];
-  /** `certId` of the currently-selected option. */
+  /** `certId` of the currently-selected option, or {@link KEEP_BOTH}. */
   chosen: string;
+  /** Present when the boat holds a primary and a secondary IRC certificate:
+   *  the choice can keep both, the primary as the boat's TCC and the
+   *  secondary beside it for the races declared on it. */
+  keepBoth?: { primaryTcc: number | null; secondaryTcc: number | null };
 }
+
+/** The certificate choice that keeps a boat's primary and secondary both. */
+export const KEEP_BOTH = 'both';
 
 export interface PlanInput {
   targetCompetitors: readonly Competitor[];
@@ -559,6 +569,10 @@ export interface RatingPlanInput {
    *  `certId` (see {@link CertChoiceOption}). For boats holding more than one
    *  certificate; when absent we default to the higher-TCC certificate. */
   certChoiceByCompetitor?: Readonly<Record<string, string>>;
+  /** Keep both certificates, unless the scorer chooses one, for a boat the
+   *  list gives a primary and a secondary — the series declares secondaries
+   *  race by race. */
+  keepBothByDefault?: boolean;
   /** Which list these records came from, and when it was published. Recorded
    *  on each applied IRC rating so a reader can go back to the source. */
   source?: { name: string; updatedAt?: string | null };
@@ -891,17 +905,39 @@ function planRatingUpdates(
       // the row's variant; for ECHO the value is the same across certs).
       const rankVariant: IrcTccVariant = ircVariant ?? 'spin';
       const override = certChoiceByCompetitor[targetComp.id];
-      const chosenIndex = pickCertIndex(records, rankVariant, override, variantSystem ?? 'irc');
+      // A boat holding a primary and a secondary IRC certificate can keep
+      // both: the best primary is its TCC, the best secondary sits beside it.
+      const pair = system === 'irc' ? primaryAndSecondary(records, rankVariant) : null;
+      const keepBoth = pair !== null && (override === KEEP_BOTH || (override === undefined && !!input.keepBothByDefault));
+      const chosenIndex = keepBoth
+        ? pair!.primary
+        : pickCertIndex(records, rankVariant, override, variantSystem ?? 'irc');
       const record = records[chosenIndex];
 
       // Offer a switch only for IRC/VPRS rows where the boat has more than one
       // cert (VPRS publishes one row per boat, so this is inert there).
       const certChoice =
         variantSystem && records.length > 1
-          ? buildCertChoice(records, rankVariant, chosenIndex, variantSystem)
+          ? {
+              ...buildCertChoice(records, rankVariant, chosenIndex, variantSystem),
+              ...(keepBoth ? { chosen: KEEP_BOTH } : {}),
+              ...(pair
+                ? {
+                    keepBoth: {
+                      primaryTcc: tccForVariant(records[pair.primary], rankVariant),
+                      secondaryTcc: tccForVariant(records[pair.secondary], rankVariant),
+                    },
+                  }
+                : {}),
+            }
           : undefined;
 
       const newTcf = variantSystem ? tccForVariant(record, ircVariant!, variantSystem) : record.echo ?? null;
+      const secondaryRecord = keepBoth ? records[pair!.secondary] : undefined;
+      const secondaryTcc = secondaryRecord ? tccForVariant(secondaryRecord, ircVariant!) : null;
+      const ircSecondary = secondaryRecord && secondaryTcc != null
+        ? { tcc: secondaryTcc, cert: buildIrcCert(secondaryRecord, ircVariant!, method, input.source) }
+        : undefined;
 
       // Annotate non-exact matches so the scorer can verify the boat.
       const match: RatingMatch | undefined =
@@ -921,15 +957,17 @@ function planRatingUpdates(
         continue;
       }
 
+      const secondaryUnchanged = !ircSecondary || targetComp.ircSecondaryTcc === ircSecondary.tcc;
       rows.push({
         ...base,
         newTcf,
-        status: base.currentTcf === newTcf ? 'unchanged' : 'change',
+        status: base.currentTcf === newTcf && secondaryUnchanged ? 'unchanged' : 'change',
         match,
         certChoice,
         ...(system === 'irc'
           ? { ircCert: buildIrcCert(record, ircVariant!, method, input.source) }
           : {}),
+        ...(ircSecondary ? { ircSecondary } : {}),
         ...(ytcCertificate ? { ytcCertificate } : {}),
       });
     }
@@ -985,6 +1023,30 @@ export function planYtcUpdates(input: RatingPlanInput): PreviewRow[] {
  * certificate with the higher TCC for `variant` (nulls rank last). Returns the
  * index into `ratings`.
  */
+/** The best primary and the best secondary among a boat's IRC certificates
+ *  (highest TCC for the variant), or null unless it holds one of each. */
+function primaryAndSecondary(
+  records: readonly RatingRecord[],
+  variant: IrcTccVariant,
+): { primary: number; secondary: number } | null {
+  const best = (secondary: boolean): number => {
+    let at = -1;
+    let bestTcc = -Infinity;
+    records.forEach((r, i) => {
+      if (isSecondaryCert(r) !== secondary) return;
+      const tcc = tccForVariant(r, variant) ?? -Infinity;
+      if (at < 0 || tcc > bestTcc) {
+        at = i;
+        bestTcc = tcc;
+      }
+    });
+    return at;
+  };
+  const primary = best(false);
+  const secondary = best(true);
+  return primary >= 0 && secondary >= 0 ? { primary, secondary } : null;
+}
+
 function pickCertIndex(
   records: readonly RatingRecord[],
   variant: IrcTccVariant,
