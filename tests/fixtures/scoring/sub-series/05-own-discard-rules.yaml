@@ -1,0 +1,110 @@
+description: "Sub-series with their own discards — best 3 in a best-5 season, and a no-discard points table"
+rrs_notes: >
+  RRS A2.1 — the sailing instructions may change the number of races excluded
+  from a boat's series score, and they may say so table by table: ISORA's
+  season counts the best 5 results, its coastal series the best 3, and its
+  Points Series every race.
+notes: |
+  A seven-race season counting its best 5, with two sub-series stating their
+  own discards. Coastal is races 1–5 and counts its best 3. Points is every
+  race and counts them all.
+
+  Taking the series' rule, Coastal would count its best 5 of 5 and discard
+  nothing: Brian (11) would beat Ciara (13). Counting the best 3, each boat
+  drops its two worst. Ciara drops her two 4s and Brian his two 3s, and they
+  tie on 5. RRS A8.1 compares their counted scores best first: Ciara's
+  1, 1, 3 beat Brian's 1, 2, 2 at the second, so Ciara is 2nd.
+
+  Equal scores: the earliest race goes first. Dara's three 4s in Coastal leave
+  races 1 and 3 discarded and race 4 counting.
+
+  The season itself (best 5 of 7) is checked too: each boat discards two.
+  Points totals every race with nothing discarded.
+
+series:
+  discardThresholds: []
+  countBest: 5
+  dnfScoring: seriesEntries
+
+subSeriesConfig:
+  - name: "Coastal"
+    discards: { kind: countBest, countBest: 3 }
+  - name: "Points"
+    discards: { kind: none }
+
+competitors:
+  - { sailNumber: "1", name: "Aoife" }
+  - { sailNumber: "2", name: "Brian" }
+  - { sailNumber: "3", name: "Ciara" }
+  - { sailNumber: "4", name: "Dara" }
+
+races:
+  - number: 1
+    subSeries: ["Coastal", "Points"]
+    finishes:
+      - { sailor: "1", position: 1 }
+      - { sailor: "2", position: 2 }
+      - { sailor: "3", position: 3 }
+      - { sailor: "4", position: 4 }
+  - number: 2
+    subSeries: ["Coastal", "Points"]
+    finishes:
+      - { sailor: "2", position: 1 }
+      - { sailor: "1", position: 2 }
+      - { sailor: "4", position: 3 }
+      - { sailor: "3", position: 4 }
+  - number: 3
+    subSeries: ["Coastal", "Points"]
+    finishes:
+      - { sailor: "3", position: 1 }
+      - { sailor: "1", position: 2 }
+      - { sailor: "2", position: 3 }
+      - { sailor: "4", position: 4 }
+  - number: 4
+    subSeries: ["Coastal", "Points"]
+    finishes:
+      - { sailor: "3", position: 1 }
+      - { sailor: "2", position: 2 }
+      - { sailor: "1", position: 3 }
+      - { sailor: "4", position: 4 }
+  - number: 5
+    subSeries: ["Coastal", "Points"]
+    finishes:
+      - { sailor: "1", position: 1 }
+      - { sailor: "4", position: 2 }
+      - { sailor: "2", position: 3 }
+      - { sailor: "3", position: 4 }
+  - number: 6
+    subSeries: "Points"
+    finishes:
+      - { sailor: "4", position: 1 }
+      - { sailor: "3", position: 2 }
+      - { sailor: "1", position: 3 }
+      - { sailor: "2", position: 4 }
+  - number: 7
+    subSeries: "Points"
+    finishes:
+      - { sailor: "2", position: 1 }
+      - { sailor: "1", position: 2 }
+      - { sailor: "3", position: 3 }
+      - { sailor: "4", position: 4 }
+
+expected:
+  standings:
+    - { rank: 1, sailor: "1", racePoints: [1, 2, 2, 3, 1, 3, 2], raceCodes: [null, null, null, null, null, null, null], raceDiscards: [false, false, false, true, false, true, false], totalPoints: 14, netPoints: 8 }
+    - { rank: 2, sailor: "2", racePoints: [2, 1, 3, 2, 3, 4, 1], raceCodes: [null, null, null, null, null, null, null], raceDiscards: [false, false, true, false, false, true, false], totalPoints: 16, netPoints: 9 }
+    - { rank: 3, sailor: "3", racePoints: [3, 4, 1, 1, 4, 2, 3], raceCodes: [null, null, null, null, null, null, null], raceDiscards: [false, true, false, false, true, false, false], totalPoints: 18, netPoints: 10 }
+    - { rank: 4, sailor: "4", racePoints: [4, 3, 4, 4, 2, 1, 4], raceCodes: [null, null, null, null, null, null, null], raceDiscards: [true, false, true, false, false, false, false], totalPoints: 22, netPoints: 14 }
+  subSeries:
+    - name: "Coastal"
+      standings:
+        - { rank: 1, sailor: "1", racePoints: [1, 2, 2, 3, 1], raceCodes: [null, null, null, null, null], raceDiscards: [false, true, false, true, false], totalPoints: 9, netPoints: 4 }
+        - { rank: 2, sailor: "3", racePoints: [3, 4, 1, 1, 4], raceCodes: [null, null, null, null, null], raceDiscards: [false, true, false, false, true], totalPoints: 13, netPoints: 5 }
+        - { rank: 3, sailor: "2", racePoints: [2, 1, 3, 2, 3], raceCodes: [null, null, null, null, null], raceDiscards: [false, false, true, false, true], totalPoints: 11, netPoints: 5 }
+        - { rank: 4, sailor: "4", racePoints: [4, 3, 4, 4, 2], raceCodes: [null, null, null, null, null], raceDiscards: [true, false, true, false, false], totalPoints: 17, netPoints: 9 }
+    - name: "Points"
+      standings:
+        - { rank: 1, sailor: "1", racePoints: [1, 2, 2, 3, 1, 3, 2], raceCodes: [null, null, null, null, null, null, null], raceDiscards: [false, false, false, false, false, false, false], totalPoints: 14, netPoints: 14 }
+        - { rank: 2, sailor: "2", racePoints: [2, 1, 3, 2, 3, 4, 1], raceCodes: [null, null, null, null, null, null, null], raceDiscards: [false, false, false, false, false, false, false], totalPoints: 16, netPoints: 16 }
+        - { rank: 3, sailor: "3", racePoints: [3, 4, 1, 1, 4, 2, 3], raceCodes: [null, null, null, null, null, null, null], raceDiscards: [false, false, false, false, false, false, false], totalPoints: 18, netPoints: 18 }
+        - { rank: 4, sailor: "4", racePoints: [4, 3, 4, 4, 2, 1, 4], raceCodes: [null, null, null, null, null, null, null], raceDiscards: [false, false, false, false, false, false, false], totalPoints: 22, netPoints: 22 }

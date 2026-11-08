@@ -27,6 +27,7 @@ import type {
   ResultCode,
   SeriesScoringCode,
   SubSeries,
+  SubSeriesDiscards,
 } from '@/lib/types';
 import { buildCodeTable, type ScoringCodeTable } from '@/lib/scoring-codes';
 import { discardRuleOf } from '@/lib/scoring';
@@ -240,6 +241,9 @@ export interface FixtureSubSeriesConfig {
    *  alone. Become `SubSeries.competitorOverrides`. */
   includeCompetitors?: string[];
   excludeCompetitors?: string[];
+  /** The sub-series' own discard rule (absent = the series'). Becomes
+   *  `SubSeries.discards` as written. */
+  discards?: SubSeriesDiscards;
 }
 
 export interface Fixture {
@@ -476,6 +480,7 @@ export function buildFixtureInputs(fixture: Fixture): FixtureInputs {
             }),
           }
         : {}),
+      ...(cfg?.discards ? { discards: cfg.discards } : {}),
     };
   });
 

@@ -1360,6 +1360,31 @@ export function discardRuleOf(
 }
 
 /**
+ * The discard rule a sub-series scores with: its own when it states one, or
+ * the series' over the sub-series' own races. Returned as the pair every
+ * standings entry point takes — a threshold list and an optional rule that
+ * replaces it.
+ */
+export function subSeriesDiscardsOf(
+  subSeries: Pick<SubSeries, 'discards'>,
+  seriesThresholds: DiscardThreshold[],
+  seriesRule: DiscardRule | undefined,
+): { thresholds: DiscardThreshold[]; rule: DiscardRule | undefined } {
+  const own = subSeries.discards;
+  if (!own) return { thresholds: seriesThresholds, rule: seriesRule };
+  switch (own.kind) {
+    case 'none':
+      return { thresholds: [], rule: undefined };
+    case 'countBest':
+      return { thresholds: [], rule: { countBest: own.countBest } };
+    case 'steps':
+      return { thresholds: own.thresholds, rule: undefined };
+    case 'proportional':
+      return { thresholds: [], rule: { firstAt: own.firstAt, everyRaces: own.everyRaces } };
+  }
+}
+
+/**
  * Get the number of discards to apply for a given race count.
  *
  * A rule, when the series has one, replaces the thresholds outright:
@@ -2716,7 +2741,8 @@ export interface SubSeriesStandings {
  * every block.
  *
  * Each sub-series is scored independently over its selected races: its own
- * discards (the series-level thresholds applied to the selection's race count),
+ * discards (its own rule, `SubSeries.discards`, or else the series' rule
+ * applied to the selection's race count — see {@link subSeriesDiscardsOf}),
  * tie-breaks, and RDG pools, over the selection's entrants (see
  * {@link subSeriesEntrantIds}).
  *
@@ -2804,18 +2830,21 @@ export function calculateSubSeriesFleetStandings(
         ? endTcfBySubSeries.get(subSeries.continueFromSubSeriesId)
         : undefined;
 
+    // The block's own discard rule, or the series' over the block's races.
+    const discards = subSeriesDiscardsOf(subSeries, discardThresholds, discardRule);
+
     const { fleetStandings, circularRedressRaces } = calculateFleetStandings(
       blockFleets,
       inScope,
       blockRaces,
       blockFinishes,
-      discardThresholds,
+      discards.thresholds,
       dnfScoring,
       raceStarts,
       ratingOverrides,
       seedTcfs,
       excludedByFleet,
-      discardRule,
+      discards.rule,
       entry,
     );
 

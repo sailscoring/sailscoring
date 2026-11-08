@@ -33,7 +33,7 @@ import { highPointOf, pointsSystemSummary } from '../lib/high-point';
 import { raceTablePoints } from '../lib/race-scoring-options';
 import { orcProfileRating, orcRaceProfile } from '../lib/orc-certificate';
 import { defaultEnabledCompetitorFields, formatPrimaryNames } from '../lib/competitor-fields';
-import type { DiscardThreshold, ProportionalDiscard, ResultCode, PenaltyCode } from '../lib/types';
+import type { DiscardThreshold, ProportionalDiscard, SubSeriesDiscards, ResultCode, PenaltyCode } from '../lib/types';
 import { buildFixtureInputs, type Fixture, type FixtureStanding } from '../tests/fixtures/scoring/types';
 import { repechageStandings, splitFleetStandings, stageRaceLabel } from '../lib/split-fleets';
 import type { StoredStage } from '../lib/split-fleets';
@@ -77,6 +77,20 @@ function discardSummary(series: {
   if (!rule) return discardThresholdsSummary(series.discardThresholds);
   return `One discard once ${races(rule.firstAt)} have been sailed, `
     + `then one more every ${races(rule.everyRaces)}.`;
+}
+
+/** A sub-series' own discard rule, in the words `discardSummary` uses. */
+function subSeriesDiscardSummary(own: SubSeriesDiscards): string {
+  switch (own.kind) {
+    case 'none':
+      return 'None — every race counts.';
+    case 'countBest':
+      return discardSummary({ discardThresholds: [], countBest: own.countBest });
+    case 'steps':
+      return discardSummary({ discardThresholds: own.thresholds });
+    case 'proportional':
+      return discardSummary({ discardThresholds: [], proportionalDiscard: { firstAt: own.firstAt, everyRaces: own.everyRaces } });
+  }
 }
 
 /**
@@ -765,10 +779,27 @@ function generateSubSeriesFixtureHtml(fixture: Fixture, yamlSource: string): str
   // block (a "Spring Race 3", not the series-wide race number), matching
   // how sub-series standings are displayed and published.
   const blockSections = (fixture.expected.subSeries ?? []).map((block) => {
-    const blockRaceCount = fixture.races.filter((r) => r.subSeries === block.name).length;
+    const inBlock = (r: Fixture['races'][number]) =>
+      r.subSeries === block.name || (Array.isArray(r.subSeries) && r.subSeries.includes(block.name));
+    const blockRaceCount = fixture.races.filter(inBlock).length;
     const raceHeaders = Array.from({ length: blockRaceCount }, (_, i) => `R${i + 1}`);
-    return renderExpectedStandingsTable(fixture, block.standings, raceHeaders, `${block.name} standings`);
+    // A block with its own discard rule says so above its table.
+    const own = fixture.subSeriesConfig?.find((c) => c.name === block.name)?.discards;
+    const ownRule = own
+      ? `<p style="margin:0.4em 0 0; font-size:90%;"><strong>${esc(block.name)} discards:</strong> ${esc(subSeriesDiscardSummary(own))}</p>`
+      : '';
+    return ownRule + renderExpectedStandingsTable(fixture, block.standings, raceHeaders, `${block.name} standings`);
   }).join('\n');
+  // A fixture that checks the whole series as well shows it first, so the
+  // blocks can be read against it.
+  const seriesSection = fixture.expected.standings
+    ? renderExpectedStandingsTable(
+        fixture,
+        fixture.expected.standings,
+        fixture.races.map((r) => `R${r.number}`),
+        'Series standings',
+      ) + '\n'
+    : '';
 
   return `<!doctype html>
 <html lang="en">
@@ -796,7 +827,7 @@ ${notesHtml}
   <strong>Discards:</strong> ${esc(discardSummary(fixture.series))}
 </div>
 ${commentsHtml}
-${blockSections}
+${seriesSection}${blockSections}
 <footer><a href="https://sailscoring.ie">sailscoring.ie</a></footer>
 </body>
 </html>
