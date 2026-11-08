@@ -18,6 +18,7 @@ export function RaceEntryHeader({
   switcher,
   lastFinisher,
   scoringOptions,
+  highPoint,
   raceRecord,
 }: {
   race: { name: string | null; date: string; raceNumber: number };
@@ -34,6 +35,9 @@ export function RaceEntryHeader({
   /** The per-race scoring-options line (race-scoring-options feature);
    *  rendered under the last-finisher line. */
   scoringOptions?: ReactNode;
+  /** A high-point series' line: the fleet size and weight the race is
+   *  scored from. Rendered under the scoring-options line. */
+  highPoint?: ReactNode;
   /** The race-record line — conditions and who ran the race
    *  (race-management-metadata feature); rendered last. */
   raceRecord?: ReactNode;
@@ -56,6 +60,7 @@ export function RaceEntryHeader({
         <RaceDateEditor race={race} readOnly={readOnly} onSave={onSaveDate} />
         {lastFinisher}
         {scoringOptions}
+        {highPoint}
         {raceRecord}
       </div>
       <div

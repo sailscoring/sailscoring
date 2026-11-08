@@ -1,6 +1,7 @@
 'use client';
 
-import { pointsSystemFields } from '@/lib/high-point';
+import { highPointOf, pointsSystemFields } from '@/lib/high-point';
+import { HighPointRaceLine } from '@/components/race-entry/high-point-race-line';
 import { use, useState, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useIsMutating } from '@tanstack/react-query';
@@ -448,6 +449,21 @@ export default function ResultEntryPage({
                   discardPolicy: discardPolicy === 'normal' ? undefined : discardPolicy,
                   pointsMultiplier: pointsMultiplier === 1 ? undefined : pointsMultiplier,
                 });
+              }}
+            />
+          ) : undefined
+        }
+        highPoint={
+          series && fleets && highPointOf(series) ? (
+            <HighPointRaceLine
+              series={series}
+              race={race}
+              fleets={fleets}
+              competitors={inRaceCompetitors}
+              finishes={savedFinishes ?? []}
+              readOnly={readOnly}
+              onMark={async (marked) => {
+                if (marked.length > 0) await saveFinishes.mutateAsync(marked);
               }}
             />
           ) : undefined

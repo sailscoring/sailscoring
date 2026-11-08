@@ -16,8 +16,11 @@ import {
   DISCARD_POLICY_HINT,
   DISCARD_POLICY_LABEL,
   weightingPreview,
+  highPointWeightingPreview,
 } from '@/lib/race-scoring-options';
 import type { Race, RaceDiscardPolicy } from '@/lib/types';
+import { useSeries } from '@/hooks/use-series';
+import { highPointOf } from '@/lib/high-point';
 
 const POLICIES: RaceDiscardPolicy[] = ['normal', 'mustCount', 'discardFirst'];
 
@@ -42,7 +45,7 @@ export function RaceScoringOptionsDialog({
   onOpenChange,
   onSave,
 }: {
-  race: Pick<Race, 'raceNumber' | 'name' | 'discardPolicy' | 'pointsMultiplier'>;
+  race: Pick<Race, 'seriesId' | 'raceNumber' | 'name' | 'discardPolicy' | 'pointsMultiplier'>;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSave: (options: RaceScoringOptions) => Promise<void> | void;
@@ -62,10 +65,14 @@ function RaceScoringOptionsDialogInner({
   onOpenChange,
   onSave,
 }: {
-  race: Pick<Race, 'raceNumber' | 'name' | 'discardPolicy' | 'pointsMultiplier'>;
+  race: Pick<Race, 'seriesId' | 'raceNumber' | 'name' | 'discardPolicy' | 'pointsMultiplier'>;
   onOpenChange: (open: boolean) => void;
   onSave: (options: RaceScoringOptions) => Promise<void> | void;
 }) {
+  // A high-point series' place scores depend on the fleet size, so the
+  // preview speaks of a 10-boat race.
+  const { data: series } = useSeries(race.seriesId);
+  const highPoint = series ? highPointOf(series) : undefined;
   const [policy, setPolicy] = useState<RaceDiscardPolicy>(race.discardPolicy ?? 'normal');
   // Held as the typed string so a half-finished "0." or "1." doesn't snap back
   // under the cursor; parsed on save.
@@ -150,7 +157,9 @@ function RaceScoringOptionsDialogInner({
             </div>
             <p className="text-xs text-muted-foreground">
               {multiplierValid
-                ? weightingPreview(parsed)
+                ? highPoint
+                  ? `Counts as ${parsed} × a normal race — ${highPointWeightingPreview(parsed, highPoint)}`
+                  : weightingPreview(parsed)
                 : 'Enter a number above 0 — 2 for a trophy race, 0.5 for a lesser one.'}
             </p>
           </div>

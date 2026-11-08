@@ -25,7 +25,7 @@ export function RaceScoringOptions({
   onOpenChange,
   onSave,
 }: {
-  race: Pick<Race, 'raceNumber' | 'name' | 'discardPolicy' | 'pointsMultiplier'>;
+  race: Pick<Race, 'seriesId' | 'raceNumber' | 'name' | 'discardPolicy' | 'pointsMultiplier'>;
   readOnly: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;

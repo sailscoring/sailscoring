@@ -8,6 +8,7 @@
  */
 
 import type { Race, RaceDiscardPolicy } from './types';
+import { highPointPlacePoints, type HighPointScoring } from './high-point';
 
 /** How a race's scores count once the weighting is applied.
  *
@@ -95,6 +96,16 @@ export function weightingPreview(multiplier: number): string {
   const places = ['1st', '2nd', '3rd'];
   const scores = places.map((_, i) => weightedRacePoints(i + 1, multiplier));
   return `1st scores ${scores[0]}, 2nd ${scores[1]}, 3rd ${scores[2]} …`;
+}
+
+/**
+ * The preview in high point, where a place's score depends on the fleet
+ * size: what 1st and 5th of a 10-boat race score at this weighting —
+ * "1st of 10 scores 12.0, 5th of 10 scores 7.2".
+ */
+export function highPointWeightingPreview(multiplier: number, hp: HighPointScoring): string {
+  const at = (p: number) => weightedRacePoints(highPointPlacePoints(hp, p, 10), multiplier).toFixed(1);
+  return `1st of 10 scores ${at(1)}, 5th of 10 scores ${at(5)}`;
 }
 
 /**
