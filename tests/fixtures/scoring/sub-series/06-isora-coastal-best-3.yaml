@@ -1,0 +1,329 @@
+description: "Sub-series counting their best 3 inside a best-5 season — ISORA 2026, IRC Class 1, Irish and Welsh Coastal"
+rrs_notes: >
+  RRS A2.1, changed by ISORA's race schedule: the Wolf's Head season counts
+  the best 5 races, the Irish and Welsh Coastal Series the best 3.
+notes: |
+  ISORA's 2026 IRC Class 1 season: the 18 races of the season fixture
+  (high-point/10), scored CHIPS3 for the boats in each race, × the race's
+  weight, the season counting its best 5. Two sub-series state their own
+  rule: the Irish Coastal Series (races 02CI1, 04CI2, 11CI3, 15CI4, 17CI5N)
+  and the Welsh Coastal Series (01CW1, 03CW2, 05CW3, 12CW4, 16CW5) each
+  count their best 3, so a boat that sailed all five drops two. Taking the
+  season's rule they would count all five and drop nothing.
+
+  ISORA scores each coastal series in its own Sailwave file. A sub-series is
+  scored from the season's races instead, so the two can't drift.
+
+  Irish Coastal reproduces ISORA's table exactly: every race score, discard,
+  total and rank. The file lists ten of the class's boats, leaving out the
+  five that sailed no Irish race; they are excluded from the sub-series to
+  match. Equal scores go earliest race first: D-Tox's DNCs in 02CI1 and
+  04CI2 are discarded, those in 15CI4 and 17CI5N counted.
+
+  Welsh Coastal differs from ISORA's table in one race. The Welsh file
+  weights 16CW5 at 0.9, where the season file, the race schedule and the
+  race's SI all say 0.7. Scored once, at 0.7, Finally's 16CW5 is 61.7 (ISORA's
+  Welsh table: 79.4) and Crackajack's 52.2 (67.1). Finally then counts its
+  three 63s for 189.0 (205.4), and Crackajack discards 16CW5 in place of
+  01CW1 for 168.7 (181.6). The order is unchanged. Every other number is
+  ISORA's. The Welsh file lists Finally twice, the second entry with nothing
+  but DNCs; as in the season fixture it is left out. The twelve boats that
+  sailed no Welsh race share 4th on 0.
+
+subSeriesConfig:
+  - name: "Irish Coastal"
+    discards: { kind: countBest, countBest: 3 }
+    excludeCompetitors: ["GBR 6939R", "GBR7664T", "GBR 5608L", "GBR 9496T", "GBR"]
+  - name: "Welsh Coastal"
+    discards: { kind: countBest, countBest: 3 }
+
+series:
+  discardThresholds: []
+  countBest: 5
+  dnfScoring: seriesEntries
+  pointsSystem: highPoint
+  highPointFormula: chips3
+  scoringCodes:
+    - { code: DNF, kind: replace, rule: { type: fixedPoints, points: 15 }, discardable: true }
+    - { code: DTP, description: "Declared to race, did not race (NoR 13.2)", kind: replace, rule: { type: fixedPoints, points: 8 }, discardable: true, countsInFleetSize: true }
+
+fleet:
+  scoringSystem: irc
+
+competitors:
+  - { sailNumber: "GBR 6939R", name: "Finally", ircTcc: 1.019 }
+  - { sailNumber: "GBR7664T", name: "Crackajack", ircTcc: 1.013 }
+  - { sailNumber: "GBR 5608L", name: "Excession", ircTcc: 1.047 }
+  - { sailNumber: "IRL 53196", name: "ReQuest", ircTcc: 1.022 }
+  - { sailNumber: "GBR 8593R", name: "Paradox", ircTcc: 1.027 }
+  - { sailNumber: "IRL 1858", name: "Razorbill", ircTcc: 1.028 }
+  - { sailNumber: "IRL 5880", name: "Pillaban", ircTcc: 1.021 }
+  - { sailNumber: "53308", name: "Loinnir", ircTcc: 1.017 }
+  - { sailNumber: "IRL 4007", name: "Tsunami", ircTcc: 1.047 }
+  - { sailNumber: "IRL1840", name: "The Big Picture", ircTcc: 1.045 }
+  - { sailNumber: "IRL 5991", name: "Prime Suspect", ircTcc: 1.054 }
+  - { sailNumber: "GBR 723R", name: "Hijacker", ircTcc: 1.029 }
+  - { sailNumber: "IRL13500", name: "D-Tox", ircTcc: 1.029 }
+  - { sailNumber: "GBR 9496T", name: "BoJangles", ircTcc: 0.996 }
+  - { sailNumber: "GBR", name: "Arcturus", ircTcc: 1.014 }
+
+races:
+  - number: 1   # 01CW1
+    subSeries: "Welsh Coastal"
+    startTime: "09:05:00"
+    pointsMultiplier: 0.7
+    finishes:
+      - { sailor: "GBR 6939R", elapsed: "3:51:32" }
+      - { sailor: "GBR7664T", elapsed: "4:08:59" }
+      - { sailor: "GBR 5608L", code: DTP }
+  - number: 2   # 02CI1
+    subSeries: "Irish Coastal"
+    startTime: "11:00:00"
+    pointsMultiplier: 0.7
+    finishes:
+      - { sailor: "IRL 53196", elapsed: "4:06:57" }
+      - { sailor: "GBR 8593R", elapsed: "4:24:55" }
+      - { sailor: "IRL 1858", elapsed: "5:01:08" }
+      - { sailor: "IRL 5880", elapsed: "5:42:00" }
+  - number: 3   # 03CW2
+    subSeries: "Welsh Coastal"
+    startTime: "08:05:00"
+    pointsMultiplier: 0.7
+    ratingOverrides:
+      - { sailor: "GBR7664T", field: ircTcc, value: 1.014 }
+    finishes:
+      - { sailor: "GBR 6939R", elapsed: "2:44:03" }
+      - { sailor: "GBR 5608L", elapsed: "2:46:42" }
+      - { sailor: "GBR7664T", elapsed: "2:56:52" }
+  - number: 4   # 04CI2
+    subSeries: "Irish Coastal"
+    startTime: "11:00:00"
+    pointsMultiplier: 0.7
+    finishes:
+      - { sailor: "53308", elapsed: "3:33:15" }
+      - { sailor: "IRL 4007", elapsed: "3:39:22" }
+      - { sailor: "GBR 8593R", elapsed: "3:45:49" }
+      - { sailor: "IRL 53196", elapsed: "3:49:00" }
+      - { sailor: "IRL1840", elapsed: "3:47:51" }
+      - { sailor: "IRL 5880", elapsed: "3:57:05" }
+      - { sailor: "IRL 1858", code: DNF }
+  - number: 5   # 05CW3   (scored by place: no start, so finishing order decides)
+    subSeries: "Welsh Coastal"
+    pointsMultiplier: 0.7
+    ratingOverrides:
+      - { sailor: "GBR7664T", field: ircTcc, value: 1.014 }
+    finishes:
+      - { sailor: "GBR 6939R", position: 2 }
+      - { sailor: "GBR7664T", position: 4 }
+      - { sailor: "GBR 5608L", code: DNF }
+  - number: 6   # 06O1
+    startTime: "08:00:00"
+    pointsMultiplier: 1.1
+    ratingOverrides:
+      - { sailor: "IRL 1858", field: ircTcc, value: 1.026 }
+      - { sailor: "GBR 8593R", field: ircTcc, value: 1.026 }
+      - { sailor: "IRL 5880", field: ircTcc, value: 1.019 }
+    finishes:
+      - { sailor: "IRL 53196", elapsed: "6:21:47" }
+      - { sailor: "53308", elapsed: "6:31:21" }
+      - { sailor: "IRL 1858", elapsed: "6:31:11" }
+      - { sailor: "GBR 6939R", elapsed: "6:42:25" }
+      - { sailor: "GBR 8593R", elapsed: "6:48:09" }
+      - { sailor: "IRL 5880", elapsed: "6:52:45" }
+      - { sailor: "IRL 5991", elapsed: "6:52:05" }
+      - { sailor: "GBR 723R", elapsed: "7:06:01" }
+      - { sailor: "IRL 4007", code: DTP }
+      - { sailor: "GBR 5608L", code: DTP }
+  - number: 7   # 07O2
+    startTime: "08:30:00"
+    pointsMultiplier: 1.1
+    ratingOverrides:
+      - { sailor: "53308", field: ircTcc, value: 1.022 }
+      - { sailor: "IRL 5880", field: ircTcc, value: 1.019 }
+    finishes:
+      - { sailor: "IRL 53196", elapsed: "6:49:34" }
+      - { sailor: "53308", elapsed: "6:55:37" }
+      - { sailor: "GBR 6939R", elapsed: "7:10:09" }
+      - { sailor: "IRL 5880", elapsed: "7:26:51" }
+      - { sailor: "IRL13500", elapsed: "7:28:18" }
+      - { sailor: "GBR 723R", elapsed: "7:34:41" }
+  - number: 8   # 8O3
+    startTime: "15:06:00"
+    pointsMultiplier: 1.2
+    ratingOverrides:
+      - { sailor: "IRL 5880", field: ircTcc, value: 1.019 }
+      - { sailor: "GBR7664T", field: ircTcc, value: 1.014 }
+    finishes:
+      - { sailor: "GBR 9496T", elapsed: "13:18:00" }
+      - { sailor: "IRL 53196", elapsed: "13:01:06" }
+      - { sailor: "IRL 5880", elapsed: "13:16:56" }
+      - { sailor: "GBR", elapsed: "13:55:34" }
+      - { sailor: "GBR 723R", code: DTP }
+      - { sailor: "GBR7664T", code: DTP }
+  - number: 9   # 09O4
+    startTime: "07:30:00"
+    pointsMultiplier: 1.2
+    ratingOverrides:
+      - { sailor: "53308", field: ircTcc, value: 1.022 }
+      - { sailor: "GBR 8593R", field: ircTcc, value: 1.026 }
+      - { sailor: "GBR7664T", field: ircTcc, value: 1.014 }
+      - { sailor: "IRL 5880", field: ircTcc, value: 1.02 }
+    finishes:
+      - { sailor: "IRL 53196", code: DTP }
+      - { sailor: "53308", code: DTP }
+      - { sailor: "GBR 723R", code: DTP }
+      - { sailor: "GBR 8593R", code: DTP }
+      - { sailor: "GBR7664T", code: DTP }
+      - { sailor: "IRL 5880", code: DTP }
+  - number: 10   # 10O5
+    startTime: "20"
+    pointsMultiplier: 1.2
+    ratingOverrides:
+      - { sailor: "53308", field: ircTcc, value: 1.024 }
+      - { sailor: "GBR 8593R", field: ircTcc, value: 1.026 }
+      - { sailor: "IRL 5880", field: ircTcc, value: 1.019 }
+    finishes:
+      - { sailor: "53308", elapsed: "142:01:04" }
+      - { sailor: "IRL1840", elapsed: "143:21:10" }
+      - { sailor: "IRL 5991", elapsed: "142:57:03" }
+      - { sailor: "GBR 8593R", elapsed: "153:21:36" }
+      - { sailor: "GBR 6939R", elapsed: "157:57:20" }
+      - { sailor: "IRL 5880", elapsed: "158:13:24" }
+  - number: 11   # 11CI3
+    subSeries: "Irish Coastal"
+    startTime: "10:00:00"
+    pointsMultiplier: 0.7
+    ratingOverrides:
+      - { sailor: "GBR 723R", field: ircTcc, value: 1.023 }
+      - { sailor: "IRL13500", field: ircTcc, value: 1.027 }
+    finishes:
+      - { sailor: "IRL 53196", elapsed: "3:24:35" }
+      - { sailor: "GBR 723R", elapsed: "3:53:51" }
+      - { sailor: "IRL13500", elapsed: "4:00:36" }
+      - { sailor: "IRL 1858", elapsed: "4:05:07" }
+      - { sailor: "IRL 4007", code: DNF }
+  - number: 12   # 12CW4   (scored by place: no start, so finishing order decides)
+    subSeries: "Welsh Coastal"
+    pointsMultiplier: 0.7
+    ratingOverrides:
+      - { sailor: "GBR7664T", field: ircTcc, value: 1.014 }
+    finishes:
+      - { sailor: "GBR7664T", position: 3 }
+  - number: 13   # 13O6
+    startTime: "03"
+    pointsMultiplier: 1.2
+    ratingOverrides:
+      - { sailor: "GBR 723R", field: ircTcc, value: 1.023 }
+      - { sailor: "IRL13500", field: ircTcc, value: 1.027 }
+    finishes:
+      - { sailor: "IRL 53196", elapsed: "27:49:48" }
+      - { sailor: "GBR 723R", elapsed: "28:47:21" }
+      - { sailor: "IRL 1858", elapsed: "30:39:14" }
+      - { sailor: "GBR7664T", elapsed: "33:46:37" }
+      - { sailor: "IRL13500", code: DNF }
+  - number: 14   # 1407
+    startTime: "07:30:00"
+    pointsMultiplier: 1.2
+    ratingOverrides:
+      - { sailor: "GBR 723R", field: ircTcc, value: 1.023 }
+      - { sailor: "GBR 8593R", field: ircTcc, value: 1.026 }
+      - { sailor: "53308", field: ircTcc, value: 1.024 }
+    finishes:
+      - { sailor: "GBR 723R", elapsed: "12:09:10" }
+      - { sailor: "GBR 6939R", elapsed: "12:13:55" }
+      - { sailor: "GBR7664T", elapsed: "12:19:00" }
+      - { sailor: "GBR 8593R", elapsed: "12:15:45" }
+      - { sailor: "IRL 5991", elapsed: "11:58:27" }
+      - { sailor: "53308", code: DNF }
+      - { sailor: "IRL 53196", code: DTP }
+  - number: 15   # 15CI4
+    subSeries: "Irish Coastal"
+    startTime: "11:00:00"
+    pointsMultiplier: 0.7
+    ratingOverrides:
+      - { sailor: "53308", field: ircTcc, value: 1.021 }
+      - { sailor: "GBR 8593R", field: ircTcc, value: 1.026 }
+      - { sailor: "IRL 5880", field: ircTcc, value: 1.019 }
+      - { sailor: "GBR 723R", field: ircTcc, value: 1.023 }
+    finishes:
+      - { sailor: "IRL 53196", elapsed: "4:12:20" }
+      - { sailor: "53308", elapsed: "4:32:47" }
+      - { sailor: "GBR 8593R", elapsed: "4:36:22" }
+      - { sailor: "IRL 5880", elapsed: "4:39:21" }
+      - { sailor: "GBR 723R", elapsed: "4:52:06" }
+      - { sailor: "IRL 4007", code: DTP }
+  - number: 16   # 16CW5
+    subSeries: "Welsh Coastal"
+    startTime: "20:05:00"
+    pointsMultiplier: 0.7
+    ratingOverrides:
+      - { sailor: "GBR7664T", field: ircTcc, value: 1.014 }
+    finishes:
+      - { sailor: "GBR 6939R", elapsed: "5:50:42" }
+      - { sailor: "GBR7664T", elapsed: "6:13:14" }
+  - number: 17   # 17CI5N
+    subSeries: "Irish Coastal"
+    startTime: "19:00:00"
+    pointsMultiplier: 0.9
+    ratingOverrides:
+      - { sailor: "GBR 723R", field: ircTcc, value: 1.023 }
+      - { sailor: "53308", field: ircTcc, value: 1.019 }
+      - { sailor: "IRL 5880", field: ircTcc, value: 1.019 }
+      - { sailor: "GBR 8593R", field: ircTcc, value: 1.026 }
+    finishes:
+      - { sailor: "GBR 723R", elapsed: "4:16:26" }
+      - { sailor: "53308", elapsed: "4:18:30" }
+      - { sailor: "IRL 4007", elapsed: "4:18:15" }
+      - { sailor: "IRL 53196", elapsed: "4:27:14" }
+      - { sailor: "IRL 5880", elapsed: "4:32:28" }
+      - { sailor: "GBR 8593R", code: DTP }
+  - number: 18   # 18O8
+    startTime: "08:00:00"
+    pointsMultiplier: 1.2
+    ratingOverrides:
+      - { sailor: "53308", field: ircTcc, value: 1.019 }
+      - { sailor: "GBR 723R", field: ircTcc, value: 1.023 }
+      - { sailor: "GBR 8593R", field: ircTcc, value: 1.026 }
+      - { sailor: "GBR7664T", field: ircTcc, value: 1.014 }
+      - { sailor: "IRL 5880", field: ircTcc, value: 1.019 }
+    finishes:
+      - { sailor: "53308", elapsed: "12:18:33" }
+      - { sailor: "IRL 53196", elapsed: "12:19:57" }
+      - { sailor: "GBR 723R", elapsed: "12:28:56" }
+      - { sailor: "GBR 6939R", elapsed: "13:07:47" }
+      - { sailor: "GBR 8593R", elapsed: "13:10:52" }
+      - { sailor: "GBR7664T", elapsed: "14:02:37" }
+      - { sailor: "IRL 5880", code: DTP }
+      - { sailor: "IRL 1858", code: DTP }
+
+expected:
+  subSeries:
+    - name: "Irish Coastal"
+      standings:
+        - { rank: 1, sailor: "53308", racePoints: [0, 66.3, 0, 58.7, 75.5], raceCodes: [DNC, null, DNC, null, null], raceDiscards: [true, false, true, false, false], totalPoints: 200.5, netPoints: 200.5 }
+        - { rank: 2, sailor: "IRL 53196", racePoints: [64, 46.9, 64.9, 65.7, 57.6], raceCodes: [null, null, null, null, null], raceDiscards: [false, true, false, false, true], totalPoints: 299.1, netPoints: 194.6 }
+        - { rank: 3, sailor: "GBR 723R", racePoints: [0, 0, 57.5, 37.9, 84.4], raceCodes: [DNC, DNC, null, null, null], raceDiscards: [true, true, false, false, false], totalPoints: 179.8, netPoints: 179.8 }
+        - { rank: 4, sailor: "GBR 8593R", racePoints: [56, 53.3, 0, 51.8, 7.2], raceCodes: [null, null, DNC, null, DTP], raceDiscards: [false, false, true, false, true], totalPoints: 168.3, netPoints: 161.1 }
+        - { rank: 5, sailor: "IRL 4007", racePoints: [0, 59.8, 10.5, 5.6, 66.6], raceCodes: [DNC, null, DNF, DTP, null], raceDiscards: [true, false, false, true, false], totalPoints: 142.5, netPoints: 136.9 }
+        - { rank: 6, sailor: "IRL 5880", racePoints: [39.9, 33.9, 0, 44.8, 48.7], raceCodes: [null, null, DNC, null, null], raceDiscards: [false, true, true, false, false], totalPoints: 167.3, netPoints: 133.4 }
+        - { rank: 7, sailor: "IRL 1858", racePoints: [47.9, 10.5, 42.5, 0, 0], raceCodes: [null, DNF, null, DNC, DNC], raceDiscards: [false, false, false, true, true], totalPoints: 100.9, netPoints: 100.9 }
+        - { rank: 8, sailor: "IRL13500", racePoints: [0, 0, 50, 0, 0], raceCodes: [DNC, DNC, null, DNC, DNC], raceDiscards: [true, true, false, false, false], totalPoints: 50, netPoints: 50 }
+        - { rank: 9, sailor: "IRL1840", racePoints: [0, 40.4, 0, 0, 0], raceCodes: [DNC, null, DNC, DNC, DNC], raceDiscards: [true, false, true, false, false], totalPoints: 40.4, netPoints: 40.4 }
+        - { rank: 10, sailor: "IRL 5991", racePoints: [0, 0, 0, 0, 0], raceCodes: [DNC, DNC, DNC, DNC, DNC], raceDiscards: [true, true, false, false, false], totalPoints: 0, netPoints: 0 }
+    - name: "Welsh Coastal"
+      standings:
+        - { rank: 1, sailor: "GBR 6939R", racePoints: [63, 63, 63, 0, 61.7], raceCodes: [null, null, null, DNC, null], raceDiscards: [false, false, false, true, true], totalPoints: 250.7, netPoints: 189 }
+        - { rank: 2, sailor: "GBR7664T", racePoints: [54.2, 45.5, 54.2, 60.3, 52.2], raceCodes: [null, null, null, null, null], raceDiscards: [false, true, false, false, true], totalPoints: 266.4, netPoints: 168.7 }
+        - { rank: 3, sailor: "GBR 5608L", racePoints: [5.6, 54.2, 10.5, 0, 0], raceCodes: [DTP, null, DNF, DNC, DNC], raceDiscards: [false, false, false, true, true], totalPoints: 70.3, netPoints: 70.3 }
+        - { rank: 4, sailor: "IRL 5991", racePoints: [0, 0, 0, 0, 0], raceCodes: [DNC, DNC, DNC, DNC, DNC], raceDiscards: [true, true, false, false, false], totalPoints: 0, netPoints: 0 }
+        - { rank: 4, sailor: "GBR 9496T", racePoints: [0, 0, 0, 0, 0], raceCodes: [DNC, DNC, DNC, DNC, DNC], raceDiscards: [true, true, false, false, false], totalPoints: 0, netPoints: 0 }
+        - { rank: 4, sailor: "IRL13500", racePoints: [0, 0, 0, 0, 0], raceCodes: [DNC, DNC, DNC, DNC, DNC], raceDiscards: [true, true, false, false, false], totalPoints: 0, netPoints: 0 }
+        - { rank: 4, sailor: "IRL 4007", racePoints: [0, 0, 0, 0, 0], raceCodes: [DNC, DNC, DNC, DNC, DNC], raceDiscards: [true, true, false, false, false], totalPoints: 0, netPoints: 0 }
+        - { rank: 4, sailor: "GBR 723R", racePoints: [0, 0, 0, 0, 0], raceCodes: [DNC, DNC, DNC, DNC, DNC], raceDiscards: [true, true, false, false, false], totalPoints: 0, netPoints: 0 }
+        - { rank: 4, sailor: "IRL 5880", racePoints: [0, 0, 0, 0, 0], raceCodes: [DNC, DNC, DNC, DNC, DNC], raceDiscards: [true, true, false, false, false], totalPoints: 0, netPoints: 0 }
+        - { rank: 4, sailor: "IRL 53196", racePoints: [0, 0, 0, 0, 0], raceCodes: [DNC, DNC, DNC, DNC, DNC], raceDiscards: [true, true, false, false, false], totalPoints: 0, netPoints: 0 }
+        - { rank: 4, sailor: "IRL 1858", racePoints: [0, 0, 0, 0, 0], raceCodes: [DNC, DNC, DNC, DNC, DNC], raceDiscards: [true, true, false, false, false], totalPoints: 0, netPoints: 0 }
+        - { rank: 4, sailor: "GBR 8593R", racePoints: [0, 0, 0, 0, 0], raceCodes: [DNC, DNC, DNC, DNC, DNC], raceDiscards: [true, true, false, false, false], totalPoints: 0, netPoints: 0 }
+        - { rank: 4, sailor: "53308", racePoints: [0, 0, 0, 0, 0], raceCodes: [DNC, DNC, DNC, DNC, DNC], raceDiscards: [true, true, false, false, false], totalPoints: 0, netPoints: 0 }
+        - { rank: 4, sailor: "IRL1840", racePoints: [0, 0, 0, 0, 0], raceCodes: [DNC, DNC, DNC, DNC, DNC], raceDiscards: [true, true, false, false, false], totalPoints: 0, netPoints: 0 }
+        - { rank: 4, sailor: "GBR", racePoints: [0, 0, 0, 0, 0], raceCodes: [DNC, DNC, DNC, DNC, DNC], raceDiscards: [true, true, false, false, false], totalPoints: 0, netPoints: 0 }
