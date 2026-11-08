@@ -48,6 +48,7 @@ import {
 } from '@/lib/finish-entry';
 import type { Competitor, CompetitorFieldKey, DnfScoring, Finish, FinishRecording, Fleet, ResultCode, SeriesScoringCode } from '@/lib/types';
 import { codesSummary } from '@/lib/scoring-codes-text';
+import { highPointOf, type PointsSystemFields } from '@/lib/high-point';
 
 /** One badge per fleet a competitor belongs to, scoped to the fleets actually
  *  racing this sheet. Multi-fleet boats (e.g. a handicap fleet and a scratch
@@ -168,7 +169,7 @@ export interface FinishTabProps {
   recording?: boolean;
   /** The series' A5 rule and its own scoring codes: its codes that replace
    *  the result join the code menus, and a changed RRS code is marked. */
-  seriesScoring?: { dnfScoring: DnfScoring; scoringCodes?: readonly SeriesScoringCode[] };
+  seriesScoring?: { dnfScoring: DnfScoring; scoringCodes?: readonly SeriesScoringCode[] } & Partial<PointsSystemFields>;
 }
 
 export function FinishTab(props: FinishTabProps) {
@@ -190,7 +191,7 @@ export function FinishTab(props: FinishTabProps) {
     .filter((c) => c.kind === 'replace' && !(c.code in NON_FINISHER_CODE_LABELS))
     .map((c) => c.code);
   const changedCodes = new Set(
-    seriesScoring ? codesSummary(seriesScoring.dnfScoring, seriesScoring.scoringCodes).changed : [],
+    seriesScoring ? codesSummary(seriesScoring.dnfScoring, seriesScoring.scoringCodes, highPointOf(seriesScoring)).changed : [],
   );
   const codeLabel = (code: NonFinisherCode) => {
     const label = NON_FINISHER_CODE_LABELS[code] ?? code;

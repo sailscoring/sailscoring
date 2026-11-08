@@ -18,6 +18,7 @@ import { CHANGEABLE_BUILT_IN_CODES, getCodeDefinition, seriesCodeProblems } from
 import {
   codeRows,
   DECIDED_PER_BOAT,
+  highPointCodePreview,
   rrsCode,
   ruleSentence,
   sameScoring,
@@ -25,6 +26,7 @@ import {
   type CodeRow,
 } from '@/lib/scoring-codes-text';
 import type { DnfScoring, Finish, PlaceBase, SeriesScoringCode } from '@/lib/types';
+import type { HighPointScoring } from '@/lib/high-point';
 import { describeWriteFailure } from '@/lib/write-failure';
 
 /**
@@ -40,6 +42,10 @@ export type ScoringCodesDialogProps = {
   seriesId: string;
   dnfScoring: DnfScoring;
   scoringCodes: readonly SeriesScoringCode[];
+  /** A high-point series: the rules speak of the place after the last boat,
+   *  each code says whether it counts toward the fleet size, and nothing
+   *  adds to a place. */
+  highPoint?: HighPointScoring;
 };
 
 type Editing = { code: string | null } | null;
@@ -73,7 +79,7 @@ function resultsUsing(u: { count: number; races: Set<number> }): string {
   return `${u.count} ${u.count === 1 ? 'result' : 'results'} in ${listRaces(u.races)}`;
 }
 
-export function ScoringCodesDialog({ open, onOpenChange, seriesId, dnfScoring, scoringCodes }: ScoringCodesDialogProps) {
+export function ScoringCodesDialog({ open, onOpenChange, seriesId, dnfScoring, scoringCodes, highPoint }: ScoringCodesDialogProps) {
   // Past the opening screen. A series that already has codes skips it; one
   // that doesn't sees it every time, until a code is changed or added.
   const [pastIntro, setPastIntro] = useState(scoringCodes.length > 0);
@@ -109,7 +115,9 @@ export function ScoringCodesDialog({ open, onOpenChange, seriesId, dnfScoring, s
     }
   }
 
-  const rows = codeRows(dnfScoring, scoringCodes);
+  const rows = codeRows(dnfScoring, scoringCodes, highPoint);
+  const preview = (row: CodeRow) => (highPoint ? highPointCodePreview(row.scored, dnfScoring, scoringCodes, highPoint) : null);
+  const standard = highPoint ? 'the defaults' : 'the RRS';
   const ownInUse = scoringCodes.filter((c) => !CHANGEABLE_BUILT_IN_CODES.includes(c.code) && usage.has(c.code));
 
   return (
@@ -125,13 +133,14 @@ export function ScoringCodesDialog({ open, onOpenChange, seriesId, dnfScoring, s
         </DialogHeader>
 
         {!pastIntro ? (
-          <Intro dnfScoring={dnfScoring} onCancel={() => close(false)} onGo={() => setPastIntro(true)} />
+          <Intro dnfScoring={dnfScoring} highPoint={highPoint} onCancel={() => close(false)} onGo={() => setPastIntro(true)} />
         ) : editing !== null ? (
           <CodeEditor
             key={editing.code ?? 'new'}
             code={editing.code}
             dnfScoring={dnfScoring}
             scoringCodes={scoringCodes}
+            highPoint={highPoint}
             usage={usage}
             finishes={finishes ?? []}
             saving={update.isPending}
@@ -143,8 +152,15 @@ export function ScoringCodesDialog({ open, onOpenChange, seriesId, dnfScoring, s
           />
         ) : (
           <>
-            <CodeTable title="Replace the boat’s result" rows={rows.replace} usage={usage} onOpen={(code) => setEditing({ code })} />
-            <CodeTable title="Add to the boat’s finishing place" rows={rows.add} usage={usage} onOpen={(code) => setEditing({ code })} />
+            <CodeTable title="Replace the boat’s result" rows={rows.replace} usage={usage} highPoint={highPoint} preview={preview} onOpen={(code) => setEditing({ code })} />
+            {highPoint ? (
+              <p className={hint}>
+                Points are for a 10-boat race at a weight of 1. Codes that add to a finishing place can’t be scored
+                high point yet.
+              </p>
+            ) : (
+              <CodeTable title="Add to the boat’s finishing place" rows={rows.add} usage={usage} onOpen={(code) => setEditing({ code })} />
+            )}
             <p className={hint}>
               {DECIDED_PER_BOAT.join(', ').replace(/, ([^,]*)$/, ' and $1')} are decided for each boat, in the
               penalty and redress dialogs. A penalty your instructions apply at one amount every time can be a code
@@ -157,6 +173,7 @@ export function ScoringCodesDialog({ open, onOpenChange, seriesId, dnfScoring, s
             </div>
             {confirmReset && (
               <ResetAll
+                standard={standard}
                 scoringCodes={scoringCodes}
                 ownInUse={ownInUse.map((c) => `${c.code} (${resultsUsing(usage.get(c.code)!)})`)}
                 saving={update.isPending}
@@ -170,7 +187,7 @@ export function ScoringCodesDialog({ open, onOpenChange, seriesId, dnfScoring, s
             <DialogFooter className="sm:justify-between">
               {scoringCodes.length > 0 && !confirmReset ? (
                 <Button type="button" variant="ghost" size="sm" onClick={() => setConfirmReset(true)}>
-                  Reset all to the RRS
+                  Reset all to {standard}
                 </Button>
               ) : <span />}
               <Button type="button" onClick={() => close(false)}>Done</Button>
@@ -182,16 +199,27 @@ export function ScoringCodesDialog({ open, onOpenChange, seriesId, dnfScoring, s
   );
 }
 
-function Intro({ dnfScoring, onCancel, onGo }: { dnfScoring: DnfScoring; onCancel: () => void; onGo: () => void }) {
+function Intro({ dnfScoring, highPoint, onCancel, onGo }: { dnfScoring: DnfScoring; highPoint?: HighPointScoring; onCancel: () => void; onGo: () => void }) {
   const base = dnfScoring === 'startingArea'
     ? 'the boats that came to the starting area (A5.3)'
     : 'the boats entered in the series (A5.2)';
   return (
     <div className="space-y-3 text-sm" data-testid="scoring-codes-intro">
-      <p>
-        This series scores every code as RRS Appendix A sets out, with DNF and the codes scored like it based on{' '}
-        {base}.
-      </p>
+      {highPoint ? (
+        <p>
+          This series scores every code at its high-point default: DNC 0,{' '}
+          {highPoint.formula === 'chips3'
+            ? 'DNS and disqualifications 0, and a retirement the place after the last boat'
+            : 'and the other codes the place after the last boat'}
+          . A boat that didn’t come{highPoint.formula === 'chips3' ? ' or didn’t start' : ''} and a boat given
+          redress aren’t counted in the fleet size.
+        </p>
+      ) : (
+        <p>
+          This series scores every code as RRS Appendix A sets out, with DNF and the codes scored like it based on{' '}
+          {base}.
+        </p>
+      )}
       <p>
         Change this only when your notice of race or sailing instructions do: a code the RRS doesn’t have, such as
         TLE, or a standard code scored differently. Every published results page will list what you change, so
@@ -211,11 +239,16 @@ function CodeTable({
   title,
   rows,
   usage,
+  highPoint,
+  preview,
   onOpen,
 }: {
   title: string;
   rows: CodeRow[];
   usage: Map<string, { count: number }>;
+  highPoint?: HighPointScoring;
+  /** High point: the code's points in a 10-boat race. */
+  preview?: (row: CodeRow) => number | null;
   onOpen: (code: string) => void;
 }) {
   return (
@@ -234,8 +267,9 @@ function CodeTable({
               <span className="min-w-0">
                 <span className="block truncate">{row.name}</span>
                 <span className="block text-xs text-muted-foreground">
-                  {ruleShortText(row.scored)}
-                  {row.status === 'changed' && row.rrs ? ` (RRS: ${ruleShortText(row.rrs)})` : ''}
+                  {ruleShortText(row.scored, highPoint)}
+                  {preview && preview(row) !== null ? ` → ${preview(row)}` : ''}
+                  {row.status === 'changed' && row.rrs ? ` (${highPoint ? 'default' : 'RRS'}: ${ruleShortText(row.rrs, highPoint)})` : ''}
                   {usage.has(row.code) && row.status === 'series' ? ` · used ${usage.get(row.code)!.count}×` : ''}
                 </span>
               </span>
@@ -246,7 +280,7 @@ function CodeTable({
                     : 'rounded bg-amber-100 px-1.5 text-xs font-medium text-amber-900 dark:bg-amber-900/40 dark:text-amber-100'
                 }
               >
-                {STATUS_LABEL[row.status]}
+                {row.status === 'rrs' && highPoint ? 'Default' : STATUS_LABEL[row.status]}
               </span>
             </button>
           </li>
@@ -257,12 +291,14 @@ function CodeTable({
 }
 
 function ResetAll({
+  standard,
   scoringCodes,
   ownInUse,
   saving,
   onCancel,
   onReset,
 }: {
+  standard: string;
   scoringCodes: readonly SeriesScoringCode[];
   ownInUse: string[];
   saving: boolean;
@@ -282,12 +318,12 @@ function ResetAll({
   return (
     <div className="rounded-md border p-3 text-sm" data-testid="reset-all-confirm">
       <p>
-        Every code will score as the RRS sets out again. This undoes {scoringCodes.map((c) => c.code).join(', ')},
+        Every code will score as {standard === 'the RRS' ? 'the RRS sets out' : 'its default'} again. This undoes {scoringCodes.map((c) => c.code).join(', ')},
         and rescores the races that use them.
       </p>
       <div className="mt-2 flex gap-2">
         <Button type="button" variant="ghost" size="sm" onClick={onCancel}>Cancel</Button>
-        <Button type="button" size="sm" disabled={saving} onClick={onReset}>Reset all to the RRS</Button>
+        <Button type="button" size="sm" disabled={saving} onClick={onReset}>Reset all to {standard}</Button>
       </div>
     </div>
   );
@@ -310,6 +346,8 @@ type Draft = {
   addPercent: string;
   capAtDnf: boolean;
   discardable: boolean;
+  /** High point: whether the code counts toward the fleet size. */
+  countsInFleetSize: boolean;
 };
 
 function draftOf(sc: SeriesScoringCode): Draft {
@@ -327,6 +365,7 @@ function draftOf(sc: SeriesScoringCode): Draft {
     addPercent: r.type === 'addPercent' ? String(r.percent) : '',
     capAtDnf: !!sc.capAtDnf,
     discardable: sc.discardable,
+    countsInFleetSize: sc.countsInFleetSize ?? true,
   };
 }
 
@@ -340,7 +379,7 @@ const NEW_CODE: SeriesScoringCode = {
 };
 
 /** The draft as a stored code, or the message for the field that isn't one. */
-function codeOf(d: Draft, builtIn: boolean): SeriesScoringCode | string {
+function codeOf(d: Draft, builtIn: boolean, highPoint?: HighPointScoring): SeriesScoringCode | string {
   const num = (s: string) => (s.trim() === '' ? NaN : Number(s));
   let rule: SeriesScoringCode['rule'];
   switch (d.method) {
@@ -377,8 +416,9 @@ function codeOf(d: Draft, builtIn: boolean): SeriesScoringCode | string {
     ...(builtIn ? {} : { description: d.description.trim() }),
     kind: d.kind,
     rule,
-    ...(d.kind === 'replace' && d.method !== 'sameAs' && d.capAtDnf ? { capAtDnf: true } : {}),
+    ...(d.kind === 'replace' && d.method !== 'sameAs' && d.capAtDnf && !highPoint ? { capAtDnf: true } : {}),
     discardable: d.discardable,
+    ...(highPoint ? { countsInFleetSize: d.countsInFleetSize } : {}),
   };
 }
 
@@ -386,6 +426,7 @@ function CodeEditor({
   code,
   dnfScoring,
   scoringCodes,
+  highPoint,
   usage,
   finishes,
   saving,
@@ -397,6 +438,7 @@ function CodeEditor({
   code: string | null;
   dnfScoring: DnfScoring;
   scoringCodes: readonly SeriesScoringCode[];
+  highPoint?: HighPointScoring;
   usage: Map<string, { count: number; races: Set<number> }>;
   finishes: readonly Finish[];
   saving: boolean;
@@ -405,9 +447,13 @@ function CodeEditor({
   onSave: (next: SeriesScoringCode[]) => void | Promise<void>;
 }) {
   const builtIn = code !== null && CHANGEABLE_BUILT_IN_CODES.includes(code);
-  const rrs = builtIn ? rrsCode(code, dnfScoring) : null;
+  const rrs = builtIn ? rrsCode(code, dnfScoring, highPoint) : null;
   const stored = code === null ? undefined : scoringCodes.find((c) => c.code === code);
-  const [draft, setDraft] = useState<Draft>(() => draftOf(stored ?? rrs ?? NEW_CODE));
+  // A changed built-in that doesn't say whether it counts toward the fleet
+  // size takes its default's answer.
+  const [draft, setDraft] = useState<Draft>(() => draftOf(
+    stored ? { ...stored, countsInFleetSize: stored.countsInFleetSize ?? rrs?.countsInFleetSize } : rrs ?? NEW_CODE,
+  ));
   const [problem, setProblem] = useState<string | null>(null);
   const [replacing, setReplacing] = useState(false);
   const [replaceWith, setReplaceWith] = useState('DNF');
@@ -417,8 +463,11 @@ function CodeEditor({
     setProblem(null);
   };
 
-  const candidate = codeOf(draft, builtIn);
-  const preview = typeof candidate === 'string' || !candidate.code ? null : ruleSentence(candidate);
+  const candidate = codeOf(draft, builtIn, highPoint);
+  const preview = typeof candidate === 'string' || !candidate.code ? null : ruleSentence(candidate, highPoint);
+  const points = highPoint && typeof candidate !== 'string' && candidate.code
+    ? highPointCodePreview(candidate, dnfScoring, scoringCodes, highPoint)
+    : null;
   const inUse = code !== null ? usage.get(code) : undefined;
   // Codes this one can score the same as: any other that replaces the result.
   const sameAsChoices = [
@@ -478,7 +527,7 @@ function CodeEditor({
           <p className="font-medium">
             <span className="font-mono">{code}</span> {getCodeDefinition(code)!.name}
           </p>
-          <p className={hint}>RRS: {ruleSentence(rrs)}</p>
+          <p className={hint}>{highPoint ? 'Default' : 'RRS'}: {ruleSentence(rrs, highPoint)}</p>
         </div>
       ) : (
         <>
@@ -505,7 +554,7 @@ function CodeEditor({
           </label>
           <fieldset className="space-y-1">
             <legend className="font-medium">The code</legend>
-            {(['replace', 'add'] as const).map((kind) => (
+            {(highPoint ? (['replace'] as const) : (['replace', 'add'] as const)).map((kind) => (
               <label key={kind} className="flex items-center gap-2">
                 <input
                   type="radio"
@@ -528,6 +577,17 @@ function CodeEditor({
         <legend className="font-medium">Points</legend>
         {draft.kind === 'replace' ? (
           <>
+            {highPoint ? (
+              <label className="flex flex-wrap items-center gap-2">
+                <input
+                  type="radio"
+                  name="code-method"
+                  checked={draft.method === 'placeAfter'}
+                  onChange={() => { set('method', 'placeAfter'); set('plus', '1'); }}
+                />
+                Points for the place after the last boat
+              </label>
+            ) : (
             <label className="flex flex-wrap items-center gap-2">
               <input type="radio" name="code-method" checked={draft.method === 'placeAfter'} onChange={() => set('method', 'placeAfter')} />
               One place after
@@ -550,6 +610,7 @@ function CodeEditor({
                 aria-label="Places to add"
               />
             </label>
+            )}
             <label className="flex flex-wrap items-center gap-2">
               <input type="radio" name="code-method" checked={draft.method === 'sameAs'} onChange={() => set('method', 'sameAs')} />
               The same as
@@ -574,10 +635,26 @@ function CodeEditor({
               />
               points
             </label>
-            {draft.method !== 'sameAs' && (
+            {draft.method !== 'sameAs' && !highPoint && (
               <label className="flex items-center gap-2">
                 <input type="checkbox" checked={draft.capAtDnf} onChange={(e) => set('capAtDnf', e.target.checked)} />
                 No more than DNF scores
+              </label>
+            )}
+            {highPoint && (
+              <label className="flex items-start gap-2">
+                <input
+                  type="checkbox"
+                  checked={draft.countsInFleetSize}
+                  onChange={(e) => set('countsInFleetSize', e.target.checked)}
+                  className="mt-1"
+                />
+                <span>
+                  Counts toward the fleet size
+                  <span className={`block ${hint}`}>
+                    A boat with this code is one of the boats in the race, so every boat placed ahead of her beats her.
+                  </span>
+                </span>
               </label>
             )}
           </>
@@ -620,7 +697,10 @@ function CodeEditor({
       </fieldset>
 
       {preview && (
-        <p className="rounded-md border bg-muted/40 p-3" data-testid="code-sentence">{preview}</p>
+        <p className="rounded-md border bg-muted/40 p-3" data-testid="code-sentence">
+          {preview}
+          {points !== null ? ` In a 10-boat race at a weight of 1: ${points} points.` : ''}
+        </p>
       )}
 
       {inUse && (
@@ -657,7 +737,7 @@ function CodeEditor({
               disabled={saving}
               onClick={() => void onSave(scoringCodes.filter((c) => c.code !== code))}
             >
-              Reset to the RRS
+              Reset to {highPoint ? 'the default' : 'the RRS'}
             </Button>
           ) : <span />
         ) : code !== null ? (

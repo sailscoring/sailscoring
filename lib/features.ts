@@ -420,6 +420,19 @@ export const FEATURES = {
     label: 'Alternative discard rules',
     helpSectionIds: [],
   },
+  'high-point-scoring': {
+    // High-point scoring: the Scoring card's choice of low point (RRS
+    // Appendix A) or high point, boats beaten or CHIPS3, with the point for
+    // coming to the start; and the scoring codes dialog's fleet-size column.
+    // Operator-managed while ISORA and Bray SC are the only series that score
+    // this way. Only authoring is gated: the engine, the series file and the
+    // public export carry the system regardless, so a high-point series
+    // scores and publishes the same with the gate off, and its Scoring card
+    // states the system rather than offering the choice.
+    label: 'High-point scoring',
+    helpSectionIds: ['high-point-scoring'],
+    selfService: false,
+  },
   'connected-apps': {
     // Outside apps acting for a workspace's members (ADR-016): a member can
     // grant an app access to this workspace through the OAuth consent flow

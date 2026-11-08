@@ -1,5 +1,6 @@
 'use client';
 
+import { pointsSystemFields } from '@/lib/high-point';
 import { use, useState, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useIsMutating } from '@tanstack/react-query';
@@ -559,7 +560,7 @@ export default function ResultEntryPage({
           patchCache={patchCache}
           saveFinish={saveFinish}
           leave={leave}
-          seriesScoring={series ? { dnfScoring: series.dnfScoring, scoringCodes: series.scoringCodes } : undefined}
+          seriesScoring={series ? { dnfScoring: series.dnfScoring, scoringCodes: series.scoringCodes, ...pointsSystemFields(series) } : undefined}
         />
         </div>
       )}

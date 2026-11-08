@@ -5,6 +5,7 @@ import {
   defaultEnabledCompetitorFields,
 } from '@/lib/competitor-fields';
 import { summarizeDiscardRules } from '@/lib/discard-rules';
+import { highPointOf, pointsSystemSummary } from '@/lib/high-point';
 import { dncScoredAsDnf } from '@/lib/scoring-codes';
 import type { Fleet, Series } from '@/lib/types';
 
@@ -34,8 +35,9 @@ export function SpectatorSettings({
           ? 'Handicap (time-corrected)'
           : 'Scratch (position-based)',
     },
+    { label: 'Points', value: `${pointsSystemSummary(series)}${highPointOf(series) ? ': the highest total wins' : ''}` },
     { label: 'Discards', value: discardsLabel(series) },
-    { label: 'Non-finishers', value: dnfLabel(series) },
+    ...(highPointOf(series) ? [] : [{ label: 'Non-finishers', value: dnfLabel(series) }]),
     ...(series.protestTimeLimit
       ? [
           {

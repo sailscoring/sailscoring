@@ -1,5 +1,6 @@
 'use client';
 
+import { pointsSystemFields } from '@/lib/high-point';
 import { useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
@@ -323,7 +324,7 @@ function RaceRecording({ dated, userId, onBack }: { dated: DatedRace; userId: st
             patchCache={patchCache}
             saveFinish={KEPT_IN_THE_DRAFT}
             leave={onBack}
-            seriesScoring={series ? { dnfScoring: series.dnfScoring, scoringCodes: series.scoringCodes } : undefined}
+            seriesScoring={series ? { dnfScoring: series.dnfScoring, scoringCodes: series.scoringCodes, ...pointsSystemFields(series) } : undefined}
           />
         </div>
       )}

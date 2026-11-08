@@ -391,6 +391,12 @@ export function getCodeDefinition(code: string): ScoringCodeDefinition | undefin
   return BUILT_IN_MAP.get(code);
 }
 
+/** A built-in code as a high-point series scores it before changing it:
+ *  its points and whether it counts toward the fleet size. */
+export function highPointCodeDefinition(code: string, hp: HighPointScoring): ScoringCodeDefinition | undefined {
+  return highPointBuiltIns(hp).find((d) => d.code === code);
+}
+
 /**
  * The points method a finish's additive penalty is scored by. An SCP stated
  * in points — rule 44.3(c)'s main form, "made worse by the number of points

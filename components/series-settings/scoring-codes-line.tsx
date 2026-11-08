@@ -5,6 +5,7 @@ import { useFeatures } from '@/components/features-provider';
 import { ScoringCodesDialog } from '@/components/series-settings/scoring-codes-dialog';
 import { codesSummary, codesSummaryText } from '@/lib/scoring-codes-text';
 import type { DnfScoring, SeriesScoringCode } from '@/lib/types';
+import type { HighPointScoring } from '@/lib/high-point';
 
 /**
  * Where the Scoring codes dialog starts: one line under a card's A5 choice.
@@ -17,21 +18,26 @@ export function ScoringCodesLine({
   seriesId,
   dnfScoring,
   scoringCodes = [],
+  highPoint,
 }: {
   seriesId: string;
   dnfScoring: DnfScoring;
   scoringCodes?: readonly SeriesScoringCode[];
+  /** A high-point series measures its codes against the high-point
+   *  defaults, not the RRS. */
+  highPoint?: HighPointScoring;
 }) {
   const { has } = useFeatures();
   const [open, setOpen] = useState(false);
-  const summary = codesSummary(dnfScoring, scoringCodes);
+  const summary = codesSummary(dnfScoring, scoringCodes, highPoint);
+  const standard = highPoint ? 'the high-point defaults' : 'the RRS';
   const changes = summary.added.length + summary.changed.length;
 
   if (!has('custom-scoring-codes')) {
     if (changes === 0) return null;
     return (
       <p className="text-xs text-muted-foreground" data-testid="scoring-codes-line">
-        This series scores {changes === 1 ? '1 code' : `${changes} codes`} differently from the RRS (
+        This series scores {changes === 1 ? '1 code' : `${changes} codes`} differently from {standard} (
         {[...summary.added, ...summary.changed].join(', ')}). Turn on{' '}
         <strong className="text-foreground">Custom scoring codes</strong> in Workspace settings to edit them.
       </p>
@@ -47,7 +53,7 @@ export function ScoringCodesLine({
     <div className="space-y-0.5 text-sm" data-testid="scoring-codes-line">
       {changes === 0 ? (
         <>
-          <p>Scoring codes: as RRS Appendix A</p>
+          <p>Scoring codes: {highPoint ? 'high-point defaults' : 'as RRS Appendix A'}</p>
           <p className="text-xs text-muted-foreground">
             Do your sailing instructions add a code, or score one differently?{' '}
             <button type="button" className="underline hover:text-foreground" onClick={() => setOpen(true)}>
@@ -57,7 +63,7 @@ export function ScoringCodesLine({
         </>
       ) : (
         <p>
-          Scoring codes: {counts} from the RRS ({codesSummaryText(summary)}) —{' '}
+          Scoring codes: {counts} from {standard} ({codesSummaryText(summary)}) —{' '}
           <button type="button" className="underline" onClick={() => setOpen(true)}>
             Edit scoring codes…
           </button>
@@ -69,6 +75,7 @@ export function ScoringCodesLine({
         seriesId={seriesId}
         dnfScoring={dnfScoring}
         scoringCodes={scoringCodes}
+        highPoint={highPoint}
       />
     </div>
   );

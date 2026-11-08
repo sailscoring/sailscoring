@@ -18,8 +18,10 @@ import { AutosaveNote } from '@/components/series-settings/autosave-note';
 import { ScoringCodesLine } from '@/components/series-settings/scoring-codes-line';
 import { codesSummary, codesSummaryText } from '@/lib/scoring-codes-text';
 import { useSettingsAutosave } from '@/hooks/use-settings-autosave';
+import { PointsSystemSection } from '@/components/series-settings/points-system-section';
+import { highPointOf, pointsSystemFields, pointsSystemSummary, type PointsSystemFields } from '@/lib/high-point';
 
-export type ScoringValues = Pick<Series, 'discardThresholds' | 'proportionalDiscard' | 'countBest' | 'dnfScoring' | 'excludeDncOnlyCompetitors' | 'scoringCodes'>;
+export type ScoringValues = Pick<Series, 'discardThresholds' | 'proportionalDiscard' | 'countBest' | 'dnfScoring' | 'excludeDncOnlyCompetitors' | 'scoringCodes' | 'pointsSystem' | 'highPointFormula' | 'pointForComingToStart'>;
 
 /** What a scorer gets on switching to a proportional rule: one discard per
  *  three races sailed, the commonest wording found in club sailing
@@ -70,6 +72,9 @@ export function ScoringCard({ value, onChange, seriesId, mode = 'settings', race
   const [countBest, setCountBest] = useState<number | undefined>(value.countBest);
   const [dnfScoring, setDnfScoring] = useState<Series['dnfScoring']>(value.dnfScoring ?? 'seriesEntries');
   const [excludeDncOnly, setExcludeDncOnly] = useState(value.excludeDncOnlyCompetitors ?? false);
+  const [points, setPoints] = useState<PointsSystemFields>(pointsSystemFields(value));
+  const [codes, setCodes] = useState(value.scoringCodes ?? []);
+  const highPointAllowed = has('high-point-scoring');
   const autosave = useSettingsAutosave<ScoringValues>({ save: onChange });
 
   // Re-sync the local draft when the persisted value changes identity (e.g.
@@ -90,7 +95,11 @@ export function ScoringCard({ value, onChange, seriesId, mode = 'settings', race
       setCountBest(value.countBest);
       setDnfScoring(value.dnfScoring ?? 'seriesEntries');
       setExcludeDncOnly(value.excludeDncOnlyCompetitors ?? false);
+      setPoints(pointsSystemFields(value));
     }
+    // The codes are changed in their own dialog, which saves directly, so
+    // they follow the series whether or not the card is open.
+    setCodes(value.scoringCodes ?? []);
   }
 
   // Wizard-mode autosave fires onChange without awaiting (the input mustn't
@@ -152,6 +161,15 @@ export function ScoringCard({ value, onChange, seriesId, mode = 'settings', race
     setDnfScoring(next);
     if (isWizard) fireWizardSave({ dnfScoring: next });
     else autosave.commit({ dnfScoring: next });
+  }
+
+  /** A choice of points system goes on the spot, with the built-in codes
+   *  reset when it changes their defaults. */
+  function updatePoints(patch: PointsSystemFields & { scoringCodes?: Series['scoringCodes'] }) {
+    setPoints(pointsSystemFields(patch));
+    if (patch.scoringCodes) setCodes(patch.scoringCodes);
+    if (isWizard) fireWizardSave(patch);
+    else autosave.commit(patch);
   }
 
   function updateExcludeDncOnly(next: boolean) {
@@ -364,8 +382,24 @@ export function ScoringCard({ value, onChange, seriesId, mode = 'settings', race
     </>
   );
 
+  const pointsChoice = (
+    <PointsSystemSection
+      value={points}
+      dnfScoring={dnfScoring}
+      scoringCodes={codes}
+      hasRaces={!isWizard && raceCount > 0}
+      allowed={highPointAllowed}
+      onChange={updatePoints}
+    />
+  );
+  const highPoint = highPointOf(points);
+
+  // A5.2 and A5.3 are low-point rules; in high point the code table says what
+  // each code scores.
   const dnfRadios = (
     <div className="space-y-2 pt-1">
+      {!highPoint && (
+      <>
       <Label>DNF/DNS scoring (RRS A5)</Label>
       <label className="flex items-start gap-3 cursor-pointer">
         <input
@@ -396,6 +430,8 @@ export function ScoringCard({ value, onChange, seriesId, mode = 'settings', race
           </p>
         </div>
       </label>
+      </>
+      )}
       <label className="flex items-start gap-3 cursor-pointer pt-2">
         <input
           type="checkbox"
@@ -419,6 +455,7 @@ export function ScoringCard({ value, onChange, seriesId, mode = 'settings', race
   if (isWizard) {
     return (
       <div className="space-y-4">
+        {pointsChoice}
         {thresholdTable}
         {dnfRadios}
       </div>
@@ -426,13 +463,17 @@ export function ScoringCard({ value, onChange, seriesId, mode = 'settings', race
   }
 
   const dnfMode = value.dnfScoring ?? 'seriesEntries';
-  const dnfLabel = dnfMode === 'startingArea' ? 'DNF: starting area' : 'DNF: series entries';
+  const valueHighPoint = highPointOf(value);
+  // In high point the system leads; A5's DNF base means nothing there.
+  const dnfLabel = valueHighPoint
+    ? pointsSystemSummary(value)
+    : dnfMode === 'startingArea' ? 'DNF: starting area' : 'DNF: series entries';
   const discardSummary =
     lockedRuleSummary(value.countBest, value.proportionalDiscard)
     ?? summarizeDiscardRules(value.discardThresholds ?? []);
-  const codesText = codesSummaryText(codesSummary(dnfMode, value.scoringCodes));
+  const codesText = codesSummaryText(codesSummary(dnfMode, value.scoringCodes, valueHighPoint));
   const summary =
-    `${discardSummary} · ${dnfLabel}` +
+    (valueHighPoint ? `${dnfLabel} · ${discardSummary}` : `${discardSummary} · ${dnfLabel}`) +
     (value.excludeDncOnlyCompetitors ? ' · Rank only boats that took part' : '') +
     (codesText ? ` · Codes: ${codesText}` : '');
 
@@ -450,10 +491,11 @@ export function ScoringCard({ value, onChange, seriesId, mode = 'settings', race
         <p className="text-sm text-muted-foreground">{summary}</p>
       ) : (
         <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
+          {pointsChoice}
           {thresholdTable}
           {dnfRadios}
           {seriesId && (
-            <ScoringCodesLine seriesId={seriesId} dnfScoring={dnfMode} scoringCodes={value.scoringCodes} />
+            <ScoringCodesLine seriesId={seriesId} dnfScoring={dnfMode} scoringCodes={value.scoringCodes} highPoint={valueHighPoint} />
           )}
           <div className="flex items-center gap-3">
             <Button

@@ -205,3 +205,33 @@ describe('the series code table', () => {
     expect(['DNS', 'OCS'].map((c) => ch.countsInFleetSize(c))).toEqual([false, true]);
   });
 });
+
+describe('the scoring codes, as a high-point series reads them', () => {
+  it('lists the built-ins at their high-point defaults, with no codes that add', async () => {
+    const { codeRows, ruleShortText } = await import('@/lib/scoring-codes-text');
+    const rows = codeRows('seriesEntries', [], CHIPS3);
+    expect(rows.add).toEqual([]);
+    const byCode = new Map(rows.replace.map((r) => [r.code, r]));
+    expect(ruleShortText(byCode.get('DNF')!.scored, CHIPS3)).toBe('the place after the last');
+    expect(ruleShortText(byCode.get('DNS')!.scored, CHIPS3)).toBe('0 points · not in the fleet size');
+    expect(ruleShortText(byCode.get('OCS')!.scored, CHIPS3)).toBe('0 points');
+    expect([...byCode.values()].every((r) => r.status === 'rrs')).toBe(true);
+  });
+
+  it('marks a code changed when only its fleet-size answer differs', async () => {
+    const { codesSummary } = await import('@/lib/scoring-codes-text');
+    const dns: SeriesScoringCode = { code: 'DNS', kind: 'replace', rule: { type: 'fixedPoints', points: 0 }, discardable: true, countsInFleetSize: true };
+    expect(codesSummary('seriesEntries', [dns], CHIPS3)).toEqual({ added: [], changed: ['DNS'] });
+    expect(codesSummary('seriesEntries', [{ ...dns, countsInFleetSize: undefined }], CHIPS3)).toEqual({ added: [], changed: [] });
+  });
+
+  it('previews what a code scores in a 10-boat race', async () => {
+    const { highPointCodePreview, highPointPreview } = await import('@/lib/scoring-codes-text');
+    const dnf: SeriesScoringCode = { code: 'DNF', kind: 'replace', rule: { type: 'placeAfter', base: 'entries', plus: 1 }, discardable: true };
+    expect(highPointCodePreview(dnf, 'seriesEntries', [], CHIPS3)).toBe(20.3);
+    expect(highPointCodePreview(dnf, 'seriesEntries', [], HP_SCORING)).toBe(1);
+    expect(highPointPreview('seriesEntries', [], HP_SCORING)).toEqual({
+      sizes: [2, 5, 10, 20], first: [3, 6, 11, 21], last: [2, 2, 2, 2], dnf: [1, 1, 1, 1],
+    });
+  });
+});
