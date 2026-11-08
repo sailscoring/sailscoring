@@ -49,7 +49,7 @@ export function HighPointRaceLine({
   const caption = sizes.length === 1
     ? highPointRaceCaption(sizes[0].fleetSize, race.pointsMultiplier)
     : sizes.length > 1
-      ? `High point · ${sizes.map((s) => `${s.fleet.name}: ${s.fleetSize}`).join(', ')} boats in the race${race.pointsMultiplier != null && race.pointsMultiplier !== 1 ? ` · weight ${race.pointsMultiplier}` : ''}`
+      ? `High point · ${sizes.map((s) => `${s.fleet?.name ?? 'Other'}: ${s.fleetSize}`).join(', ')} boats in the race${race.pointsMultiplier != null && race.pointsMultiplier !== 1 ? ` · weight ${race.pointsMultiplier}` : ''}`
       : `High point · nothing scored yet${race.pointsMultiplier != null && race.pointsMultiplier !== 1 ? ` · weight ${race.pointsMultiplier}` : ''}`;
 
   return (

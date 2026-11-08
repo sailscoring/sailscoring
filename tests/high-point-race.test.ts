@@ -29,7 +29,12 @@ describe('a high-point race, for the scorer', () => {
 
   it('counts each fleet’s boats whose result counts toward its size', () => {
     const codes = buildCodeTable('seriesEntries', [DTP], { formula: 'chips3', pointForComingToStart: false });
-    expect(raceFleetSizes(fleets, boats, finishes, codes).map((e) => [e.fleet.name, e.fleetSize])).toEqual([['IRC 1', 2], ['IRC 2', 1]]);
+    expect(raceFleetSizes(fleets, boats, finishes, codes).map((e) => [e.fleet?.name, e.fleetSize])).toEqual([['IRC 1', 2], ['IRC 2', 1]]);
+  });
+
+  it('counts boats in no fleet together, as a quick series has none', () => {
+    const codes = buildCodeTable('seriesEntries', [DTP], { formula: 'chips3', pointForComingToStart: false });
+    expect(raceFleetSizes([], boats, finishes, codes)).toEqual([{ fleet: null, fleetSize: 3 }]);
   });
 
   it('offers the series’ own codes that count, and the boats with nothing recorded', () => {

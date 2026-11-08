@@ -8,24 +8,29 @@ import { CHANGEABLE_BUILT_IN_CODES, type ScoringCodeTable } from './scoring-code
 import type { Competitor, Finish, Fleet, SeriesScoringCode } from './types';
 
 /** Each fleet's n in a race: its boats with a row whose result counts
- *  toward the fleet size. Fleets with no boat in the race are left out. */
+ *  toward the fleet size. Fleets with no boat in the race are left out.
+ *  Boats in none of the series' fleets — a quick series has none — are
+ *  scored together, as the engine scores them, under a null fleet. */
 export function raceFleetSizes(
   fleets: readonly Fleet[],
   competitors: readonly Competitor[],
   finishes: readonly Finish[],
   codes: ScoringCodeTable,
-): { fleet: Fleet; fleetSize: number }[] {
+): { fleet: Fleet | null; fleetSize: number }[] {
   const counted = new Set(
     oneFinishPerCompetitor([...finishes])
       .filter((f) => f.competitorId !== null && (f.resultCode === null || codes.countsInFleetSize(f.resultCode)))
       .map((f) => f.competitorId as string),
   );
-  return [...fleets]
-    .sort((a, b) => a.displayOrder - b.displayOrder)
-    .map((fleet) => ({
-      fleet,
-      fleetSize: competitors.filter((c) => c.fleetIds.includes(fleet.id) && counted.has(c.id)).length,
-    }))
+  const known = new Set(fleets.map((f) => f.id));
+  const groups: { fleet: Fleet | null; boats: readonly Competitor[] }[] = [
+    ...[...fleets]
+      .sort((a, b) => a.displayOrder - b.displayOrder)
+      .map((fleet) => ({ fleet, boats: competitors.filter((c) => c.fleetIds.includes(fleet.id)) })),
+    { fleet: null, boats: competitors.filter((c) => !c.fleetIds.some((id) => known.has(id))) },
+  ];
+  return groups
+    .map(({ fleet, boats }) => ({ fleet, fleetSize: boats.filter((c) => counted.has(c.id)).length }))
     .filter((e) => e.fleetSize > 0);
 }
 
