@@ -116,7 +116,7 @@ ${notesHtml}${configHtml}${commentsHtml}
 // ─── Scratch / fleets / codes renderer (full series results layout) ─────────
 
 function generateScratchFixtureHtml(fixture: Fixture, yamlSource: string): string {
-  const { competitors: listed, fleets, races, finishes, discardThresholds, discardRule, codes, excludeDncOnlyCompetitors } = buildFixtureInputs(fixture);
+  const { competitors: listed, fleets, races, finishes, raceStarts, discardThresholds, discardRule, codes, excludeDncOnlyCompetitors } = buildFixtureInputs(fixture);
   // The per-race tables below score the entrants, as the engine does; a boat
   // excluded from the series — by the scorer or by the all-DNC rule — is on
   // the list but in no race.
@@ -127,7 +127,7 @@ function generateScratchFixtureHtml(fixture: Fixture, yamlSource: string): strin
   const preamble = buildPreamble(fixture, yamlSource);
 
   if (isMultiFleet) {
-    const { fleetStandings: fleetResults } = calculateFleetStandings(fleets, competitors, races, finishes, discardThresholds, codes, [], [], undefined, undefined, discardRule);
+    const { fleetStandings: fleetResults } = calculateFleetStandings(fleets, competitors, races, finishes, discardThresholds, codes, raceStarts, [], undefined, undefined, discardRule);
     const sections: string[] = [];
 
     for (const { fleet, standings } of fleetResults) {
@@ -171,12 +171,12 @@ function generateScratchFixtureHtml(fixture: Fixture, yamlSource: string): strin
     );
 
     function extractFleetContent(html: string): string {
-      const m = html.match(/<h2>[\s\S]*?(?=<p class="hardleft">)/);
+      const m = html.match(/<h2>[\s\S]*?(?=<p class="credit)/);
       return m ? m[0] : '';
     }
 
     const h2Idx = preambleInjected.indexOf('<h2>');
-    const footerIdx = preambleInjected.indexOf('<p class="hardleft">');
+    const footerIdx = preambleInjected.indexOf('<p class="credit');
     const shell = h2Idx >= 0 ? preambleInjected.slice(0, h2Idx) : preambleInjected;
     const footer = footerIdx >= 0 ? preambleInjected.slice(footerIdx) : '</body>\n</html>';
 
