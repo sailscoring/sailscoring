@@ -49,6 +49,15 @@ points = round( CHIPS3(place, n) × weight , 0.1 )          rounded once, half-u
 CHIPS3(p, n) = 95·[((n+1−p)/n)·(1 − 0.986682·e^(−0.1622·n)) + 0.81475·e^(−0.1622·n)] + 5
 ```
 
+CHIPS3 is Chipstead Sailing Club's formula. Its definition and history are in
+`reference-docs:scoring-systems/chips/`. The definition counts only starters in
+n, scores a retirement as the place after the last, and scores DNS, DNC and
+disqualifications (OCS included) 0. ISORA keeps the formula and DNC, scores DNF
+at a fixed value, and from 2025 counts the boats declared to race. Its NoR
+doesn't say what a disqualification scores. The definition's tie-break is the
+source of NoR 13.5's first step: every race score best to worst, "including if
+necessary any discarded scores", then the last race both boats sailed.
+
 | | 2024 | 2025 | 2026 |
 |---|---|---|---|
 | **n** (fleet size) | the starters — finishers and DNF; a DNS is left out | every boat with a result (the 2024 AGM's "all entered boats … not the number of starters") | every boat that declared it would race (NoR 13.2), non-starters scored DTP |

@@ -1375,7 +1375,7 @@ The research corrected two assumptions this entry made. ISORA's DNF is not "the
 points for last-plus-one" but a fixed value — 10 × weight in 2024 and 2025, 15 ×
 weight in 2026. And since 2025 the fleet size is the boats *entered* in the race,
 not the starters. The other members of the family — Cox-Sprague (RORC's) and
-Rinderle B (the Gulf of Maine Racing Association's) — would be further formulas
+Rinderle B (the Gulf of Maine Ocean Racing Association's) — would be further formulas
 under #745's points-system choice; build them only for a user.
 
 ### Configurable minimum-competitors-per-race rule
