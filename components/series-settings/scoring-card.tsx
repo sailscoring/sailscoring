@@ -6,13 +6,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
-  describeCountBest,
-  describeDiscardRules,
-  describeProportionalDiscard,
   summarizeCountBest,
   summarizeDiscardRules,
   summarizeProportionalDiscard,
 } from '@/lib/discard-rules';
+import { CountBestEditor, ProportionalRuleEditor, StepRulesEditor } from '@/components/series-settings/discard-editors';
 import { useFeatures } from '@/components/features-provider';
 import { AutosaveNote } from '@/components/series-settings/autosave-note';
 import { ScoringCodesLine } from '@/components/series-settings/scoring-codes-line';
@@ -150,13 +148,6 @@ export function ScoringCard({ value, onChange, seriesId, mode = 'settings', race
     else autosave.commit(patch);
   }
 
-  function updateProportionalField(field: keyof ProportionalDiscard, fieldValue: number) {
-    updateProportional(
-      { ...(proportional ?? DEFAULT_PROPORTIONAL), [field]: fieldValue },
-      { defer: true },
-    );
-  }
-
   function updateDnf(next: Series['dnfScoring']) {
     setDnfScoring(next);
     if (isWizard) fireWizardSave({ dnfScoring: next });
@@ -178,150 +169,13 @@ export function ScoringCard({ value, onChange, seriesId, mode = 'settings', race
     else autosave.commit({ excludeDncOnlyCompetitors: next });
   }
 
-  function updateThreshold(index: number, field: keyof DiscardThreshold, value: number) {
-    updateThresholds(
-      thresholds.map((t, i) => i === index ? { ...t, [field]: value } : t),
-      { defer: true },
-    );
-  }
-
-  function addThreshold() {
-    const maxMinRaces = thresholds.reduce((m, t) => Math.max(m, t.minRaces), 0);
-    const maxDiscardCount = thresholds.reduce((m, t) => Math.max(m, t.discardCount), 0);
-    updateThresholds([...thresholds, { minRaces: maxMinRaces + 1, discardCount: maxDiscardCount + 1 }]);
-  }
-
-  function removeThreshold(index: number) {
-    updateThresholds(thresholds.filter((_, i) => i !== index));
-  }
-
-
-
-  const described = describeDiscardRules(thresholds);
-  const describedProportional = proportional ? describeProportionalDiscard(proportional) : null;
   const discardMode: DiscardMode = countBest != null ? 'countBest' : proportional ? 'proportional' : 'steps';
-  const describedCountBest = countBest != null ? describeCountBest(countBest, raceCount) : null;
 
-  const stepRules = (
-    <>
-      {thresholds.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No discards configured.</p>
-      ) : (
-        <div className="space-y-2">
-          {thresholds.map((t, i) => (
-            <div key={i} className="space-y-1">
-              <div className="flex items-center gap-2 text-sm">
-                <span>With</span>
-                <Input
-                  type="number"
-                  min={1}
-                  aria-label={`Rule ${i + 1}: races sailed`}
-                  value={t.minRaces || ''}
-                  onChange={(e) => updateThreshold(i, 'minRaces', parseInt(e.target.value) || 0)}
-                  className="h-8 w-14 text-sm"
-                />
-                <span>{t.minRaces === 1 ? 'race sailed, exclude' : 'races sailed, exclude'}</span>
-                <Input
-                  type="number"
-                  min={0}
-                  aria-label={`Rule ${i + 1}: discards`}
-                  value={t.discardCount || ''}
-                  onChange={(e) => updateThreshold(i, 'discardCount', parseInt(e.target.value) || 0)}
-                  className="h-8 w-14 text-sm"
-                />
-                <span className="flex-1">{t.discardCount === 1 ? 'score' : 'scores'}</span>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  aria-label={`Remove rule ${i + 1}`}
-                  className="h-8 px-2 text-muted-foreground"
-                  onClick={() => removeThreshold(i)}
-                >
-                  ×
-                </Button>
-              </div>
-              {described[i].warnings.map((warning) => (
-                <p key={warning} className="text-xs text-amber-600 dark:text-amber-500">
-                  {warning}
-                </p>
-              ))}
-            </div>
-          ))}
-        </div>
-      )}
-      <div className="flex gap-2">
-        <Button type="button" variant="outline" size="sm" onClick={addThreshold}>
-          Add rule
-        </Button>
-      </div>
-    </>
-  );
-
+  const stepRules = <StepRulesEditor thresholds={thresholds} onChange={updateThresholds} />;
   const proportionalRule = (
-    <div className="space-y-1">
-      <div className="flex items-center gap-2 text-sm">
-        <span>One discard per</span>
-        <Input
-          type="number"
-          min={1}
-          aria-label="Races per discard"
-          value={proportional?.everyRaces || ''}
-          onChange={(e) => updateProportionalField('everyRaces', parseInt(e.target.value) || 0)}
-          className="h-8 w-14 text-sm"
-        />
-        <span>races sailed, from</span>
-        <Input
-          type="number"
-          min={1}
-          aria-label="Races before the first discard"
-          value={proportional?.firstAt || ''}
-          onChange={(e) => updateProportionalField('firstAt', parseInt(e.target.value) || 0)}
-          className="h-8 w-14 text-sm"
-        />
-        <span>races</span>
-      </div>
-      {/* Two numbers don't show where the allowance actually steps up, and with
-          no rows to read a range off that is the only check against the SI. */}
-      {describedProportional?.stepsLabel && (
-        <p className="text-xs text-muted-foreground">{describedProportional.stepsLabel}</p>
-      )}
-      {describedProportional?.warnings.map((warning) => (
-        <p key={warning} className="text-xs text-amber-600 dark:text-amber-500">
-          {warning}
-        </p>
-      ))}
-    </div>
+    <ProportionalRuleEditor rule={proportional ?? DEFAULT_PROPORTIONAL} onChange={updateProportional} />
   );
-
-  const countBestRule = (
-    <div className="space-y-1">
-      <div className="flex items-center gap-2 text-sm">
-        <span>Count the best</span>
-        <Input
-          type="number"
-          min={1}
-          aria-label="Races that count"
-          value={countBest || ''}
-          onChange={(e) => updateCountBest(parseInt(e.target.value) || 0)}
-          className="h-8 w-14 text-base md:text-sm"
-        />
-        <span>races</span>
-      </div>
-      {/* One number: what it gives this series is the check against the SI. */}
-      {describedCountBest?.preview && (
-        <p className="text-xs text-muted-foreground">{describedCountBest.preview}</p>
-      )}
-      {describedCountBest?.warnings.map((warning) => (
-        <p key={warning} className="text-xs text-amber-600 dark:text-amber-500">
-          {warning}
-        </p>
-      ))}
-      <p className="text-xs text-muted-foreground">
-        Each fleet discards the rest of the races it sailed.
-      </p>
-    </div>
-  );
+  const countBestRule = <CountBestEditor countBest={countBest ?? 0} raceCount={raceCount} onChange={updateCountBest} />;
 
   const lockedRule = lockedRuleSummary(countBest, proportional);
 

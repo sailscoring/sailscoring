@@ -1,4 +1,4 @@
-import type { DiscardThreshold, ProportionalDiscard } from './types';
+import type { DiscardRule, DiscardThreshold, ProportionalDiscard, SubSeriesDiscards } from './types';
 
 /**
  * Presentation helpers for the discard-rule editor.
@@ -202,7 +202,12 @@ function countBestLadder(countBest: number): number[] {
  * `raceCount` is the series' races. Each fleet's own allowance comes from the
  * races it sailed, which can be fewer; the preview speaks for the series.
  */
-export function describeCountBest(countBest: number, raceCount: number): DescribedCountBest {
+export function describeCountBest(
+  countBest: number,
+  raceCount: number,
+  /** What the races belong to, for the warning's words. */
+  scope: 'series' | 'sub-series' = 'series',
+): DescribedCountBest {
   if (countBest < 1) {
     return { preview: '', warnings: ['Enter how many races count — at least 1.'] };
   }
@@ -210,7 +215,7 @@ export function describeCountBest(countBest: number, raceCount: number): Describ
   const warnings: string[] = [];
   if (raceCount > 0 && countBest > raceCount) {
     warnings.push(
-      `The series has ${raceCount} ${plural(raceCount, 'race', 'races')}, so every race counts until it has more than ${countBest}.`,
+      `The ${scope} has ${raceCount} ${plural(raceCount, 'race', 'races')}, so every race counts until it has more than ${countBest}.`,
     );
   }
   if (raceCount === 0) {
@@ -231,4 +236,28 @@ export function describeCountBest(countBest: number, raceCount: number): Describ
 /** The collapsed-card line for a count-best rule. */
 export function summarizeCountBest(countBest: number): string {
   return `Best ${countBest} count`;
+}
+
+// ─── Whole rules ─────────────────────────────────────────────────────────────
+
+/** The one-line statement of whichever rule scores: a count-best or
+ *  proportional rule when there is one, else the threshold list. */
+export function summarizeDiscards(thresholds: DiscardThreshold[], rule: DiscardRule | undefined): string {
+  if (rule && 'countBest' in rule) return summarizeCountBest(rule.countBest);
+  if (rule) return summarizeProportionalDiscard(rule);
+  return summarizeDiscardRules(thresholds);
+}
+
+/** The one-line statement of a sub-series' own rule. */
+export function summarizeSubSeriesDiscards(discards: SubSeriesDiscards): string {
+  switch (discards.kind) {
+    case 'none':
+      return 'No discards';
+    case 'countBest':
+      return summarizeCountBest(discards.countBest);
+    case 'steps':
+      return summarizeDiscardRules(discards.thresholds);
+    case 'proportional':
+      return summarizeProportionalDiscard(discards);
+  }
 }

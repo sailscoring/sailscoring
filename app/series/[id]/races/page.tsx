@@ -71,7 +71,14 @@ import {
   totalRaces,
   type RaceDay,
 } from '@/lib/race-schedule';
-import { groupRacesBySubSeries } from '@/lib/scoring';
+import { discardRuleOf, groupRacesBySubSeries } from '@/lib/scoring';
+import { summarizeDiscards, summarizeSubSeriesDiscards } from '@/lib/discard-rules';
+import {
+  SubSeriesDiscardsSection,
+  subSeriesDiscardsDraft,
+  subSeriesDiscardsOfDraft,
+  type SubSeriesDiscardsDraft,
+} from '@/components/series-settings/sub-series-discards';
 import { RaceSenseImport, type RaceSenseImportHandle } from '@/components/racesense-import';
 import { ScheduleImport, type ScheduleImportHandle } from '@/components/schedule-import';
 import type { ImportedRace } from '@/lib/schedule-import';
@@ -454,6 +461,8 @@ export default function RacesPage({
   // Per-boat entry pins for this block. Written from the Standings tab; the
   // dialog lists them for review and lets one be removed.
   const [competitorOverrides, setCompetitorOverrides] = useState<CompetitorEntryOverride[]>([]);
+  // The sub-series' own discard rule, as drafted in the dialog.
+  const [discardsDraft, setDiscardsDraft] = useState<SubSeriesDiscardsDraft>(() => subSeriesDiscardsDraft(undefined, []));
   const [subSeriesError, setSubSeriesError] = useState('');
 
   // The last-finisher recency strip (results-status feature) needs the whole
@@ -963,6 +972,7 @@ export default function RacesPage({
     setCarryFromId('');
     setExcludeDncOnly(series?.excludeDncOnlyCompetitors ?? false);
     setCompetitorOverrides([]);
+    setDiscardsDraft(subSeriesDiscardsDraft(undefined, series?.discardThresholds ?? []));
     setSubSeriesError('');
     setShowSubSeriesDialog(true);
   }
@@ -978,6 +988,7 @@ export default function RacesPage({
     setCarryFromId(ss.startingHandicapSource === 'continue' ? ss.continueFromSubSeriesId ?? '' : '');
     setExcludeDncOnly(ss.excludeDncOnlyCompetitors ?? false);
     setCompetitorOverrides(ss.competitorOverrides ?? []);
+    setDiscardsDraft(subSeriesDiscardsDraft(ss.discards, series?.discardThresholds ?? []));
     setSubSeriesError('');
     setShowSubSeriesDialog(true);
   }
@@ -1016,6 +1027,11 @@ export default function RacesPage({
       setSubSeriesError('Enter a name for the sub-series.');
       return;
     }
+    const { discards, error: discardsError } = subSeriesDiscardsOfDraft(discardsDraft);
+    if (discardsError) {
+      setSubSeriesError(discardsError);
+      return;
+    }
     const raceIds = (races ?? []).filter((r) => selectedRaceIds.has(r.id)).map((r) => r.id);
     const startingHandicapSource = carryFromId ? ('continue' as const) : ('base' as const);
     const continueFromSubSeriesId = carryFromId || null;
@@ -1048,11 +1064,12 @@ export default function RacesPage({
         continueFromSubSeriesId,
         excludeDncOnlyCompetitors: excludeDncOnly,
         competitorOverrides,
+        discards,
       });
     } else {
       await createSubSeries.mutateAsync({
         seriesId,
-        input: { name, raceIds, fleetIds, raceFleetExclusions, startingHandicapSource, continueFromSubSeriesId, excludeDncOnlyCompetitors: excludeDncOnly, competitorOverrides },
+        input: { name, raceIds, fleetIds, raceFleetExclusions, startingHandicapSource, continueFromSubSeriesId, excludeDncOnlyCompetitors: excludeDncOnly, competitorOverrides, ...(discards ? { discards } : {}) },
       });
     }
     setShowSubSeriesDialog(false);
@@ -1175,6 +1192,7 @@ export default function RacesPage({
                 <span className="font-medium">{block.name}</span>
                 <span className="ml-2 text-xs text-muted-foreground">
                   {blockRaces.length} race{blockRaces.length === 1 ? '' : 's'}
+                  {block.discards && <> · {summarizeSubSeriesDiscards(block.discards)}</>}
                   {block.startingHandicapSource === 'continue' && block.continueFromSubSeriesId && (
                     <> · continues {subSeriesList?.find((s) => s.id === block.continueFromSubSeriesId)?.name ?? '—'}</>
                   )}
@@ -1612,6 +1630,13 @@ export default function RacesPage({
                 </div>
               </details>
             )}
+            <SubSeriesDiscardsSection
+              draft={discardsDraft}
+              onChange={(next) => { setDiscardsDraft(next); setSubSeriesError(''); }}
+              seriesSummary={summarizeDiscards(series?.discardThresholds ?? [], series ? discardRuleOf(series) : undefined)}
+              raceCount={selectedRaceIds.size}
+              alternativeAllowed={has('proportional-discards')}
+            />
             <div className="space-y-1.5">
               <Label htmlFor="carryFrom">Continue handicaps from</Label>
               <select
