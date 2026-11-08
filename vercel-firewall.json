@@ -40,6 +40,20 @@
       "action": { "mitigate": { "action": "bypass" } }
     },
     {
+      "name": "Bypass: signed-in app requests",
+      "description": "The app's own fetches to /api/v1 from a signed-in browser. A page load can pass the challenge; a fetch can't, so a flagged scorer's saves failed as 429s. A forged cookie only skips this check: the route still needs a session.",
+      "active": true,
+      "conditionGroup": [
+        {
+          "conditions": [
+            { "type": "path", "op": "pre", "value": "/api/v1/" },
+            { "type": "cookie", "op": "ex", "key": "__Secure-better-auth.session_token" }
+          ]
+        }
+      ],
+      "action": { "mitigate": { "action": "bypass" } }
+    },
+    {
       "name": "Bypass: OAuth endpoints apps and the CLI call",
       "description": "ADR-016: the token, revoke and device-code endpoints, OAuth discovery and the CLI's client-id lookup, called by app servers and `sailscoring auth login`, which can't answer Bot Protection's challenge.",
       "active": true,

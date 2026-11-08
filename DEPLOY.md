@@ -486,11 +486,18 @@ changes, which a replace would discard.
 **Bot Protection is on in challenge mode**, and AI bots are denied. Every
 request the managed rules flag gets Vercel's Security Checkpoint, a
 JavaScript challenge served as **HTTP 429** with `x-vercel-mitigated:
-challenge`. Browsers get through it, but no plain HTTP client can: curl,
-`fetch` from a server, a club's race-day app. Anything machine-readable that
-the app serves therefore needs a bypass rule. The current ones cover:
+challenge`. A browser passes it on a **page load** only. Nothing that reads
+the response as data can: curl, `fetch` from a server, a club's race-day app,
+and the app's own `fetch` calls from a signed-in browser too, which is why
+Bot Protection can flag a scorer partway through a session and their saves
+fail. So anything the app serves to something other than a page load needs
+a bypass rule. The current ones cover:
 
 - `/api/v1/*` with an `Authorization` header (the CLI and API-key clients)
+- `/api/v1/*` with the session cookie (the app itself, in the browser). A
+  forged cookie only skips the bot check: every route still needs a valid
+  session. If a challenge gets through anyway, `lib/api-client.ts` reports
+  it as a security check and asks the scorer to reload, not as a rate limit
 - `/api/cron/*` and `/api/health`
 - the published data files (`/p/**.sailscoring.json`) and indexes
   (`/p/**/index.json`)
