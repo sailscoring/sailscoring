@@ -32,6 +32,9 @@ export function RaceFleetsSection({
 }) {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  // The tick being saved shows as made at once, rather than waiting for the
+  // race to come back.
+  const [pending, setPending] = useState<{ competitorId: string; fleetId: string; inFleet: boolean } | null>(null);
   const fleetById = useMemo(() => new Map(fleets.map((f) => [f.id, f])), [fleets]);
   const ordered = useMemo(
     () => [...fleets].sort((a, b) => a.displayOrder - b.displayOrder || a.name.localeCompare(b.name)),
@@ -40,6 +43,10 @@ export function RaceFleetsSection({
 
   const rows = [...competitors].sort(bySailNumber).map((c) => {
     const inRace = new Set(fleetsInRace(c, race));
+    if (pending?.competitorId === c.id) {
+      if (pending.inFleet) inRace.add(pending.fleetId);
+      else inRace.delete(pending.fleetId);
+    }
     // The boat's series fleets, then any it was put in for this race only,
     // in the series' fleet order.
     const shown = ordered.filter((f) => c.fleetIds.includes(f.id) || inRace.has(f.id));
@@ -62,12 +69,14 @@ export function RaceFleetsSection({
   async function setInFleet(c: Competitor, fleetId: string, inFleet: boolean) {
     setError(null);
     setSaving(true);
+    setPending({ competitorId: c.id, fleetId, inFleet });
     try {
       await onSave(setFleetInRace(race.fleetChanges, c, fleetId, inFleet));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'The change could not be saved.');
     } finally {
       setSaving(false);
+      setPending(null);
     }
   }
 

@@ -1216,6 +1216,38 @@ const SHOTS: Shot[] = [
     },
   },
   {
+    // Inventory: Race-by-race fleets — race 1's Ratings & fleets tab with one
+    // boat's second fleet unticked for the race. The tick is put back after
+    // the shot, so the demo series scores as before.
+    slug: 'race-by-race-fleets',
+    group: 'Running a series',
+    async capture({ page, seriesId, shot }) {
+      await ensureFeature(page, 'race-fleet-membership');
+      await openRace(page, await seriesId(), 1);
+      await page.getByRole('button', { name: /^(Ratings & fleets|Fleets)$/ }).click();
+      const section = page.getByTestId('race-fleets');
+      await section.waitFor();
+      // The first boat in two fleets: untick the second.
+      const rows = section.locator('li');
+      let box = null;
+      for (let i = 0; i < (await rows.count()); i++) {
+        const boxes = rows.nth(i).getByRole('checkbox');
+        if ((await boxes.count()) >= 2) {
+          box = boxes.nth(1);
+          break;
+        }
+      }
+      if (!box) throw new Error('No boat in two fleets on race 1');
+      await box.uncheck();
+      await section.getByText(/in this race: \d+ of \d+ boats/).waitFor();
+      await settle(page);
+      await scrollTo(section);
+      await shot('race-by-race-fleets.png');
+      await box.check();
+      await section.getByText(/in this race: \d+ of \d+ boats/).waitFor({ state: 'hidden' });
+    },
+  },
+  {
     // Inventory: Bulk clean-up — Set field over a header-checkbox selection.
     slug: 'bulk-cleanup',
     group: 'Running a series',

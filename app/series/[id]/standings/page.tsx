@@ -481,7 +481,7 @@ export default function StandingsPage({
         );
         const isRealFleet = fleet.id !== '__unknown__';
         return (
-          <div key={fleet.id} className="space-y-2">
+          <div key={fleet.id} className="space-y-2" data-testid="fleet-standings">
             {!isSingleFleet && (
               <h3 className="text-sm font-semibold pt-2">
                 {fleet.name}

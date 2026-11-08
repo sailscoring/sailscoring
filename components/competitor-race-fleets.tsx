@@ -31,6 +31,8 @@ export function CompetitorRaceFleets({
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The ticks being saved, shown as made at once: race id → its new changes.
+  const [pending, setPending] = useState<Map<string, Race['fleetChanges']>>(new Map());
   const ordered = useMemo(() => [...races].sort((a, b) => a.raceNumber - b.raceNumber), [races]);
   const [fromRaceId, setFromRaceId] = useState('');
   const [outOf, setOutOf] = useState('');
@@ -41,12 +43,14 @@ export function CompetitorRaceFleets({
   async function save(updates: { race: Race; fleetChanges: Race['fleetChanges'] }[]) {
     setError(null);
     setBusy(true);
+    setPending(new Map(updates.map((u) => [u.race.id, u.fleetChanges])));
     try {
       for (const { race, fleetChanges } of updates) await saveRace.mutateAsync({ ...race, fleetChanges });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'The change could not be saved.');
     } finally {
       setBusy(false);
+      setPending(new Map());
     }
   }
 
@@ -100,7 +104,8 @@ export function CompetitorRaceFleets({
               </thead>
               <tbody>
                 {ordered.map((race) => {
-                  const inRace = new Set(fleetsInRace(competitor, race));
+                  const shown = pending.has(race.id) ? { fleetChanges: pending.get(race.id) } : race;
+                  const inRace = new Set(fleetsInRace(competitor, shown));
                   return (
                     <tr key={race.id} className="border-t">
                       <td className="py-1 pr-3 whitespace-nowrap">{raceLabel(race)}</td>

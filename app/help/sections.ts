@@ -45,6 +45,7 @@ export const HELP_GROUPS: HelpGroupDef[] = [
       { id: 'fleets', title: 'Fleets', keywords: ['class', 'division', 'group', 'split the entry', 'multi-fleet', 'one design'] },
       { id: 'start-sequences', title: 'Start sequences', keywords: ['gun', 'start time', 'sequence', 'warning signal', 'starting order'] },
       { id: 'race-fleets', title: 'Which fleets are in a race', keywords: ['start', 'which classes raced', 'membership', 'sat out', 'did not sail'] },
+      { id: 'race-by-race-fleets', title: 'Boats that race in a fleet for some races only', feature: 'race-fleet-membership', keywords: ['two-handed', 'double handed', 'crewed', 'alias', 're-class', 'reclassify', 'change class', 'division', 'race by race', 'fleet for one race'] },
       { id: 'adding-races', title: 'Adding races', keywords: ['race day', 'add race', 'calendar', 'schedule', 'bulk', 'generate races'] },
       { id: 'importing-a-schedule', title: 'Importing a race schedule', feature: 'schedule-import', keywords: ['schedule', 'calendar', 'programme', 'timetable', 'csv', 'excel', 'spreadsheet', 'start times', 'import races'] },
       { id: 'race-management-metadata', title: 'Race conditions and the management team', feature: 'race-management-metadata', keywords: ['race officer', 'pro', 'officer of the day', 'ood', 'conditions', 'wind', 'jury', 'officials'] },

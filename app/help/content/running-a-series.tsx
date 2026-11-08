@@ -514,6 +514,48 @@ export default function RunningASeries() {
           that offer is the whole fix.
         </p>
       </Section>
+      {has('race-fleet-membership') && (
+        <Section id="race-by-race-fleets" title="Boats that race in a fleet for some races only">
+          <HelpShot
+            src="/help/shots/race-by-race-fleets.webp"
+            alt="A race's Ratings & fleets tab: one boat's second fleet unticked for the race, and the fleet's count for it."
+            caption="Out of one of its fleets for this race: it takes no place in that fleet's race."
+          />
+          <p>
+            A boat’s fleets are set for the whole series, but some divisions are joined race by
+            race. A two-handed class inside IRC takes the boats sailing two-handed that day; the
+            same boat sails the next race fully crewed and is in the IRC fleets only. A boat
+            re-classed mid-season moves class from the race its new certificate took effect.
+          </p>
+          <p>
+            On the race, open <strong className="text-foreground">Ratings &amp; fleets</strong>{' '}
+            (<strong className="text-foreground">Fleets</strong> in a scratch series). Under{' '}
+            <strong className="text-foreground">Fleets in this race</strong> each boat has a box
+            for each of its fleets: untick one for a boat that isn’t in that fleet this race, or use{' '}
+            <strong className="text-foreground">+ fleet</strong> to put it in another fleet for this
+            race only. On the finish sheet the same change is on a finished boat’s row menu —{' '}
+            <strong className="text-foreground">Not in Two-Handed this race</strong> — and a fleet
+            the boat is out of shows struck through beside its name. To re-class a boat, open it on
+            the <strong className="text-foreground">Competitors</strong> tab and use{' '}
+            <strong className="text-foreground">Changes by race…</strong> under its fleets: a grid of
+            every race, and <strong className="text-foreground">From race … on</strong> to move it
+            out of one fleet and into another for the rest of the series.
+          </p>
+          <p>
+            The boat’s finish is entered once and scores in every fleet it was in. In a fleet it was
+            out of for the race, it is not in that fleet’s race at all: it takes no place, the boats
+            behind it move up, and it doesn’t count towards the fleet’s numbers — in high point, the
+            boats in the race. It is still one of the fleet’s entries, and scores the race as a boat
+            that didn’t come to the start does: no points in high point, entries + 1 in low point.
+            Its cell shows the points with a dash, and a line under the table explains it. A boat
+            that raced in a fleet for some races only has a marker by its sail number saying how many.
+          </p>
+          <p>
+            Sailwave can only do this with a second competitor record, an alias, whose results are
+            entered separately; here there is one boat and one finish, so the fleets can’t disagree.
+          </p>
+        </Section>
+      )}
       <Section id="adding-races" title="Adding races">
         <HelpShot
           src="/help/shots/add-races-bulk.webp"
