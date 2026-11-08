@@ -87,6 +87,11 @@ export default function ScoringCorrectness() {
             <h3 className="text-base font-medium text-foreground pt-2">
               Counting the best races
             </h3>
+            <HelpShot
+              src="/help/shots/count-best-discards.webp"
+              alt="The Scoring card counting the best 4 races, with what that gives the series' 6 races."
+              caption="Count the best races: one number, and what it gives the series as it stands."
+            />
             <p>
               Many sailing instructions say how many races <em>count</em> rather than how many are
               discarded — <em>“the best 5 results out of all sailed races”</em>. Sailwave writes it

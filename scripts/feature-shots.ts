@@ -1352,6 +1352,27 @@ const SHOTS: Shot[] = [
     },
   },
   {
+    // Inventory: Count the best races — the mode with its readback of what the
+    // rule gives the demo series' races. Choosing a mode saves it, so the card
+    // goes back to the step rules the sample carries before the next shot.
+    slug: 'count-best-discards',
+    group: 'Scoring correctness',
+    async capture({ page, seriesId, shot }) {
+      await ensureFeature(page, 'proportional-discards');
+      await page.goto(`${BASE}/series/${await seriesId()}/settings`);
+      await settle(page);
+      const heading = page.getByRole('heading', { name: 'Scoring', exact: true });
+      await heading.locator('..').getByRole('button', { name: 'Edit ▸' }).click();
+      await page.getByRole('radio', { name: 'Count the best races' }).check();
+      await page.getByLabel('Races that count').fill('4');
+      await page.getByText(/^With \d+ races?:/).waitFor();
+      await scrollTo(page.getByText('Scoring', { exact: true }).first());
+      await shot('count-best-discards.png');
+      await page.getByRole('radio', { name: 'A rule per step' }).check();
+      await page.getByRole('button', { name: 'Done', exact: true }).click();
+    },
+  },
+  {
     // Inventory: ECHO — the Update-handicaps dialog on the Irish Sailing
     // national list, previewed only. Needs network.
     slug: 'update-handicaps-echo',
