@@ -622,6 +622,7 @@ export function createSubSeries(
     continueFromSubSeriesId?: string | null;
     excludeDncOnlyCompetitors?: boolean;
     competitorOverrides?: { competitorId: string; status: 'included' | 'excluded' }[];
+    discards?: SubSeries['discards'];
   },
 ): Promise<SubSeries> {
   return apiFetch<SubSeries>(`/api/v1/series/${seriesId}/sub-series`, {

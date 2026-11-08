@@ -4,6 +4,7 @@ import type {
   ResultCode,
   PenaltyCode,
   DiscardThreshold,
+  SubSeriesDiscards,
   ProportionalDiscard,
   DnfScoring,
   HighPointFormula,
@@ -661,9 +662,14 @@ export interface SeriesFileRepos {
  *  v78 adds high-point scoring: `series.pointsSystem`, `highPointFormula` and
  *  `pointForComingToStart`, and `countsInFleetSize` on a scoring code. Sparse;
  *  absent is low point. An older build would score a high-point series low
- *  point, ranking it upside down, hence a bump (ADR-013). */
-export const FORMAT_VERSION = 78;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78];
+ *  point, ranking it upside down, hence a bump (ADR-013).
+ *
+ *  v79 adds `subSeries[*].discards`: a sub-series' own discard rule (none,
+ *  the best N races, a threshold list or a proportional allowance) in place
+ *  of the series'. Sparse; absent is the series' rule. An older build would
+ *  score the sub-series with the series' rule, hence a bump. */
+export const FORMAT_VERSION = 79;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -943,6 +949,8 @@ interface SeriesFileSubSeries {
   excludeDncOnlyCompetitors?: boolean;
   // v44: per-boat entry pins for this block (absent = none).
   competitorOverrides?: { competitorId: string; status: 'included' | 'excluded' }[];
+  // v79: the sub-series' own discard rule (absent = the series').
+  discards?: SubSeriesDiscards;
 }
 
 interface SeriesFileTcfRecord {
@@ -1261,6 +1269,7 @@ export async function buildSeriesFile(
             ...(ss.competitorOverrides && ss.competitorOverrides.length > 0
               ? { competitorOverrides: ss.competitorOverrides }
               : {}),
+            ...(ss.discards ? { discards: ss.discards } : {}),
           })),
         }
       : {}),
@@ -2491,6 +2500,7 @@ async function writeFleetsCompetitorsRaces(
         startingHandicapSource: ss.startingHandicapSource,
         excludeDncOnlyCompetitors: ss.excludeDncOnlyCompetitors ?? false,
         ...(overrides.length > 0 ? { competitorOverrides: overrides } : {}),
+        ...(ss.discards ? { discards: ss.discards } : {}),
       };
     };
     await repos.subSeriesRepo.saveMany(file.subSeries.map(toRow));

@@ -260,6 +260,7 @@ function subSeriesRowToType(
     continueFromSubSeriesId: row.continueFromSubSeriesId,
     excludeDncOnlyCompetitors: row.excludeDncOnlyCompetitors,
     ...(row.competitorOverrides?.length ? { competitorOverrides: row.competitorOverrides } : {}),
+    ...(row.discards ? { discards: row.discards } : {}),
     version: row.version,
   };
 }
@@ -1625,12 +1626,13 @@ function subSeriesToRow(s: SubSeries, workspaceId: string) {
     continueFromSubSeriesId: s.continueFromSubSeriesId ?? null,
     excludeDncOnlyCompetitors: s.excludeDncOnlyCompetitors ?? false,
     competitorOverrides: s.competitorOverrides?.length ? s.competitorOverrides : null,
+    discards: s.discards ?? null,
   };
 }
 
 const subSeriesUpdateColumns = [
   'name', 'displayOrder', 'fleetIds', 'startingHandicapSource', 'continueFromSubSeriesId',
-  'excludeDncOnlyCompetitors', 'competitorOverrides',
+  'excludeDncOnlyCompetitors', 'competitorOverrides', 'discards',
 ] as const satisfies readonly (keyof ReturnType<typeof subSeriesToRow>)[];
 
 export class PostgresSubSeriesRepository implements SubSeriesRepository {

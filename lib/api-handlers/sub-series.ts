@@ -139,6 +139,7 @@ export async function createSubSeries(
       excludeDncOnlyCompetitors:
         input.excludeDncOnlyCompetitors ?? parentSeries?.excludeDncOnlyCompetitors ?? false,
       ...(competitorOverrides ? { competitorOverrides } : {}),
+      ...(input.discards ? { discards: input.discards } : {}),
     },
     { updatedBy: workspace.userId },
   );
@@ -236,7 +237,9 @@ function describeSubSeriesChange(
     (list ?? []).map((o) => `${o.competitorId}:${o.status}`).sort().join(',');
 
   let detail = 'Updated';
-  if (overrideKey(existing.competitorOverrides) !== overrideKey(saved.competitorOverrides)) {
+  if (JSON.stringify(existing.discards ?? null) !== JSON.stringify(saved.discards ?? null)) {
+    detail = 'Updated discards for';
+  } else if (overrideKey(existing.competitorOverrides) !== overrideKey(saved.competitorOverrides)) {
     detail = 'Updated entries in';
   } else if (exclusionKey(existing.raceFleetExclusions) !== exclusionKey(saved.raceFleetExclusions)) {
     detail = 'Updated race exclusions for';

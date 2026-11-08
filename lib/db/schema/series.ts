@@ -27,6 +27,7 @@ const bytea = customType<{ data: Buffer; default: false }>({
 import { organization } from './auth';
 import type {
   CompetitorEntryOverride,
+  SubSeriesDiscards,
   CompetitorFieldKey,
   CustomField,
   MultiPersonFieldKey,
@@ -908,6 +909,9 @@ export const subSeries = pgTable(
     // pairs, 'included' or 'excluded' (see CompetitorEntryOverride). JSONB,
     // sparse and never queried by content, like race_fleet_exclusions.
     competitorOverrides: jsonb('competitor_overrides').$type<CompetitorEntryOverride[]>(),
+    // The sub-series' own discard rule (SubSeriesDiscards). Null means the
+    // series' rule. JSONB: one tagged value, validated at the API boundary.
+    discards: jsonb('discards').$type<SubSeriesDiscards>(),
     version: versionCol,
     updatedAt: updatedAtCol,
     updatedBy: updatedByCol,

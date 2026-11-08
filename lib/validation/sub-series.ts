@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { SubSeries } from '@/lib/types';
 
 import { uuidSchema, versionSchema } from './common';
+import { subSeriesDiscardsSchema } from './series';
 
 const subSeriesNameSchema = z.string().trim().min(1).max(80);
 
@@ -29,6 +30,8 @@ export const subSeriesSchema = z.object({
   continueFromSubSeriesId: uuidSchema.nullish(),
   excludeDncOnlyCompetitors: z.boolean().optional(),
   competitorOverrides: z.array(competitorEntryOverrideSchema).optional(),
+  // Absent = the series' discard rule.
+  discards: subSeriesDiscardsSchema.optional(),
   version: versionSchema,
 });
 
@@ -46,6 +49,7 @@ export const subSeriesCreateInputSchema = z.object({
   continueFromSubSeriesId: uuidSchema.nullish(),
   excludeDncOnlyCompetitors: z.boolean().optional(),
   competitorOverrides: z.array(competitorEntryOverrideSchema).optional(),
+  discards: subSeriesDiscardsSchema.optional(),
 });
 
 export const subSeriesInputSchema = subSeriesSchema.extend({

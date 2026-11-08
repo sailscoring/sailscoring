@@ -4,6 +4,7 @@ import type {
   PenaltyCode,
   DiscardThreshold,
   ProportionalDiscard,
+  SubSeriesDiscards,
   DnfScoring,
   HighPointFormula,
   PointsSystem,
@@ -204,10 +205,11 @@ export interface PublicSeriesExport {
    *  series' custom scoring codes (`series.scoringCodes`); v15 adds
    *  `series.countBest`, the number of races that count; v16 adds high-point
    *  scoring (`series.pointsSystem`, `highPointFormula`,
-   *  `pointForComingToStart`, and a code's `countsInFleetSize`). Readers
+   *  `pointForComingToStart`, and a code's `countsInFleetSize`); v17 adds a
+   *  sub-series' own discard rule (`subSeries[*].discards`). Readers
    *  accept them all, bringing an older export's courses forward as they
    *  read it. */
-  version: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16;
+  version: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17;
   /** Where the format, and what a reader may rely on, is documented. Written
    *  into every export so a reader handed only the file can find the
    *  contract. Optional: exports written before it was added lack it. */
@@ -685,6 +687,9 @@ export interface PublicSeriesExport {
       fleetNames: string[];
       status: 'included' | 'excluded';
     }[];
+    /** The sub-series' own discard rule, in place of the series' (v17+).
+     *  Sparse — omitted when it takes the series' rule. */
+    discards?: SubSeriesDiscards;
   }[];
   /** Split-fleet championship state: the series' configuration and the
    *  assignment rounds behind its published pages. Absent on an ordinary
@@ -1402,7 +1407,7 @@ export function buildPublicExportFromSnapshot(
     : undefined;
 
   return {
-    version: 16 as const,
+    version: 17 as const,
     formatDoc: PUBLIC_EXPORT_FORMAT_DOC,
     exportedAt: (opts?.exportedAt ?? new Date()).toISOString(),
     timeZone: instanceTimeZone(),
@@ -1600,9 +1605,10 @@ export function buildPublicExportFromSnapshot(
             ...(raceExclusions.length > 0 ? { raceExclusions } : {}),
             ...(ss.excludeDncOnlyCompetitors ? { excludeDncOnlyCompetitors: true } : {}),
             ...(competitorOverrides.length > 0 ? { competitorOverrides } : {}),
+            ...(ss.discards ? { discards: ss.discards } : {}),
           };
         })
-        .filter((s) => s.fleetNames || s.raceExclusions || s.excludeDncOnlyCompetitors || s.competitorOverrides);
+        .filter((s) => s.fleetNames || s.raceExclusions || s.excludeDncOnlyCompetitors || s.competitorOverrides || s.discards);
       return scoped.length > 0 ? { subSeries: scoped } : {};
     })(),
     ...(() => {
@@ -1687,7 +1693,7 @@ function importExportPrizes(
 /** Export format versions this build can read. A file written by a newer
  *  build is refused rather than half-read: the version is what says which
  *  fields mean what. Mirrors `SUPPORTED_FORMAT_VERSIONS` on the file side. */
-const SUPPORTED_EXPORT_VERSIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
+const SUPPORTED_EXPORT_VERSIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17];
 
 /**
  * Parse the text of a published `.sailscoring.json` data file.
@@ -2204,7 +2210,7 @@ export async function importPublicExport(
           .filter((o): o is { competitorId: string; status: 'included' | 'excluded' } =>
             o.competitorId != null,
           );
-        return [s.name, { fleetIds, raceFleetExclusions, excludeDncOnlyCompetitors: s.excludeDncOnlyCompetitors, competitorOverrides }] as const;
+        return [s.name, { fleetIds, raceFleetExclusions, excludeDncOnlyCompetitors: s.excludeDncOnlyCompetitors, competitorOverrides, discards: s.discards }] as const;
       }),
     );
     let displayOrder = 0;
@@ -2225,6 +2231,7 @@ export async function importPublicExport(
           ...(scope?.competitorOverrides && scope.competitorOverrides.length > 0
             ? { competitorOverrides: scope.competitorOverrides }
             : {}),
+          ...(scope?.discards ? { discards: scope.discards } : {}),
         };
       }),
     );

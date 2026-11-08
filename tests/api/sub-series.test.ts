@@ -300,6 +300,37 @@ describe.skipIf(skip)('sub-series handlers', () => {
     expect(activity.items.some((e) => e.summary.startsWith('Updated entries in'))).toBe(true);
   });
 
+  test('a sub-series keeps its own discard rule, changes it, and goes back to the series\'', async () => {
+    const { seriesId, raceList } = await makeSeriesWithRaces(5);
+    const ss = await subSeries.createSubSeries(ctxA, seriesId, {
+      name: 'Coastal', raceIds: raceList.map((r) => r.id),
+      discards: { kind: 'countBest', countBest: 3 },
+    });
+    expect(ss.discards).toEqual({ kind: 'countBest', countBest: 3 });
+    const [reloaded] = await subSeries.listSubSeries(ctxA, seriesId);
+    expect(reloaded.discards).toEqual({ kind: 'countBest', countBest: 3 });
+
+    const none = await subSeries.putSubSeries(ctxA, seriesId, ss.id, { ...reloaded, discards: { kind: 'none' } });
+    expect(none.discards).toEqual({ kind: 'none' });
+    const params = new URLSearchParams();
+    params.set('seriesId', seriesId);
+    const { items } = await getActivityFeed(ctxA, params);
+    expect(items.some((i) => i.summary === 'Updated discards for sub-series Coastal')).toBe(true);
+
+    // Leaving the rule out is the series' rule again.
+    const asSeries = await subSeries.putSubSeries(ctxA, seriesId, ss.id, { ...none, discards: undefined });
+    expect(asSeries.discards).toBeUndefined();
+    const [after] = await subSeries.listSubSeries(ctxA, seriesId);
+    expect(after.discards).toBeUndefined();
+  });
+
+  test('a count of races that count must be at least one', async () => {
+    const { seriesId } = await makeSeriesWithRaces(1);
+    await expect(
+      subSeries.createSubSeries(ctxA, seriesId, { name: 'Bad', discards: { kind: 'countBest', countBest: 0 } }),
+    ).rejects.toThrow();
+  });
+
   test('PUT can clear fleet scoping back to all fleets', async () => {
     const { seriesId, raceList } = await makeSeriesWithRaces(1);
     const f1 = await addFleet(seriesId, 'A', 0);

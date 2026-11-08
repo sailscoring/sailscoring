@@ -468,3 +468,48 @@ describe('buildFleetHtmlFiles with sub-series', () => {
     expect(pages).toEqual(['Overall/Cruisers', 'Overall/Whitesails', 'Cruiser Champ/Cruisers']);
   });
 });
+
+describe('a sub-series\' own discard rule round-trips (v79 file, v17 export)', () => {
+  // A season counting its best 5 with a coastal series counting its best 3
+  // and a points trophy counting every race.
+  const coastal: SubSeries = { ...winter, discards: { kind: 'countBest', countBest: 3 } };
+  const points: SubSeries = { ...spring, discards: { kind: 'none' } };
+  const ruled: SeriesSnapshot = {
+    ...snapshot,
+    series: { ...makeSeries('s1'), countBest: 5 },
+    subSeries: [coastal, points],
+  };
+
+  it('.sailscoring writes the rule only where a sub-series has one, and reads it back', async () => {
+    const file = await buildSeriesFile('s1', makeRecordingRepos(ruled).repos);
+    expect(file.subSeries!.map((s) => s.discards)).toEqual([
+      { kind: 'countBest', countBest: 3 },
+      { kind: 'none' },
+    ]);
+    const plain = await buildSeriesFile('s1', makeRecordingRepos(snapshot).repos);
+    expect(plain.subSeries!.every((s) => !('discards' in s))).toBe(true);
+
+    const { repos, savedSubSeries } = makeRecordingRepos();
+    await openSeriesFromFile(parseSeriesFile(JSON.stringify(file)), repos);
+    expect(savedSubSeries.map((s) => [s.name, s.discards])).toEqual([
+      ['Winter', { kind: 'countBest', countBest: 3 }],
+      ['Spring', { kind: 'none' }],
+    ]);
+  });
+
+  it('the public export carries a sub-series with only a rule, and import restores it', async () => {
+    const steps: SubSeries = { ...winter, discards: { kind: 'steps', thresholds: [{ minRaces: 2, discardCount: 1 }] } };
+    const data = buildPublicExportFromSnapshot({ ...ruled, subSeries: [steps, points] });
+    expect(data!.subSeries).toEqual([
+      { name: 'Winter', discards: { kind: 'steps', thresholds: [{ minRaces: 2, discardCount: 1 }] } },
+      { name: 'Spring', discards: { kind: 'none' } },
+    ]);
+
+    const { repos, savedSubSeries } = makeRecordingRepos();
+    await importPublicExport(data!, repos);
+    expect(savedSubSeries.map((s) => [s.name, s.discards])).toEqual([
+      ['Winter', { kind: 'steps', thresholds: [{ minRaces: 2, discardCount: 1 }] }],
+      ['Spring', { kind: 'none' }],
+    ]);
+  });
+});

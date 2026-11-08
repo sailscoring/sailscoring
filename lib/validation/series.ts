@@ -78,6 +78,15 @@ export const proportionalDiscardSchema = z.object({
   everyRaces: z.number().int().positive(),
 });
 
+/** A sub-series' own discard rule. A count of races that count is at least
+ *  one, as on the series. */
+export const subSeriesDiscardsSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('none') }),
+  z.object({ kind: z.literal('countBest'), countBest: z.number().int().positive() }),
+  z.object({ kind: z.literal('steps'), thresholds: z.array(discardThresholdSchema) }),
+  z.object({ kind: z.literal('proportional'), ...proportionalDiscardSchema.shape }),
+]);
+
 export const startGroupSchema = z.object({
   fleetIds: z.array(uuidSchema),
   intervalMinutes: z.number().nonnegative(),

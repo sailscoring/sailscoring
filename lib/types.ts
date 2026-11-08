@@ -32,6 +32,17 @@ export interface CountBestDiscard {
  *  series. */
 export type DiscardRule = ProportionalDiscard | CountBestDiscard;
 
+/** A sub-series' own discard rule, in place of the series'. One tagged value
+ *  rather than the series' three optional fields, so which rule applies can't
+ *  be contradicted: no discards at all, the best N races, a threshold list, or
+ *  a proportional allowance. `subSeriesDiscardsOf` in lib/scoring.ts resolves
+ *  it against the series' rule. */
+export type SubSeriesDiscards =
+  | { kind: 'none' }
+  | { kind: 'countBest'; countBest: number }
+  | { kind: 'steps'; thresholds: DiscardThreshold[] }
+  | { kind: 'proportional'; firstAt: number; everyRaces: number };
+
 /** Optional competitor fields that can be shown or hidden per series.
  *  Sail number and the primary person slot (`Competitor.name`, labelled per
  *  `Series.primaryPersonLabel`) are always shown and are not configurable.
@@ -1164,6 +1175,11 @@ export interface SubSeries {
   // from this block while scored everywhere else. Beat both the competitor's
   // own `excluded` flag and `excludeDncOnlyCompetitors`. Sparse.
   competitorOverrides?: CompetitorEntryOverride[];
+  // The sub-series' own discard rule — ISORA's coastal series count their
+  // best 3 inside a season counting its best 5, and a points trophy counts
+  // every race. Absent (the common case) means the series' rule, applied to
+  // the sub-series' own races.
+  discards?: SubSeriesDiscards;
   version?: number;    // server-side concurrency token (see Series.version)
 }
 
