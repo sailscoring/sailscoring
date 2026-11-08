@@ -13,7 +13,8 @@
  * merges the two into the table the engine scores a series with.
  */
 
-import type { DnfScoring, PlaceBase, SeriesCodeRule, SeriesScoringCode } from './types';
+import type { DnfScoring, PlaceBase, Series, SeriesCodeRule, SeriesScoringCode } from './types';
+import { highPointOf, highPointPlacePoints, type HighPointScoring } from './high-point';
 
 export type { PlaceBase, SeriesCodeRule, SeriesScoringCode };
 
@@ -61,6 +62,9 @@ export interface ScoringCodeDefinition {
   cameToStart: boolean;
   /** A replacing code's points are never more than DNF's. */
   capAtDnf?: boolean;
+  /** High point: whether a boat scored with this code is one of the n boats
+   *  in the race. Set by `buildCodeTable`; low point never reads it. */
+  countsInFleetSize?: boolean;
   /** DNF's base is the series' A5 rule rather than a fixed count. */
   followsA5?: boolean;
   /** The description a series gives its own code, printed under the results. */
@@ -184,6 +188,9 @@ export interface RaceCounts {
   startingArea: number;
   /** Boats that finished (took a place). */
   finishers: number;
+  /** High point's n: the boats with a result that counts toward the fleet
+   *  size — finishers and the codes marked to count. Absent, the entries. */
+  fleetSize?: number;
 }
 
 /**
@@ -195,6 +202,9 @@ export interface ScoringCodeTable {
   readonly dnfScoring: DnfScoring;
   /** The series' changes and own codes, as stored. */
   readonly seriesCodes: readonly SeriesScoringCode[];
+  /** How the series scores high point; absent for low point. Every part of
+   *  the engine that compares points reads its direction from here. */
+  readonly highPoint?: HighPointScoring;
   definition(code: string): ScoringCodeDefinition | undefined;
   /** Points for a replacing code in a race, or undefined for a code that
    *  adds, a redress code or an unknown one. */
@@ -204,6 +214,12 @@ export interface ScoringCodeTable {
   dnfPoints(counts: RaceCounts): number;
   /** Whether a boat scored with the code came to the starting area. */
   cameToStart(code: string): boolean;
+  /** High point: whether a boat scored with the code is one of the n boats
+   *  in the race. */
+  countsInFleetSize(code: string): boolean;
+  /** What a boat with no score in a race scores: the place after the
+   *  entries in low point, nothing in high point. */
+  missingPoints(counts: RaceCounts): number;
   /** Whether a score with the code may be discarded. */
   discardable(code: string): boolean;
 }
@@ -220,9 +236,12 @@ const MAX_SAME_AS_DEPTH = 16;
 export function buildCodeTable(
   dnfScoring: DnfScoring = 'seriesEntries',
   seriesCodes: readonly SeriesScoringCode[] = [],
+  highPoint?: HighPointScoring,
 ): ScoringCodeTable {
   const defs = new Map<string, ScoringCodeDefinition>();
-  for (const def of BUILT_IN_CODES) {
+  const builtIns = highPoint ? highPointBuiltIns(highPoint) : BUILT_IN_CODES;
+  const builtInMap = new Map(builtIns.map((d) => [d.code, d]));
+  for (const def of builtIns) {
     if (def.followsA5) {
       defs.set(def.code, {
         ...def,
@@ -234,7 +253,7 @@ export function buildCodeTable(
   }
   const ownCodes: ScoringCodeDefinition[] = [];
   for (const sc of seriesCodes) {
-    const builtIn = BUILT_IN_MAP.get(sc.code);
+    const builtIn = builtInMap.get(sc.code);
     if (builtIn) {
       defs.set(sc.code, {
         ...builtIn,
@@ -242,6 +261,7 @@ export function buildCodeTable(
         pointsMethod: methodOf(sc.rule),
         discardable: sc.discardable,
         capAtDnf: sc.capAtDnf,
+        countsInFleetSize: sc.countsInFleetSize ?? builtIn.countsInFleetSize,
       });
     } else {
       const def: ScoringCodeDefinition = {
@@ -255,6 +275,7 @@ export function buildCodeTable(
         otherScoresUnchanged: sc.kind === 'add',
         cameToStart: true,
         capAtDnf: sc.capAtDnf,
+        countsInFleetSize: sc.countsInFleetSize,
       };
       defs.set(sc.code, def);
       ownCodes.push(def);
@@ -262,6 +283,9 @@ export function buildCodeTable(
   }
   // A series code that scores the same as another takes that code's answer
   // to whether the boat came to the starting area: one scored as DNC did not.
+  // In high point it takes the answer to whether she counts toward the fleet
+  // size the same way, unless the series says; any other code of its own
+  // counts.
   for (const def of ownCodes) {
     let target = def;
     for (let depth = 0; depth < MAX_SAME_AS_DEPTH && target.pointsMethod.type === 'same_as'; depth++) {
@@ -270,6 +294,7 @@ export function buildCodeTable(
       target = next;
     }
     def.cameToStart = target.cameToStart;
+    if (def.countsInFleetSize === undefined) def.countsInFleetSize = target.countsInFleetSize ?? true;
   }
 
   const rawPoints = (code: string, counts: RaceCounts, depth: number): number | undefined => {
@@ -277,28 +302,76 @@ export function buildCodeTable(
     if (!def || def.kind !== 'replace' || depth > MAX_SAME_AS_DEPTH) return undefined;
     let points: number | undefined;
     const m = def.pointsMethod;
-    if (m.type === 'place_after') points = counts[m.base] + m.plus;
+    if (m.type === 'place_after') {
+      // High point: the place after the last of the n boats in the race (or
+      // further back), scored by the formula; the base counts only in low
+      // point.
+      if (highPoint) {
+        const n = counts.fleetSize ?? counts.entries;
+        points = highPointPlacePoints(highPoint, n + m.plus, n);
+      } else {
+        points = counts[m.base] + m.plus;
+      }
+    }
     else if (m.type === 'fixed_points') points = m.points;
     else if (m.type === 'same_as') points = rawPoints(m.code, counts, depth + 1);
     if (points === undefined) return undefined;
-    if (def.capAtDnf && code !== 'DNF') {
+    // Capping at DNF is a low-point notion: a code never scores worse than a
+    // retirement. High point has no such rule to apply.
+    if (def.capAtDnf && code !== 'DNF' && !highPoint) {
       const dnf = rawPoints('DNF', counts, depth + 1);
       if (dnf !== undefined) points = Math.min(points, dnf);
     }
     return points;
   };
 
+  const missingPoints = (counts: RaceCounts): number => (highPoint ? 0 : counts.entries + 1);
+
   return {
     dnfScoring,
     seriesCodes,
+    ...(highPoint ? { highPoint } : {}),
     definition: (code) => defs.get(code),
     replacePoints: (code, counts) => rawPoints(code, counts, 0),
     // Unreachable fallback: DNF is always a replacing built-in, and a loop
     // through "the same as" is refused when the series' codes are saved.
-    dnfPoints: (counts) => rawPoints('DNF', counts, 0) ?? counts.entries + 1,
+    dnfPoints: (counts) => rawPoints('DNF', counts, 0) ?? missingPoints(counts),
     cameToStart: (code) => defs.get(code)?.cameToStart ?? true,
+    countsInFleetSize: (code) => defs.get(code)?.countsInFleetSize ?? true,
     discardable: (code) => defs.get(code)?.discardable ?? true,
+    missingPoints,
   };
+}
+
+/**
+ * The built-in codes as a high-point series scores them before it changes
+ * any. "The place after the last" is the formula one place beyond the n
+ * boats in the race: 0 under boats beaten (1 with the point for coming to
+ * the start), CHIPS3(n + 1, n) under CHIPS3.
+ *
+ * - Boats beaten: DNC scores 0 and is not one of the n; every other code
+ *   scores the place after the last and is, as DNF is (Bray SC's results).
+ * - CHIPS3 follows Chipstead's definition: a retirement scores the place
+ *   after the last; a boat that did not start, or was disqualified (OCS
+ *   included), scores 0. A boat that did not start is not one of the n.
+ *
+ * Redress is never one of the n: no boat beat her. The additive penalties
+ * count, being finishers, though a high-point series can't apply them yet.
+ */
+function highPointBuiltIns(hp: HighPointScoring): ScoringCodeDefinition[] {
+  const ZERO: PointsMethod = { type: 'fixed_points', points: 0 };
+  const zeroUnderChips3 = new Set(['DNS', 'OCS', 'NSC', 'DSQ', 'DNE', 'UFD', 'BFD']);
+  return BUILT_IN_CODES.map((def) => {
+    if (def.code === 'DNC') return { ...def, pointsMethod: ZERO, countsInFleetSize: false };
+    if (def.code === 'DNF') {
+      return { ...def, followsA5: false, pointsMethod: { type: 'place_after', base: 'entries', plus: 1 }, countsInFleetSize: true };
+    }
+    if (def.code === 'RDG') return { ...def, countsInFleetSize: false };
+    if (hp.formula === 'chips3' && zeroUnderChips3.has(def.code)) {
+      return { ...def, pointsMethod: ZERO, countsInFleetSize: def.code !== 'DNS' };
+    }
+    return { ...def, countsInFleetSize: true };
+  });
 }
 
 /** The engine accepts a series' A5 rule alone (the built-ins under it), or a
@@ -359,8 +432,8 @@ export function penaltyAmountText(
 export function seriesCodeTable(series: {
   dnfScoring?: DnfScoring;
   scoringCodes?: readonly SeriesScoringCode[];
-}): ScoringCodeTable {
-  return buildCodeTable(series.dnfScoring ?? 'seriesEntries', series.scoringCodes ?? []);
+} & Partial<Pick<Series, 'pointsSystem' | 'highPointFormula' | 'pointForComingToStart'>>): ScoringCodeTable {
+  return buildCodeTable(series.dnfScoring ?? 'seriesEntries', series.scoringCodes ?? [], highPointOf(series));
 }
 
 /** A problem with a series' scoring codes, worded for the scorer. `code` is

@@ -28,3 +28,52 @@ export function pointsSystemFields(s: Partial<PointsSystemFields>): PointsSystem
     pointForComingToStart: formula === 'boatsBeaten' && s.pointForComingToStart ? true : undefined,
   };
 }
+
+/** How a high-point series scores: the formula, and for boats beaten whether
+ *  a boat earns a point for coming to the start. Absent is low point. */
+export interface HighPointScoring {
+  formula: HighPointFormula;
+  pointForComingToStart: boolean;
+}
+
+/** The high-point scoring a series states, or undefined for low point. */
+export function highPointOf(s: Partial<PointsSystemFields>): HighPointScoring | undefined {
+  const f = pointsSystemFields(s);
+  if (f.pointsSystem !== 'highPoint') return undefined;
+  return { formula: f.highPointFormula!, pointForComingToStart: f.pointForComingToStart === true };
+}
+
+/**
+ * Chipstead SC's CHIPS3 points for place `p` of `n` boats, unrounded:
+ *
+ *   95 · [ ((n+1−p)/n) · (1 − 0.986682·e^(−0.1622·n)) + 0.81475·e^(−0.1622·n) ] + 5
+ *
+ * A win scores 86.1 alone and approaches 100 as the fleet grows; the place
+ * after the last (p = n + 1) is what a retirement scores. Rounding is left to
+ * the standings, which round once, after the race's weighting — the only
+ * order that reproduces ISORA's published scores.
+ */
+export function chips3(p: number, n: number): number {
+  if (n <= 0) return 0;
+  const e = Math.exp(-0.1622 * n);
+  return 95 * (((n + 1 - p) / n) * (1 - 0.986682 * e) + 0.81475 * e) + 5;
+}
+
+/**
+ * The points for place `p` in a race of `n` boats, unrounded. Boats beaten
+ * is n + 1 − p, one more with the point for coming to the start; CHIPS3 is
+ * the formula above. Never below 0: a code set to the place two after the
+ * last can't take points away.
+ */
+export function highPointPlacePoints(hp: HighPointScoring, p: number, n: number): number {
+  if (hp.formula === 'chips3') return Math.max(0, chips3(p, n));
+  return Math.max(0, n + 1 - p) + (hp.pointForComingToStart ? 1 : 0);
+}
+
+/** The points boats tied for `count` places from `firstPlace` share (RRS A7):
+ *  the average of the places' points, unrounded. */
+export function highPointTiedPoints(hp: HighPointScoring, firstPlace: number, count: number, n: number): number {
+  let sum = 0;
+  for (let k = 0; k < count; k++) sum += highPointPlacePoints(hp, firstPlace + k, n);
+  return sum / count;
+}

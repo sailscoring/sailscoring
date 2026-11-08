@@ -13,10 +13,16 @@ import type { Race, RaceDiscardPolicy } from './types';
  *
  *  Rounded to a tenth (0.05 up, as RRS A9 rounds averages), keeping the
  *  engine-wide invariant that a race score is a multiple of 0.1 — a ×1.5 on a
- *  shared 2.5 would otherwise land on 3.75. */
+ *  shared 2.5 would otherwise land on 3.75. Rounded at ×1 too: a high-point
+ *  score (CHIPS3's 76.43…) reaches here unrounded, and this is the one place
+ *  it is rounded, after the weighting, which is the only order that
+ *  reproduces ISORA's published scores. A low-point score is already a
+ *  multiple of 0.1 and comes through unchanged. */
 export function weightedRacePoints(points: number, multiplier: number | undefined): number {
-  if (multiplier == null || multiplier === 1) return points;
-  return Math.floor(points * multiplier * 10 + 0.5) / 10;
+  const scaled = points * (multiplier ?? 1) * 10;
+  // A product like 66.325 × 10 lands a hair either side of the half; settle
+  // it at the precision the inputs carry before rounding half up.
+  return Math.floor(Number(scaled.toFixed(6)) + 0.5) / 10;
 }
 
 /** The multiplier a race actually applies (absent means it counts once). */

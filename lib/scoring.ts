@@ -7,6 +7,7 @@ import { orcConstructedOption, orcCurveOption, orcFleetProfile, orcPcsRatable, o
 import { scorePcsRace, type PcsAllowances, type PcsCourse, type PcsCourseModel } from './orc-pcs';
 import { courseLength } from './course-precision';
 import { weightedRacePoints } from './race-scoring-options';
+import { highPointTiedPoints } from './high-point';
 import { parseHmsToSeconds } from './time-parse';
 import { racesFleetIsNotIn } from './race-membership';
 
@@ -224,6 +225,16 @@ function finishedTogether(
   return false;
 }
 
+/**
+ * High point's n for one fleet's race: its boats with a result that counts
+ * toward the fleet size. A finisher counts, and so does a row with no place
+ * and no code, which scores as DNF; a coded boat counts as her code says. A
+ * boat with no row is an implicit DNC and does not.
+ */
+function highPointFleetSize(rows: (Finish | undefined)[], codes: ScoringCodeTable): number {
+  return rows.filter((f) => f !== undefined && (f.resultCode === null || codes.countsInFleetSize(f.resultCode))).length;
+}
+
 export function calculateRaceScores(
   finishes: Finish[],
   competitors: Competitor[],
@@ -254,8 +265,9 @@ export function calculateRaceScores(
       const f = finishMap.get(c.id);
       return f !== undefined && f.resultCode === null && f.sortOrder !== null;
     }).length,
+    fleetSize: highPointFleetSize(competitors.map((c) => finishMap.get(c.id)), codes),
   };
-  const codePoints = (code: string): number => codes.replacePoints(code, counts) ?? counts.entries + 1;
+  const codePoints = (code: string): number => codes.replacePoints(code, counts) ?? codes.missingPoints(counts);
 
   const result = new Map<string, RaceScore>();
 
@@ -331,9 +343,13 @@ export function calculateRaceScores(
       fj++;
     }
     const tiedCount = fj - fi;
-    // They occupy fleet ranks fleetRank … fleetRank+tiedCount-1; average those ranks.
+    // They occupy fleet ranks fleetRank … fleetRank+tiedCount-1; average those
+    // ranks' points — the ranks themselves in low point, the formula's points
+    // for them in high point.
     const baseRank = fleetRank;
-    const avgPoints = fleetRank + (tiedCount - 1) / 2;
+    const avgPoints = codes.highPoint
+      ? highPointTiedPoints(codes.highPoint, fleetRank, tiedCount, counts.fleetSize!)
+      : fleetRank + (tiedCount - 1) / 2;
     for (let k = fi; k < fj; k++) {
       const [cId, score] = finishers[k];
       result.set(cId, { ...score, rank: baseRank, points: avgPoints });
@@ -345,8 +361,11 @@ export function calculateRaceScores(
   // Apply additive penalty codes (ZFP, SCP, DPI, a series' own) to finishers.
   // Per A6.2 other boats are NOT re-ranked; duplicate scores are allowed.
   // Cap: penalised score cannot exceed the DNF score.
+  // High point can't apply them yet (they are written for low point, where
+  // more points are worse); a high-point series refuses them when they are
+  // recorded, so there is nothing here to apply.
   const dnfCap = codes.dnfPoints(counts);
-  for (const competitor of competitors) {
+  for (const competitor of codes.highPoint ? [] : competitors) {
     const score = result.get(competitor.id);
     if (!score || score.place === null) continue; // only apply to finishers
     const penalized = applyAdditivePenalty(score.points, finishMap.get(competitor.id), dnfCap, fleetId, codes);
@@ -651,6 +670,11 @@ export function calculateHandicapRaceScores(
 
   const scores = new Map<string, HandicapRaceScore>();
 
+  // High point's n: this fleet's rated boats with a result that counts.
+  const fleetSize = codes.highPoint
+    ? highPointFleetSize(competitors.filter((c) => appliedTcfByCompetitorId.has(c.id)).map((c) => finishMap.get(c.id)), codes)
+    : undefined;
+
   // Assign ranks and points to finishers (tied CT = averaged ranks)
   let fleetRank = 1;
   let fi = 0;
@@ -659,7 +683,9 @@ export function calculateHandicapRaceScores(
     let fj = fi;
     while (fj < finishers.length && finishers[fj].correctedTime === ct) fj++;
     const tiedCount = fj - fi;
-    const avgPoints = fleetRank + (tiedCount - 1) / 2;
+    const avgPoints = codes.highPoint
+      ? highPointTiedPoints(codes.highPoint, fleetRank, tiedCount, fleetSize!)
+      : fleetRank + (tiedCount - 1) / 2;
     for (let k = fi; k < fj; k++) {
       const c = finishers[k];
       scores.set(c.competitorId, {
@@ -682,10 +708,10 @@ export function calculateHandicapRaceScores(
 
   // Penalty points for non-finishers; tcfApplied is the TCF that *would have*
   // been used, preserved for the audit trail (matters for progressive systems).
-  const counts: RaceCounts = { entries: competitors.length, startingArea, finishers: finishers.length };
+  const counts: RaceCounts = { entries: competitors.length, startingArea, finishers: finishers.length, fleetSize };
   for (const c of candidates) {
     if (scores.has(c.competitorId)) continue;
-    const points = (c.resultCode ? codes.replacePoints(c.resultCode, counts) : undefined) ?? counts.entries + 1;
+    const points = (c.resultCode ? codes.replacePoints(c.resultCode, counts) : undefined) ?? codes.missingPoints(counts);
     scores.set(c.competitorId, {
       competitorId: c.competitorId,
       points,
@@ -1255,6 +1281,7 @@ function resolveRedressScore(
   fallbackPoints: number,
   discardAllowance: number,
   fleetId?: string,
+  highPoint = false,
 ): number {
   if (finish.redressMethod === 'stated') {
     const { value, gap } = resolvePerFleetScalar(finish.redressPointsByFleet, finish.redressPoints, fleetId);
@@ -1306,10 +1333,11 @@ function resolveRedressScore(
   poolIndices = poolIndices.filter((i) => allCodes[i] !== 'RDG');
 
   if (finish.redressMethod === 'all_races_excl_dnc') {
-    // Drop the worst (highest-points) DNC results, up to the discard allowance.
+    // Drop the worst DNC results — the most points in low point, the fewest
+    // in high point — up to the discard allowance.
     const dncWorstFirst = poolIndices
       .filter((i) => allCodes[i] === 'DNC')
-      .sort((a, b) => allPoints[b] - allPoints[a]);
+      .sort((a, b) => (highPoint ? allPoints[a] - allPoints[b] : allPoints[b] - allPoints[a]));
     const drop = new Set(dncWorstFirst.slice(0, Math.max(0, discardAllowance)));
     poolIndices = poolIndices.filter((i) => !drop.has(i));
   }
@@ -1470,7 +1498,19 @@ function raceWasHeld(allRaceFinishes: Finish[]): boolean {
 function computeRaceExclusion(
   allRaceFinishes: Finish[],
   fleetFinishes: Finish[],
+  codes?: ScoringCodeTable,
 ): boolean {
+  // High point: a race counts for a fleet once one of its boats has a result
+  // that counts toward the fleet size, whether or not anyone finished. ISORA
+  // scored a race every entrant declared for and none finished, and each of
+  // them earned points for it. A race abandoned outright has no results.
+  if (codes?.highPoint) {
+    return !fleetFinishes.some((f) =>
+      f.resultCode === null
+        ? f.finishTime != null || f.elapsedSecs != null || f.sortOrder !== null
+        : codes.countsInFleetSize(f.resultCode),
+    );
+  }
   const fleetCameToStart = fleetFinishes.some((f) => f.resultCode !== 'DNC');
   return !(raceWasHeld(allRaceFinishes) && fleetCameToStart);
 }
@@ -1517,6 +1557,7 @@ function collectAndResolveRdg(args: {
   discardAllowance: number;
   /** The fleet being scored — selects per-fleet stated redress points. */
   fleetId?: string;
+  highPoint?: boolean;
 }): number[] {
   const { races, finishesByRace, eligible, per, raceExcluded } = args;
 
@@ -1556,6 +1597,7 @@ function collectAndResolveRdg(args: {
       args.fallbackPoints,
       args.discardAllowance,
       args.fleetId,
+      args.highPoint,
     );
     per.raceRedressFlags.get(competitorId)![raceIdx] = true;
     // resultCode 'RDG' is already in per.raceCodes from the race loop
@@ -1608,13 +1650,16 @@ function assembleStandings(
     // Determine non-discardable flags from code definitions
     const raceNonDiscardable = raceCodes.map((code) => (code ? !codes.discardable(code) : false));
 
-    // Select worst N discardable scores to discard. Excluded races (no
-    // finishers), codes that protect against discard, and races the scorer
-    // marked "must count" are skipped. Races marked "discard first" are taken
-    // before any other, in race order among themselves, whatever their points;
-    // the rest follow worst-first, and among equal scores the earliest race is
-    // discarded first. Comparison is on the weighted score — the score that
-    // actually counts is the one whose removal helps.
+    // Select worst N discardable scores to discard — the highest in low
+    // point, the lowest in high point. Excluded races (no finishers), codes
+    // that protect against discard, and races the scorer marked "must count"
+    // are skipped. Races marked "discard first" are taken before any other,
+    // in race order among themselves, whatever their points; the rest follow
+    // worst-first, and among equal scores the earliest race is discarded
+    // first (Sailwave does the same in high point). Comparison is on the
+    // weighted score — the score that actually counts is the one whose
+    // removal helps.
+    const worse = codes.highPoint ? -1 : 1;
     const raceDiscards = new Array<boolean>(racePoints.length).fill(false);
     if (discardCount > 0) {
       const discardable = racePoints
@@ -1625,7 +1670,7 @@ function assembleStandings(
           races[i]?.discardPolicy !== 'mustCount',
         );
       discardable.sort((a, b) =>
-        Number(b.first) - Number(a.first) || (a.first ? a.i - b.i : b.p - a.p || a.i - b.i),
+        Number(b.first) - Number(a.first) || (a.first ? a.i - b.i : worse * (b.p - a.p) || a.i - b.i),
       );
       const effectiveCount = Math.min(discardCount, discardable.length);
       for (let d = 0; d < effectiveCount; d++) {
@@ -1643,20 +1688,21 @@ function assembleStandings(
 }
 
 /**
- * Final sort — lowest net points wins, ties broken per RRS A8 (A8.1 then
- * A8.2, see `tieBreak`) — and rank assignment, with tied competitors
- * sharing the same rank. Sorts and ranks in place.
+ * Final sort — lowest net points wins (highest in high point), ties broken
+ * per RRS A8 (A8.1 then A8.2, see `tieBreak`) — and rank assignment, with
+ * tied competitors sharing the same rank. Sorts and ranks in place.
  */
-function sortAndRank(standings: Standing[]): void {
+function sortAndRank(standings: Standing[], codes: ScoringCodeTable): void {
+  const better = codes.highPoint ? -1 : 1;
   standings.sort((a, b) => {
     if (a.netPoints !== b.netPoints) {
-      return a.netPoints - b.netPoints;
+      return better * (a.netPoints - b.netPoints);
     }
-    return tieBreak(a, b);
+    return tieBreak(a, b, better);
   });
   let rank = 1;
   for (let i = 0; i < standings.length; i++) {
-    if (i > 0 && isTied(standings[i - 1], standings[i])) {
+    if (i > 0 && tieBreak(standings[i - 1], standings[i], better) === 0) {
       standings[i].rank = standings[i - 1].rank;
     } else {
       standings[i].rank = rank;
@@ -1708,6 +1754,8 @@ export function calculateStandings(
   const finishesByRace = groupFinishesByRace(allFinishes);
   const per = initPerCompetitorSeries(competitors);
   const raceExcluded = new Array<boolean>(races.length).fill(false);
+  const codes = codeTableOf(dnfScoring);
+  const missing = codes.missingPoints({ entries: competitors.length, startingArea: 0, finishers: 0 });
 
   // Race loop: per-race scratch scores into the per-competitor accumulators.
   for (let raceIdx = 0; raceIdx < races.length; raceIdx++) {
@@ -1718,15 +1766,15 @@ export function calculateStandings(
     const scores = calculateRaceScores(
       raceFinishes,
       competitors,
-      dnfScoring,
+      codes,
       fleetId,
       startKeyResolver(competitors, raceStarts.filter((rs) => rs.raceId === race.id)),
     );
     raceExcluded[raceIdx] =
-      computeRaceExclusion(allRaceFinishes, raceFinishes) || (excludedRaceIds?.has(race.id) ?? false);
+      computeRaceExclusion(allRaceFinishes, raceFinishes, codes) || (excludedRaceIds?.has(race.id) ?? false);
     for (const competitor of competitors) {
       const score = scores.get(competitor.id);
-      const rawPoints = score?.points ?? competitors.length + 1;
+      const rawPoints = score?.points ?? missing;
       const code = score ? score.resultCode : 'DNC';
       const finish = raceFinishMap.get(competitor.id);
       per.racePoints.get(competitor.id)!.push(raceExcluded[raceIdx] ? 0 : rawPoints);
@@ -1752,13 +1800,14 @@ export function calculateStandings(
     eligible: (competitorId) => competitorIds.has(competitorId),
     per,
     raceExcluded,
-    fallbackPoints: competitors.length + 1,
+    fallbackPoints: missing,
     discardAllowance: redressDiscardAllowance,
     fleetId,
+    highPoint: !!codes.highPoint,
   });
 
-  const standings = assembleStandings(competitors, races, per, raceExcluded, discardCount, codeTableOf(dnfScoring));
-  sortAndRank(standings);
+  const standings = assembleStandings(competitors, races, per, raceExcluded, discardCount, codes);
+  sortAndRank(standings, codes);
 
   return { standings, circularRedressRaces };
 }
@@ -2154,7 +2203,7 @@ function calculateHandicapStandings(
     // fleet (issue #129 — see computeRaceExclusion).
     const fleetRaceFinishes = raceFinishes.filter((f) => f.competitorId !== null && fleetCompetitorIds.has(f.competitorId));
     raceExcluded[raceIdx] =
-      computeRaceExclusion(raceFinishes, fleetRaceFinishes) || forcedExcluded || fleetNotInRace;
+      computeRaceExclusion(raceFinishes, fleetRaceFinishes, codes) || forcedExcluded || fleetNotInRace;
 
     // Nobody in this race is scored: the option it resolved to corrects over a
     // course the start doesn't carry.
@@ -2224,10 +2273,10 @@ function calculateHandicapStandings(
     for (const competitor of competitors) {
       if (rejectedIds.has(competitor.id)) continue; // excluded from scoring
       const score = scores.get(competitor.id);
-      const rawPoints = score?.points ?? competitors.length + 1;
+      const rawPoints = score?.points ?? codes.missingPoints({ entries: competitors.length, startingArea: 0, finishers: 0 });
       const finish = finishMap.get(competitor.id);
       const isFinisher = score?.place != null;
-      const points = isFinisher ? applyAdditivePenalty(rawPoints, finish, penaltyCap, fleet.id, codes) : rawPoints;
+      const points = isFinisher && !codes.highPoint ? applyAdditivePenalty(rawPoints, finish, penaltyCap, fleet.id, codes) : rawPoints;
       per.racePoints.get(competitor.id)!.push(raceExcluded[raceIdx] ? 0 : points);
       per.raceRanks.get(competitor.id)!.push(raceExcluded[raceIdx] ? null : (score?.rank ?? null));
       // Nothing is scored in a race that isn't scored yet, and that includes
@@ -2260,13 +2309,14 @@ function calculateHandicapStandings(
       fleetCompetitorIds.has(competitorId) && !rejectedIds.has(competitorId),
     per,
     raceExcluded,
-    fallbackPoints: competitors.length + 1,
+    fallbackPoints: codes.missingPoints({ entries: competitors.length, startingArea: 0, finishers: 0 }),
     discardAllowance: redressDiscardAllowance,
     fleetId: fleet.id,
+    highPoint: !!codes.highPoint,
   });
 
   const standings = assembleStandings(ratedCompetitors, races, per, raceExcluded, discardCount, codes, raceNotScored);
-  sortAndRank(standings);
+  sortAndRank(standings, codes);
 
   return {
     standings,
@@ -2795,17 +2845,18 @@ export function calculateSubSeriesFleetStandings(
 }
 
 /**
- * Non-discarded race scores for a standing, sorted best (lowest) to worst
- * (highest) — the list A8.1 compares. Excluded races (nobody finished) score 0
- * for every boat, so they add equal leading entries and never affect the
+ * Non-discarded race scores for a standing, sorted best to worst — lowest
+ * first in low point, highest first in high point (`better` is -1) — the
+ * list A8.1 compares. Excluded races (nobody finished) score 0 for every
+ * boat, so they add equal entries at the same position and never affect the
  * first point of difference.
  */
-function nonDiscardedScoresSorted(s: Standing): number[] {
+function nonDiscardedScoresSorted(s: Standing, better: number): number[] {
   const scores: number[] = [];
   for (let i = 0; i < s.racePoints.length; i++) {
     if (!s.raceDiscards[i]) scores.push(s.racePoints[i]);
   }
-  return scores.sort((x, y) => x - y);
+  return scores.sort((x, y) => better * (x - y));
 }
 
 /**
@@ -2821,28 +2872,27 @@ function nonDiscardedScoresSorted(s: Standing): number[] {
  * There is no place-count rung ("most 1sts, then 2nds, …") — that was removed
  * from the RRS before the 2025-2028 edition.
  *
+ * In high point (`better` is -1) the best score is the highest, and so
+ * is the better one at a point of difference.
+ *
  * Returns negative if a beats b (a ranks ahead), positive if b beats a, 0 if
  * the boats are still perfectly tied.
  */
-function tieBreak(a: Standing, b: Standing): number {
+function tieBreak(a: Standing, b: Standing, better = 1): number {
   // A8.1 — compare non-discarded scores position-by-position, best to worst.
-  const aSorted = nonDiscardedScoresSorted(a);
-  const bSorted = nonDiscardedScoresSorted(b);
+  const aSorted = nonDiscardedScoresSorted(a, better);
+  const bSorted = nonDiscardedScoresSorted(b, better);
   const len = Math.min(aSorted.length, bSorted.length);
   for (let i = 0; i < len; i++) {
-    const diff = aSorted[i] - bSorted[i];
+    const diff = better * (aSorted[i] - bSorted[i]);
     if (diff !== 0) return diff;
   }
 
   // A8.2 — countback from the last race, using all scores incl. discards.
   for (let i = a.racePoints.length - 1; i >= 0; i--) {
-    const diff = a.racePoints[i] - b.racePoints[i];
+    const diff = better * (a.racePoints[i] - b.racePoints[i]);
     if (diff !== 0) return diff;
   }
 
   return 0;
-}
-
-function isTied(a: Standing, b: Standing): boolean {
-  return tieBreak(a, b) === 0;
 }
