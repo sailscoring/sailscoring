@@ -2,7 +2,7 @@
 
 import { useMemo, useRef, useState, type Ref } from 'react';
 import { penaltyAmountText } from '@/lib/scoring-codes';
-import { X, Activity, AlertTriangle, Ban, ChevronDown, ChevronRight, Flag, Scale, MoreHorizontal, PanelRightClose, PanelRightOpen } from 'lucide-react';
+import { X, Activity, AlertTriangle, Ban, ChevronDown, ChevronRight, Flag, Scale, MoreHorizontal, PanelRightClose, PanelRightOpen, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -70,23 +70,41 @@ function FleetBadges({
   fleetById,
   variant,
   testId,
+  struckFleetIds,
 }: {
   fleetIds: string[];
   raceFleetIds: Set<string>;
   fleetById: Map<string, Fleet>;
   variant: 'secondary' | 'outline';
   testId?: string;
+  /** Series fleets the boat is out of for this race, shown struck through
+   *  after the fleets it is in. */
+  struckFleetIds?: string[];
 }) {
   const inRace = raceFleetIds.size > 0
     ? fleetIds.filter((id) => raceFleetIds.has(id))
     : fleetIds;
   const names = competitorFleetNames(inRace.length > 0 ? inRace : fleetIds, fleetById);
   const labels = names.length > 0 ? names : ['—'];
+  const struck = competitorFleetNames(
+    (struckFleetIds ?? []).filter((id) => raceFleetIds.size === 0 || raceFleetIds.has(id)),
+    fleetById,
+  );
   return (
     <span data-testid={testId} className="flex items-center gap-1 min-w-0">
       {labels.map((name, i) => (
         // Shrinks to an ellipsis, never to nothing: "PY" or "Cl…" still reads.
         <Badge key={`${name}-${i}`} variant={variant} className="text-xs shrink min-w-10" title={name}>
+          <span className="truncate">{name}</span>
+        </Badge>
+      ))}
+      {struck.map((name, i) => (
+        <Badge
+          key={`struck-${name}-${i}`}
+          variant="outline"
+          className="text-xs shrink min-w-10 text-muted-foreground line-through"
+          title={`Not in ${name} this race`}
+        >
           <span className="truncate">{name}</span>
         </Badge>
       ))}
@@ -106,6 +124,19 @@ import type { useFinishInput } from '@/hooks/use-finish-input';
 import type { useFinishRowOps } from '@/hooks/use-finish-row-ops';
 
 type Derived = ReturnType<typeof deriveFinishState>;
+
+/** What the finish sheet needs to show and change a boat's fleets for this
+ *  race. `competitors` already carry their fleets in the race. */
+export interface RaceFleetControls {
+  /** Series fleets the boat is out of for this race. */
+  droppedOf: (competitorId: string) => string[];
+  /** The fleets the row menu offers to toggle: the boat's series fleets and
+   *  any it is in for this race only. */
+  toggleableOf: (competitorId: string) => string[];
+  /** Put the boat in or out of a fleet for this race. Absent hides the
+   *  toggles: a read-only sheet, or the gate is off. */
+  setInFleet?: (competitorId: string, fleetId: string, inFleet: boolean) => void;
+}
 
 export interface FinishTabProps {
   /** The sail-number entry flow (see hooks/use-finish-input.ts). */
@@ -167,6 +198,11 @@ export interface FinishTabProps {
    * offered.
    */
   recording?: boolean;
+  /** A boat's fleets in this race where they differ from its series fleets:
+   *  the fleets it is out of, struck through on its badges, and — when the
+   *  scorer can change them — a row-menu toggle per fleet. Absent when no
+   *  boat's fleets can differ here. */
+  raceFleets?: RaceFleetControls;
   /** The series' A5 rule and its own scoring codes: its codes that replace
    *  the result join the code menus, and a changed RRS code is marked. */
   seriesScoring?: { dnfScoring: DnfScoring; scoringCodes?: readonly SeriesScoringCode[] } & Partial<PointsSystemFields>;
@@ -182,7 +218,7 @@ export function FinishTab(props: FinishTabProps) {
     finishRecording, onSetFinishRecording, derived, savedFinishes,
     finishSheetImportRef, applyCsvImport,
     setEditingPenaltyEntryId, openRedressDialog, setResolvingEntry,
-    patchCache, saveFinish, leave, readOnly = false, recording = false, seriesScoring,
+    patchCache, saveFinish, leave, readOnly = false, recording = false, seriesScoring, raceFleets,
   } = props;
   // The series' own codes that replace the result, after the RRS codes in
   // both menus; and the RRS codes it scores differently, marked where they
@@ -469,7 +505,7 @@ export function FinishTab(props: FinishTabProps) {
         {competitor.sailNumber}
       </span>
       {showFleetBadge && (
-        <FleetBadges fleetIds={competitor.fleetIds} raceFleetIds={raceFleetIds} fleetById={fleetById} variant="outline" />
+        <FleetBadges fleetIds={competitor.fleetIds} struckFleetIds={raceFleets?.droppedOf(competitor.id)} raceFleetIds={raceFleetIds} fleetById={fleetById} variant="outline" />
       )}
       {/* flex-auto, not flex-1: with a zero basis the name is the first thing
           squeezed to nothing, leaving the fleet badge to overflow the row on
@@ -745,6 +781,7 @@ export function FinishTab(props: FinishTabProps) {
                   {showFleetBadge && (
                     <FleetBadges
                       fleetIds={pendingTimeEntry.competitor.fleetIds}
+                      struckFleetIds={raceFleets?.droppedOf(pendingTimeEntry.competitor.id)}
                       raceFleetIds={raceFleetIds}
                       fleetById={fleetById}
                       variant="secondary"
@@ -873,7 +910,7 @@ export function FinishTab(props: FinishTabProps) {
                     </Badge>
                   )}
                   {showFleetBadge && (
-                    <FleetBadges fleetIds={competitor.fleetIds} raceFleetIds={raceFleetIds} fleetById={fleetById} variant="secondary" />
+                    <FleetBadges fleetIds={competitor.fleetIds} struckFleetIds={raceFleets?.droppedOf(competitor.id)} raceFleetIds={raceFleetIds} fleetById={fleetById} variant="secondary" />
                   )}
                   <span className="flex-auto truncate">{displayCompetitorLabel(competitor, { enabledCompetitorFields, showCrew })}</span>
                 </li>
@@ -1197,6 +1234,7 @@ export function FinishTab(props: FinishTabProps) {
                 {showFleetBadge && (
                   <FleetBadges
                     fleetIds={competitor.fleetIds}
+                    struckFleetIds={raceFleets?.droppedOf(competitor.id)}
                     raceFleetIds={raceFleetIds}
                     fleetById={fleetById}
                     variant="secondary"
@@ -1468,6 +1506,19 @@ export function FinishTab(props: FinishTabProps) {
                         {renderFinisherCodeChoices(entry.competitorId, finish?.resultCode ?? null)}
                       </DropdownMenuSubContent>
                     </DropdownMenuSub>
+                    {raceFleets?.setInFleet && raceFleets.toggleableOf(entry.competitorId).map((fleetId) => {
+                      const name = fleetById.get(fleetId)?.name ?? 'fleet';
+                      const inFleet = competitor.fleetIds.includes(fleetId);
+                      return (
+                        <DropdownMenuItem
+                          key={fleetId}
+                          onSelect={() => raceFleets.setInFleet!(entry.competitorId, fleetId, !inFleet)}
+                        >
+                          <Users className="h-3.5 w-3.5" />
+                          {inFleet ? `Not in ${name} this race` : `Back in ${name} this race`}
+                        </DropdownMenuItem>
+                      );
+                    })}
                   </DropdownMenuContent>
                 </DropdownMenu>
                 )}
@@ -1582,7 +1633,7 @@ export function FinishTab(props: FinishTabProps) {
                   >
                     <span className="font-mono font-medium w-16 shrink-0">{competitor.sailNumber}</span>
                     {showFleetBadge && (
-                      <FleetBadges fleetIds={competitor.fleetIds} raceFleetIds={raceFleetIds} fleetById={fleetById} variant="outline" />
+                      <FleetBadges fleetIds={competitor.fleetIds} struckFleetIds={raceFleets?.droppedOf(competitor.id)} raceFleetIds={raceFleetIds} fleetById={fleetById} variant="outline" />
                     )}
                     <span className="text-sm flex-auto basis-24 sm:basis-auto min-w-0 truncate">{displayCompetitorLabel(competitor, { enabledCompetitorFields, showCrew })}</span>
                     {onIncludeCompetitor && !readOnly && (

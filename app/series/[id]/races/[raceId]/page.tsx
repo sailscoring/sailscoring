@@ -4,7 +4,7 @@ import { highPointOf, pointsSystemFields } from '@/lib/high-point';
 import { HighPointRaceLine } from '@/components/race-entry/high-point-race-line';
 import { use, useState, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { useIsMutating } from '@tanstack/react-query';
+import { useIsMutating, useQueryClient } from '@tanstack/react-query';
 import { RowConflictDialog } from '@/components/row-conflict-dialog';
 import { useFinishConflictDialog } from '@/hooks/use-finish-conflict-dialog';
 import { useFinishInput } from '@/hooks/use-finish-input';
@@ -27,7 +27,7 @@ import { useRaceStartsByRace, useRaceStartsBySeries } from '@/hooks/use-race-sta
 import { useSplitFleetState } from '@/hooks/use-split-fleets';
 import { boatsOutsideCompanionRace, resolveVocabulary, stageRaceLabel } from '@/lib/split-fleets';
 import { competitorsInRace, raceFleetIds, withRaceSailNumbers } from '@/lib/race-membership';
-import type { Competitor, RaceStart } from '@/lib/types';
+import type { Competitor, Race, RaceStart } from '@/lib/types';
 import {
   defaultEnabledCompetitorFields,
   DEFAULT_PRIMARY_PERSON_LABEL,
@@ -69,10 +69,11 @@ import {
 } from '@/components/race-entry/resolve-unknown-controller';
 import { CheckInTab } from '@/components/check-in-tab';
 import { FinishSubmissionsPanel } from '@/components/race-entry/finish-submissions-panel';
-import { FinishTab } from '@/components/finish-tab';
+import { FinishTab, type RaceFleetControls } from '@/components/finish-tab';
+import { queryKeys } from '@/hooks/query-keys';
 import { RatingsTab } from '@/components/ratings-tab';
 import { RaceFleetsSection } from '@/components/race-fleets-section';
-import { withRaceFleets } from '@/lib/race-fleets';
+import { fleetChangeFor, setFleetInRace, withRaceFleets } from '@/lib/race-fleets';
 import { SeriesTabFallback } from '@/components/series-tab-fallback';
 
 export default function ResultEntryPage({
@@ -245,6 +246,34 @@ export default function ResultEntryPage({
   // rounds manage their own fleets' membership.
   const changeableFleets = useMemo(() => (fleets ?? []).filter((f) => !f.splitRoundId), [fleets]);
   const showRaceFleets = has('race-fleet-membership') && changeableFleets.length > 1;
+  const queryClient = useQueryClient();
+  // The finish sheet's view of the same: a fleet a boat is out of is struck
+  // through on its badges whether or not the gate is on (the race scores it
+  // either way), and with the gate on the row menu toggles each fleet.
+  const finishRaceFleets = useMemo((): RaceFleetControls | undefined => {
+    if (!storedCompetitors || (!showRaceFleets && !race?.fleetChanges?.length)) return undefined;
+    const storedById = new Map(storedCompetitors.map((c) => [c.id, c]));
+    const changeable = new Set(changeableFleets.map((f) => f.id));
+    return {
+      droppedOf: (id) => fleetChangeFor(race ?? undefined, id)?.drop ?? [],
+      toggleableOf: (id) => {
+        const c = storedById.get(id);
+        if (!c) return [];
+        return [...new Set([...c.fleetIds, ...(fleetChangeFor(race ?? undefined, id)?.add ?? [])])].filter((f) =>
+          changeable.has(f),
+        );
+      },
+      setInFleet:
+        showRaceFleets && !readOnly
+          ? (id, fleetId, inFleet) => {
+              const c = storedById.get(id);
+              if (!c) return;
+              const current = queryClient.getQueryData<Race | null>(queryKeys.races.detail(raceId));
+              void saveRaceFields({ fleetChanges: setFleetInRace(current?.fleetChanges, c, fleetId, inFleet) });
+            }
+          : undefined,
+    };
+  }, [storedCompetitors, showRaceFleets, race, changeableFleets, readOnly, queryClient, raceId, saveRaceFields]);
   // The race fleets section lists every boat that could be on the sheet,
   // by its series fleets or by this race's, so a boat taken out of its only
   // racing fleet stays on the list to be put back.
@@ -607,6 +636,7 @@ export default function ResultEntryPage({
           saveFinish={saveFinish}
           leave={leave}
           seriesScoring={series ? { dnfScoring: series.dnfScoring, scoringCodes: series.scoringCodes, ...pointsSystemFields(series) } : undefined}
+          raceFleets={finishRaceFleets}
         />
         </div>
       )}
