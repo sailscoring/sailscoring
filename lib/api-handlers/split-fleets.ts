@@ -11,6 +11,7 @@ import { BadRequestError, NotFoundError } from '@/app/api/v1/_lib/handler';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
 import { getDb } from '@/lib/db/client';
 import * as schema from '@/lib/db/schema';
+import { highPointRefusal } from '@/lib/high-point';
 import { createRepos, replaceSplitFleetState } from '@/lib/postgres-repository';
 import { trackChange } from '@/lib/revision-log';
 import { assertSeriesWritable } from '@/lib/api-handlers/series-access';
@@ -98,6 +99,9 @@ export async function putSplitFleetConfig(
   const db = getDb();
 
   const existing = await repos.splitRounds.getConfig(seriesId);
+  const series = await repos.series.get(seriesId);
+  const refusal = series?.pointsSystem === 'highPoint' ? highPointRefusal({ splitFleet: true }) : null;
+  if (refusal) throw new BadRequestError(refusal);
   if (!existing) {
     // A series is a split-fleet championship from the start or not at all.
     // Its races carry a stage and belong to a round's fleets; races sailed

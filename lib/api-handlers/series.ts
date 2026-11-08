@@ -1,5 +1,5 @@
 import 'server-only';
-import { and, eq, sql, type SQL } from 'drizzle-orm';
+import { and, eq, isNotNull, sql, type SQL } from 'drizzle-orm';
 
 import {
   ArchivedError,
@@ -27,6 +27,7 @@ import {
 } from '@/lib/api-handlers/series-access';
 import { listTcfHistory } from '@/lib/api-handlers/tcf-history';
 import { describeSeriesChange } from '@/lib/series-change';
+import { highPointRefusal } from '@/lib/high-point';
 import { suggestFollowOnName } from '@/lib/series-name';
 import { importPublicExport, parsePublicExport } from '@/lib/public-export';
 import {
@@ -166,6 +167,7 @@ export async function putSeries(
       merged.eventLogoUrl = defaults.eventLogoUrl;
     }
   }
+  if (merged.pointsSystem === 'highPoint') await assertCanScoreHighPoint(repos, merged, existing);
   // One endpoint writes the whole series row, so "what did this save change?"
   // has to be answered by comparing, not by which button was pressed. A null
   // answer means nothing changed at all.
@@ -200,6 +202,36 @@ export async function putSeries(
     touch: false,
   });
   return saved;
+}
+
+/**
+ * Refuse a high-point series what high point can't score yet: its own codes
+ * that add to a finishing place, and — when it is switching to high point —
+ * a penalty already recorded or a split-fleet format. Once high point, the
+ * finish and split-fleet writes refuse them in turn.
+ */
+async function assertCanScoreHighPoint(
+  repos: ReturnType<typeof createRepos>,
+  series: Series,
+  existing: Series | undefined,
+): Promise<void> {
+  const addCodes = (series.scoringCodes ?? []).filter((c) => c.kind === 'add').map((c) => c.code);
+  let penalty: { raceNumber: number; code: string } | undefined;
+  let splitFleet = false;
+  if (existing && existing.pointsSystem !== 'highPoint') {
+    const db = getDb();
+    const [row] = await db
+      .select({ code: schema.finishes.penaltyCode, raceNumber: schema.races.raceNumber })
+      .from(schema.finishes)
+      .innerJoin(schema.races, eq(schema.finishes.raceId, schema.races.id))
+      .where(and(eq(schema.races.seriesId, series.id), isNotNull(schema.finishes.penaltyCode)))
+      .orderBy(schema.races.raceNumber)
+      .limit(1);
+    if (row?.code) penalty = { raceNumber: row.raceNumber, code: row.code };
+    splitFleet = (await repos.splitRounds.getConfig(series.id)) !== null;
+  }
+  const refusal = highPointRefusal({ addCodes, penalty, splitFleet });
+  if (refusal) throw new BadRequestError(refusal);
 }
 
 /**

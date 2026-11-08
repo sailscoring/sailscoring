@@ -591,6 +591,7 @@ export function finishCodeProblem(
     const def = codes.definition(finish.penaltyCode);
     if (!def) return `${finish.penaltyCode} isn’t a code in this series.`;
     if (def.kind !== 'add') return `${finish.penaltyCode} replaces a result: it can’t be a penalty.`;
+    if (codes.highPoint) return `${finish.penaltyCode} adds to a finishing place, which a high-point series can’t score yet.`;
   }
   return null;
 }

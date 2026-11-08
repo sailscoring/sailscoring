@@ -57,11 +57,12 @@ async function assertSeriesCodes(
   raceId: string,
   finishes: readonly Pick<Finish, 'resultCode' | 'penaltyCode'>[],
 ): Promise<void> {
-  const ownCodes = finishes.some(
-    (f) => (f.resultCode && !isBuiltInCodeFor('result', f.resultCode))
-      || (f.penaltyCode && !isBuiltInCodeFor('penalty', f.penaltyCode)),
+  // A series' own code needs the series to check; so does any penalty, which
+  // a high-point series refuses.
+  const needsSeries = finishes.some(
+    (f) => (f.resultCode && !isBuiltInCodeFor('result', f.resultCode)) || f.penaltyCode,
   );
-  if (!ownCodes) return;
+  if (!needsSeries) return;
   const race = await repos.races.get(raceId);
   const series = race ? await repos.series.get(race.seriesId) : undefined;
   if (!series) throw new NotFoundError('race');

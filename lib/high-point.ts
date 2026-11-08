@@ -77,3 +77,34 @@ export function highPointTiedPoints(hp: HighPointScoring, firstPlace: number, co
   for (let k = 0; k < count; k++) sum += highPointPlacePoints(hp, firstPlace + k, n);
   return sum / count;
 }
+
+/** What a series holds that high point can't score yet. */
+export interface HighPointBlockers {
+  /** A finish carrying an additive penalty (ZFP, SCP, DPI or a series' own
+   *  code that adds), by race number and code. */
+  penalty?: { raceNumber: number; code: string };
+  /** The series' own codes that add to a finishing place. */
+  addCodes?: readonly string[];
+  /** The series is a split-fleet championship. */
+  splitFleet?: boolean;
+}
+
+/**
+ * Why a series can't score high point as it stands, in the scorer's words,
+ * or null when it can. Refused rather than scored wrongly: the additive
+ * penalties and the split-fleet stages' medal doubling and carried scores
+ * are written for low point, where more points are worse.
+ */
+export function highPointRefusal(b: HighPointBlockers): string | null {
+  if (b.splitFleet) {
+    return 'A split-fleet championship can’t be scored high point: its stages are scored low point.';
+  }
+  if (b.addCodes && b.addCodes.length > 0) {
+    const list = b.addCodes.join(', ');
+    return `A high-point series can’t score a code that adds to a finishing place yet (${list}). Change or remove ${b.addCodes.length === 1 ? 'it' : 'them'} first.`;
+  }
+  if (b.penalty) {
+    return `A high-point series can’t score ${b.penalty.code} yet, and race ${b.penalty.raceNumber} has one. Remove it first.`;
+  }
+  return null;
+}
