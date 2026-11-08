@@ -60,15 +60,19 @@ function discardThresholdsSummary(thresholds: DiscardThreshold[]): string {
     .join(', ') + '.';
 }
 
-/** The series' discard allowance however it is stated — a proportional rule
- *  replaces the threshold list rather than adding to it. */
+/** The series' discard allowance however it is stated — a count-best or
+ *  proportional rule replaces the threshold list rather than adding to it. */
 function discardSummary(series: {
   discardThresholds: DiscardThreshold[];
   proportionalDiscard?: ProportionalDiscard;
+  countBest?: number;
 }): string {
+  const races = (n: number) => `${n} race${n === 1 ? '' : 's'}`;
+  if (series.countBest != null) {
+    return `The best ${races(series.countBest)} count; each fleet discards the rest of the races it sailed.`;
+  }
   const rule = series.proportionalDiscard;
   if (!rule) return discardThresholdsSummary(series.discardThresholds);
-  const races = (n: number) => `${n} race${n === 1 ? '' : 's'}`;
   return `One discard once ${races(rule.firstAt)} have been sailed, `
     + `then one more every ${races(rule.everyRaces)}.`;
 }
@@ -112,7 +116,7 @@ ${notesHtml}${configHtml}${commentsHtml}
 // ─── Scratch / fleets / codes renderer (full series results layout) ─────────
 
 function generateScratchFixtureHtml(fixture: Fixture, yamlSource: string): string {
-  const { competitors: listed, fleets, races, finishes, discardThresholds, proportionalDiscard, codes, excludeDncOnlyCompetitors } = buildFixtureInputs(fixture);
+  const { competitors: listed, fleets, races, finishes, discardThresholds, discardRule, codes, excludeDncOnlyCompetitors } = buildFixtureInputs(fixture);
   // The per-race tables below score the entrants, as the engine does; a boat
   // excluded from the series — by the scorer or by the all-DNC rule — is on
   // the list but in no race.
@@ -123,7 +127,7 @@ function generateScratchFixtureHtml(fixture: Fixture, yamlSource: string): strin
   const preamble = buildPreamble(fixture, yamlSource);
 
   if (isMultiFleet) {
-    const { fleetStandings: fleetResults } = calculateFleetStandings(fleets, competitors, races, finishes, discardThresholds, codes, [], [], undefined, undefined, proportionalDiscard);
+    const { fleetStandings: fleetResults } = calculateFleetStandings(fleets, competitors, races, finishes, discardThresholds, codes, [], [], undefined, undefined, discardRule);
     const sections: string[] = [];
 
     for (const { fleet, standings } of fleetResults) {
@@ -179,7 +183,7 @@ function generateScratchFixtureHtml(fixture: Fixture, yamlSource: string): strin
     return shell + sections.map(extractFleetContent).join('\n') + '\n' + footer;
   }
 
-  const { standings } = calculateStandings(competitors, races, finishes, discardThresholds, codes, undefined, undefined, proportionalDiscard);
+  const { standings } = calculateStandings(competitors, races, finishes, discardThresholds, codes, undefined, undefined, discardRule);
 
   const raceScoresByRaceId = new Map<
     string,

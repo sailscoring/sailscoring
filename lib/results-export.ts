@@ -12,6 +12,7 @@ import {
   startKeyResolver,
   ratingFieldTcf,
   staticRatingField,
+  discardRuleOf,
   type TodCorrectionContext,
 } from './scoring';
 import { seriesCodeTable } from './scoring-codes';
@@ -956,7 +957,7 @@ export async function buildFleetHtmlFiles(
     allRatingOverrides,
     undefined,
     seriesStruckByFleet,
-    series.proportionalDiscard,
+    discardRuleOf(series),
     { excludeDncOnlyCompetitors: series.excludeDncOnlyCompetitors },
   );
 
@@ -1606,7 +1607,7 @@ export async function buildFleetHtmlFiles(
       allRaceStarts,
       allRatingOverrides,
       series.excludeDncOnlyCompetitors ?? false,
-      series.proportionalDiscard,
+      discardRuleOf(series),
     );
     // With nothing sailed, no block has a race to its name and each would be
     // skipped; the placeholder is the whole series' entrants instead.

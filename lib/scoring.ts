@@ -1,4 +1,4 @@
-import type { Competitor, Fleet, Race, Finish, RaceScore, HandicapRaceScore, RaceStart, RaceRatingOverride, RatingField, Standing, ResultCode, PenaltyCode, DiscardThreshold, ProportionalDiscard, ScoringRejection, RaceScoringGap, NhcRaceCalc, NhcRaceAggregates, EchoRaceCalc, EchoRaceAggregates, OrcProfile, OrcRaceCalc, TcfRecord, NhcProfile, ProgressiveHandicapConfig, ProgressiveRaceCalc, ProgressiveRaceAggregates, SubSeries, RaceFleetExclusion, CompetitorEntryOverride } from './types';
+import type { Competitor, Fleet, Race, Finish, RaceScore, HandicapRaceScore, RaceStart, RaceRatingOverride, RatingField, Standing, ResultCode, PenaltyCode, DiscardThreshold, DiscardRule, Series, ScoringRejection, RaceScoringGap, NhcRaceCalc, NhcRaceAggregates, EchoRaceCalc, EchoRaceAggregates, OrcProfile, OrcRaceCalc, TcfRecord, NhcProfile, ProgressiveHandicapConfig, ProgressiveRaceCalc, ProgressiveRaceAggregates, SubSeries, RaceFleetExclusion, CompetitorEntryOverride } from './types';
 import { oneFinishPerCompetitor } from './finish-rows';
 import { elapsedSecondsOf, roundToPrecision, timingPrecisionOf, type TimingPrecision } from './elapsed-time';
 import { courseLapsOf, fullCourseElapsed, lapsDiffer } from './laps';
@@ -1320,28 +1320,46 @@ function resolveRedressScore(
 }
 
 /**
+ * The discard rule a series states in place of its threshold list, if any.
+ * `countBest` wins over `proportionalDiscard`: the editor keeps the rule it
+ * switched away from so switching back loses nothing, and the one it switched
+ * to is the one that scores.
+ */
+export function discardRuleOf(
+  series: Pick<Series, 'proportionalDiscard' | 'countBest'>,
+): DiscardRule | undefined {
+  return series.countBest != null ? { countBest: series.countBest } : series.proportionalDiscard;
+}
+
+/**
  * Get the number of discards to apply for a given race count.
  *
- * A proportional rule, when the series has one, replaces the thresholds
- * outright: the allowance is `1 + floor((sailed - firstAt) / everyRaces)` once
- * `firstAt` races have been sailed, and nothing before that. Rounding is down,
- * matching both the sailing instructions that word it this way and Sailwave's
- * expression profiles.
+ * A rule, when the series has one, replaces the thresholds outright:
+ *
+ * - "Count the best N races": `max(0, sailed - countBest)`. Fewer than N
+ *   races sailed means every race counts.
+ * - Proportional: `1 + floor((sailed - firstAt) / everyRaces)` once `firstAt`
+ *   races have been sailed, and nothing before that. Rounding is down,
+ *   matching both the sailing instructions that word it this way and
+ *   Sailwave's expression profiles.
  *
  * Otherwise thresholds are checked from highest minRaces to lowest; the first
  * matching threshold's discardCount is returned. Returns 0 if neither applies.
  *
  * @param raceCount  Number of races sailed
  * @param thresholds  Discard thresholds configured for the series
- * @param proportional  A proportional allowance, which supersedes `thresholds`
+ * @param rule  A count-best or proportional rule, which supersedes `thresholds`
  */
 export function getDiscardCount(
   raceCount: number,
   thresholds: DiscardThreshold[],
-  proportional?: ProportionalDiscard,
+  rule?: DiscardRule,
 ): number {
-  if (proportional) {
-    const { firstAt, everyRaces } = proportional;
+  if (rule && 'countBest' in rule) {
+    return Math.max(0, raceCount - rule.countBest);
+  }
+  if (rule) {
+    const { firstAt, everyRaces } = rule;
     if (everyRaces < 1 || raceCount < firstAt) return 0;
     return 1 + Math.floor((raceCount - firstAt) / everyRaces);
   }
@@ -1468,10 +1486,10 @@ function computeRaceExclusion(
 function computeDiscardCounts(
   raceExcluded: boolean[],
   discardThresholds: DiscardThreshold[],
-  proportionalDiscard?: ProportionalDiscard,
+  discardRule?: DiscardRule,
 ): { discardCount: number; redressDiscardAllowance: number } {
   const sailedRaceCount = raceExcluded.filter((x) => !x).length;
-  const redressDiscardAllowance = getDiscardCount(sailedRaceCount, discardThresholds, proportionalDiscard);
+  const redressDiscardAllowance = getDiscardCount(sailedRaceCount, discardThresholds, discardRule);
   return {
     discardCount: Math.min(redressDiscardAllowance, sailedRaceCount),
     redressDiscardAllowance,
@@ -1664,7 +1682,7 @@ function sortAndRank(standings: Standing[]): void {
  * @param races  All races in the series, sorted by raceNumber ascending
  * @param allFinishes  All finishes in the series
  * @param discardThresholds  Discard rules for this series (default: none)
- * @param proportionalDiscard  A proportional allowance, superseding the thresholds
+ * @param discardRule  A count-best or proportional rule, superseding the thresholds
  * @returns  Standings array sorted by rank
  */
 export function calculateStandings(
@@ -1675,7 +1693,7 @@ export function calculateStandings(
   dnfScoring: CodeScoring = 'seriesEntries',
   fleetId?: string,
   excludedRaceIds?: Set<string>,
-  proportionalDiscard?: ProportionalDiscard,
+  discardRule?: DiscardRule,
   /** The series' race starts. Only needed to tell which gun an elapsed time
    *  was measured from, when deciding whether two boats crossed together —
    *  omitted, an elapsed-time tie needs the scorer's own flag. */
@@ -1725,7 +1743,7 @@ export function calculateStandings(
   const { discardCount, redressDiscardAllowance } = computeDiscardCounts(
     raceExcluded,
     discardThresholds,
-    proportionalDiscard,
+    discardRule,
   );
 
   const circularRedressRaces = collectAndResolveRdg({
@@ -1773,7 +1791,7 @@ function calculateHandicapStandings(
   ratingOverrides: RaceRatingOverride[] = [],
   startingTcfOverrides?: Map<string, number>,
   excludedRaceIds?: Set<string>,
-  proportionalDiscard?: ProportionalDiscard,
+  discardRule?: DiscardRule,
 ): {
   standings: Standing[];
   rejections: ScoringRejection[];
@@ -2229,7 +2247,7 @@ function calculateHandicapStandings(
   const { discardCount, redressDiscardAllowance } = computeDiscardCounts(
     raceExcluded,
     discardThresholds,
-    proportionalDiscard,
+    discardRule,
   );
 
   // Resolve RDG against the per-race points computed above, then they
@@ -2483,7 +2501,7 @@ export function calculateFleetStandings(
   ratingOverrides: RaceRatingOverride[] = [],
   progressiveSeedTcfs?: Map<string, Map<string, number>>,
   excludedRaceIdsByFleet?: Map<string, Set<string>>,
-  proportionalDiscard?: ProportionalDiscard,
+  discardRule?: DiscardRule,
   entry?: EntryResolutionOptions,
 ): FleetStandingsResult {
   const sorted = [...fleets].sort((a, b) => a.displayOrder - b.displayOrder);
@@ -2529,7 +2547,7 @@ export function calculateFleetStandings(
         ratingOverrides,
         progressiveSeedTcfs?.get(fleet.id),
         excluded,
-        proportionalDiscard,
+        discardRule,
       );
       allCircular.push(...circularRedressRaces);
       return { fleet, standings, rejections: [...rejections, ...detectPerFleetGaps(fleet, fleetCompetitors, allFinishes)], raceGaps, nhcRaceScoresByRaceId, nhcAggregatesByRaceId, echoRaceScoresByRaceId, echoAggregatesByRaceId, orcRaceScoresByRaceId, tcfHistory };
@@ -2546,7 +2564,7 @@ export function calculateFleetStandings(
       dnfScoring,
       fleet.id,
       notIn.size > 0 ? new Set([...(excluded ?? []), ...notIn]) : excluded,
-      proportionalDiscard,
+      discardRule,
       raceStarts,
     );
     allCircular.push(...circularRedressRaces);
@@ -2557,7 +2575,7 @@ export function calculateFleetStandings(
   if (orphans.length > 0) {
     const unknownFleet: Fleet = { id: UNKNOWN_FLEET_ID, seriesId: '', name: 'Unknown', displayOrder: 9999, scoringSystem: 'scratch' };
     const { standings, circularRedressRaces } = calculateStandings(
-      orphans, races, allFinishes, discardThresholds, dnfScoring, undefined, undefined, proportionalDiscard,
+      orphans, races, allFinishes, discardThresholds, dnfScoring, undefined, undefined, discardRule,
     );
     allCircular.push(...circularRedressRaces);
     fleetStandings.push({ fleet: unknownFleet, standings, rejections: [], raceGaps: [] });
@@ -2677,7 +2695,7 @@ export function calculateSubSeriesFleetStandings(
   raceStarts: RaceStart[] = [],
   ratingOverrides: RaceRatingOverride[] = [],
   excludeDncOnlyCompetitors = false,
-  proportionalDiscard?: ProportionalDiscard,
+  discardRule?: DiscardRule,
 ): SubSeriesStandings[] {
   const racesById = new Map(races.map((r) => [r.id, r]));
   const memberRaces = (ss: SubSeries): Race[] =>
@@ -2747,7 +2765,7 @@ export function calculateSubSeriesFleetStandings(
       ratingOverrides,
       seedTcfs,
       excludedByFleet,
-      proportionalDiscard,
+      discardRule,
       entry,
     );
 

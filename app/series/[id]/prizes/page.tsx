@@ -9,6 +9,7 @@ import { seriesRowMutationKey } from '@/hooks/use-series';
 import {
   calculateFleetStandings,
   buildRaceFleetExclusionMap,
+  discardRuleOf,
 } from '@/lib/scoring';
 import { seriesCodeTable } from '@/lib/scoring-codes';
 import { formatPrimaryNames, subdivisionAxes, subdivisionAxisLabel } from '@/lib/competitor-fields';
@@ -149,7 +150,7 @@ export default function PrizesPage({
     undefined,
     undefined,
     buildRaceFleetExclusionMap(series.raceFleetExclusions),
-    series.proportionalDiscard,
+    discardRuleOf(series),
   );
   const allocations = allocatePrizes(localPrizes, fleetStandings, axes);
   const multiFleet = fleets.length > 1;

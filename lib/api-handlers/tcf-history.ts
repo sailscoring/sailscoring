@@ -3,7 +3,7 @@ import 'server-only';
 import { NotFoundError } from '@/app/api/v1/_lib/handler';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
 import { seriesFileReposFor } from '@/lib/postgres-repository';
-import { calculateFleetStandings, calculateSubSeriesFleetStandings, buildRaceFleetExclusionMap } from '@/lib/scoring';
+import { calculateFleetStandings, calculateSubSeriesFleetStandings, buildRaceFleetExclusionMap, discardRuleOf } from '@/lib/scoring';
 import { seriesCodeTable } from '@/lib/scoring-codes';
 import { loadSeriesSnapshot } from '@/lib/series-snapshot';
 import type { TcfRecord } from '@/lib/types';
@@ -53,7 +53,7 @@ export async function listTcfHistory(
       raceStarts,
       ratingOverrides,
       series.excludeDncOnlyCompetitors ?? false,
-      series.proportionalDiscard,
+      discardRuleOf(series),
     );
     return blocks.flatMap((b) => b.fleetStandings.flatMap((fr) => fr.tcfHistory ?? []));
   }
@@ -69,7 +69,7 @@ export async function listTcfHistory(
     ratingOverrides,
     undefined,
     buildRaceFleetExclusionMap(series.raceFleetExclusions),
-    series.proportionalDiscard,
+    discardRuleOf(series),
     { excludeDncOnlyCompetitors: series.excludeDncOnlyCompetitors },
   );
   return fleetStandings.flatMap((fr) => fr.tcfHistory ?? []);

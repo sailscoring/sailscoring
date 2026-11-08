@@ -15,7 +15,7 @@ import {
 } from './competitor-identity-repository';
 import { seriesFileReposFor } from './postgres-repository';
 import { getPublishedPathsBySeries } from './published-repository';
-import { calculateFleetStandings, buildRaceFleetExclusionMap, type FleetStandingsResult } from './scoring';
+import { calculateFleetStandings, buildRaceFleetExclusionMap, discardRuleOf, type FleetStandingsResult } from './scoring';
 import { seriesCodeTable } from './scoring-codes';
 import { loadSeriesSnapshot } from './series-snapshot';
 
@@ -96,7 +96,7 @@ export async function getCareerArc(
       snap.ratingOverrides,
       undefined,
       buildRaceFleetExclusionMap(snap.series.raceFleetExclusions),
-      snap.series.proportionalDiscard,
+      discardRuleOf(snap.series),
       { excludeDncOnlyCompetitors: snap.series.excludeDncOnlyCompetitors },
     );
     const scored: ScoredSeries = {

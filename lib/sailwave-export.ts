@@ -19,8 +19,9 @@
  * `buildSeriesFile` produces.
  */
 import type { SeriesFile } from './series-file';
-import type { DiscardThreshold, ProportionalDiscard, ResultCode, ResultsColumn, SeriesScoringCode } from './types';
+import type { DiscardRule, DiscardThreshold, ResultCode, ResultsColumn, SeriesScoringCode } from './types';
 import { getCodeDefinition } from './scoring-codes';
+import { discardRuleOf, getDiscardCount } from './scoring';
 import { rrsCode } from './scoring-codes-text';
 import { ruleToSailwave } from './sailwave-codes';
 import {
@@ -143,27 +144,25 @@ function safeSelectorName(name: string): string {
 
 // ---- Discard profile ----
 
-/** Expand our threshold table (or a proportional rule) into Sailwave's
- *  cumulative list, indexed by races sailed − 1. */
+/** Expand our discard rule — a threshold table, a proportional rule or a
+ *  count-best rule — into Sailwave's cumulative list, indexed by races
+ *  sailed − 1.
+ *
+ *  Sailwave would also take a count-best rule as its expression `s-N`, but a
+ *  list is what every Sailwave version reads the same way, and one that runs
+ *  past N says the rule just as well: the importer reads a list that is
+ *  `max(0, sailed − N)` at every position back as the rule. */
 export function discardListFor(
   thresholds: DiscardThreshold[],
-  proportional: ProportionalDiscard | undefined,
+  rule: DiscardRule | undefined,
   raceCount: number,
 ): string {
   const maxThreshold = thresholds.reduce((m, t) => Math.max(m, t.minRaces), 0);
-  const length = Math.max(raceCount, maxThreshold, 1) + DISCARD_LIST_HEADROOM;
-  const sorted = [...thresholds].sort((a, b) => a.minRaces - b.minRaces);
+  const countBest = rule && 'countBest' in rule ? rule.countBest : 0;
+  const length = Math.max(raceCount, maxThreshold, countBest, 1) + DISCARD_LIST_HEADROOM;
   const counts: number[] = [];
   for (let sailed = 1; sailed <= length; sailed++) {
-    let n = 0;
-    if (proportional) {
-      n = sailed < proportional.firstAt
-        ? 0
-        : 1 + Math.floor((sailed - proportional.firstAt) / proportional.everyRaces);
-    } else {
-      for (const t of sorted) if (sailed >= t.minRaces) n = t.discardCount;
-    }
-    counts.push(n);
+    counts.push(getDiscardCount(sailed, thresholds, rule));
   }
   return counts.join(',');
 }
@@ -325,7 +324,7 @@ export function buildSailwaveBlw(file: SeriesFile): SailwaveExportResult {
   const rootSystem = fleets[0]?.scoringSystem ?? 'scratch';
   const discardList = discardListFor(
     series.discardThresholds,
-    series.proportionalDiscard,
+    discardRuleOf(series),
     races.length,
   );
   const systemRows = (handle: number, overrides: Record<string, string>): void => {

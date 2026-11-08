@@ -7,6 +7,7 @@ import { useUpdateCompetitorsField } from '@/hooks/use-competitors';
 import { useSubSeriesBySeries, useSaveSubSeries } from '@/hooks/use-sub-series';
 import {
   getDiscardCount,
+  discardRuleOf,
   calculateFleetStandings,
   calculateSubSeriesFleetStandings,
   buildRaceFleetExclusionMap,
@@ -174,7 +175,7 @@ export default function StandingsPage({
   }
 
   const discardThresholds: DiscardThreshold[] = series.discardThresholds ?? [];
-  const proportionalDiscard = series.proportionalDiscard;
+  const discardRule = discardRuleOf(series);
   const enabledFields = data.enabledFields;
   const axes = subdivisionAxes(series);
   const isSingleFleet = fleets.length <= 1;
@@ -205,7 +206,7 @@ export default function StandingsPage({
       allRaceStarts,
       undefined,
       series.excludeDncOnlyCompetitors ?? false,
-      proportionalDiscard,
+      discardRule,
     );
     const nonEmpty = blockResults.filter((b) => b.races.length > 0);
     blockTabs = nonEmpty.map((b) => ({ id: b.subSeries.id, name: b.subSeries.name }));
@@ -241,7 +242,7 @@ export default function StandingsPage({
     }));
     fleetResults = selected.fleetStandings;
     circularRedressRaces = selected.circularRedressRaces;
-    const blockDiscards = getDiscardCount(selected.races.length, discardThresholds, proportionalDiscard);
+    const blockDiscards = getDiscardCount(selected.races.length, discardThresholds, discardRule);
     // The boats this block actually scores — its flag and its overrides
     // applied — so the count agrees with the table beneath it.
     const blockRaceIds = new Set(selected.races.map((r) => r.id));
@@ -279,13 +280,13 @@ export default function StandingsPage({
       undefined,
       undefined,
       buildRaceFleetExclusionMap(series.raceFleetExclusions),
-      proportionalDiscard,
+      discardRule,
       { excludeDncOnlyCompetitors: series.excludeDncOnlyCompetitors },
     );
     raceLabels = races;
     fleetResults = whole.fleetStandings;
     circularRedressRaces = whole.circularRedressRaces;
-    const discardCount = getDiscardCount(races.length, discardThresholds, proportionalDiscard);
+    const discardCount = getDiscardCount(races.length, discardThresholds, discardRule);
     // The entrants, not the list: an excluded boat is on the roster but is
     // not one of the competitors this table scores.
     const entrantCount = resolveEntrants(competitors, races, allFinishes, {

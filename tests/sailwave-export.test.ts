@@ -253,6 +253,14 @@ describe('discardListFor', () => {
     expect(discardListFor([], { firstAt: 3, everyRaces: 3 }, 2).split(',').slice(0, 9))
       .toEqual(['0', '0', '1', '1', '1', '2', '2', '2', '3']);
   });
+  it('expands a count-best rule far enough past N to read back as the rule', () => {
+    expect(discardListFor([], { countBest: 5 }, 3)).toBe('0,0,0,0,0,1,2,3,4,5,6,7,8,9,10');
+    // A series with more races than N runs headroom past its own count.
+    expect(discardListFor([], { countBest: 3 }, 6).split(',')).toHaveLength(16);
+  });
+  it('lets the count-best rule supersede the thresholds kept beside it', () => {
+    expect(discardListFor([{ minRaces: 2, discardCount: 1 }], { countBest: 2 }, 1)).toBe('0,0,1,2,3,4,5,6,7,8,9,10');
+  });
 });
 
 describe('encodeWindows1252', () => {

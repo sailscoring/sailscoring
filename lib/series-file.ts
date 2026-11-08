@@ -55,7 +55,7 @@ import {
   upgradeSplitFleetRaceNames,
   upgradeSplitFleetCarry,
 } from './split-fleet-config-upgrade';
-import { calculateFleetStandings, buildRaceFleetExclusionMap } from './scoring';
+import { calculateFleetStandings, buildRaceFleetExclusionMap, discardRuleOf } from './scoring';
 import { seriesCodeTable } from './scoring-codes';
 import { loadSeriesSnapshot } from './series-snapshot';
 import { disambiguateSeriesName, seriesSlug } from './series-name';
@@ -1017,7 +1017,7 @@ export async function buildSeriesFile(
     allRatingOverrides,
     undefined,
     buildRaceFleetExclusionMap(series.raceFleetExclusions),
-    series.proportionalDiscard,
+    discardRuleOf(series),
     { excludeDncOnlyCompetitors: series.excludeDncOnlyCompetitors },
   );
   const allTcfHistory: TcfRecord[] = fleetStandings.flatMap(

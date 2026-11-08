@@ -31,6 +31,7 @@ import {
 import {
   buildRaceFleetExclusionMap,
   calculateFleetStandings,
+  discardRuleOf,
 } from './scoring';
 import { seriesCodeTable } from './scoring-codes';
 import { loadSeriesSnapshot } from './series-snapshot';
@@ -203,7 +204,7 @@ export async function computeRankingStandings(
       snap.ratingOverrides,
       undefined,
       buildRaceFleetExclusionMap(snap.series.raceFleetExclusions),
-      snap.series.proportionalDiscard,
+      discardRuleOf(snap.series),
       { excludeDncOnlyCompetitors: snap.series.excludeDncOnlyCompetitors },
     );
     for (const fs of fleetStandings) {

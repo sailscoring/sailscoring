@@ -46,7 +46,7 @@ import {
   isOfficialRole,
   tidyOfficials,
 } from './race-officials';
-import { calculateFleetStandings, calculateRaceScores, buildRaceFleetExclusionMap, startKeyResolver } from './scoring';
+import { calculateFleetStandings, calculateRaceScores, buildRaceFleetExclusionMap, discardRuleOf, startKeyResolver } from './scoring';
 import { seriesCodeTable } from './scoring-codes';
 import { customFieldValues, publishedCustomFields } from './results-columns';
 import { loadSeriesSnapshot, type SeriesSnapshot } from './series-snapshot';
@@ -1094,7 +1094,7 @@ export function buildPublicExportFromSnapshot(
         allRatingOverrides,
         undefined,
         buildRaceFleetExclusionMap(series.raceFleetExclusions),
-        series.proportionalDiscard,
+        discardRuleOf(series),
         { excludeDncOnlyCompetitors: series.excludeDncOnlyCompetitors },
       ).fleetStandings);
 

@@ -16,6 +16,7 @@ import { join } from 'node:path';
 import { parse as parseYaml } from 'yaml';
 import type {
   Competitor,
+  DiscardRule,
   DiscardThreshold,
   ProportionalDiscard,
   Finish,
@@ -28,6 +29,7 @@ import type {
   SubSeries,
 } from '@/lib/types';
 import { buildCodeTable, type ScoringCodeTable } from '@/lib/scoring-codes';
+import { discardRuleOf } from '@/lib/scoring';
 
 /**
  * A fixture's `elapsed` value in seconds. Written the way a scorer would read
@@ -248,6 +250,9 @@ export interface Fixture {
     /** A discard allowance stated as a proportion — "one discard for every
      *  three races sailed". Supersedes `discardThresholds` when present. */
     proportionalDiscard?: ProportionalDiscard;
+    /** The number of races that count — "the best 5 results". Supersedes
+     *  both of the above when present. */
+    countBest?: number;
     dnfScoring?: 'seriesEntries' | 'startingArea';
     /** Custom scoring codes: changes to the built-in RRS codes and the
      *  series' own codes, as `Series.scoringCodes` holds them. */
@@ -285,7 +290,8 @@ export interface FixtureInputs {
   raceStarts: RaceStart[];
   ratingOverrides: RaceRatingOverride[];
   discardThresholds: DiscardThreshold[];
-  proportionalDiscard?: ProportionalDiscard;
+  /** The count-best or proportional rule replacing the thresholds, if any. */
+  discardRule?: DiscardRule;
   /** The series' code table: its A5 rule and its scoring codes. */
   codes: ScoringCodeTable;
   excludeDncOnlyCompetitors: boolean;
@@ -535,7 +541,7 @@ export function buildFixtureInputs(fixture: Fixture): FixtureInputs {
     raceStarts,
     ratingOverrides,
     discardThresholds: fixture.series.discardThresholds,
-    proportionalDiscard: fixture.series.proportionalDiscard,
+    discardRule: discardRuleOf(fixture.series),
     codes: buildCodeTable(fixture.series.dnfScoring ?? 'seriesEntries', fixture.series.scoringCodes ?? []),
     excludeDncOnlyCompetitors: fixture.series.excludeDncOnlyCompetitors ?? false,
     sailToId,
