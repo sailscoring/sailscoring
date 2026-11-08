@@ -219,6 +219,8 @@ function competitorRowToType(row: CompetitorRow): Competitor {
     ...(row.echoStartingTcf != null ? { echoStartingTcf: row.echoStartingTcf } : {}),
     ...(row.orcCert != null ? { orcCert: row.orcCert } : {}),
     ...(row.ircCert != null ? { ircCert: row.ircCert } : {}),
+    ...(row.ircSecondaryTcc != null ? { ircSecondaryTcc: row.ircSecondaryTcc } : {}),
+    ...(row.ircSecondaryCert != null ? { ircSecondaryCert: row.ircSecondaryCert } : {}),
     ...(row.excluded ? { excluded: true } : {}),
     version: row.version,
   };
@@ -293,6 +295,7 @@ function raceRatingOverrideRowToType(row: RaceRatingOverrideRow): RaceRatingOver
     competitorId: row.competitorId,
     field: row.field as RaceRatingOverride['field'],
     value: row.value,
+    ...(row.certificate === 'secondary' ? { certificate: 'secondary' as const } : {}),
     version: row.version,
   };
 }
@@ -1181,6 +1184,8 @@ function competitorToRow(c: Competitor, workspaceId: string) {
     echoStartingTcf: c.echoStartingTcf ?? null,
     orcCert: c.orcCert ?? null,
     ircCert: c.ircCert ?? null,
+    ircSecondaryTcc: c.ircSecondaryTcc ?? null,
+    ircSecondaryCert: c.ircSecondaryCert ?? null,
     excluded: c.excluded ?? false,
   };
 }
@@ -1191,6 +1196,7 @@ const competitorUpdateColumns = [
   'owners', 'helms', 'crewNames', 'clubs', 'nationality',
   'gender', 'age', 'subdivisions', 'customFields',
   'ircTcc', 'vprsTcc', 'fixedTcf', 'pyNumber', 'ytcNumber', 'nhcStartingTcf', 'echoStartingTcf', 'orcCert', 'ircCert',
+  'ircSecondaryTcc', 'ircSecondaryCert',
   'excluded',
 ] as const satisfies readonly (keyof ReturnType<typeof competitorToRow>)[];
 
@@ -2017,11 +2023,12 @@ function raceRatingOverrideToRow(o: RaceRatingOverride) {
     competitorId: o.competitorId,
     field: o.field,
     value: o.value,
+    certificate: o.certificate ?? null,
   };
 }
 
 const raceRatingOverrideUpdateColumns = [
-  'field', 'value',
+  'field', 'value', 'certificate',
 ] as const satisfies readonly (keyof ReturnType<typeof raceRatingOverrideToRow>)[];
 
 export class PostgresRaceRatingOverrideRepository implements RaceRatingOverrideRepository {

@@ -78,6 +78,8 @@ export const competitorSchema = z.object({
   echoStartingTcf: z.number().optional(),
   orcCert: orcCertDataSchema.optional(),
   ircCert: ircCertRecordSchema.optional(),
+  ircSecondaryTcc: z.number().positive().optional(),
+  ircSecondaryCert: ircCertRecordSchema.optional(),
   excluded: z.boolean().optional(),
   version: versionSchema,
 });
@@ -164,6 +166,10 @@ export const handicapUpdateSchema = z.object({
   orcCert: orcCertDataSchema.optional(),
   // Where an applied IRC rating came from, written beside the number (#615).
   ircCert: ircCertRecordSchema.optional(),
+  // The secondary certificate, kept beside the primary when the scorer keeps
+  // both. `null` clears it.
+  ircSecondaryTcc: z.number().positive().nullable().optional(),
+  ircSecondaryCert: ircCertRecordSchema.nullable().optional(),
   // Canonical class name written by the RYA PY source alongside the PY number.
   boatClass: z.string().optional(),
   // Fleets to add this competitor to (union with current membership) — the

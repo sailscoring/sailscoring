@@ -563,6 +563,10 @@ export const competitors = pgTable(
     // Where an applied IRC rating came from (#615). Advisory: scoring reads
     // `ircTcc`, never this.
     ircCert: jsonb('irc_cert').$type<IrcCertRecord>(),
+    // The secondary IRC certificate a race may be declared on, and its
+    // record. Null when the boat holds one certificate.
+    ircSecondaryTcc: real('irc_secondary_tcc'),
+    ircSecondaryCert: jsonb('irc_secondary_cert').$type<IrcCertRecord>(),
     // On the list but not an entrant: scored nowhere and counted toward no
     // entry total (Sailwave's per-competitor Exclude flag). See
     // Competitor.excluded.
@@ -1087,6 +1091,10 @@ export const raceRatingOverrides = pgTable(
       .references(() => competitors.id, { onDelete: 'cascade' }),
     field: text('field').notNull(),
     value: real('value').notNull(),
+    // 'secondary': the race scores on the boat's secondary IRC certificate,
+    // read at scoring time; `value` is the number it last resolved to. Null
+    // for a typed rating.
+    certificate: text('certificate').$type<'secondary'>(),
     version: versionCol,
     updatedAt: updatedAtCol,
     updatedBy: updatedByCol,

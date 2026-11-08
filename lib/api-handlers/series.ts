@@ -904,6 +904,8 @@ export async function createFollowOnSeries(
       echoStartingTcf: echoSeed ?? c.echoStartingTcf ?? null,
       orcCert: c.orcCert ?? null,
       ircCert: c.ircCert ?? null,
+      ircSecondaryTcc: c.ircSecondaryTcc ?? null,
+      ircSecondaryCert: c.ircSecondaryCert ?? null,
       // A boat on the roster that isn't entered stays that way: the roster
       // is the season's, and the scorer enters it when it turns up.
       excluded: c.excluded ?? false,

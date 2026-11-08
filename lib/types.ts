@@ -950,6 +950,13 @@ export interface RaceRatingOverride {
   competitorId: string;
   field: RatingField;
   value: number;     // in the field's own units (a TCC or TCF, or a PY or YTC number)
+  // Which of the boat's certificates the race scores on, where it is a choice
+  // rather than a typed number: 'secondary' reads the competitor's
+  // `ircSecondaryTcc` when the race is scored, so a re-issued secondary
+  // reaches every race declared on it, and `value` keeps the number it last
+  // resolved to. Absent, `value` is the rating — a one-off typed number.
+  // IRC only. See `overrideRatingValue` in lib/race-ratings.ts.
+  certificate?: 'secondary';
   version?: number;  // server-side concurrency token (see Series.version)
 }
 
@@ -1006,6 +1013,13 @@ export interface Competitor {
   // Sparse and advisory: absent means the rating was typed in, imported, or
   // applied before this was recorded, and scoring never reads it.
   ircCert?: IrcCertRecord;
+  // The boat's secondary IRC certificate — the other configuration it may
+  // declare race by race (ISORA NoR 6.2: offshore and inshore, crewed and
+  // two-handed). `ircTcc` stays the primary, which every race scores on
+  // unless the race's rating override says 'secondary'. Sparse; written by
+  // Update handicaps or typed in, and its record advisory like `ircCert`.
+  ircSecondaryTcc?: number;
+  ircSecondaryCert?: IrcCertRecord;
   // The boat's ORC certificate, stored verbatim as imported from the ORC
   // database; required for ORC competitors. Scoring reads rating fields off
   // the record per the fleet's OrcProfile. Kept out of the public JSON

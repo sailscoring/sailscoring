@@ -675,9 +675,16 @@ export interface SeriesFileRepos {
  *  from their series fleets — out of the two-handed fleet for a race sailed
  *  crewed, or in a new class from the race it was re-classed. Sparse. An
  *  older build would score each such boat in its series fleets, changing
- *  every other boat's points in those races, hence a bump. */
-export const FORMAT_VERSION = 80;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80];
+ *  every other boat's points in those races, hence a bump.
+ *
+ *  v81 adds `competitors[*].ircSecondaryTcc` and `ircSecondaryCert`, a boat's
+ *  secondary IRC certificate, and `races[*].ratingOverrides[*].certificate`:
+ *  'secondary' scores the race on that certificate, read when the race is
+ *  scored. Sparse. An older build would score a secondary race on the number
+ *  the override last resolved to, missing a re-issued secondary, hence a
+ *  bump. */
+export const FORMAT_VERSION = 81;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -837,6 +844,8 @@ interface SeriesFileCompetitor {
   echoStartingTcf?: number;
   orcCert?: OrcCertData;  // v40+: the boat's ORC certificate, verbatim
   ircCert?: IrcCertRecord;  // v55+: where an applied IRC rating came from
+  ircSecondaryTcc?: number;  // v81+: the secondary IRC certificate a race may be declared on
+  ircSecondaryCert?: IrcCertRecord;
 }
 
 /** v19–v30 recorded only "this row was entered by bow number"; v31 records
@@ -910,6 +919,7 @@ interface SeriesFileRatingOverride {
   competitorId: string;
   field: 'ircTcc' | 'pyNumber' | 'vprsTcc' | 'fixedTcf' | 'ytcNumber';
   value: number;
+  certificate?: 'secondary';  // v81+: scored on the boat's secondary certificate
 }
 
 interface SeriesFileRace {
@@ -1113,7 +1123,13 @@ export async function buildSeriesFile(
   const overridesByRace = new Map<string, SeriesFileRatingOverride[]>();
   for (const o of allRatingOverrides) {
     if (!overridesByRace.has(o.raceId)) overridesByRace.set(o.raceId, []);
-    overridesByRace.get(o.raceId)!.push({ id: o.id, competitorId: o.competitorId, field: o.field, value: o.value });
+    overridesByRace.get(o.raceId)!.push({
+      id: o.id,
+      competitorId: o.competitorId,
+      field: o.field,
+      value: o.value,
+      ...(o.certificate ? { certificate: o.certificate } : {}),
+    });
   }
 
   // A deleted competitor or fleet leaves its fleet changes behind on the
@@ -1243,6 +1259,8 @@ export async function buildSeriesFile(
       ...(c.echoStartingTcf != null ? { echoStartingTcf: c.echoStartingTcf } : {}),
       ...(c.orcCert != null ? { orcCert: c.orcCert } : {}),
       ...(c.ircCert != null ? { ircCert: c.ircCert } : {}),
+      ...(c.ircSecondaryTcc != null ? { ircSecondaryTcc: c.ircSecondaryTcc } : {}),
+      ...(c.ircSecondaryCert != null ? { ircSecondaryCert: c.ircSecondaryCert } : {}),
     })),
     races: races.map((r) => ({
       id: r.id,
@@ -2345,6 +2363,8 @@ async function writeFleetsCompetitorsRaces(
         ...(c.echoStartingTcf != null ? { echoStartingTcf: c.echoStartingTcf } : {}),
         ...(c.orcCert != null ? { orcCert: c.orcCert } : {}),
       ...(c.ircCert != null ? { ircCert: c.ircCert } : {}),
+      ...(c.ircSecondaryTcc != null ? { ircSecondaryTcc: c.ircSecondaryTcc } : {}),
+      ...(c.ircSecondaryCert != null ? { ircSecondaryCert: c.ircSecondaryCert } : {}),
       };
     }),
   );
@@ -2415,6 +2435,7 @@ async function writeFleetsCompetitorsRaces(
             competitorId: competitorIdMap.get(o.competitorId) ?? '',
             field: o.field,
             value: o.value,
+            ...(o.certificate === 'secondary' && o.field === 'ircTcc' ? { certificate: 'secondary' as const } : {}),
           }))
           .filter((o) => o.competitorId), // drop overrides for unknown competitors
       );

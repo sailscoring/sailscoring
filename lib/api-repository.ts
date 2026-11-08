@@ -1070,6 +1070,9 @@ export interface HandicapUpdateRow {
   /** Where an applied IRC rating came from, written beside the number so the
    *  question "why is this boat rated like that?" has an answer (#615). */
   ircCert?: import('./types').IrcCertRecord;
+  /** The secondary certificate, kept beside the primary; `null` clears it. */
+  ircSecondaryTcc?: number | null;
+  ircSecondaryCert?: import('./types').IrcCertRecord | null;
   /** Canonical class name to write — the RYA PY source normalises a boat's
    *  class to the register spelling alongside its PY number. */
   boatClass?: string;
