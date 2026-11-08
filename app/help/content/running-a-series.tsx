@@ -718,13 +718,24 @@ export default function RunningASeries() {
             continued handicap chain already set up to explore. Delete it whenever you like.
           </p>
           <p>
-            Each sub-series is scored on its own. The series discard rule applies to its race count
-            separately. By default a boat that entered the series but never started this sub-series
+            Each sub-series is scored on its own. By default a boat that entered the series but never started this sub-series
             is still scored DNC in it, just like a plain series. To rank only the boats that actually
             took part — leaving the no-shows off this sub-series’ table and out of its DNC entry
             count — tick{' '}
             <strong className="text-foreground">Rank only boats that took part</strong> in the
             editor. Removing a sub-series leaves the races themselves untouched.
+          </p>
+          <p>
+            A sub-series takes the series’ discard rule and applies it to its own races, so a
+            five-race block in a series that discards one from five discards one. When the sailing
+            instructions give a block a rule of its own, choose it under{' '}
+            <strong className="text-foreground">Discards</strong> in the sub-series editor:{' '}
+            <strong className="text-foreground">No discards</strong>, for a points trophy that
+            counts every race; <strong className="text-foreground">Count the best</strong> so many
+            races, for a coastal series counting its best 3 inside a season counting its best 5; or{' '}
+            <strong className="text-foreground">Its own rule</strong>, set out by step as on the
+            Scoring card. The sub-series line on the Races tab, its standings caption and its
+            published pages all state the rule it uses.
           </p>
           <p>
             Either way, the boats a sub-series leaves off its table are listed beneath it under{' '}
