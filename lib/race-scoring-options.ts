@@ -25,6 +25,16 @@ export function weightedRacePoints(points: number, multiplier: number | undefine
   return Math.floor(Number(scaled.toFixed(6)) + 0.5) / 10;
 }
 
+/** The points a per-race table shows for a boat. In low point, the points
+ *  for her place, as scored: the weighting shows in the series summary. In
+ *  high point, the score as it counts — weighted and rounded — since the
+ *  formula's unrounded figure (CHIPS3's 76.4321…) means nothing to a reader,
+ *  and a high-point race table is where a reader checks a weighted score
+ *  against the fleet size and weight in its caption. */
+export function raceTablePoints(points: number, multiplier: number | undefined, highPoint: boolean): number {
+  return highPoint ? weightedRacePoints(points, multiplier) : points;
+}
+
 /** The multiplier a race actually applies (absent means it counts once). */
 export function raceMultiplier(race: Pick<Race, 'pointsMultiplier'>): number {
   return race.pointsMultiplier ?? 1;

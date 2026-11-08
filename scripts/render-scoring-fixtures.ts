@@ -29,6 +29,8 @@ import {
   calculateHandicapRaceScores, ratingFieldTcf, resolveEntrants, staticRatingField } from '../lib/scoring';
 import { formatRatingValue, standingsRatingLabel } from '../lib/competitor-ratings';
 import { assembleSeriesResultsData, renderSeriesHtml } from '../lib/results-renderer';
+import { highPointOf, pointsSystemSummary } from '../lib/high-point';
+import { raceTablePoints } from '../lib/race-scoring-options';
 import { orcProfileRating, orcRaceProfile } from '../lib/orc-certificate';
 import { defaultEnabledCompetitorFields, formatPrimaryNames } from '../lib/competitor-fields';
 import type { DiscardThreshold, ProportionalDiscard, ResultCode, PenaltyCode } from '../lib/types';
@@ -95,13 +97,14 @@ function buildPreamble(fixture: Fixture, yamlSource: string): string {
     ? `<p style="margin:0 0 0.5em; font-style:italic; color:#444;">${esc(fixture.rrs_notes.trim())}</p>`
     : '';
 
-  const dnfLabel = (fixture.series.dnfScoring === 'startingArea'
-    ? 'A5.3 (starting area)'
-    : 'A5.2 (series entries)')
-    + (fixture.series.scoringCodes?.length
-      ? `; scoring codes changed or added: ${fixture.series.scoringCodes.map((c) => c.code).join(', ')}`
-      : '');
-  const configHtml = `<p style="margin:0 0 0.5em; color:#333;"><strong>Scoring configuration:</strong> ${esc(discardSummary(fixture.series))} DNF/OCS scoring: ${esc(dnfLabel)}.</p>`;
+  const changedCodes = fixture.series.scoringCodes?.length
+    ? `; scoring codes changed or added: ${fixture.series.scoringCodes.map((c) => c.code).join(', ')}`
+    : '';
+  const hp = highPointOf(fixture.series);
+  const pointsLabel = hp
+    ? `Points: ${pointsSystemSummary(fixture.series)}, highest total wins${changedCodes}.`
+    : `DNF/OCS scoring: ${fixture.series.dnfScoring === 'startingArea' ? 'A5.3 (starting area)' : 'A5.2 (series entries)'}${changedCodes}.`;
+  const configHtml = `<p style="margin:0 0 0.5em; color:#333;"><strong>Scoring configuration:</strong> ${esc(discardSummary(fixture.series))} ${esc(pointsLabel)}</p>`;
 
   const comments = extractComments(yamlSource);
   const commentsHtml = comments
@@ -146,7 +149,7 @@ function generateScratchFixtureHtml(fixture: Fixture, yamlSource: string): strin
         const scores = calculateRaceScores(raceFinishes, competitors.filter((c) => fleetCompetitorIds.has(c.id)), codes);
         raceScoresByRaceId.set(race.id, new Map([...scores.entries()].map(([id, s]) => [
           id,
-          { points: s.points, place: s.place, rank: s.rank, resultCode: s.resultCode, penaltyCode: finishByCompetitorId.get(id)?.penaltyCode ?? null, penaltyOverride: finishByCompetitorId.get(id)?.penaltyOverride ?? null, penaltyInPoints: finishByCompetitorId.get(id)?.penaltyInPoints },
+          { points: raceTablePoints(s.points, race.pointsMultiplier, !!codes.highPoint), place: s.place, rank: s.rank, resultCode: s.resultCode, penaltyCode: finishByCompetitorId.get(id)?.penaltyCode ?? null, penaltyOverride: finishByCompetitorId.get(id)?.penaltyOverride ?? null, penaltyInPoints: finishByCompetitorId.get(id)?.penaltyInPoints },
         ])));
       }
 
@@ -195,7 +198,7 @@ function generateScratchFixtureHtml(fixture: Fixture, yamlSource: string): strin
     const scores = calculateRaceScores(raceFinishes, competitors, codes);
     raceScoresByRaceId.set(race.id, new Map([...scores.entries()].map(([id, s]) => [
       id,
-      { points: s.points, place: s.place, rank: s.rank, resultCode: s.resultCode, penaltyCode: finishByCompetitorId.get(id)?.penaltyCode ?? null, penaltyOverride: finishByCompetitorId.get(id)?.penaltyOverride ?? null, penaltyInPoints: finishByCompetitorId.get(id)?.penaltyInPoints },
+      { points: raceTablePoints(s.points, race.pointsMultiplier, !!codes.highPoint), place: s.place, rank: s.rank, resultCode: s.resultCode, penaltyCode: finishByCompetitorId.get(id)?.penaltyCode ?? null, penaltyOverride: finishByCompetitorId.get(id)?.penaltyOverride ?? null, penaltyInPoints: finishByCompetitorId.get(id)?.penaltyInPoints },
     ])));
   }
 
@@ -1041,6 +1044,10 @@ const CATEGORY_META: Record<string, { title: string; intro: string }> = {
   codes: {
     title: 'Result codes',
     intro: 'Scoring behaviour for result codes: position-replacing codes (DNS, DNF, DSQ,\n  OCS, UFD, BFD, RET, NSC, DNC, DNE) and non-discardable penalties. Point\n  values and discard eligibility are governed by RRS Appendix A5 and Rule 30.',
+  },
+  'high-point': {
+    title: 'High-point scoring',
+    intro: "Series scored high point rather than RRS Appendix A's low point: a boat\n  scores for the boats she beats, a race she misses scores 0, and the highest\n  total wins. Boats beaten scores n + 1 − place (plus 1 for coming to the start,\n  HalSail's HP scoring); CHIPS3 is ISORA's formula. n is the boats in the\n  fleet's race whose result counts toward the fleet size. Each example checks\n  numbers Bray Sailing Club or ISORA published.",
   },
   discards: {
     title: 'Discards',

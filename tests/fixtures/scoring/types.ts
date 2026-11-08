@@ -30,6 +30,7 @@ import type {
 } from '@/lib/types';
 import { buildCodeTable, type ScoringCodeTable } from '@/lib/scoring-codes';
 import { discardRuleOf } from '@/lib/scoring';
+import { highPointOf } from '@/lib/high-point';
 
 /**
  * A fixture's `elapsed` value in seconds. Written the way a scorer would read
@@ -254,6 +255,11 @@ export interface Fixture {
      *  both of the above when present. */
     countBest?: number;
     dnfScoring?: 'seriesEntries' | 'startingArea';
+    /** High point: `pointsSystem: highPoint` with its formula, and for boats
+     *  beaten the point for coming to the start. Absent is low point. */
+    pointsSystem?: 'lowPoint' | 'highPoint';
+    highPointFormula?: 'boatsBeaten' | 'chips3';
+    pointForComingToStart?: boolean;
     /** Custom scoring codes: changes to the built-in RRS codes and the
      *  series' own codes, as `Series.scoringCodes` holds them. */
     scoringCodes?: SeriesScoringCode[];
@@ -542,7 +548,7 @@ export function buildFixtureInputs(fixture: Fixture): FixtureInputs {
     ratingOverrides,
     discardThresholds: fixture.series.discardThresholds,
     discardRule: discardRuleOf(fixture.series),
-    codes: buildCodeTable(fixture.series.dnfScoring ?? 'seriesEntries', fixture.series.scoringCodes ?? []),
+    codes: buildCodeTable(fixture.series.dnfScoring ?? 'seriesEntries', fixture.series.scoringCodes ?? [], highPointOf(fixture.series)),
     excludeDncOnlyCompetitors: fixture.series.excludeDncOnlyCompetitors ?? false,
     sailToId,
     subSeriesList,

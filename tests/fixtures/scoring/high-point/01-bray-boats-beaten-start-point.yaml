@@ -1,0 +1,61 @@
+description: "Boats beaten with a point for coming to the start — Bray SC Sunday Dinghy Series 2025, race 4"
+notes: |
+  Bray Sailing Club's HalSail "HP scoring": 1 point for finishing, 1 for each
+  boat beaten, and 1 for coming to the start, so place p scores n + 2 − p.
+
+  n is the boats in the race whose result counts toward the fleet size: the
+  seven finishers and the two DNFs, so n = 9. The winner scores 10, 7th
+  scores 4, and each DNF the place after the last, 1. The two boats given
+  redress are left out of n — no boat beat them. One of them, Chris Allen,
+  is here with the average HalSail published (2.7) entered as stated
+  points; the other (Patricia Prendiville, 0.2) is left out, because the
+  engine leaves two redress scores in one race unresolved. Every number
+  below is HalSail's.
+
+  The two DNFs tie on the same score and share 9th.
+
+series:
+  discardThresholds: []
+  dnfScoring: seriesEntries
+  pointsSystem: highPoint
+  highPointFormula: boatsBeaten
+  pointForComingToStart: true
+
+competitors:
+  - { sailNumber: "171385", name: "Emily Khan" }
+  - { sailNumber: "3639", name: "Colbert Byrne" }
+  - { sailNumber: "802", name: "David Sweeney" }
+  - { sailNumber: "170857_47", name: "Luca Keenan" }
+  - { sailNumber: "131", name: "Tony Proudfoot" }
+  - { sailNumber: "K14021", name: "David McIlwee" }
+  - { sailNumber: "455", name: "Donach O Lonargain" }
+  - { sailNumber: "W2", name: "Joey Dempsey" }
+  - { sailNumber: "2853", name: "Philip O'Reilly" }
+  - { sailNumber: "8", name: "Chris Allen" }
+
+races:
+  - number: 1
+    finishes:
+      - { sailor: "171385", position: 1 }
+      - { sailor: "3639", position: 2 }
+      - { sailor: "802", position: 3 }
+      - { sailor: "170857_47", position: 4 }
+      - { sailor: "131", position: 5 }
+      - { sailor: "K14021", position: 6 }
+      - { sailor: "455", position: 7 }
+      - { sailor: "W2", code: DNF }
+      - { sailor: "2853", code: DNF }
+      - { sailor: "8", code: RDG, redressMethod: stated, redressPoints: 2.7 }
+
+expected:
+  standings:
+    - { rank: 1, sailor: "171385", racePoints: [10], raceCodes: [null], raceDiscards: [false], totalPoints: 10, netPoints: 10 }
+    - { rank: 2, sailor: "3639", racePoints: [9], raceCodes: [null], raceDiscards: [false], totalPoints: 9, netPoints: 9 }
+    - { rank: 3, sailor: "802", racePoints: [8], raceCodes: [null], raceDiscards: [false], totalPoints: 8, netPoints: 8 }
+    - { rank: 4, sailor: "170857_47", racePoints: [7], raceCodes: [null], raceDiscards: [false], totalPoints: 7, netPoints: 7 }
+    - { rank: 5, sailor: "131", racePoints: [6], raceCodes: [null], raceDiscards: [false], totalPoints: 6, netPoints: 6 }
+    - { rank: 6, sailor: "K14021", racePoints: [5], raceCodes: [null], raceDiscards: [false], totalPoints: 5, netPoints: 5 }
+    - { rank: 7, sailor: "455", racePoints: [4], raceCodes: [null], raceDiscards: [false], totalPoints: 4, netPoints: 4 }
+    - { rank: 8, sailor: "8", racePoints: [2.7], raceCodes: [RDG], raceDiscards: [false], raceRedressFlags: [true], totalPoints: 2.7, netPoints: 2.7 }
+    - { rank: 9, sailor: "W2", racePoints: [1], raceCodes: [DNF], raceDiscards: [false], totalPoints: 1, netPoints: 1 }
+    - { rank: 9, sailor: "2853", racePoints: [1], raceCodes: [DNF], raceDiscards: [false], totalPoints: 1, netPoints: 1 }

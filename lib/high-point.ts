@@ -108,3 +108,14 @@ export function highPointRefusal(b: HighPointBlockers): string | null {
   }
   return null;
 }
+
+/** The points system in a few words, as the Scoring card's collapsed line
+ *  and a published caption name it: "Low point", "High point (boats
+ *  beaten)", "High point (boats beaten, +1 for coming to the start)",
+ *  "High point (CHIPS3)". */
+export function pointsSystemSummary(s: Partial<PointsSystemFields>): string {
+  const hp = highPointOf(s);
+  if (!hp) return 'Low point';
+  if (hp.formula === 'chips3') return 'High point (CHIPS3)';
+  return hp.pointForComingToStart ? 'High point (boats beaten, +1 for coming to the start)' : 'High point (boats beaten)';
+}
