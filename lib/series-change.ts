@@ -86,6 +86,14 @@ const FACETS: readonly Facet[] = [
     summary: () => 'Changed the discard profile',
   },
   {
+    key: 'points-system',
+    fields: ['pointsSystem', 'highPointFormula', 'pointForComingToStart'],
+    action: 'series.scoring-updated',
+    summary: (s) => s.pointsSystem === 'highPoint'
+      ? `Changed the scoring to high point (${s.highPointFormula === 'chips3' ? 'CHIPS3' : 'boats beaten'})`
+      : 'Changed the scoring to low point',
+  },
+  {
     key: 'dnf-scoring',
     fields: ['dnfScoring'],
     action: 'series.scoring-updated',

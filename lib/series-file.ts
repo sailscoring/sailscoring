@@ -6,6 +6,8 @@ import type {
   DiscardThreshold,
   ProportionalDiscard,
   DnfScoring,
+  HighPointFormula,
+  PointsSystem,
   SeriesScoringCode,
   Finish,
   FinishTrackData,
@@ -47,6 +49,7 @@ import { isFleetRatingVariant } from './fleet-rating-variant';
 import { fleetIdFromPageKey, fleetPageKey } from './publish-pages';
 import { withoutPrizes } from './prizes';
 import { hasConditions } from './race-conditions';
+import { pointsSystemFields } from './high-point';
 import { RefusedSettingError } from './refused-setting-error';
 import {
   refusedSplitFleetConfigMessage,
@@ -653,9 +656,14 @@ export interface SeriesFileRepos {
  *  v77 adds `series.countBest`: a discard allowance stated as the number of
  *  races that count ("best 5 results"), in place of both the thresholds and
  *  `proportionalDiscard`. Sparse. An older build would score the series with
- *  the rule it replaces, hence a bump. */
-export const FORMAT_VERSION = 77;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77];
+ *  the rule it replaces, hence a bump.
+ *
+ *  v78 adds high-point scoring: `series.pointsSystem`, `highPointFormula` and
+ *  `pointForComingToStart`, and `countsInFleetSize` on a scoring code. Sparse;
+ *  absent is low point. An older build would score a high-point series low
+ *  point, ranking it upside down, hence a bump (ADR-013). */
+export const FORMAT_VERSION = 78;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -730,6 +738,9 @@ interface SeriesFileSeries {
   discardThresholds: DiscardThreshold[];
   proportionalDiscard?: ProportionalDiscard;  // v26+; replaces the thresholds when set
   countBest?: number;  // v77+; races that count, replacing both rules above when set
+  pointsSystem?: PointsSystem;  // v78+; absent = low point
+  highPointFormula?: HighPointFormula;  // v78+; high point only
+  pointForComingToStart?: boolean;  // v78+; boats beaten only
   dnfScoring: DnfScoring;
   excludeDncOnlyCompetitors?: boolean;  // v44+; all-DNC boats are non-entrants (absent = off)
   scoringCodes?: SeriesScoringCode[];  // v74+; custom scoring codes (absent = the RRS codes)
@@ -1119,6 +1130,7 @@ export async function buildSeriesFile(
       discardThresholds: series.discardThresholds,
       ...(series.proportionalDiscard ? { proportionalDiscard: series.proportionalDiscard } : {}),
       ...(series.countBest != null ? { countBest: series.countBest } : {}),
+      ...pointsSystemFields(series),
       dnfScoring: series.dnfScoring,
       ...(series.excludeDncOnlyCompetitors ? { excludeDncOnlyCompetitors: true } : {}),
       ...(series.scoringCodes && series.scoringCodes.length > 0 ? { scoringCodes: series.scoringCodes } : {}),
@@ -1745,6 +1757,7 @@ export async function openSeriesFromFile(
     discardThresholds: file.series.discardThresholds,
     proportionalDiscard: file.series.proportionalDiscard,
     countBest: file.series.countBest,
+    ...pointsSystemFields(file.series),
     dnfScoring: file.series.dnfScoring,
     excludeDncOnlyCompetitors: file.series.excludeDncOnlyCompetitors ?? false,
     scoringCodes: file.series.scoringCodes ?? [],
@@ -1862,6 +1875,7 @@ export async function restoreSeriesFromFile(
     discardThresholds: file.series.discardThresholds,
     proportionalDiscard: file.series.proportionalDiscard,
     countBest: file.series.countBest,
+    ...pointsSystemFields(file.series),
     dnfScoring: file.series.dnfScoring,
     excludeDncOnlyCompetitors: file.series.excludeDncOnlyCompetitors ?? false,
     scoringCodes: file.series.scoringCodes ?? [],
@@ -1976,6 +1990,7 @@ async function updateSeriesFromFileInner(
     discardThresholds: file.series.discardThresholds,
     proportionalDiscard: file.series.proportionalDiscard,
     countBest: file.series.countBest,
+    ...pointsSystemFields(file.series),
     dnfScoring: file.series.dnfScoring,
     excludeDncOnlyCompetitors: file.series.excludeDncOnlyCompetitors ?? false,
     scoringCodes: file.series.scoringCodes ?? [],
@@ -2171,6 +2186,9 @@ async function updateSeriesFromSailwaveInner(
     discardThresholds: file.series.discardThresholds,
     proportionalDiscard: file.series.proportionalDiscard,
     countBest: file.series.countBest,
+    // The points system stays the series' own: the Sailwave reader brings a
+    // file in as low point whatever it scored, so taking its answer would
+    // turn a high-point series upside down on every update.
     dnfScoring: file.series.dnfScoring,
     excludeDncOnlyCompetitors: file.series.excludeDncOnlyCompetitors ?? false,
     scoringCodes: file.series.scoringCodes ?? [],

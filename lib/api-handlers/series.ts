@@ -913,6 +913,9 @@ export async function createFollowOnSeries(
       proportionalDiscard: source.proportionalDiscard ?? null,
       countBest: source.countBest ?? null,
       dnfScoring: source.dnfScoring,
+      pointsSystem: source.pointsSystem ?? null,
+      highPointFormula: source.highPointFormula ?? null,
+      pointForComingToStart: source.pointForComingToStart ?? null,
       excludeDncOnlyCompetitors: source.excludeDncOnlyCompetitors ?? false,
       // Same SIs, next series of the season: the codes roll over.
       scoringCodes: source.scoringCodes ?? [],

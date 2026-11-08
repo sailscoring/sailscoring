@@ -137,6 +137,7 @@ export const seriesScoringCodeSchema = z.object({
   ]),
   capAtDnf: z.boolean().optional(),
   discardable: z.boolean(),
+  countsInFleetSize: z.boolean().optional(),
 });
 
 /** A series' scoring codes, checked as a table: well-formed codes, no two
@@ -237,6 +238,11 @@ export const seriesSchema = z.object({
   // counts has no standings to rank.
   countBest: z.number().int().positive().optional(),
   dnfScoring: z.enum(['seriesEntries', 'startingArea']),
+  // Low point or high point, and how high point scores. Optional on the wire:
+  // absent is low point.
+  pointsSystem: z.enum(['lowPoint', 'highPoint']).optional(),
+  highPointFormula: z.enum(['boatsBeaten', 'chips3']).optional(),
+  pointForComingToStart: z.boolean().optional(),
   excludeDncOnlyCompetitors: z.boolean().optional(),
   // Custom scoring codes. Optional on the wire; absent = the RRS codes.
   scoringCodes: seriesScoringCodesSchema.optional(),

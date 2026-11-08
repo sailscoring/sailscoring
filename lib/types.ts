@@ -275,6 +275,22 @@ export interface RrsOrgPushConfig {
  *  from the boats that came too — is a changed code (`scoringCodes`). */
 export type DnfScoring = 'seriesEntries' | 'startingArea';
 
+/** How a series turns race results into points.
+ *  - `lowPoint` — RRS Appendix A: 1st scores 1, 2nd 2, …, and the lowest
+ *    total wins. What a series without the field scores.
+ *  - `highPoint` — a boat scores for the boats she beats, a race she misses
+ *    scores 0, and the highest total wins. `HighPointFormula` says how. */
+export type PointsSystem = 'lowPoint' | 'highPoint';
+
+/** How a high-point series scores a place, per race and fleet, with n the
+ *  boats in that fleet's race that count toward the fleet size.
+ *  - `boatsBeaten` — 1 point for finishing and 1 for each boat beaten:
+ *    n + 1 − place. HalSail's high point, Sailwave's `r-p+1`, US Sailing's
+ *    race score.
+ *  - `chips3` — Chipstead SC's CHIPS3 (ISORA): a win scores 86 to 100
+ *    whatever the fleet size, the rest spreading down towards 5. */
+export type HighPointFormula = 'boatsBeaten' | 'chips3';
+
 /** What a "place after … + N" scoring-code rule counts, per race and fleet:
  *  the boats entered, those that came to the starting area, or those that
  *  finished. */
@@ -305,6 +321,11 @@ export interface SeriesScoringCode {
   /** A replacing code's points are never more than DNF's. */
   capAtDnf?: boolean;
   discardable: boolean;
+  /** High point only: whether a boat scored with this code is one of the n
+   *  boats in the race, so the boats placed ahead of her beat her. Absent, a
+   *  changed built-in takes its formula's default and a series' own code
+   *  counts. */
+  countsInFleetSize?: boolean;
 }
 
 /** The protest / request-for-redress time limit stated in the SIs, used to
@@ -435,6 +456,14 @@ export interface Series {
   // the editor loses nothing. Absent is the common case.
   countBest?: number;
   dnfScoring: DnfScoring;  // A5.2 or A5.3
+  // Low point (RRS Appendix A) or high point. Absent means low point. In high
+  // point `dnfScoring` is not read: the code table says what each code scores.
+  pointsSystem?: PointsSystem;
+  // The high-point formula; present only in high point.
+  highPointFormula?: HighPointFormula;
+  // Boats beaten only: a point for every boat that came to the start, which
+  // makes the place after the last score 1 (HalSail's "HP scoring").
+  pointForComingToStart?: boolean;
   // Treat a boat with no result other than DNC across the series as not
   // entered: off the standings and out of the A5.2 entry count, exactly as
   // if the scorer had excluded it (Sailwave's "mark all un-sailed competitors

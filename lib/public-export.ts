@@ -5,6 +5,8 @@ import type {
   DiscardThreshold,
   ProportionalDiscard,
   DnfScoring,
+  HighPointFormula,
+  PointsSystem,
   SeriesScoringCode,
   CompetitorFieldKey,
   MultiPersonFieldKey,
@@ -48,6 +50,7 @@ import {
 } from './race-officials';
 import { calculateFleetStandings, calculateRaceScores, buildRaceFleetExclusionMap, discardRuleOf, startKeyResolver } from './scoring';
 import { seriesCodeTable } from './scoring-codes';
+import { pointsSystemFields } from './high-point';
 import { customFieldValues, publishedCustomFields } from './results-columns';
 import { loadSeriesSnapshot, type SeriesSnapshot } from './series-snapshot';
 import type { SeriesFileSplitRound } from './series-file';
@@ -199,9 +202,12 @@ export interface PublicSeriesExport {
    *  which an export from v2 on could carry; v12 adds a finish's `laps`;
    *  v13 adds `penaltyInPoints`, an SCP stated in points; v14 adds the
    *  series' custom scoring codes (`series.scoringCodes`); v15 adds
-   *  `series.countBest`, the number of races that count. Readers accept
-   *  them all, bringing an older export's courses forward as they read it. */
-  version: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15;
+   *  `series.countBest`, the number of races that count; v16 adds high-point
+   *  scoring (`series.pointsSystem`, `highPointFormula`,
+   *  `pointForComingToStart`, and a code's `countsInFleetSize`). Readers
+   *  accept them all, bringing an older export's courses forward as they
+   *  read it. */
+  version: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16;
   /** Where the format, and what a reader may rely on, is documented. Written
    *  into every export so a reader handed only the file can find the
    *  contract. Optional: exports written before it was added lack it. */
@@ -235,6 +241,16 @@ export interface PublicSeriesExport {
      *  sailed − countBest). Sparse — omitted unless the series uses it (v15+). */
     countBest?: number;
     dnfScoring: DnfScoring;
+    /** `highPoint` when the series scores high point: a boat scores for the
+     *  boats she beats and the highest total wins. Sparse — omitted for low
+     *  point, RRS Appendix A (v16+). */
+    pointsSystem?: PointsSystem;
+    /** How high point scores a place: `boatsBeaten` (n + 1 − place) or
+     *  `chips3`. Present only in high point (v16+). */
+    highPointFormula?: HighPointFormula;
+    /** Boats beaten only: a point for every boat that came to the start.
+     *  Sparse (v16+). */
+    pointForComingToStart?: boolean;
     /** The automatic all-DNC rule: a boat with no result other than DNC across
      *  the series is not an entrant. Sparse — omitted when off. A reader
      *  re-scoring the export needs it for the entry count. */
@@ -1386,7 +1402,7 @@ export function buildPublicExportFromSnapshot(
     : undefined;
 
   return {
-    version: 15 as const,
+    version: 16 as const,
     formatDoc: PUBLIC_EXPORT_FORMAT_DOC,
     exportedAt: (opts?.exportedAt ?? new Date()).toISOString(),
     timeZone: instanceTimeZone(),
@@ -1403,6 +1419,7 @@ export function buildPublicExportFromSnapshot(
       discardThresholds: series.discardThresholds,
       ...(series.proportionalDiscard ? { proportionalDiscard: series.proportionalDiscard } : {}),
       ...(series.countBest != null ? { countBest: series.countBest } : {}),
+      ...pointsSystemFields(series),
       dnfScoring: series.dnfScoring,
       ...(series.excludeDncOnlyCompetitors ? { excludeDncOnlyCompetitors: true } : {}),
       ...(series.scoringCodes && series.scoringCodes.length > 0 ? { scoringCodes: series.scoringCodes } : {}),
@@ -1670,7 +1687,7 @@ function importExportPrizes(
 /** Export format versions this build can read. A file written by a newer
  *  build is refused rather than half-read: the version is what says which
  *  fields mean what. Mirrors `SUPPORTED_FORMAT_VERSIONS` on the file side. */
-const SUPPORTED_EXPORT_VERSIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
+const SUPPORTED_EXPORT_VERSIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
 
 /**
  * Parse the text of a published `.sailscoring.json` data file.
@@ -1901,6 +1918,7 @@ export async function importPublicExport(
     discardThresholds: data.series.discardThresholds,
     ...(data.series.proportionalDiscard ? { proportionalDiscard: data.series.proportionalDiscard } : {}),
     ...(data.series.countBest != null ? { countBest: data.series.countBest } : {}),
+    ...pointsSystemFields(data.series),
     dnfScoring: data.series.dnfScoring,
     ...(data.series.excludeDncOnlyCompetitors ? { excludeDncOnlyCompetitors: true } : {}),
     ...(data.series.scoringCodes?.length ? { scoringCodes: data.series.scoringCodes } : {}),

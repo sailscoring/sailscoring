@@ -184,6 +184,11 @@ export const series = pgTable(
     // Nullable for the same reason: absent selects one of the other modes.
     countBest: integer('count_best'),
     dnfScoring: text('dnf_scoring').notNull().default('seriesEntries'),
+    // Low point or high point (Series.pointsSystem), and how high point
+    // scores. Nullable: absent is low point, the common case.
+    pointsSystem: text('points_system'),
+    highPointFormula: text('high_point_formula'),
+    pointForComingToStart: boolean('point_for_coming_to_start'),
     // The automatic all-DNC rule for the whole series; see
     // Series.excludeDncOnlyCompetitors.
     excludeDncOnlyCompetitors: boolean('exclude_dnc_only_competitors').notNull().default(false),
@@ -381,6 +386,14 @@ export const series = pgTable(
     check(
       'series_dnf_scoring_chk',
       sql`${table.dnfScoring} in ('seriesEntries','startingArea')`,
+    ),
+    check(
+      'series_points_system_chk',
+      sql`${table.pointsSystem} in ('lowPoint','highPoint')`,
+    ),
+    check(
+      'series_high_point_formula_chk',
+      sql`${table.highPointFormula} in ('boatsBeaten','chips3')`,
     ),
     check(
       'series_primary_person_label_chk',

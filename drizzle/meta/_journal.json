@@ -932,6 +932,13 @@
       "when": 1794132617144,
       "tag": "0132_series_count_best",
       "breakpoints": true
+    },
+    {
+      "idx": 133,
+      "version": "7",
+      "when": 1794138135211,
+      "tag": "0133_series_high_point",
+      "breakpoints": true
     }
   ]
 }

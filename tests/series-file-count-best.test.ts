@@ -92,7 +92,7 @@ describe('count-best in the .sailscoring file', () => {
 describe('count-best in the public JSON export', () => {
   it('carries the rule and restores it on import', async () => {
     const data = buildPublicExportFromSnapshot(snapshot)!;
-    expect(data.version).toBe(15);
+    expect(data.version).toBe(16);
     expect(data.series.countBest).toBe(5);
 
     let saved: Series | undefined;

@@ -255,6 +255,9 @@ describe.skipIf(skip)('createFollowOnSeries', () => {
       orcScoringOptions,
       proportionalDiscard: { firstAt: 4, everyRaces: 4 },
       countBest: 5,
+      pointsSystem: 'highPoint',
+      highPointFormula: 'boatsBeaten',
+      pointForComingToStart: true,
       excludeDncOnlyCompetitors: true,
       publishTrackData: true,
       prizes: [{
@@ -288,6 +291,9 @@ describe.skipIf(skip)('createFollowOnSeries', () => {
       orcScoringOptions,
       proportionalDiscard: { firstAt: 4, everyRaces: 4 },
       countBest: 5,
+      pointsSystem: 'highPoint',
+      highPointFormula: 'boatsBeaten',
+      pointForComingToStart: true,
       excludeDncOnlyCompetitors: true,
       publishTrackData: true,
     });

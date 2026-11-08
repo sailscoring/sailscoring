@@ -164,6 +164,27 @@ describe.skipIf(skip)('postgres repositories', () => {
     await repos.series.delete(s.id);
   });
 
+  test('SeriesRepository.save sets and clears the high-point system', async () => {
+    const repos = createRepos({ db, workspaceId: workspaceA });
+    const s: Series = { ...makeSeries(), pointsSystem: 'highPoint', highPointFormula: 'boatsBeaten', pointForComingToStart: true };
+
+    await repos.series.save(s);
+    const read = await repos.series.get(s.id);
+    expect(read?.pointsSystem).toBe('highPoint');
+    expect(read?.highPointFormula).toBe('boatsBeaten');
+    expect(read?.pointForComingToStart).toBe(true);
+
+    // Back to low point: the fields are left undefined and the update clears
+    // the columns.
+    await repos.series.save({ ...s, pointsSystem: undefined, highPointFormula: undefined, pointForComingToStart: undefined });
+    const back = await repos.series.get(s.id);
+    expect(back?.pointsSystem).toBeUndefined();
+    expect(back?.highPointFormula).toBeUndefined();
+    expect(back?.pointForComingToStart).toBeUndefined();
+
+    await repos.series.delete(s.id);
+  });
+
   test('SeriesRepository.save sets and clears custom fields and results columns', async () => {
     const repos = createRepos({ db, workspaceId: workspaceA });
     const customFields = [{ id: 'f-rig', label: 'Rig' }];
