@@ -189,7 +189,7 @@ export function FinaliseResultsDialog({
             >
               <input
                 type="checkbox"
-                className="mt-0.5"
+                className="mt-0.5 size-4 shrink-0"
                 checked={checks[i]}
                 onChange={() => toggle(i)}
               />
