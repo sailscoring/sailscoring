@@ -1248,6 +1248,49 @@ const SHOTS: Shot[] = [
     },
   },
   {
+    // Inventory: Primary and secondary certificates — race 1's Ratings tab
+    // with one Class 1 IRC boat declared on its secondary. The demo boats
+    // hold one certificate each, so the capture gives one a secondary for
+    // the shot and takes it away again afterwards.
+    slug: 'irc-secondary-certificates',
+    group: 'Rating and handicap systems',
+    async capture({ page, seriesId, shot }) {
+      await ensureFeature(page, 'per-race-certificates');
+      const id = await seriesId();
+      const competitorsUrl = `${BASE}/api/v1/series/${id}/competitors`;
+      const fleets = (await (await page.request.get(`${BASE}/api/v1/series/${id}/fleets`)).json()) as { id: string; name: string }[];
+      const irc = fleets.find((f) => f.name === 'Class 1 IRC');
+      if (!irc) throw new Error('irc-secondary-certificates: no Class 1 IRC fleet');
+      type Row = { id: string; sailNumber: string; fleetIds: string[]; ircTcc?: number; ircSecondaryTcc?: number };
+      const all = (await (await page.request.get(competitorsUrl)).json()) as Row[];
+      const boat = all.find((c) => c.fleetIds.includes(irc.id) && c.ircTcc != null);
+      if (!boat) throw new Error('irc-secondary-certificates: no rated Class 1 IRC boat');
+      const put = async (patch: Partial<Row>) => {
+        const current = (await (await page.request.get(`${competitorsUrl}/${boat.id}`)).json()) as Row;
+        const next: Record<string, unknown> = { ...current, ...patch };
+        if (patch.ircSecondaryTcc === undefined) delete next.ircSecondaryTcc;
+        const res = await page.request.put(`${competitorsUrl}/${boat.id}`, { data: next });
+        if (!res.ok()) throw new Error(`irc-secondary-certificates: PUT competitor ${res.status()}`);
+      };
+      await put({ ircSecondaryTcc: Math.round((boat.ircTcc! - 0.012) * 1000) / 1000 });
+      try {
+        await openRace(page, id, 1);
+        await page.getByRole('button', { name: /^Ratings( & fleets)?$/ }).click();
+        const choice = page.getByRole('group', { name: `${boat.sailNumber} certificate` }).first();
+        await choice.getByRole('button', { name: /^Secondary/ }).click();
+        await page.getByTitle('Declared on the secondary certificate').first().waitFor();
+        await settle(page);
+        // From the tab's heading, so the Declarations… button is in frame.
+        await scrollTo(page.getByText('Ratings for this race', { exact: true }));
+        await shot('irc-secondary-certificates.png');
+        await choice.getByRole('button', { name: /^Primary/ }).click();
+        await page.getByTitle('Declared on the secondary certificate').first().waitFor({ state: 'hidden' });
+      } finally {
+        await put({ ircSecondaryTcc: undefined });
+      }
+    },
+  },
+  {
     // Inventory: Bulk clean-up — Set field over a header-checkbox selection.
     slug: 'bulk-cleanup',
     group: 'Running a series',

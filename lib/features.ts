@@ -454,7 +454,7 @@ export const FEATURES = {
     // self-service. Only authoring is gated: a series with secondary
     // declarations scores and publishes them with the gate off.
     label: 'Primary and secondary certificates',
-    helpSectionIds: [],
+    helpSectionIds: ['irc-secondary-certificates'],
   },
   'connected-apps': {
     // Outside apps acting for a workspace's members (ADR-016): a member can

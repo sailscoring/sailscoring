@@ -661,6 +661,17 @@ export default function RatingSystems() {
           A boat that holds two IRC certificates — a primary and a secondary for a different sail
           configuration — defaults to the higher TCC, with a dropdown on its row to switch to the
           other.
+          {has('per-race-certificates') && (
+            <>
+              {' '}Where boats declare their certificate race by race, the dropdown’s{' '}
+              <strong className="text-foreground">Keep both</strong> is the default: the primary
+              becomes the boat’s TCC and the secondary is kept beside it (see{' '}
+              <a href="#irc-secondary-certificates" className="underline">
+                Primary and secondary certificates race by race
+              </a>
+              ).
+            </>
+          )}
         </p>
         <p>
           The preview names the date of the listing it planned against. The list is fetched once
@@ -705,6 +716,41 @@ export default function RatingSystems() {
           taking one out would drop its scored races.
         </p>
       </Section>
+      )}
+      {has('per-race-certificates') && (
+        <Section id="irc-secondary-certificates" title="Primary and secondary certificates race by race">
+          <HelpShot
+            src="/help/shots/irc-secondary-certificates.webp"
+            alt="A race's Ratings tab: one boat declared on its secondary certificate, the others on their primary."
+            caption="One boat declared on its secondary certificate for this race; the rest race on their primary."
+          />
+          <p>
+            Some events let a boat with two IRC certificates choose, race by race, which it races
+            on — ISORA’s boats switch between offshore and inshore configurations, or full crew and
+            two-handed, and declare the certificate before each race’s deadline. A boat that makes
+            no declaration races on its primary.
+          </p>
+          <p>
+            Keep both certificates on the boat: from the rating list with{' '}
+            <strong className="text-foreground">Keep both</strong>, or by typing the{' '}
+            <strong className="text-foreground">IRC secondary TCC</strong> in the competitor
+            dialog. Then, on each race’s <strong className="text-foreground">Ratings</strong> tab,
+            every IRC row offers <strong className="text-foreground">Primary</strong>,{' '}
+            <strong className="text-foreground">Secondary</strong> or{' '}
+            <strong className="text-foreground">Other…</strong> for a one-off number.{' '}
+            <strong className="text-foreground">Declarations…</strong> takes the race
+            committee’s list in one go: tick the boats that declared their secondary.
+          </p>
+          <p>
+            A declared race scores on the secondary the boat holds when it is scored, so when a
+            secondary is re-issued, every race declared on it moves to the new TCC — the competitor
+            dialog lists those races and says so before you save. Races on the primary are
+            untouched. The published race tables name the certificate behind each rating, and the{' '}
+            <strong className="text-foreground">Certificate</strong> column, off unless you turn it
+            on in <strong className="text-foreground">Results columns</strong>, prints P or S for
+            each boat.
+          </p>
+        </Section>
       )}
       {has('orc') && (
       <Section id="update-handicaps-orc" title="Importing ORC certificates">

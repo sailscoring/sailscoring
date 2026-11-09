@@ -98,6 +98,7 @@ export const HELP_GROUPS: HelpGroupDef[] = [
       { id: 'import-constructed-course', title: 'Importing a constructed course', feature: 'orc', keywords: ['import course', 'constructed course', 'orc constructed course', 'json', 'legs', 'race officer', 'course document', 'anchor', 'magnetic'] },
       { id: 'updating-handicaps', title: 'Updating handicaps from another series', keywords: ['carry ratings', 'previous series', 'last season', 'copy handicaps'] },
       { id: 'update-handicaps-irc-rating', title: 'Updating IRC TCCs from the rating list', feature: 'irc-rating', keywords: ['irc', 'tcc', 'certificate', 'rorc', 'club listing', 'rating list', 'endorsed'] },
+      { id: 'irc-secondary-certificates', title: 'Primary and secondary certificates race by race', feature: 'per-race-certificates', keywords: ['secondary', 'primary', 'sec', 'declaration', 'declare', 'isora', 'two certificates', 'double handed', 'inshore', 'offshore', 'certificate per race'] },
       { id: 'update-handicaps-orc', title: 'Importing ORC certificates', feature: 'orc', keywords: ['orc', 'certificate', 'import certificates', 'downrms', 'vpp'] },
       { id: 'update-handicaps-vprs', title: 'Updating VPRS TCCs from a club list', feature: 'vprs', keywords: ['vprs', 'tcc', 'club list'] },
       { id: 'update-handicaps-ytc', title: 'Updating YTC numbers from the RORC listing', feature: 'ytc', keywords: ['ytc', 'yacht time correction', 'rorc', 'rya', 'white sail', 'certificate', 'provisional'] },
