@@ -73,7 +73,7 @@ export default function StandingsPage({
   const [showFinaliseDialog, setShowFinaliseDialog] = useState(false);
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
 
-  const data = useSeriesData(seriesId, { finishes: true, raceStarts: true });
+  const data = useSeriesData(seriesId, { finishes: true, raceStarts: true, ratingOverrides: true });
   const { data: subSeriesList } = useSubSeriesBySeries(seriesId);
   // A championship's standings are the tiered championship table, not one
   // table per round fleet — which is why the scorer's version of this tab is
@@ -208,7 +208,7 @@ export default function StandingsPage({
       discardThresholds,
       seriesCodeTable(series),
       allRaceStarts,
-      undefined,
+      data.ratingOverrides ?? [],
       series.excludeDncOnlyCompetitors ?? false,
       discardRule,
     );
@@ -281,7 +281,7 @@ export default function StandingsPage({
       discardThresholds,
       seriesCodeTable(series),
       allRaceStarts,
-      undefined,
+      data.ratingOverrides ?? [],
       undefined,
       buildRaceFleetExclusionMap(series.raceFleetExclusions),
       discardRule,

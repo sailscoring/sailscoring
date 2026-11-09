@@ -11,12 +11,14 @@ import type {
   Fleet,
   PrimaryPersonLabel,
   Race,
+  RaceRatingOverride,
   RaceStart,
   Series,
 } from '@/lib/types';
 
 import { useCompetitorsBySeries } from './use-competitors';
 import { useFinishesBySeries } from './use-finishes';
+import { useRaceRatingOverridesBySeries } from './use-race-rating-overrides';
 import { useFleetsBySeries } from './use-fleets';
 import { useRaceStartsBySeries } from './use-race-starts';
 import { useRacesBySeries } from './use-races';
@@ -35,6 +37,8 @@ export type SeriesData =
       finishes?: Finish[];
       /** Present only when requested via `opts.raceStarts`. */
       raceStarts?: RaceStart[];
+      /** Present only when requested via `opts.ratingOverrides`. */
+      ratingOverrides?: RaceRatingOverride[];
       fleetById: Map<string, Fleet>;
       enabledFields: CompetitorFieldKey[];
       primaryLabel: PrimaryPersonLabel;
@@ -50,10 +54,11 @@ export type SeriesData =
  */
 export function useSeriesData(
   seriesId: string,
-  opts?: { finishes?: boolean; raceStarts?: boolean },
+  opts?: { finishes?: boolean; raceStarts?: boolean; ratingOverrides?: boolean },
 ): SeriesData {
   const wantFinishes = opts?.finishes ?? false;
   const wantRaceStarts = opts?.raceStarts ?? false;
+  const wantRatingOverrides = opts?.ratingOverrides ?? false;
 
   const { data: series } = useSeries(seriesId);
   const { data: competitors } = useCompetitorsBySeries(seriesId);
@@ -63,6 +68,7 @@ export function useSeriesData(
   // gated with `enabled` instead, so an unrequested query costs nothing.
   const { data: finishes } = useFinishesBySeries(seriesId, { enabled: wantFinishes });
   const { data: raceStarts } = useRaceStartsBySeries(seriesId, { enabled: wantRaceStarts });
+  const { data: ratingOverrides } = useRaceRatingOverridesBySeries(seriesId, { enabled: wantRatingOverrides });
 
   if (
     series === undefined ||
@@ -70,7 +76,8 @@ export function useSeriesData(
     fleets === undefined ||
     races === undefined ||
     (wantFinishes && finishes === undefined) ||
-    (wantRaceStarts && raceStarts === undefined)
+    (wantRaceStarts && raceStarts === undefined) ||
+    (wantRatingOverrides && ratingOverrides === undefined)
   ) {
     return { status: 'loading' };
   }
@@ -86,6 +93,7 @@ export function useSeriesData(
     races,
     ...(wantFinishes ? { finishes } : {}),
     ...(wantRaceStarts ? { raceStarts } : {}),
+    ...(wantRatingOverrides ? { ratingOverrides } : {}),
     fleetById: new Map(fleets.map((f) => [f.id, f])),
     enabledFields: series.enabledCompetitorFields ?? defaultEnabledCompetitorFields(),
     primaryLabel: series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,

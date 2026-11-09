@@ -99,7 +99,7 @@ export default function PrizesPage({
   // Why the last drag didn't move anything, until the next one.
   const [refusedMove, setRefusedMove] = useState<string | null>(null);
 
-  const data = useSeriesData(seriesId, { finishes: true, raceStarts: true });
+  const data = useSeriesData(seriesId, { finishes: true, raceStarts: true, ratingOverrides: true });
 
   // Local mirror so drag-reorder stays responsive while the save is in
   // flight; re-synced from the persisted row once the save queue drains
@@ -147,7 +147,7 @@ export default function PrizesPage({
     series.discardThresholds ?? [],
     seriesCodeTable(series),
     data.raceStarts ?? [],
-    undefined,
+    data.ratingOverrides ?? [],
     undefined,
     buildRaceFleetExclusionMap(series.raceFleetExclusions),
     discardRuleOf(series),
