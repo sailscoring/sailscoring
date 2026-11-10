@@ -41,7 +41,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { ChevronDown, ChevronsUpDown, Minus, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { ChevronDown, Minus, MoreVertical, Pencil, Plus, Trash2, X } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -242,7 +242,7 @@ function RaceRow({
                 aria-label={`Actions for Race ${race.raceNumber}`}
                 onClick={(e) => e.stopPropagation()}
               >
-                <ChevronsUpDown className="h-4 w-4" />
+                <MoreVertical className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             {/* Back to the row, not to the trigger: the trigger is out of the

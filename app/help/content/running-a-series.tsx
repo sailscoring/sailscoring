@@ -611,7 +611,7 @@ export default function RunningASeries() {
           focusing a row and pressing <kbd>Alt</kbd>+<kbd>↑</kbd> / <kbd>Alt</kbd>+<kbd>↓</kbd> to
           move it one place earlier or later. To slot a race in mid-series — a postponed race
           re-sailed between two others, or a make-up race — use a row’s{' '}
-          <strong className="text-foreground">⇅ menu ▸ Insert race above / below</strong>. Races
+          <strong className="text-foreground">⋮ menu ▸ Insert race above / below</strong>. Races
           renumber automatically to stay in order; existing redress (RDG) pools follow their races,
           so reordering or inserting never disturbs a previously scored redress.
         </p>
