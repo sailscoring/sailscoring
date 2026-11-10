@@ -88,6 +88,7 @@ import { RaceMetadataDialog } from '@/components/race-metadata-dialog';
 import { hasScoringOptions, scoringOptionsSummary } from '@/lib/race-scoring-options';
 import { formatConditions, hasConditions } from '@/lib/race-conditions';
 import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 function RaceRow({
   race,
@@ -163,7 +164,17 @@ function RaceRow({
       ref={(node) => { rowElRef.current = node; rowRef?.(node); }}
       style={rowStyle}
       data-testid="race-row"
-      className="flex items-center justify-between bg-card px-4 py-2 cursor-pointer hover:bg-muted/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+      // A grid with fixed tracks rather than a flex row, so the number,
+      // finisher count and menu line up down the list whatever a race's name
+      // and badges add. At phone width the count drops under the name, and
+      // the number sits level with the name's first line rather than halfway
+      // down a wrapped one.
+      className={cn(
+        'grid cursor-pointer items-start gap-x-3 gap-y-0.5 bg-card sm:items-center px-4 py-2 hover:bg-muted/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
+        readOnly
+          ? 'grid-cols-[4rem_minmax(0,1fr)] sm:grid-cols-[4.5rem_minmax(0,1fr)_7rem]'
+          : 'grid-cols-[auto_4rem_minmax(0,1fr)_auto] sm:grid-cols-[auto_4.5rem_minmax(0,1fr)_7rem_auto]',
+      )}
       {...rovingProps}
       onClick={() => router.push(`/series/${seriesId}/races/${race.id}`)}
       onKeyDown={(e) => {
@@ -194,62 +205,72 @@ function RaceRow({
         }
       }}
     >
-      <div className="flex items-center gap-2">
-        {dragHandle && <DragHandle {...dragHandle} tabIndex={-1} aria-label={`Reorder Race ${race.raceNumber}`} />}
-        <div>
-          <span className="font-medium">Race {race.raceNumber}</span>
-          {race.name && <span className="ml-2">{race.name}</span>}
-          {race.date && (
-            <span className="text-sm text-muted-foreground ml-2">{race.date}</span>
-          )}
-          {finisherCount !== undefined && (
-            <span className="text-sm text-muted-foreground ml-2">
-              {finisherCount} {finisherCount === 1 ? 'finisher' : 'finishers'}
-            </span>
-          )}
-          {/* Named, because a bare "×0.7" means nothing until you know what
-              it is; and a way into the dialog that sets it, where the row
-              can be edited. */}
-          {scoringOptionsGated && hasScoringOptions(race) && (readOnly ? (
-            <Badge variant="outline" className="ml-2 font-normal" data-testid="race-scoring-badge">
+      {!readOnly && (
+        // Every editable row gets the grip's track, so its tracks match its
+        // neighbours'.
+        <span className="flex self-center max-sm:row-span-2">
+          {dragHandle && <DragHandle {...dragHandle} tabIndex={-1} aria-label={`Reorder Race ${race.raceNumber}`} />}
+        </span>
+      )}
+      <span className="font-medium whitespace-nowrap">Race {race.raceNumber}</span>
+      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+        {race.name && <span className="min-w-0 break-words">{race.name}</span>}
+        {race.date && (
+          <span className="text-sm text-muted-foreground">{race.date}</span>
+        )}
+        {/* Named, because a bare "×0.7" means nothing until you know what
+            it is; and a way into the dialog that sets it, where the row
+            can be edited. */}
+        {scoringOptionsGated && hasScoringOptions(race) && (readOnly ? (
+          <Badge variant="outline" className="font-normal" data-testid="race-scoring-badge">
+            Scoring: {scoringOptionsSummary(race)}
+          </Badge>
+        ) : (
+          <Badge asChild variant="outline" className="font-normal">
+            <button
+              type="button"
+              tabIndex={-1}
+              data-testid="race-scoring-badge"
+              title="Scoring options"
+              className="cursor-pointer hover:bg-accent hover:text-accent-foreground"
+              onClick={(e) => { e.stopPropagation(); setScoringOptionsOpen(true); }}
+            >
               Scoring: {scoringOptionsSummary(race)}
-            </Badge>
-          ) : (
-            <Badge asChild variant="outline" className="ml-2 font-normal">
-              <button
-                type="button"
-                tabIndex={-1}
-                data-testid="race-scoring-badge"
-                title="Scoring options"
-                className="cursor-pointer hover:bg-accent hover:text-accent-foreground"
-                onClick={(e) => { e.stopPropagation(); setScoringOptionsOpen(true); }}
-              >
-                Scoring: {scoringOptionsSummary(race)}
-              </button>
-            </Badge>
-          ))}
-          {waitingCount > 0 && (
-            <Badge className="ml-2 font-normal" data-testid="race-submissions-badge">
-              {waitingCount === 1 ? 'Finish sheet to review' : `${waitingCount} finish sheets to review`}
-            </Badge>
-          )}
-          {raceSenseGated && trackDataCount > 0 && (
-            <Badge variant="outline" className="ml-2 font-normal" data-testid="race-track-data-badge">
-              Track data {trackDataCount === rowCount ? trackDataCount : `${trackDataCount}/${rowCount}`}
-            </Badge>
-          )}
-          {/* Conditions earn a badge; the team doesn't. A wind range is the
-              thing a scorer scans a race list for, and a row carrying every
-              official's name would crowd out the date and finisher count. */}
-          {raceRecordGated && hasConditions(race.conditions) && (
-            <Badge variant="outline" className="ml-2 font-normal" data-testid="race-conditions-badge">
-              {formatConditions(race.conditions)}
-            </Badge>
-          )}
-        </div>
+            </button>
+          </Badge>
+        ))}
+        {waitingCount > 0 && (
+          <Badge className="font-normal" data-testid="race-submissions-badge">
+            {waitingCount === 1 ? 'Finish sheet to review' : `${waitingCount} finish sheets to review`}
+          </Badge>
+        )}
+        {raceSenseGated && trackDataCount > 0 && (
+          <Badge variant="outline" className="font-normal" data-testid="race-track-data-badge">
+            Track data {trackDataCount === rowCount ? trackDataCount : `${trackDataCount}/${rowCount}`}
+          </Badge>
+        )}
+        {/* Conditions earn a badge; the team doesn't. A wind range is the
+            thing a scorer scans a race list for, and a row carrying every
+            official's name would crowd out the date and finisher count. */}
+        {raceRecordGated && hasConditions(race.conditions) && (
+          <Badge variant="outline" className="font-normal" data-testid="race-conditions-badge">
+            {formatConditions(race.conditions)}
+          </Badge>
+        )}
       </div>
-      <div className="flex items-center gap-1">
-        {!readOnly && (
+      {/* Always rendered, even while loading, so the menu keeps its own track. */}
+      <span
+        className={cn(
+          'text-sm text-muted-foreground tabular-nums sm:text-right max-sm:row-start-2',
+          readOnly ? 'max-sm:col-start-2' : 'max-sm:col-start-3',
+        )}
+      >
+        {finisherCount !== undefined && (
+          <>{finisherCount} {finisherCount === 1 ? 'finisher' : 'finishers'}</>
+        )}
+      </span>
+      {!readOnly && (
+        <div className="flex justify-end self-center max-sm:row-span-2">
           <DropdownMenu open={actionsOpen} onOpenChange={setActionsOpen}>
             <DropdownMenuTrigger asChild>
               <Button
@@ -297,8 +318,8 @@ function RaceRow({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-        )}
-      </div>
+        </div>
+      )}
       {/* Stop the row's own click handler from navigating away underneath the
           open dialog. `contents` keeps this wrapper out of the row's layout:
           the dialogs portal out, so as a box it would be an empty flex item
