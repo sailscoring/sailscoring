@@ -163,7 +163,7 @@ function RaceRow({
       ref={(node) => { rowElRef.current = node; rowRef?.(node); }}
       style={rowStyle}
       data-testid="race-row"
-      className="flex items-center justify-between bg-card border rounded-lg px-5 py-4 cursor-pointer hover:bg-muted/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="flex items-center justify-between bg-card px-4 py-2 cursor-pointer hover:bg-muted/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
       {...rovingProps}
       onClick={() => router.push(`/series/${seriesId}/races/${race.id}`)}
       onKeyDown={(e) => {
@@ -1237,7 +1237,9 @@ export default function RacesPage({
       )}
 
       {races !== undefined && races.length > 0 && (
-        <div className="space-y-2" ref={raceListRef}>
+        // One bordered list rather than a stack of cards: a series runs to
+        // dozens of races, and a card each spends a screen on a handful.
+        <div className="divide-y overflow-hidden rounded-lg border bg-card" ref={raceListRef}>
           {readOnly ? (
             races.map((race) => (
               <RaceRow
