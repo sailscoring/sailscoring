@@ -36,6 +36,9 @@ export type PointsMethod =
   | { type: 'additive_stated' }
   // A series' own additive code: min(place + points, dnfScore).
   | { type: 'additive_points'; points: number }
+  // A series' own penalty, high point only: the boat loses this share of her
+  // own points for the race.
+  | { type: 'reduce_percentage'; pct: number }
   // Redress (RDG): score replaced by A9 average — computed dynamically in calculateStandings.
   | { type: 'redress' };
 
@@ -177,6 +180,7 @@ function methodOf(rule: SeriesCodeRule): PointsMethod {
     case 'fixedPoints': return { type: 'fixed_points', points: rule.points };
     case 'addPoints': return { type: 'additive_points', points: rule.points };
     case 'addPercent': return { type: 'additive_percentage', defaultPct: rule.percent };
+    case 'reducePercent': return { type: 'reduce_percentage', pct: rule.percent };
   }
 }
 
@@ -453,7 +457,7 @@ export interface SeriesCodeProblem {
 export const SERIES_CODE_PATTERN = /^[A-Za-z0-9]{1,6}$/;
 
 const REPLACE_RULES: ReadonlySet<SeriesCodeRule['type']> = new Set(['placeAfter', 'sameAs', 'fixedPoints']);
-const ADD_RULES: ReadonlySet<SeriesCodeRule['type']> = new Set(['addPoints', 'addPercent']);
+const ADD_RULES: ReadonlySet<SeriesCodeRule['type']> = new Set(['addPoints', 'addPercent', 'reducePercent']);
 
 /**
  * Everything wrong with a series' scoring codes, in the words the Scoring
@@ -523,6 +527,8 @@ export function seriesCodeProblems(codes: readonly SeriesScoringCode[]): SeriesC
       say(code, 'Enter the points to add as a number above 0, e.g. 2.');
     } else if (r.type === 'addPercent' && !(Number.isFinite(r.percent) && r.percent > 0 && r.percent <= 100)) {
       say(code, 'Enter the percentage as a number from 1 to 100, e.g. 20.');
+    } else if (r.type === 'reducePercent' && !(Number.isFinite(r.percent) && r.percent > 0 && r.percent <= 100)) {
+      say(code, 'Enter the percentage as a number from 1 to 100, e.g. 30.');
     }
     if (sc.kind === 'replace') replacing.add(code);
   }

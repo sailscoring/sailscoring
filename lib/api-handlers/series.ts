@@ -27,7 +27,7 @@ import {
 } from '@/lib/api-handlers/series-access';
 import { listTcfHistory } from '@/lib/api-handlers/tcf-history';
 import { describeSeriesChange } from '@/lib/series-change';
-import { highPointRefusal } from '@/lib/high-point';
+import { highPointRefusal, lowPointRefusal } from '@/lib/high-point';
 import { suggestFollowOnName } from '@/lib/series-name';
 import { importPublicExport, parsePublicExport } from '@/lib/public-export';
 import {
@@ -167,7 +167,12 @@ export async function putSeries(
       merged.eventLogoUrl = defaults.eventLogoUrl;
     }
   }
-  if (merged.pointsSystem === 'highPoint') await assertCanScoreHighPoint(repos, merged, existing);
+  if (merged.pointsSystem === 'highPoint') {
+    await assertCanScoreHighPoint(repos, merged, existing);
+  } else {
+    const refusal = lowPointRefusal(merged.scoringCodes);
+    if (refusal) throw new BadRequestError(refusal);
+  }
   // One endpoint writes the whole series row, so "what did this save change?"
   // has to be answered by comparing, not by which button was pressed. A null
   // answer means nothing changed at all.

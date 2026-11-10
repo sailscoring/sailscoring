@@ -96,6 +96,25 @@ describe('high point in the .sailscoring file', () => {
     expect(target.saved()?.scoringCodes?.map((c) => c.countsInFleetSize)).toEqual([true, false]);
   });
 
+  it('carries a penalty code that takes a share of the boat’s points, and the penalty', async () => {
+    const CMP = { code: 'CMP', description: 'Finish not declared', kind: 'add', rule: { type: 'reducePercent', percent: 30 }, discardable: true } as const;
+    const penalised: SeriesSnapshot = {
+      ...snapshot,
+      series: { ...series, scoringCodes: [...series.scoringCodes!, CMP] },
+      finishes: [{ ...makeFinish('c1', 1), penaltyCode: 'CMP' }, makeFinish('c2', 2)],
+    };
+    const file = await buildSeriesFile('s1', makeFileRepos(penalised).repos);
+    const reparsed = parseSeriesFile(JSON.stringify(file));
+    const target = makeFileRepos();
+    await openSeriesFromFile(reparsed, target.repos);
+    expect(target.saved()?.scoringCodes?.at(-1)).toEqual(CMP);
+
+    // Two boats, boats beaten with the start point: 3 for the win, less 30%.
+    const data = buildPublicExportFromSnapshot(penalised)!;
+    expect(data.series.scoringCodes?.at(-1)).toEqual(CMP);
+    expect(data.standings[0].rows.find((r) => r.sailNumber === '101')!.racePoints).toEqual([2.1]);
+  });
+
   it('writes no key for a low-point series', async () => {
     const file = await buildSeriesFile('s1', makeFileRepos({ ...snapshot, series: lowPoint }).repos);
     const written = JSON.parse(JSON.stringify(file)) as typeof file;
@@ -108,7 +127,7 @@ describe('high point in the .sailscoring file', () => {
 describe('high point in the public JSON export', () => {
   it('carries the points system and restores it on import', async () => {
     const data = buildPublicExportFromSnapshot({ ...snapshot, series: { ...series, highPointFormula: 'chips3', pointForComingToStart: undefined } })!;
-    expect(data.version).toBe(18);
+    expect(data.version).toBe(19);
     expect(data.series.pointsSystem).toBe('highPoint');
     expect(data.series.highPointFormula).toBe('chips3');
 

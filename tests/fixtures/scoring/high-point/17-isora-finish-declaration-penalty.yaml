@@ -1,0 +1,100 @@
+description: "A 30% cut in a boat's own points — ISORA's 2026 finish-declaration penalty"
+notes: |
+  ISORA's 2026 notice of race (8.3, Amendment 3) and sailing instructions: a
+  boat that doesn't declare her finish on the CrewManager app takes "a 30%
+  point reduction penalty for that race". The series has a code of its own
+  for it, CMP: the boat loses 30% of her points.
+
+  No published ISORA race carries the penalty yet, so this is a made-up race
+  the size and weight of 2026's race 06O1: 20 boats, weight 1.1, DNF a fixed
+  15. Every boat rates 1.000, so Boat 3 is 3rd.
+
+  Boat 3: CHIPS3(3, 20) = 90.229; less 30% = 63.160; × 1.1 = 69.5. She
+  keeps her place in the race, and the boats behind her keep their scores.
+
+  Boat 19: 17.154; less 30% = 12.008; × 1.1 = 13.2. That is fewer points
+  than a DNF's 16.5. The 30% is the notice of race's own penalty, not a
+  rule 44.3(c) scoring penalty, so DNF's score doesn't bound it.
+
+series:
+  discardThresholds: []
+  dnfScoring: seriesEntries
+  pointsSystem: highPoint
+  highPointFormula: chips3
+  scoringCodes:
+    - { code: DNF, kind: replace, rule: { type: fixedPoints, points: 15 }, discardable: true }
+    - { code: CMP, description: "Finish not declared on the CrewManager app (NoR 8.3)", kind: add, rule: { type: reducePercent, percent: 30 }, discardable: true }
+
+fleet:
+  scoringSystem: irc
+
+competitors:
+  - { sailNumber: "IRL 1001", name: "Boat 1", ircTcc: 1.000 }
+  - { sailNumber: "IRL 1002", name: "Boat 2", ircTcc: 1.000 }
+  - { sailNumber: "IRL 1003", name: "Boat 3", ircTcc: 1.000 }
+  - { sailNumber: "IRL 1004", name: "Boat 4", ircTcc: 1.000 }
+  - { sailNumber: "IRL 1005", name: "Boat 5", ircTcc: 1.000 }
+  - { sailNumber: "IRL 1006", name: "Boat 6", ircTcc: 1.000 }
+  - { sailNumber: "IRL 1007", name: "Boat 7", ircTcc: 1.000 }
+  - { sailNumber: "IRL 1008", name: "Boat 8", ircTcc: 1.000 }
+  - { sailNumber: "IRL 1009", name: "Boat 9", ircTcc: 1.000 }
+  - { sailNumber: "IRL 1010", name: "Boat 10", ircTcc: 1.000 }
+  - { sailNumber: "IRL 1011", name: "Boat 11", ircTcc: 1.000 }
+  - { sailNumber: "IRL 1012", name: "Boat 12", ircTcc: 1.000 }
+  - { sailNumber: "IRL 1013", name: "Boat 13", ircTcc: 1.000 }
+  - { sailNumber: "IRL 1014", name: "Boat 14", ircTcc: 1.000 }
+  - { sailNumber: "IRL 1015", name: "Boat 15", ircTcc: 1.000 }
+  - { sailNumber: "IRL 1016", name: "Boat 16", ircTcc: 1.000 }
+  - { sailNumber: "IRL 1017", name: "Boat 17", ircTcc: 1.000 }
+  - { sailNumber: "IRL 1018", name: "Boat 18", ircTcc: 1.000 }
+  - { sailNumber: "IRL 1019", name: "Boat 19", ircTcc: 1.000 }
+  - { sailNumber: "IRL 1020", name: "Boat 20", ircTcc: 1.000 }
+
+races:
+  - number: 1
+    startTime: "10:00:00"
+    pointsMultiplier: 1.1
+    finishes:
+      - { sailor: "IRL 1001", elapsed: "4:03:00" }
+      - { sailor: "IRL 1002", elapsed: "4:06:00" }
+      - { sailor: "IRL 1003", elapsed: "4:09:00", penaltyCode: CMP }
+      - { sailor: "IRL 1004", elapsed: "4:12:00" }
+      - { sailor: "IRL 1005", elapsed: "4:15:00" }
+      - { sailor: "IRL 1006", elapsed: "4:18:00" }
+      - { sailor: "IRL 1007", elapsed: "4:21:00" }
+      - { sailor: "IRL 1008", elapsed: "4:24:00" }
+      - { sailor: "IRL 1009", elapsed: "4:27:00" }
+      - { sailor: "IRL 1010", elapsed: "4:30:00" }
+      - { sailor: "IRL 1011", elapsed: "4:33:00" }
+      - { sailor: "IRL 1012", elapsed: "4:36:00" }
+      - { sailor: "IRL 1013", elapsed: "4:39:00" }
+      - { sailor: "IRL 1014", elapsed: "4:42:00" }
+      - { sailor: "IRL 1015", elapsed: "4:45:00" }
+      - { sailor: "IRL 1016", elapsed: "4:48:00" }
+      - { sailor: "IRL 1017", elapsed: "4:51:00" }
+      - { sailor: "IRL 1018", elapsed: "4:54:00" }
+      - { sailor: "IRL 1019", elapsed: "4:57:00", penaltyCode: CMP }
+      - { sailor: "IRL 1020", elapsed: "4:60:00" }
+
+expected:
+  standings:
+    - { rank: 1, sailor: "IRL 1001", racePoints: [109.3], raceCodes: [null], racePenaltyCodes: [null], raceDiscards: [false], totalPoints: 109.3, netPoints: 109.3 }
+    - { rank: 2, sailor: "IRL 1002", racePoints: [104.3], raceCodes: [null], racePenaltyCodes: [null], raceDiscards: [false], totalPoints: 104.3, netPoints: 104.3 }
+    - { rank: 3, sailor: "IRL 1004", racePoints: [94.2], raceCodes: [null], racePenaltyCodes: [null], raceDiscards: [false], totalPoints: 94.2, netPoints: 94.2 }
+    - { rank: 4, sailor: "IRL 1005", racePoints: [89.2], raceCodes: [null], racePenaltyCodes: [null], raceDiscards: [false], totalPoints: 89.2, netPoints: 89.2 }
+    - { rank: 5, sailor: "IRL 1006", racePoints: [84.2], raceCodes: [null], racePenaltyCodes: [null], raceDiscards: [false], totalPoints: 84.2, netPoints: 84.2 }
+    - { rank: 6, sailor: "IRL 1007", racePoints: [79.2], raceCodes: [null], racePenaltyCodes: [null], raceDiscards: [false], totalPoints: 79.2, netPoints: 79.2 }
+    - { rank: 7, sailor: "IRL 1008", racePoints: [74.1], raceCodes: [null], racePenaltyCodes: [null], raceDiscards: [false], totalPoints: 74.1, netPoints: 74.1 }
+    - { rank: 8, sailor: "IRL 1003", racePoints: [69.5], raceCodes: [null], racePenaltyCodes: [CMP], raceDiscards: [false], totalPoints: 69.5, netPoints: 69.5 }
+    - { rank: 9, sailor: "IRL 1009", racePoints: [69.1], raceCodes: [null], racePenaltyCodes: [null], raceDiscards: [false], totalPoints: 69.1, netPoints: 69.1 }
+    - { rank: 10, sailor: "IRL 1010", racePoints: [64.1], raceCodes: [null], racePenaltyCodes: [null], raceDiscards: [false], totalPoints: 64.1, netPoints: 64.1 }
+    - { rank: 11, sailor: "IRL 1011", racePoints: [59.1], raceCodes: [null], racePenaltyCodes: [null], raceDiscards: [false], totalPoints: 59.1, netPoints: 59.1 }
+    - { rank: 12, sailor: "IRL 1012", racePoints: [54], raceCodes: [null], racePenaltyCodes: [null], raceDiscards: [false], totalPoints: 54, netPoints: 54 }
+    - { rank: 13, sailor: "IRL 1013", racePoints: [49], raceCodes: [null], racePenaltyCodes: [null], raceDiscards: [false], totalPoints: 49, netPoints: 49 }
+    - { rank: 14, sailor: "IRL 1014", racePoints: [44], raceCodes: [null], racePenaltyCodes: [null], raceDiscards: [false], totalPoints: 44, netPoints: 44 }
+    - { rank: 15, sailor: "IRL 1015", racePoints: [39], raceCodes: [null], racePenaltyCodes: [null], raceDiscards: [false], totalPoints: 39, netPoints: 39 }
+    - { rank: 16, sailor: "IRL 1016", racePoints: [33.9], raceCodes: [null], racePenaltyCodes: [null], raceDiscards: [false], totalPoints: 33.9, netPoints: 33.9 }
+    - { rank: 17, sailor: "IRL 1017", racePoints: [28.9], raceCodes: [null], racePenaltyCodes: [null], raceDiscards: [false], totalPoints: 28.9, netPoints: 28.9 }
+    - { rank: 18, sailor: "IRL 1018", racePoints: [23.9], raceCodes: [null], racePenaltyCodes: [null], raceDiscards: [false], totalPoints: 23.9, netPoints: 23.9 }
+    - { rank: 19, sailor: "IRL 1020", racePoints: [13.8], raceCodes: [null], racePenaltyCodes: [null], raceDiscards: [false], totalPoints: 13.8, netPoints: 13.8 }
+    - { rank: 20, sailor: "IRL 1019", racePoints: [13.2], raceCodes: [null], racePenaltyCodes: [CMP], raceDiscards: [false], totalPoints: 13.2, netPoints: 13.2 }

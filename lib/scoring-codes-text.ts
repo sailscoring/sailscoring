@@ -149,6 +149,7 @@ export function ruleShortText(sc: SeriesScoringCode, hp?: HighPointScoring): str
     case 'fixedPoints': text = points(r.points); break;
     case 'addPoints': text = hp ? `${points(r.points)} off` : points(r.points); break;
     case 'addPercent': text = hp ? `${r.percent}% of ${afterTheLast(1)}` : `${r.percent}% of DNF`; break;
+    case 'reducePercent': text = `${r.percent}% of her points`; break;
   }
   if (sc.kind === 'replace' && sc.capAtDnf && r.type !== 'sameAs' && !hp) text += ', at most DNF';
   if (hp && sc.kind === 'replace' && sc.countsInFleetSize === false) text += ' · not in the fleet size';
@@ -195,8 +196,12 @@ export function ruleSentence(sc: SeriesScoringCode, hp?: HighPointScoring): stri
         ? `${who} is scored as if she had finished lower by ${r.percent}% of the place after the last boat in her fleet’s race, to the nearest tenth of a place`
         : `${who} has ${r.percent}% of the DNF score added to her score for the race, to the nearest tenth of a point`;
       break;
+    case 'reducePercent':
+      first = `${who} loses ${r.percent}% of her points for the race`;
+      break;
   }
-  const cap = sc.kind === 'add'
+  const cap = r.type === 'reducePercent' ? ''
+    : sc.kind === 'add'
     ? ', but is never scored worse than DNF'
     : sc.capAtDnf && r.type !== 'sameAs' && !hp ? ', but never more than a DNF' : '';
   const others = sc.kind === 'add' ? ' Other boats’ scores are unchanged.' : '';

@@ -143,6 +143,7 @@ export const seriesScoringCodeSchema = z.object({
     z.object({ type: z.literal('fixedPoints'), points: z.number() }),
     z.object({ type: z.literal('addPoints'), points: z.number() }),
     z.object({ type: z.literal('addPercent'), percent: z.number() }),
+    z.object({ type: z.literal('reducePercent'), percent: z.number() }),
   ]),
   capAtDnf: z.boolean().optional(),
   discardable: z.boolean(),

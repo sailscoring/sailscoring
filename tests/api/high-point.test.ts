@@ -115,6 +115,24 @@ describe.skipIf(!DATABASE_URL)('high point at the API', () => {
     await expect(putFinish(owner, raceId, dpi.id, dpi)).resolves.toMatchObject({ penaltyCode: 'DPI', penaltyOverride: 2 });
   });
 
+  test('a code that takes a share of the boat’s points is a high-point code', async () => {
+    const CMP: SeriesScoringCode = {
+      code: 'CMP', description: 'Finish not declared (NoR 8.3)', kind: 'add',
+      rule: { type: 'reducePercent', percent: 30 }, discardable: true,
+    };
+    await expect(
+      series.putSeries(owner, seriesId, seriesBody(seriesId, { ...HIGH_POINT, scoringCodes: [CMP] })),
+    ).resolves.toMatchObject({ scoringCodes: [CMP] });
+    const cmp = finish(raceId, { sortOrder: 1, penaltyCode: 'CMP' });
+    await expect(putFinish(owner, raceId, cmp.id, cmp)).resolves.toMatchObject({ penaltyCode: 'CMP' });
+    await expect(
+      series.putSeries(owner, otherSeriesId, seriesBody(otherSeriesId, { scoringCodes: [CMP] })),
+    ).rejects.toMatchObject({
+      name: 'BadRequestError',
+      message: 'A low-point series can’t score a code that takes a share of the boat’s points (CMP). Change or remove it first.',
+    });
+  });
+
   test('a high-point series refuses a split-fleet format', async () => {
     const err = await putSplitFleetConfig(owner, seriesId, defaultSplitFleetConfig(2)).catch((e) => e);
     expect(err.message).toBe('A split-fleet championship can’t be scored high point: its stages are scored low point.');

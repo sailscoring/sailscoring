@@ -109,6 +109,18 @@ export function highPointRefusal(b: HighPointBlockers): string | null {
   return null;
 }
 
+/**
+ * Why a series can’t score low point as it stands, or null when it can: a
+ * code of its own that takes a share of the boat’s points is a high-point
+ * penalty. In low point a share of a low score would cost the boats that
+ * finished well the least.
+ */
+export function lowPointRefusal(scoringCodes: readonly { code: string; rule: { type: string } }[] = []): string | null {
+  const codes = scoringCodes.filter((c) => c.rule.type === 'reducePercent').map((c) => c.code);
+  if (codes.length === 0) return null;
+  return `A low-point series can’t score a code that takes a share of the boat’s points (${codes.join(', ')}). Change or remove ${codes.length === 1 ? 'it' : 'them'} first.`;
+}
+
 /** The points system in a few words, as the Scoring card's collapsed line
  *  and a published caption name it: "Low point", "High point (boats
  *  beaten)", "High point (boats beaten, +1 for coming to the start)",

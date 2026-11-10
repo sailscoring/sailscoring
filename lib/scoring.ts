@@ -168,6 +168,12 @@ export function applyScoringPenalty(
   } else if (method?.type === 'additive_points') {
     // A series' own penalty code carries its points; nothing is entered per boat.
     worse = method.points;
+  } else if (method?.type === 'reduce_percentage' && hp) {
+    // A share of her own points: a high-point penalty, and nothing in low
+    // point, where a series is refused the code. It is the sailing
+    // instructions' own penalty rather than rule 44.3(c)'s, so DNF's score
+    // doesn't bound it; a share can't take her below zero.
+    return basePoints * (1 - method.pct / 100);
   }
   if (worse === null) return basePoints;
   // High point is left unrounded: the standings round once, after the race's

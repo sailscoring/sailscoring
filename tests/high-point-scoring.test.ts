@@ -5,8 +5,8 @@
  */
 import { describe, it, expect } from 'vitest';
 import { applyScoringPenalty, calculateRaceScores, calculateStandings } from '@/lib/scoring';
-import { buildCodeTable, seriesCodeTable } from '@/lib/scoring-codes';
-import { chips3, highPointOf, highPointPlacePoints, highPointPlaceStep, type HighPointScoring } from '@/lib/high-point';
+import { buildCodeTable, seriesCodeProblems, seriesCodeTable } from '@/lib/scoring-codes';
+import { chips3, highPointOf, highPointPlacePoints, highPointPlaceStep, lowPointRefusal, type HighPointScoring } from '@/lib/high-point';
 import { weightedRacePoints } from '@/lib/race-scoring-options';
 import type { Competitor, Finish, Race, SeriesScoringCode } from '@/lib/types';
 
@@ -272,6 +272,25 @@ describe('a penalty in high point', () => {
     const codes = buildCodeTable('seriesEntries', [], CHIPS3);
     expect(applyScoringPenalty(17.2, penalised({ penaltyCode: 'ZFP' }), 15, undefined, codes, 20)).toBe(15);
     expect(applyScoringPenalty(12.6, penalised({ penaltyCode: 'ZFP' }), 15, undefined, codes, 20)).toBe(12.6);
+  });
+
+  it('takes a share of her own points for a series code that says so, whatever DNF scores', async () => {
+    const { ruleSentence, ruleShortText } = await import('@/lib/scoring-codes-text');
+    const CMP: SeriesScoringCode = { code: 'CMP', description: 'Finish not declared', kind: 'add', rule: { type: 'reducePercent', percent: 30 }, discardable: true };
+    expect(seriesCodeProblems([CMP])).toEqual([]);
+    expect(seriesCodeProblems([{ ...CMP, rule: { type: 'reducePercent', percent: 0 } }])[0].message).toBe('Enter the percentage as a number from 1 to 100, e.g. 30.');
+    expect(seriesCodeProblems([{ ...CMP, kind: 'replace' }])[0].message).toBe('A code that replaces the result can’t use that rule.');
+
+    const codes = buildCodeTable('seriesEntries', [CMP], CHIPS3);
+    expect(applyScoringPenalty(90, penalised({ penaltyCode: 'CMP' }), 15, undefined, codes, 20)).toBeCloseTo(63, 10);
+    expect(applyScoringPenalty(17, penalised({ penaltyCode: 'CMP' }), 15, undefined, codes, 20)).toBeCloseTo(11.9, 10);
+    // Low point has no such penalty: the engine leaves the boat alone.
+    expect(applyScoringPenalty(3, penalised({ penaltyCode: 'CMP' }), 11, undefined, buildCodeTable('seriesEntries', [CMP]))).toBe(3);
+
+    expect(ruleShortText(CMP, CHIPS3)).toBe('30% of her points');
+    expect(ruleSentence(CMP, CHIPS3)).toBe('A boat scored CMP loses 30% of her points for the race. Other boats’ scores are unchanged. It can be discarded.');
+    expect(lowPointRefusal([CMP])).toBe('A low-point series can’t score a code that takes a share of the boat’s points (CMP). Change or remove it first.');
+    expect(lowPointRefusal([SOP])).toBeNull();
   });
 
   it('leaves every other boat’s score alone', () => {

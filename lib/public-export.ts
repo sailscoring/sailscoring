@@ -217,10 +217,12 @@ export interface PublicSeriesExport {
    *  `series.countBest`, the number of races that count; v16 adds high-point
    *  scoring (`series.pointsSystem`, `highPointFormula`,
    *  `pointForComingToStart`, and a code's `countsInFleetSize`); v17 adds a
-   *  sub-series' own discard rule (`subSeries[*].discards`). Readers
+   *  sub-series' own discard rule (`subSeries[*].discards`); v18 adds a
+   *  race's `fleetChanges`; v19 adds the `reducePercent` rule of a series'
+   *  own penalty code in high point. Readers
    *  accept them all, bringing an older export's courses forward as they
    *  read it. */
-  version: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18;
+  version: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19;
   /** Where the format, and what a reader may rely on, is documented. Written
    *  into every export so a reader handed only the file can find the
    *  contract. Optional: exports written before it was added lack it. */
@@ -1444,7 +1446,7 @@ export function buildPublicExportFromSnapshot(
     : undefined;
 
   return {
-    version: 18 as const,
+    version: 19 as const,
     formatDoc: PUBLIC_EXPORT_FORMAT_DOC,
     exportedAt: (opts?.exportedAt ?? new Date()).toISOString(),
     timeZone: instanceTimeZone(),
@@ -1730,7 +1732,7 @@ function importExportPrizes(
 /** Export format versions this build can read. A file written by a newer
  *  build is refused rather than half-read: the version is what says which
  *  fields mean what. Mirrors `SUPPORTED_FORMAT_VERSIONS` on the file side. */
-const SUPPORTED_EXPORT_VERSIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18];
+const SUPPORTED_EXPORT_VERSIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19];
 
 /**
  * Parse the text of a published `.sailscoring.json` data file.

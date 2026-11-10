@@ -48,7 +48,8 @@ export function ruleFromSailwave(
 }
 
 /** One of our rules as Sailwave's method and value, or null where Sailwave
- *  has no method for it: a fixed number of points in place of the result. */
+ *  has no method for it: a fixed number of points in place of the result,
+ *  or a share of the boat's own points. */
 export function ruleToSailwave(rule: SeriesCodeRule): [method: string, value: string] | null {
   switch (rule.type) {
     case 'placeAfter': {
@@ -61,5 +62,6 @@ export function ruleToSailwave(rule: SeriesCodeRule): [method: string, value: st
     case 'addPoints': return [SAILWAVE_METHOD_FIXED_PENALTY, String(rule.points)];
     case 'addPercent': return [SAILWAVE_METHOD_PERCENTAGE_DNF, String(rule.percent)];
     case 'fixedPoints': return null;
+    case 'reducePercent': return null;
   }
 }

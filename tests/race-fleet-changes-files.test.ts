@@ -183,7 +183,7 @@ describe('.sailscoring v80 fleet changes', () => {
 describe('public JSON export v18 fleet changes', () => {
   it('names boats by ref and fleets by name, and import puts them back', async () => {
     const data = buildPublicExportFromSnapshot(snapshot)!;
-    expect(data.version).toBe(18);
+    expect(data.version).toBe(19);
     expect(data.races[1].fleetChanges).toEqual([
       { competitorRef: '1', sailNumber: '53308', drop: ['Two-Handed'] },
       { competitorRef: '2', sailNumber: 'GBR 8593R', add: ['Two-Handed'] },

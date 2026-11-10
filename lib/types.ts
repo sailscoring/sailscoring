@@ -313,7 +313,11 @@ export type SeriesCodeRule =
   | { type: 'sameAs'; code: string }
   | { type: 'fixedPoints'; points: number }
   | { type: 'addPoints'; points: number }
-  | { type: 'addPercent'; percent: number };
+  | { type: 'addPercent'; percent: number }
+  // High point only: the boat loses this share of her own points for the
+  // race ("a 30% point reduction"). Low point has no such penalty — a share
+  // of a low score would reward the boats that finished well.
+  | { type: 'reducePercent'; percent: number };
 
 /**
  * A scoring code as a series writes it (custom scoring codes): a change to a
@@ -325,8 +329,9 @@ export interface SeriesScoringCode {
   /** Printed under the results. Required for a series' own code; a changed
    *  built-in keeps its RRS name. */
   description?: string;
-  /** 'replace' scores in place of the boat's result; 'add' adds to her
-   *  finishing place, leaving other boats' scores unchanged (RRS A6.2). */
+  /** 'replace' scores in place of the boat's result; 'add' is a penalty on
+   *  a boat that finished, making her score worse and leaving other boats'
+   *  scores unchanged (RRS 44.3(c)). */
   kind: 'replace' | 'add';
   rule: SeriesCodeRule;
   /** A replacing code's points are never more than DNF's. */

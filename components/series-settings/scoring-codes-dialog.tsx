@@ -331,7 +331,7 @@ function ResetAll({
 
 // ─── The editor ──────────────────────────────────────────────────────────────
 
-type Method = 'placeAfter' | 'sameAs' | 'fixedPoints' | 'addPoints' | 'addPercent';
+type Method = 'placeAfter' | 'sameAs' | 'fixedPoints' | 'addPoints' | 'addPercent' | 'reducePercent';
 
 type Draft = {
   code: string;
@@ -344,6 +344,8 @@ type Draft = {
   fixedPoints: string;
   addPoints: string;
   addPercent: string;
+  /** High point: the share of her own points a penalised boat loses. */
+  reducePercent: string;
   capAtDnf: boolean;
   discardable: boolean;
   /** High point: whether the code counts toward the fleet size. */
@@ -363,6 +365,7 @@ function draftOf(sc: SeriesScoringCode): Draft {
     fixedPoints: r.type === 'fixedPoints' ? String(r.points) : '',
     addPoints: r.type === 'addPoints' ? String(r.points) : '',
     addPercent: r.type === 'addPercent' ? String(r.percent) : '',
+    reducePercent: r.type === 'reducePercent' ? String(r.percent) : '',
     capAtDnf: !!sc.capAtDnf,
     discardable: sc.discardable,
     countsInFleetSize: sc.countsInFleetSize ?? true,
@@ -408,6 +411,12 @@ function codeOf(d: Draft, builtIn: boolean, highPoint?: HighPointScoring): Serie
       const percent = num(d.addPercent);
       if (!Number.isFinite(percent) || percent <= 0 || percent > 100) return 'Enter the percentage as a number from 1 to 100, e.g. 20.';
       rule = { type: 'addPercent', percent };
+      break;
+    }
+    case 'reducePercent': {
+      const percent = num(d.reducePercent);
+      if (!Number.isFinite(percent) || percent <= 0 || percent > 100) return 'Enter the percentage as a number from 1 to 100, e.g. 30.';
+      rule = { type: 'reducePercent', percent };
       break;
     }
   }
@@ -687,8 +696,24 @@ function CodeEditor({
               />
               %
             </label>
+            {highPoint && !isZfp && (
+              <label className="flex flex-wrap items-center gap-2">
+                <input type="radio" name="code-method" checked={draft.method === 'reducePercent'} onChange={() => set('method', 'reducePercent')} />
+                A percentage of her own points
+                <Input
+                  className="w-16"
+                  inputMode="decimal"
+                  value={draft.reducePercent}
+                  onChange={(e) => { set('method', 'reducePercent'); set('reducePercent', e.target.value); }}
+                  aria-label="Percentage of her own points"
+                />
+                %
+              </label>
+            )}
             <p className={hint}>
-              {highPoint
+              {draft.method === 'reducePercent'
+                ? 'She keeps the rest of her points for the race, whatever DNF scores.'
+                : highPoint
                 ? 'In high point a percentage is taken in places, as the DNF score it is a share of is a place in low point. Never fewer points than DNF scores, as RRS 44.3(c) caps a scoring penalty.'
                 : 'Never more than DNF scores, as RRS 44.3(c) caps a scoring penalty.'}
             </p>
