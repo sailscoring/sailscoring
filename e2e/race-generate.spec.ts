@@ -33,14 +33,15 @@ test('generate a weekly run of races from the Add race menu', async ({ page }) =
   const rows = page.getByTestId('race-row');
   await expect(rows).toHaveCount(4);
   await expect(rows.nth(0)).toContainText('Race 1');
-  await expect(rows.nth(0)).toContainText('2026-05-05');
-  await expect(rows.nth(1)).toContainText('2026-05-12');
-  await expect(rows.nth(3)).toContainText('2026-05-26');
+  await expect(rows.nth(0)).toHaveAttribute('data-race-date', '2026-05-05');
+  await expect(rows.nth(1)).toHaveAttribute('data-race-date', '2026-05-12');
+  await expect(rows.nth(3)).toHaveAttribute('data-race-date', '2026-05-26');
+  await expect(page.getByRole('heading', { name: 'Tue 5 May' })).toBeVisible();
 
   // Persisted across a reload.
   await page.reload();
   await expect(rows).toHaveCount(4);
-  await expect(rows.nth(3)).toContainText('2026-05-26');
+  await expect(rows.nth(3)).toHaveAttribute('data-race-date', '2026-05-26');
 
   // The generator's shortcut is `m`, leaving `g` free as the go-to chord
   // prefix — so the chords work on this page too.
@@ -86,9 +87,9 @@ test('generate fortnightly until a date, appended and named', async ({ page }) =
   await expect(rows).toHaveCount(5);
   await expect(rows.nth(1)).toContainText('Race 2');
   await expect(rows.nth(1)).toContainText('Evening Race');
-  await expect(rows.nth(1)).toContainText('2026-06-02');
+  await expect(rows.nth(1)).toHaveAttribute('data-race-date', '2026-06-02');
   await expect(rows.nth(4)).toContainText('Race 5');
-  await expect(rows.nth(4)).toContainText('2026-07-14');
+  await expect(rows.nth(4)).toHaveAttribute('data-race-date', '2026-07-14');
 });
 
 /**
@@ -120,11 +121,18 @@ test('generate four Sundays with three races each', async ({ page }) => {
 
   const rows = page.getByTestId('race-row');
   await expect(rows).toHaveCount(12);
-  await expect(rows.nth(0)).toContainText('2026-11-08');
-  await expect(rows.nth(2)).toContainText('2026-11-08');
-  await expect(rows.nth(3)).toContainText('2026-11-15');
+  await expect(rows.nth(0)).toHaveAttribute('data-race-date', '2026-11-08');
+  await expect(rows.nth(2)).toHaveAttribute('data-race-date', '2026-11-08');
+  await expect(rows.nth(3)).toHaveAttribute('data-race-date', '2026-11-15');
   await expect(rows.nth(11)).toContainText('Race 12');
-  await expect(rows.nth(11)).toContainText('2026-11-29');
+  await expect(rows.nth(11)).toHaveAttribute('data-race-date', '2026-11-29');
+  // Three races a day, one heading a day.
+  await expect(page.getByRole('heading', { name: /^Sun \d+ Nov$/ })).toHaveText([
+    'Sun 8 Nov',
+    'Sun 15 Nov',
+    'Sun 22 Nov',
+    'Sun 29 Nov',
+  ]);
 });
 
 /**
@@ -176,9 +184,9 @@ test('vary races per day and skip a date in the preview', async ({ page }) => {
 
   const rows = page.getByTestId('race-row');
   await expect(rows).toHaveCount(4);
-  await expect(rows.nth(0)).toContainText('2026-09-05');
-  await expect(rows.nth(1)).toContainText('2026-09-12');
-  await expect(rows.nth(2)).toContainText('2026-09-12');
+  await expect(rows.nth(0)).toHaveAttribute('data-race-date', '2026-09-05');
+  await expect(rows.nth(1)).toHaveAttribute('data-race-date', '2026-09-12');
+  await expect(rows.nth(2)).toHaveAttribute('data-race-date', '2026-09-12');
   await expect(rows.nth(3)).toContainText('Race 4');
-  await expect(rows.nth(3)).toContainText('2026-09-26');
+  await expect(rows.nth(3)).toHaveAttribute('data-race-date', '2026-09-26');
 });

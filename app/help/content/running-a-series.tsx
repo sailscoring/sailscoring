@@ -593,8 +593,10 @@ export default function RunningASeries() {
           changing the dates, the repeat, the races each day or how many starts it again.
         </p>
         <p>
-          Each race card shows how many finishes have been recorded. Click a race card to open the
-          result entry screen for that race. The race date is shown beneath the heading there —
+          The Races tab lists races under the day they are sailed on, so a day of three races
+          sits under one heading, and each race shows how many finishers have been recorded. Click
+          a race to open the result entry screen for it. The race date is shown beneath the
+          heading there —
           click it to change it (handy after an import that guessed the date, or if a race is
           re-sailed on another day).
         </p>

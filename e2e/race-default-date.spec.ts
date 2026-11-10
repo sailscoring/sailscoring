@@ -26,7 +26,7 @@ test('a new race takes the date of the last race in the series', async ({ page }
   // A third race, added on its own, continues from the last one's date.
   await page.getByRole('button', { name: 'Add race', exact: true }).click();
   await expect(rows).toHaveCount(3);
-  await expect(rows.nth(2)).toContainText('2026-05-12');
+  await expect(rows.nth(2)).toHaveAttribute('data-race-date', '2026-05-12');
 });
 
 test('a series that has finished dates new races within its window', async ({ page }) => {
@@ -59,5 +59,5 @@ test('a series that has finished dates new races within its window', async ({ pa
   await page.getByRole('button', { name: 'Add race', exact: true }).click();
   const rows = page.getByTestId('race-row');
   await expect(rows).toHaveCount(1);
-  await expect(rows.nth(0)).toContainText('2026-06-10');
+  await expect(rows.nth(0)).toHaveAttribute('data-race-date', '2026-06-10');
 });

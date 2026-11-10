@@ -159,8 +159,8 @@ test('generating two races a day times only the first race of each day', async (
 
   const rows = page.getByTestId('race-row');
   await expect(rows).toHaveCount(4);
-  await expect(rows.nth(1)).toContainText('2026-08-23');
-  await expect(rows.nth(2)).toContainText('2026-08-24');
+  await expect(rows.nth(1)).toHaveAttribute('data-race-date', '2026-08-23');
+  await expect(rows.nth(2)).toHaveAttribute('data-race-date', '2026-08-24');
 
   // Race 3 opens day two: timed.
   await rows.nth(2).getByText('Race 3', { exact: true }).click();

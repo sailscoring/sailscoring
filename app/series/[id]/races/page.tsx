@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useMemo, useRef, useEffect, useState } from 'react';
+import { Fragment, use, useMemo, useRef, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { raceRepo } from '@/lib/api-repository';
 import { useSeries } from '@/hooks/use-series';
@@ -89,6 +89,7 @@ import { hasScoringOptions, scoringOptionsSummary } from '@/lib/race-scoring-opt
 import { formatConditions, hasConditions } from '@/lib/race-conditions';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { raceDayHeadings } from '@/lib/race-days';
 
 function RaceRow({
   race,
@@ -145,6 +146,14 @@ function RaceRow({
   // marks the rows that have data rather than the ones that don't.
   const rowCount = finishes?.length ?? 0;
   const trackDataCount = finishes?.filter((f) => hasTrackData(f.trackData)).length ?? 0;
+  const showScoringBadge = scoringOptionsGated && hasScoringOptions(race);
+  const showTrackDataBadge = raceSenseGated && trackDataCount > 0;
+  const showConditionsBadge = raceRecordGated && hasConditions(race.conditions);
+  // Whether the name-and-badges track has anything in it. At phone width the
+  // finisher count goes under it when it does, and beside the number when
+  // it doesn't, rather than under an empty line.
+  const hasDetail =
+    Boolean(race.name) || showScoringBadge || waitingCount > 0 || showTrackDataBadge || showConditionsBadge;
 
   async function handleDelete() {
     const ok = await confirm({
@@ -164,6 +173,9 @@ function RaceRow({
       ref={(node) => { rowElRef.current = node; rowRef?.(node); }}
       style={rowStyle}
       data-testid="race-row"
+      // The date shows on the day heading above, not on the row; this keeps
+      // it on the row for anything that needs to read it back.
+      data-race-date={race.date || undefined}
       // A grid with fixed tracks rather than a flex row, so the number,
       // finisher count and menu line up down the list whatever a race's name
       // and badges add. At phone width the count drops under the name, and
@@ -196,12 +208,14 @@ function RaceRow({
         } else if (e.altKey && e.key === 'ArrowUp' && onNudge) {
           e.preventDefault();
           onNudge(-1);
-        } else if (e.key === 'ArrowDown') {
+        } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+          // By row, not by sibling: the day headings sit between rows.
           e.preventDefault();
-          (e.currentTarget.nextElementSibling as HTMLElement)?.focus();
-        } else if (e.key === 'ArrowUp') {
-          e.preventDefault();
-          (e.currentTarget.previousElementSibling as HTMLElement)?.focus();
+          const rows = Array.from(
+            e.currentTarget.parentElement?.querySelectorAll<HTMLElement>('[data-roving-id]') ?? [],
+          );
+          const at = rows.indexOf(e.currentTarget);
+          rows[at + (e.key === 'ArrowDown' ? 1 : -1)]?.focus();
         }
       }}
     >
@@ -213,15 +227,12 @@ function RaceRow({
         </span>
       )}
       <span className="font-medium whitespace-nowrap">Race {race.raceNumber}</span>
-      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+      <div className={cn('flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1', !hasDetail && 'max-sm:hidden')}>
         {race.name && <span className="min-w-0 break-words">{race.name}</span>}
-        {race.date && (
-          <span className="text-sm text-muted-foreground">{race.date}</span>
-        )}
         {/* Named, because a bare "×0.7" means nothing until you know what
             it is; and a way into the dialog that sets it, where the row
             can be edited. */}
-        {scoringOptionsGated && hasScoringOptions(race) && (readOnly ? (
+        {showScoringBadge && (readOnly ? (
           <Badge variant="outline" className="font-normal" data-testid="race-scoring-badge">
             Scoring: {scoringOptionsSummary(race)}
           </Badge>
@@ -244,7 +255,7 @@ function RaceRow({
             {waitingCount === 1 ? 'Finish sheet to review' : `${waitingCount} finish sheets to review`}
           </Badge>
         )}
-        {raceSenseGated && trackDataCount > 0 && (
+        {showTrackDataBadge && (
           <Badge variant="outline" className="font-normal" data-testid="race-track-data-badge">
             Track data {trackDataCount === rowCount ? trackDataCount : `${trackDataCount}/${rowCount}`}
           </Badge>
@@ -252,7 +263,7 @@ function RaceRow({
         {/* Conditions earn a badge; the team doesn't. A wind range is the
             thing a scorer scans a race list for, and a row carrying every
             official's name would crowd out the date and finisher count. */}
-        {raceRecordGated && hasConditions(race.conditions) && (
+        {showConditionsBadge && (
           <Badge variant="outline" className="font-normal" data-testid="race-conditions-badge">
             {formatConditions(race.conditions)}
           </Badge>
@@ -261,8 +272,9 @@ function RaceRow({
       {/* Always rendered, even while loading, so the menu keeps its own track. */}
       <span
         className={cn(
-          'text-sm text-muted-foreground tabular-nums sm:text-right max-sm:row-start-2',
+          'text-sm text-muted-foreground tabular-nums sm:text-right',
           readOnly ? 'max-sm:col-start-2' : 'max-sm:col-start-3',
+          hasDetail && 'max-sm:row-start-2',
         )}
       >
         {finisherCount !== undefined && (
@@ -350,6 +362,14 @@ function RaceRow({
   );
 }
 
+/** A race-day heading in the race list, or nothing between races of one day. */
+function RaceDayHeading({ label }: { label: string | null }) {
+  if (!label) return null;
+  return (
+    <h3 className="bg-muted/50 px-4 py-1.5 text-xs font-medium text-muted-foreground">{label}</h3>
+  );
+}
+
 /** The "Add multiple races" controls an error can belong to. */
 type GenField = 'date' | 'perDay' | 'count' | 'until' | 'startTime';
 
@@ -428,6 +448,7 @@ export default function RacesPage({
   const canManageBlocks = !useSeriesReadOnly() && can('manage-series');
   const subSeriesEnabled = has('sub-series');
   const { data: races } = useRacesBySeries(seriesId);
+  const dayHeadings = useMemo(() => races && raceDayHeadings(races), [races]);
   const { data: series } = useSeries(seriesId);
   const { data: fleets } = useFleetsBySeries(seriesId);
   const { data: subSeriesList } = useSubSeriesBySeries(seriesId);
@@ -1257,38 +1278,43 @@ export default function RacesPage({
         </div>
       )}
 
-      {races !== undefined && races.length > 0 && (
+      {races !== undefined && races.length > 0 && dayHeadings && (
         // One bordered list rather than a stack of cards: a series runs to
         // dozens of races, and a card each spends a screen on a handful.
         <div className="divide-y overflow-hidden rounded-lg border bg-card" ref={raceListRef}>
           {readOnly ? (
-            races.map((race) => (
-              <RaceRow
-                key={race.id}
-                race={race}
-                seriesId={seriesId}
-                rovingProps={raceRowProps(race.id)}
-              />
+            races.map((race, index) => (
+              <Fragment key={race.id}>
+                <RaceDayHeading label={dayHeadings[index]} />
+                <RaceRow
+                  race={race}
+                  seriesId={seriesId}
+                  rovingProps={raceRowProps(race.id)}
+                />
+              </Fragment>
             ))
           ) : (
             <SortableList items={races} onReorder={(orderedIds) => reorderRaces.mutate(orderedIds)}>
               {(race, { ref, style, handleProps }) => {
                 const index = races.findIndex((r) => r.id === race.id);
                 return (
-                  <RaceRow
-                    race={race}
-                    seriesId={seriesId}
-                    rowRef={ref}
-                    rowStyle={style}
-                    dragHandle={handleProps}
-                    rovingProps={raceRowProps(race.id)}
-                    onNudge={(direction) => nudgeRace(race.id, direction)}
-                    onInsert={(position) => insertRaceAt(position === 'above' ? index : index + 1)}
-                    // The row that takes this one's place keeps the focus; a
-                    // confirm dialog would otherwise restore it to an element
-                    // that has just unmounted, i.e. to <body>.
-                    onDeleted={() => focusRaceAfterChange(index)}
-                  />
+                  <>
+                    <RaceDayHeading label={dayHeadings[index]} />
+                    <RaceRow
+                      race={race}
+                      seriesId={seriesId}
+                      rowRef={ref}
+                      rowStyle={style}
+                      dragHandle={handleProps}
+                      rovingProps={raceRowProps(race.id)}
+                      onNudge={(direction) => nudgeRace(race.id, direction)}
+                      onInsert={(position) => insertRaceAt(position === 'above' ? index : index + 1)}
+                      // The row that takes this one's place keeps the focus; a
+                      // confirm dialog would otherwise restore it to an element
+                      // that has just unmounted, i.e. to <body>.
+                      onDeleted={() => focusRaceAfterChange(index)}
+                    />
+                  </>
                 );
               }}
             </SortableList>

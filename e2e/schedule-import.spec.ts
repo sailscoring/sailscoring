@@ -62,8 +62,8 @@ test('import a schedule with a column of guns per fleet', async ({ page }) => {
 
   const raceRows = page.getByTestId('race-row');
   await expect(raceRows).toHaveCount(5);
-  await expect(raceRows.nth(1)).toContainText('2025-11-08');
-  await expect(raceRows.nth(4)).toContainText('2025-12-06');
+  await expect(raceRows.nth(1)).toHaveAttribute('data-race-date', '2025-11-08');
+  await expect(raceRows.nth(4)).toHaveAttribute('data-race-date', '2025-12-06');
 
   // Race 5: only ILCA & 420 sail, and its gun is still to come.
   await raceRows.nth(4).getByText('Race 5', { exact: true }).click();
