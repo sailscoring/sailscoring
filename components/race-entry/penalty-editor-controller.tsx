@@ -7,7 +7,10 @@ import {
   type PenaltyDraft,
 } from '@/components/penalty-editor-dialog';
 import type { deriveFinishState } from '@/lib/finish-entry';
-import type { Competitor, Finish, Fleet, SeriesScoringCode } from '@/lib/types';
+import { highPointOf } from '@/lib/high-point';
+import { raceFleetSizes } from '@/lib/high-point-race';
+import { seriesCodeTable } from '@/lib/scoring-codes';
+import type { Competitor, Finish, Fleet, Series, SeriesScoringCode } from '@/lib/types';
 
 export interface PenaltyEditorHandle {
   /** Open the penalty editor for one finisher. */
@@ -34,8 +37,15 @@ export const PenaltyEditorController = forwardRef<PenaltyEditorHandle, {
   raceFinishes?: Finish[];
   /** The series' own scoring codes, offered beside the RRS penalties. */
   seriesCodes?: readonly SeriesScoringCode[];
+  /** The series, for how it scores: in high point a penalty takes points
+   *  away, a percentage as a share of the boats in the race. */
+  series?: Series;
+  /** The boats in this race, in the fleets they sail it in. */
+  raceCompetitors?: readonly Competitor[];
+  /** The race's weighting. */
+  raceWeight?: number;
 }>(function PenaltyEditorController(
-  { finishByCompetitorId, finisherPenalties, competitorMap, fleets, patchCache, saveFinish, raceFinishes, seriesCodes },
+  { finishByCompetitorId, finisherPenalties, competitorMap, fleets, patchCache, saveFinish, raceFinishes, seriesCodes, series, raceCompetitors, raceWeight },
   ref,
 ) {
   // competitorId of the row being edited, or null.
@@ -63,6 +73,17 @@ export const PenaltyEditorController = forwardRef<PenaltyEditorHandle, {
     setEditingPenaltyEntryId(null);
   }
 
+  const highPoint = series ? highPointOf(series) : undefined;
+  // High point: the boats in the race in each fleet the boat sails it in.
+  const fleetSizes = (() => {
+    if (!highPoint || !series || !editingPenaltyEntryId) return [];
+    const boat = (raceCompetitors ?? []).find((c) => c.id === editingPenaltyEntryId) ?? competitorMap.get(editingPenaltyEntryId);
+    if (!boat) return [];
+    return raceFleetSizes(fleets, raceCompetitors ?? [], raceFinishes ?? [], seriesCodeTable(series))
+      .filter((e) => (e.fleet ? boat.fleetIds.includes(e.fleet.id) : !boat.fleetIds.some((id) => fleets.some((f) => f.id === id))))
+      .map((e) => ({ name: e.fleet?.name ?? '', fleetSize: e.fleetSize }));
+  })();
+
   return (
     <PenaltyEditorDialog
       competitor={
@@ -88,6 +109,9 @@ export const PenaltyEditorController = forwardRef<PenaltyEditorHandle, {
       onApply={applyPenalty}
       onCancel={() => setEditingPenaltyEntryId(null)}
       seriesCodes={seriesCodes}
+      highPoint={highPoint}
+      raceFleetSizes={fleetSizes}
+      raceWeight={raceWeight}
     />
   );
 });

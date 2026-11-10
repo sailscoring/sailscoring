@@ -5,7 +5,7 @@
 // and the tests share one wording.
 
 import { BUILT_IN_CODES, buildCodeTable, CHANGEABLE_BUILT_IN_CODES, getCodeDefinition, highPointCodeDefinition } from './scoring-codes';
-import { highPointPlacePoints, type HighPointScoring } from './high-point';
+import { highPointPercentPenalty, highPointPlacePoints, type HighPointScoring } from './high-point';
 import { weightedRacePoints } from './race-scoring-options';
 import type { DnfScoring, PlaceBase, SeriesCodeRule, SeriesScoringCode } from './types';
 
@@ -267,6 +267,26 @@ export function scoringCodeNotes(
     sentence: ruleSentence(row.scored, hp),
     ...(row.status === 'changed' && row.rrs ? { rrs: ruleShortText(row.rrs, hp) } : {}),
   }));
+}
+
+/**
+ * What a percentage penalty takes from a boat in a high-point race, for the
+ * penalty dialog: one line for each fleet she is scored in, since each has
+ * its own number of boats. "20% of place 21 is 4.2 places: 19.2 points off."
+ * The points are before the race's weighting. Under boats beaten a place is
+ * a point, and the line stops at the places.
+ */
+export function highPointPenaltyLines(
+  hp: HighPointScoring,
+  percent: number,
+  fleets: readonly { name: string; fleetSize: number }[],
+): string[] {
+  return fleets.map(({ name, fleetSize }) => {
+    const { places, points: off } = highPointPercentPenalty(hp, percent, fleetSize);
+    const what = `${percent}% of place ${fleetSize + 1} is ${places} ${places === 1 ? 'place' : 'places'}`;
+    const taken = hp.formula === 'chips3' ? `: ${weightedRacePoints(off, 1)} points off` : `: ${places} ${places === 1 ? 'point' : 'points'} off`;
+    return `${fleets.length > 1 ? `${name} — ` : ''}${what}${taken}.`;
+  });
 }
 
 /** The fleet sizes the high-point preview shows. */

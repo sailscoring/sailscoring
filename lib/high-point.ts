@@ -90,6 +90,17 @@ export function highPointPlaceStep(hp: HighPointScoring, n: number): number {
   return (95 * (1 - 0.986682 * Math.exp(-0.1622 * n))) / n;
 }
 
+/**
+ * What a percentage penalty comes to in a race of `n` boats. In low point
+ * rule 44.3(c)'s percentage is a share of the DNF score, which is a place,
+ * the one after the last; high point takes that share of place n + 1, to the
+ * nearest tenth of a place, at what a place is worth.
+ */
+export function highPointPercentPenalty(hp: HighPointScoring, percent: number, n: number): { places: number; points: number } {
+  const places = Math.round((percent * (n + 1)) / 10) / 10;
+  return { places, points: places * highPointPlaceStep(hp, n) };
+}
+
 /** What a series holds that high point can’t score. */
 export interface HighPointBlockers {
   /** The series is a split-fleet championship. */

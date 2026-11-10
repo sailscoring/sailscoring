@@ -23,7 +23,8 @@ import { Input } from '@/components/ui/input';
 import { PerFleetPoints } from '@/components/per-fleet-points';
 import { seedFromFinish, toStorage, type PerFleetPointsValue } from '@/lib/per-fleet-points';
 import type { PenaltyCode, SeriesScoringCode } from '@/lib/types';
-import { ruleSentence } from '@/lib/scoring-codes-text';
+import { highPointPenaltyLines, ruleSentence } from '@/lib/scoring-codes-text';
+import type { HighPointScoring } from '@/lib/high-point';
 
 export interface PenaltyDraft {
   code: PenaltyCode | null;
@@ -52,6 +53,15 @@ export interface PenaltyEditorDialogProps {
    *  are offered after the RRS penalties, and a changed ZFP shows its
    *  percentage. */
   seriesCodes?: readonly SeriesScoringCode[];
+  /** How the series scores high point; absent for low point. A penalty
+   *  takes points away there, and the dialog says so. */
+  highPoint?: HighPointScoring;
+  /** High point: the boats in this race in each fleet the competitor is
+   *  scored in, which a percentage penalty is worked out from. Empty when
+   *  nothing is scored yet. */
+  raceFleetSizes?: readonly { name: string; fleetSize: number }[];
+  /** The race's weighting, when it has one other than 1. */
+  raceWeight?: number;
 }
 
 export function PenaltyEditorDialog(props: PenaltyEditorDialogProps) {
@@ -74,6 +84,9 @@ function PenaltyEditorDialogInner({
   onApply,
   onCancel,
   seriesCodes = [],
+  highPoint,
+  raceFleetSizes = [],
+  raceWeight,
 }: PenaltyEditorDialogProps & { competitor: { id: string; sailNumber: string } }) {
   const [code, setCode] = useState<PenaltyCode | 'none'>(initialPenalty?.code ?? 'none');
   // An SCP is the points the NoR or SIs state (rule 44.3(c)), or a percentage
@@ -103,6 +116,16 @@ function PenaltyEditorDialogInner({
   const ownCode = ownPenaltyCodes.find((c) => c.code === code);
   const zfp = seriesCodes.find((c) => c.code === 'ZFP');
   const zfpPercent = zfp?.rule.type === 'addPercent' ? zfp.rule.percent : 20;
+  const pointsLabel = highPoint ? 'Points to take off' : 'Points to add';
+  // High point takes a percentage in places, which a scorer can't check by
+  // eye under CHIPS3: say what it comes to in this race.
+  const percent = code === 'ZFP' ? zfpPercent
+    : code === 'SCP' && !scpInPoints ? (override.trim() ? Number(override) : 20)
+    : ownCode?.rule.type === 'addPercent' ? ownCode.rule.percent
+    : null;
+  const outcome = highPoint && percent !== null && Number.isFinite(percent) && percent > 0 && percent <= 100
+    ? highPointPenaltyLines(highPoint, percent, raceFleetSizes)
+    : [];
   // An SCP in points has no default to fall back on: rule 44.3(c)'s default
   // is the percentage.
   const missingScpPoints = code === 'SCP' && scpInPoints && (() => {
@@ -146,7 +169,8 @@ function PenaltyEditorDialogInner({
         <DialogHeader>
           <DialogTitle>Scoring penalty — {competitor.sailNumber}</DialogTitle>
           <DialogDescription>
-            Additive penalty codes (A6.2): other boats keep their scores.
+            Makes this boat’s score for the race worse{highPoint ? ', taking points away' : ''}. Other boats keep
+            their scores (RRS 44.3(c)).
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-2">
@@ -181,14 +205,14 @@ function PenaltyEditorDialogInner({
             </Select>
           </div>
           {ownCode && (
-            <p className="text-sm text-muted-foreground" data-testid="penalty-code-rule">{ruleSentence(ownCode)}</p>
+            <p className="text-sm text-muted-foreground" data-testid="penalty-code-rule">{ruleSentence(ownCode, highPoint)}</p>
           )}
           {code === 'SCP' && (
             <div className="space-y-1.5">
               <span className="text-sm font-medium" id="scp-unit-label">Stated as</span>
               <div role="radiogroup" aria-labelledby="scp-unit-label" className="flex w-fit rounded-md border text-sm">
                 {([
-                  [false, '% of DNF score'],
+                  [false, highPoint ? '% of the places' : '% of DNF score'],
                   [true, 'Points'],
                 ] as const).map(([inPoints, text]) => (
                   <button
@@ -204,8 +228,9 @@ function PenaltyEditorDialogInner({
                 ))}
               </div>
               <p className="text-xs text-muted-foreground">
-                Rule 44.3(c): the number of points the notice of race or sailing
-                instructions state, or 20% of the DNF score when they state none.
+                {highPoint
+                  ? 'Rule 44.3(c): the number of points the notice of race or sailing instructions state, or 20% when they state none. In low point that is a share of the DNF score, which is a place, the one after the last; high point takes the same share in places.'
+                  : 'Rule 44.3(c): the number of points the notice of race or sailing instructions state, or 20% of the DNF score when they state none.'}
               </p>
             </div>
           )}
@@ -227,7 +252,7 @@ function PenaltyEditorDialogInner({
           )}
           {code === 'SCP' && scpInPoints && (
             <PerFleetPoints
-              label="Points to add"
+              label={pointsLabel}
               fleets={competitorFleets}
               value={points}
               onChange={setPoints}
@@ -240,7 +265,7 @@ function PenaltyEditorDialogInner({
           {code === 'DPI' && (
             <>
               <PerFleetPoints
-                label="Points to add"
+                label={pointsLabel}
                 fleets={competitorFleets}
                 value={points}
                 onChange={setPoints}
@@ -274,6 +299,15 @@ function PenaltyEditorDialogInner({
                 </p>
               </div>
             </>
+          )}
+          {outcome.length > 0 && (
+            <div className="rounded-md border bg-muted/40 p-3 text-sm" data-testid="penalty-outcome">
+              {outcome.map((line) => <p key={line}>{line}</p>)}
+              <p className="text-xs text-muted-foreground">
+                In this race{raceWeight != null && raceWeight !== 1 ? `, before its weight of ${raceWeight}` : ''}. Never
+                fewer points than DNF scores.
+              </p>
+            </div>
           )}
         </div>
         <div className="flex gap-2">

@@ -679,6 +679,9 @@ export default function ResultEntryPage({
         saveFinish={saveFinish}
         raceFinishes={savedFinishes ?? []}
         seriesCodes={series?.scoringCodes}
+        series={series ?? undefined}
+        raceCompetitors={inRaceCompetitors}
+        raceWeight={race.pointsMultiplier}
       />
 
       <RedressController

@@ -301,3 +301,16 @@ describe('a penalty in high point', () => {
     expect(boats.map((b) => scores.get(b.id)!.points)).toEqual([4, 1, 2, 1]);
   });
 });
+
+describe('what a percentage penalty comes to, as the penalty dialog says it', () => {
+  it('states the places, and under CHIPS3 the points they are worth', async () => {
+    const { highPointPenaltyLines } = await import('@/lib/scoring-codes-text');
+    expect(highPointPenaltyLines(CHIPS3, 20, [{ name: 'Overall', fleetSize: 20 }])).toEqual([
+      '20% of place 21 is 4.2 places: 19.2 points off.',
+    ]);
+    expect(highPointPenaltyLines(BOATS_BEATEN, 20, [{ name: 'A', fleetSize: 10 }, { name: 'B', fleetSize: 4 }])).toEqual([
+      'A — 20% of place 11 is 2.2 places: 2.2 points off.',
+      'B — 20% of place 5 is 1 place: 1 point off.',
+    ]);
+  });
+});

@@ -7,7 +7,7 @@ import { orcConstructedOption, orcCurveOption, orcFleetProfile, orcPcsRatable, o
 import { scorePcsRace, type PcsAllowances, type PcsCourse, type PcsCourseModel } from './orc-pcs';
 import { courseLength } from './course-precision';
 import { weightedRacePoints } from './race-scoring-options';
-import { highPointPlaceStep, highPointTiedPoints } from './high-point';
+import { highPointPercentPenalty, highPointTiedPoints } from './high-point';
 import { parseHmsToSeconds } from './time-parse';
 import { racesFleetIsNotIn } from './race-membership';
 import { fleetsInAnyRace, fleetsInRace, withRaceFleets } from './race-fleets';
@@ -156,8 +156,7 @@ export function applyScoringPenalty(
     // override is needed or read here.
     const pct = finish.penaltyOverride ?? method.defaultPct;
     if (hp) {
-      const n = fleetSize ?? 0;
-      worse = (Math.round((pct * (n + 1)) / 10) / 10) * highPointPlaceStep(hp, n);
+      worse = highPointPercentPenalty(hp, pct, fleetSize ?? 0).points;
     } else {
       // pct% of the DNF score, to the nearest 0.1 (0.05 rounded up). pct and cap
       // are whole numbers, so pct*cap/10 is exact before the half-up rounding.
