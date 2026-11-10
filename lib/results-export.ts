@@ -13,11 +13,13 @@ import {
   ratingFieldTcf,
   staticRatingField,
   discardRuleOf,
+  getDiscardCount,
+  subSeriesDiscardsOf,
   type TodCorrectionContext,
 } from './scoring';
 import { seriesCodeTable } from './scoring-codes';
 import { scoringCodeNotes } from './scoring-codes-text';
-import { subSeriesDiscardsNote } from './discard-rules';
+import { discardCaption, subSeriesDiscardsNote } from './discard-rules';
 import { highPointRaceCaption, pointsSystemNote } from './high-point';
 import { raceTablePoints } from './race-scoring-options';
 import {
@@ -88,7 +90,7 @@ import { buildSchedule } from './schedule';
 import { buildStartersChecklist } from './starters-checklist';
 import { buildSignInOutSheet } from './sign-in-out-sheet';
 import { seriesSlug } from './series-name';
-import type { Competitor, FinishTrackData, Fleet, OrcRaceCalc, PublicationSummary, RaceStart, ResultCode, PenaltyCode, Series, Standing } from './types';
+import type { Competitor, DiscardRule, DiscardThreshold, FinishTrackData, Fleet, OrcRaceCalc, PublicationSummary, RaceStart, ResultCode, PenaltyCode, Series, Standing } from './types';
 import type { CourseBackground } from '@sailscoring/course-cards';
 
 /**
@@ -1023,6 +1025,18 @@ export async function buildFleetHtmlFiles(
 
   const results: FleetHtmlFile[] = [];
 
+  // The discard rule a view scored with: the series' own, unless a
+  // sub-series has one of its own, which its pages also state in full.
+  interface ViewDiscards {
+    thresholds: DiscardThreshold[];
+    rule: DiscardRule | undefined;
+    note?: string;
+  }
+  const seriesDiscards: ViewDiscards = {
+    thresholds: series.discardThresholds ?? [],
+    rule: discardRuleOf(series),
+  };
+
   // Render one HTML page per fleet of a view: the whole series, or one
   // sub-series scored independently. Block pages renumber their races 1..n
   // within the block ("Spring Race 3", not the series-wide race number) and
@@ -1038,8 +1052,9 @@ export async function buildFleetHtmlFiles(
     struckByFleet: Map<string, Set<string>> | undefined,
     subSeriesName?: string,
     skipFleetIds?: Set<string>,
-    /** A sub-series' own discard rule, stated on its pages. */
-    discardsNote?: string,
+    /** The discard rule the view scored with, and a sub-series' own rule as
+     *  its pages state it. */
+    discards: ViewDiscards = seriesDiscards,
   ): Map<string, SectionAssembler> => {
   const assemblerByFleetId = new Map<string, SectionAssembler>();
   const viewSeriesInfo = subSeriesName
@@ -1055,6 +1070,18 @@ export async function buildFleetHtmlFiles(
       ? viewRaces
       : fleetOwnRaces(fleet.id, viewRaces, allRaceStarts, struckByFleet?.get(fleet.id));
     const ownIndices = ownRaces.map((r) => viewRaces.indexOf(r));
+    // How many races count, over the races the engine counted for this
+    // fleet: those not excluded for it, which every boat in it shares.
+    const sailedCount = standings[0]
+      ? standings[0].raceExcluded.filter((excluded) => !excluded).length
+      : ownRaces.length;
+    const discardsCaption = sailedCount > 0
+      ? `${discardCaption(
+          sailedCount,
+          Math.min(getDiscardCount(sailedCount, discards.thresholds, discards.rule), sailedCount),
+          discards.rule,
+        )}.`
+      : undefined;
     const sailedEveryRace = ownRaces.length === viewRaces.length;
     const overOwnRaces = (rows: Standing[]): Standing[] =>
       sailedEveryRace ? rows : rows.map((s) => standingOverRaces(s, ownIndices));
@@ -1480,7 +1507,8 @@ export async function buildFleetHtmlFiles(
       // The series' codes that differ from the RRS, so the page can say what
       // a TLE in a cell is, or that a DNC is scored from the starting area.
       if (codeNotes.length > 0) data.scoringCodeNotes = codeNotes;
-      if (discardsNote) data.discardsNote = discardsNote;
+      if (discardsCaption) data.discardsCaption = discardsCaption;
+      if (discards.note) data.discardsNote = discards.note;
       if (codeTable.highPoint) {
         data.pointsNote = pointsSystemNote(codeTable.highPoint);
         data.highPoint = codeTable.highPoint;
@@ -1551,7 +1579,7 @@ export async function buildFleetHtmlFiles(
     viewRaces: typeof races,
     struckByFleet: Map<string, Set<string>> | undefined,
     subSeriesName?: string,
-    discardsNote?: string,
+    discards: ViewDiscards = seriesDiscards,
   ) => {
     const viewFleets = viewFleetResults.map((fr) => fr.fleet);
     const standingsByFleetId = new Map(
@@ -1572,7 +1600,7 @@ export async function buildFleetHtmlFiles(
       : undefined;
 
     const clusterStart = results.length;
-    const assemblerByFleetId = renderView(viewFleetResults, viewRaces, struckByFleet, subSeriesName, suppressed, discardsNote);
+    const assemblerByFleetId = renderView(viewFleetResults, viewRaces, struckByFleet, subSeriesName, suppressed, discards);
 
     // Extra pages lead the cluster — the series index and preview show them
     // first, ahead of the per-fleet pages they draw on.
@@ -1677,7 +1705,10 @@ export async function buildFleetHtmlFiles(
         renumbered,
         buildRaceFleetExclusionMap(block.subSeries.raceFleetExclusions),
         block.subSeries.name,
-        block.subSeries.discards ? subSeriesDiscardsNote(block.subSeries.discards) : undefined,
+        {
+          ...subSeriesDiscardsOf(block.subSeries, seriesDiscards.thresholds, seriesDiscards.rule),
+          ...(block.subSeries.discards ? { note: subSeriesDiscardsNote(block.subSeries.discards) } : {}),
+        },
       );
     }
   } else {

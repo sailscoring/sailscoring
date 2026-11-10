@@ -122,6 +122,10 @@ export interface SeriesResultsData {
   /** High point: how the series scored points, stated under the results so a
    *  reader knows the highest total wins. Absent for low point. */
   pointsNote?: string;
+  /** How many of this fleet's races count, in the Standings tab's words and
+   *  over the races the fleet sailed ("Best 5 of 18 count.", "2 discards.",
+   *  "No discards."). Absent before the fleet has sailed a race. */
+  discardsCaption?: string;
   /** A sub-series with its own discard rule states it under the results,
    *  since it differs from the series' ("This sub-series counts each boat's
    *  best 3 races."). Absent when the page takes the series' rule. */
@@ -921,6 +925,32 @@ function codesUsed(sections: readonly SeriesResultsData[]): Set<string> {
   return used;
 }
 
+/** How the page's standings were scored, under the results: a high-point
+ *  series' points, how many races count, and a sub-series' own rule. */
+export function renderPointsNote(
+  note: string | undefined,
+  discardsCaption?: string,
+  discardsNote?: string,
+): string {
+  const lines = [note, discardsCaption, discardsNote].filter((n): n is string => !!n);
+  return lines.length > 0
+    ? `<div class="scoringcodes pointsnote">${lines.map((n) => `<p>${esc(n)}</p>`).join('')}</div>`
+    : '';
+}
+
+/**
+ * A combined page's discards line. Its fleets share the series' rule but not
+ * always its races, so where they count differently each says its own,
+ * by name; where they agree, once for the page.
+ */
+export function combinedDiscardsCaption(sections: readonly SeriesResultsData[]): string | undefined {
+  const captioned = sections.filter((s) => s.discardsCaption);
+  const distinct = new Set(captioned.map((s) => s.discardsCaption));
+  if (distinct.size <= 1) return captioned[0]?.discardsCaption;
+  const lines = new Set(captioned.map((s) => `${s.fleetName}: ${s.discardsCaption}`));
+  return [...lines].join(' ');
+}
+
 /**
  * The scoring codes a page uses that differ from the RRS, each with its rule
  * in full, so a reader meeting `TLE` in a cell — or a DNC scored from the
@@ -928,14 +958,6 @@ function codesUsed(sections: readonly SeriesResultsData[]): Set<string> {
  * the page uses none. `all` lists every note whether used or not, for the
  * split-fleet Scoring notes page.
  */
-/** A high-point series' note on how it scored, under the results. */
-export function renderPointsNote(note: string | undefined, discardsNote?: string): string {
-  const lines = [note, discardsNote].filter((n): n is string => !!n);
-  return lines.length > 0
-    ? `<div class="scoringcodes pointsnote">${lines.map((n) => `<p>${esc(n)}</p>`).join('')}</div>`
-    : '';
-}
-
 export function renderScoringCodeNotes(
   notes: readonly ScoringCodeNote[] | undefined,
   used?: ReadonlySet<string>,
@@ -965,7 +987,7 @@ export function renderSeriesHtml(
     hasNhcDetail ? renderNhcToggle() + '\n' + renderNhcExplainer() : '',
     hasEchoDetail ? renderEchoToggle() + '\n' + renderEchoExplainer() : '',
     renderSectionTables(data, view, { detail, linkRaceLabels: detail === 'full' }),
-    renderPointsNote(data.pointsNote, data.discardsNote),
+    renderPointsNote(data.pointsNote, data.discardsCaption, data.discardsNote),
     renderScoringCodeNotes(data.scoringCodeNotes, codesUsed([data]), !!data.highPoint),
   ].join('\n');
   const flagDefs =
@@ -1101,7 +1123,7 @@ export function renderCombinedSeriesHtml(
     hasEchoDetail ? renderEchoToggle() + '\n' + renderEchoExplainer() : '',
     sectionHtml,
     // One list for the page: every section is the same series.
-    renderPointsNote(sections[0]?.pointsNote, sections[0]?.discardsNote),
+    renderPointsNote(sections[0]?.pointsNote, combinedDiscardsCaption(sections), sections[0]?.discardsNote),
     renderScoringCodeNotes(sections[0]?.scoringCodeNotes, codesUsed(sections), !!sections[0]?.highPoint),
   ].join('\n');
   const flagDefs =
