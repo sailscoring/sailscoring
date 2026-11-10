@@ -246,7 +246,7 @@ export default function Collaboration() {
           <strong className="text-foreground">l</strong> to jump into the list — you land back on
           the row you left — then use the arrow keys within it. On a focused race row,{' '}
           <strong className="text-foreground">a</strong> opens that race’s actions menu
-          (insert a race above or below, scoring options, the race record),{' '}
+          (insert a race above or below, scoring options, the race record, delete),{' '}
           <strong className="text-foreground">d</strong> deletes the race, and{' '}
           <strong className="text-foreground">Alt+↑</strong> /{' '}
           <strong className="text-foreground">Alt+↓</strong> move it earlier or later in the

@@ -46,6 +46,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { SortableList, DragHandle } from '@/components/ui/sortable-list';
@@ -232,7 +233,7 @@ function RaceRow({
         </div>
       </div>
       <div className="flex items-center gap-1">
-        {!readOnly && (onInsert || scoringOptionsGated || raceRecordGated) && (
+        {!readOnly && (
           <DropdownMenu open={actionsOpen} onOpenChange={setActionsOpen}>
             <DropdownMenuTrigger asChild>
               <Button
@@ -273,19 +274,13 @@ function RaceRow({
                   Race record…
                 </DropdownMenuItem>
               )}
+              {(onInsert || scoringOptionsGated || raceRecordGated) && <DropdownMenuSeparator />}
+              <DropdownMenuItem variant="destructive" onClick={handleDelete}>
+                <Trash2 />
+                Delete race…
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-        )}
-        {!readOnly && (
-          <Button
-            variant="ghost"
-            size="icon"
-            tabIndex={-1}
-            aria-label={`Delete Race ${race.raceNumber}`}
-            onClick={(e) => { e.stopPropagation(); handleDelete(); }}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
         )}
       </div>
       {/* Stop the row's own click handler from navigating away underneath the

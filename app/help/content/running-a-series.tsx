@@ -613,7 +613,9 @@ export default function RunningASeries() {
           re-sailed between two others, or a make-up race — use a row’s{' '}
           <strong className="text-foreground">⋮ menu ▸ Insert race above / below</strong>. Races
           renumber automatically to stay in order; existing redress (RDG) pools follow their races,
-          so reordering or inserting never disturbs a previously scored redress.
+          so reordering or inserting never disturbs a previously scored redress.{' '}
+          <strong className="text-foreground">⋮ menu ▸ Delete race…</strong> removes a race and
+          every result recorded for it, after asking first.
         </p>
       </Section>
       {has('schedule-import') && (

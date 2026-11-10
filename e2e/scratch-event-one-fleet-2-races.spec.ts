@@ -171,8 +171,9 @@ test('scratch event, one fleet, 2 races', async ({ page }) => {
   await page.getByRole('link', { name: 'Races' }).click();
   await expect(page.getByText('2 races')).toBeVisible();
 
-  // Race 2 is the second row — click its Delete, then confirm.
-  await page.getByRole('button', { name: 'Delete Race 2' }).click();
+  // Race 2 is the second row — Delete is on its actions menu, then confirm.
+  await page.getByRole('button', { name: 'Actions for Race 2' }).click();
+  await page.getByRole('menuitem', { name: 'Delete race…' }).click();
   await expect(page.getByTestId('confirm-dialog')).toContainText('Delete Race 2?');
   await page.getByTestId('confirm-dialog-confirm').click();
   // The dialog keeps its question while it fades out; let it go first.

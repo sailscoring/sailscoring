@@ -33,7 +33,8 @@ test('deleting a race renumbers the survivors, and adding still works after', as
   }
 
   // Drop the first race: Bravo and Charlie move up to 1 and 2.
-  await rows.filter({ hasText: 'Alpha' }).getByLabel(/^Delete Race/).click();
+  await rows.filter({ hasText: 'Alpha' }).getByLabel(/^Actions for Race/).click();
+  await page.getByRole('menuitem', { name: 'Delete race…' }).click();
   await page.getByRole('button', { name: 'Delete' }).click();
   await expect(rows).toHaveCount(2);
   await expect(async () => {
