@@ -73,6 +73,9 @@ How it works, and why.
 - [`oss-health-report.md`](design/oss-health-report.md) — April 2026
   sustainability review of the Vercel / Next.js / Postgres stack; source
   of the commitments in ADR-008's *Sustainability posture* section.
+- [`related-apps.md`](design/related-apps.md) — other software we know
+  of: apps built on Sail Scoring, apps it integrates with, alternatives,
+  and adjacent apps.
 - [`horizon.md`](design/horizon.md) — long-range possibilities worth
   remembering but not actively tracked as issues. Includes the deferred
   handicap-system work and the ADR-008 Phase 10 residue.
