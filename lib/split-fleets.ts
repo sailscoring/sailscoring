@@ -6,7 +6,7 @@
 
 import type { Competitor, DnfScoring, Finish, Fleet, Race, RaceStart, SeriesScoringCode } from './types';
 import { compareSailNumbersIgnoringPrefix } from './sail-number-sort';
-import { applyAdditivePenalty, resolveEntrants, startingAreaCount } from './scoring';
+import { applyScoringPenalty, resolveEntrants, startingAreaCount } from './scoring';
 import { seriesCodeTable, type RaceCounts, type ScoringCodeTable } from './scoring-codes';
 import { weightedRacePoints } from './race-scoring-options';
 
@@ -1120,7 +1120,7 @@ export interface SplitStandingRow {
  *    junior event's published results are the worked example: six boats
  *    outside a ten-boat medal fleet, scored 34.0 DNC on an entry list of 16.
  *  - SCP/ZFP add a percentage of the race's DNF score and DPI adds stated
- *    points, both through the engine-wide `applyAdditivePenalty` (RRS
+ *    points, both through the engine-wide `applyScoringPenalty` (RRS
  *    44.3(c) rounding and DNF cap). Penalties apply to finishers only (a
  *    coded boat is already at the base). The cap is the *weighted* DNF score,
  *    because that is this race's score for DNF; a stated DPI stays the points
@@ -1179,7 +1179,7 @@ function scorePhysicalRace(
     // One implementation of RRS 44.3(c) for both engines: the percentage is of
     // the race's DNF score, rounded to the nearest tenth (0.05 up), and the
     // penalty never makes her worse than DNF.
-    const points = applyAdditivePenalty(placePoints, f, codePoints, ref.fleetId, codes);
+    const points = applyScoringPenalty(placePoints, f, codePoints, ref.fleetId, codes);
     out.set(f.competitorId!, { points, code: f.penaltyCode ?? null, rdg: null });
   });
   for (const f of rows) {

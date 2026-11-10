@@ -267,8 +267,18 @@ export default function ScoringCorrectness() {
             fixed 15 and has a code of its own, DTP, a fixed 8 that counts, for a boat that declared
             she would race and didn’t. When a series has such a code, a race’s page offers{' '}
             <strong className="text-foreground">Mark declared boats…</strong> to give it to the boats
-            that declared. Codes that add to a finishing place — ZFP, SCP, DPI — can’t be scored
-            high point yet, and neither can a split-fleet championship.
+            that declared. A split-fleet championship can’t be scored high point.
+          </p>
+          <h3 className="text-base font-medium text-foreground pt-2">Penalties</h3>
+          <p>
+            A penalty on a boat that finished — ZFP, SCP, DPI or a code of the series’ own — takes
+            points away where low point adds them. Other boats keep their scores, and the boat is
+            never left with fewer points than DNF scores (RRS 44.3(c)). Stated points come straight
+            off. A percentage, such as the 20% of ZFP and SCP, is taken in places: in low point it
+            is a share of the DNF score, which is a place, the one after the last. So with 20 boats
+            a 20% penalty is 4.2 places — 4.2 points under boats beaten, and under CHIPS3 what 4.2
+            places are worth in a fleet of 20, about 19 points. The race’s weighting is applied
+            after the penalty.
           </p>
           <h3 className="text-base font-medium text-foreground pt-2">Weighting, discards and ties</h3>
           <p>

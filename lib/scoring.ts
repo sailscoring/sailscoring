@@ -7,7 +7,7 @@ import { orcConstructedOption, orcCurveOption, orcFleetProfile, orcPcsRatable, o
 import { scorePcsRace, type PcsAllowances, type PcsCourse, type PcsCourseModel } from './orc-pcs';
 import { courseLength } from './course-precision';
 import { weightedRacePoints } from './race-scoring-options';
-import { highPointTiedPoints } from './high-point';
+import { highPointPlaceStep, highPointTiedPoints } from './high-point';
 import { parseHmsToSeconds } from './time-parse';
 import { racesFleetIsNotIn } from './race-membership';
 import { fleetsInAnyRace, fleetsInRace, withRaceFleets } from './race-fleets';
@@ -108,57 +108,74 @@ function resolvePerFleetScalar(
   return { value: scalar, gap: false };
 }
 
-/** Apply an additive scoring penalty (ZFP/SCP/DPI) to a finisher's points. Per
- *  RRS 44.3(c) a penalty is the number of points stated (a DPI, or an SCP the
- *  SIs state in points), or else the stated % (default 20%) of the DNF score,
- *  **rounded to the nearest tenth of a point (0.05 up)** — not the nearest
- *  whole number — and a boat is never scored worse than DNF (`cap`).
- *  No-op when the finish carries no penalty. Caller restricts this to
- *  finishers. `fleetId` selects the per-fleet points for multi-fleet boats; a
- *  boat in per-fleet mode with no value for this fleet adds nothing (a
- *  penalty is never fabricated — the gap is surfaced separately).
+/**
+ * Apply a scoring penalty (ZFP, SCP, DPI or a series' own) to a finisher's
+ * points. Per RRS 44.3(c) her score is made worse by the number of points
+ * stated (a DPI, or an SCP the SIs state in points), or else by the stated %
+ * (default 20%) of the DNF score, **rounded to the nearest tenth of a point
+ * (0.05 up)** — not the nearest whole number — and she is never scored worse
+ * than DNF (`cap`). Other boats keep their scores.
  *
- *  The cap only stops the *penalty* making her worse than DNF; it never
- *  improves a score that was already worse. That is unreachable here (a
- *  finisher scores at most the DNF score minus one) but reachable where a
- *  race's points are multiplied and its DNF score is not — the split-fleet
- *  medal race, whose engine shares this function. */
-/** The DNF cap, applied so it can only ever hold a penalty back — never pull
- *  an unpenalised score that already sits beyond it down to the cap. */
-function capPenalized(basePoints: number, penalized: number, cap: number): number {
-  return Math.min(penalized, Math.max(cap, basePoints));
-}
-
-export function applyAdditivePenalty(
+ * Worse is more points in low point and fewer in high point. High point
+ * takes stated points away, and takes a percentage in places: in low point
+ * the DNF score is a place, the one after the last, so the penalty is that
+ * share of place n + 1, to the nearest tenth of a place, at what a place is
+ * worth under the series' formula. Under boats beaten a place is a point,
+ * which mirrors low point exactly. `fleetSize` is high point's n.
+ *
+ * No-op when the finish carries no penalty. Caller restricts this to
+ * finishers. `fleetId` selects the per-fleet points for multi-fleet boats; a
+ * boat in per-fleet mode with no value for this fleet is not penalised (a
+ * penalty is never fabricated — the gap is surfaced separately).
+ *
+ * The cap only stops the *penalty* making her worse than DNF; it never
+ * improves a score that was already worse. That is unreachable in a plain
+ * low-point race (a finisher scores at most the DNF score minus one) but
+ * reachable where a race's points are multiplied and its DNF score is not —
+ * the split-fleet medal race, whose engine shares this function — and in
+ * high point where a series fixes DNF's points above what the last place
+ * scores.
+ */
+export function applyScoringPenalty(
   basePoints: number,
   finish: Finish | undefined,
   cap: number,
   fleetId?: string,
   codes?: ScoringCodeTable,
+  fleetSize?: number,
 ): number {
   if (!finish?.penaltyCode) return basePoints;
   const method = penaltyPointsMethod(finish, codes);
+  const hp = codes?.highPoint;
+  // The amount her score is made worse by, in points; null when the penalty
+  // has none to apply.
+  let worse: number | null = null;
   if (method?.type === 'additive_percentage') {
     // SCP/ZFP are a percentage of the DNF score, which is already per-fleet —
     // so a single stored rate yields the correct per-fleet points; no per-fleet
     // override is needed or read here.
     const pct = finish.penaltyOverride ?? method.defaultPct;
-    // pct% of the DNF score, to the nearest 0.1 (0.05 rounded up). pct and cap
-    // are whole numbers, so pct*cap/10 is exact before the half-up rounding.
-    const penalty = Math.round((pct * cap) / 10) / 10;
-    // roundToTenth on the sum: base is a tenth and so is the penalty, but their
-    // float sum (e.g. 2 + 0.6) carries IEEE noise that would surface in the UI.
-    return capPenalized(basePoints, roundToTenth(basePoints + penalty), cap);
-  }
-  if (method?.type === 'additive_stated') {
-    const { value } = resolvePerFleetScalar(finish.penaltyOverrideByFleet, finish.penaltyOverride, fleetId);
-    return capPenalized(basePoints, roundToTenth(basePoints + (value ?? 0)), cap);
-  }
-  if (method?.type === 'additive_points') {
+    if (hp) {
+      const n = fleetSize ?? 0;
+      worse = (Math.round((pct * (n + 1)) / 10) / 10) * highPointPlaceStep(hp, n);
+    } else {
+      // pct% of the DNF score, to the nearest 0.1 (0.05 rounded up). pct and cap
+      // are whole numbers, so pct*cap/10 is exact before the half-up rounding.
+      worse = Math.round((pct * cap) / 10) / 10;
+    }
+  } else if (method?.type === 'additive_stated') {
+    worse = resolvePerFleetScalar(finish.penaltyOverrideByFleet, finish.penaltyOverride, fleetId).value ?? 0;
+  } else if (method?.type === 'additive_points') {
     // A series' own penalty code carries its points; nothing is entered per boat.
-    return capPenalized(basePoints, roundToTenth(basePoints + method.points), cap);
+    worse = method.points;
   }
-  return basePoints;
+  if (worse === null) return basePoints;
+  // High point is left unrounded: the standings round once, after the race's
+  // weighting. Low point rounds here — base and penalty are both tenths, but
+  // their float sum (e.g. 2 + 0.6) carries IEEE noise that would surface in
+  // the UI.
+  if (hp) return Math.max(basePoints - worse, Math.min(cap, basePoints));
+  return Math.min(roundToTenth(basePoints + worse), Math.max(cap, basePoints));
 }
 
 /**
@@ -360,17 +377,14 @@ export function calculateRaceScores(
     fi = fj;
   }
 
-  // Apply additive penalty codes (ZFP, SCP, DPI, a series' own) to finishers.
-  // Per A6.2 other boats are NOT re-ranked; duplicate scores are allowed.
-  // Cap: penalised score cannot exceed the DNF score.
-  // High point can't apply them yet (they are written for low point, where
-  // more points are worse); a high-point series refuses them when they are
-  // recorded, so there is nothing here to apply.
+  // Apply penalty codes (ZFP, SCP, DPI, a series' own) to finishers. Per
+  // 44.3(c) other boats are NOT re-ranked; duplicate scores are allowed, and
+  // the penalised score is never worse than the DNF score.
   const dnfCap = codes.dnfPoints(counts);
-  for (const competitor of codes.highPoint ? [] : competitors) {
+  for (const competitor of competitors) {
     const score = result.get(competitor.id);
     if (!score || score.place === null) continue; // only apply to finishers
-    const penalized = applyAdditivePenalty(score.points, finishMap.get(competitor.id), dnfCap, fleetId, codes);
+    const penalized = applyScoringPenalty(score.points, finishMap.get(competitor.id), dnfCap, fleetId, codes, counts.fleetSize);
     if (penalized !== score.points) result.set(competitor.id, { ...score, points: penalized });
   }
 
@@ -2325,12 +2339,17 @@ function calculateHandicapStandings(
       raceGaps.push({ raceId: race.id, fleetId: fleet.id, reason: 'laps_not_applied' });
     }
 
-    // Additive scoring penalties (ZFP/SCP/DPI) apply to finishers in handicap
-    // fleets too, capped at this race's DNF score.
+    // Scoring penalties (ZFP/SCP/DPI) apply to finishers in handicap fleets
+    // too, never worse than this race's DNF score. High point's n is the
+    // fleet's scored boats with a result that counts toward it.
+    const penaltyFleetSize = codes.highPoint
+      ? [...scores.values()].filter((sc) => (sc.resultCode === null ? sc.place != null : codes.countsInFleetSize(sc.resultCode))).length
+      : undefined;
     const penaltyCap = codes.dnfPoints({
       entries: competitors.length,
       startingArea: startingAreaCount(fleetRaceFinishes, codes),
       finishers: [...scores.values()].filter((sc) => sc.place != null).length,
+      fleetSize: penaltyFleetSize,
     });
     const finishMap = new Map(fleetRaceFinishes.map((f) => [f.competitorId as string, f]));
 
@@ -2340,7 +2359,7 @@ function calculateHandicapStandings(
       const rawPoints = score?.points ?? codes.missingPoints({ entries: competitors.length, startingArea: 0, finishers: 0 });
       const finish = finishMap.get(competitor.id);
       const isFinisher = score?.place != null;
-      const points = isFinisher && !codes.highPoint ? applyAdditivePenalty(rawPoints, finish, penaltyCap, fleet.id, codes) : rawPoints;
+      const points = isFinisher ? applyScoringPenalty(rawPoints, finish, penaltyCap, fleet.id, codes, penaltyFleetSize) : rawPoints;
       // Not in the fleet for the race: it scores what a boat that didn't come
       // to the start scores, carrying no code.
       const out = outOfFleet?.has(competitor.id) ?? false;

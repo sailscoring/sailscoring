@@ -4,9 +4,9 @@
  * direction — discards, order and tie-break all reversed.
  */
 import { describe, it, expect } from 'vitest';
-import { calculateRaceScores, calculateStandings } from '@/lib/scoring';
+import { applyScoringPenalty, calculateRaceScores, calculateStandings } from '@/lib/scoring';
 import { buildCodeTable, seriesCodeTable } from '@/lib/scoring-codes';
-import { chips3, highPointOf, highPointPlacePoints, type HighPointScoring } from '@/lib/high-point';
+import { chips3, highPointOf, highPointPlacePoints, highPointPlaceStep, type HighPointScoring } from '@/lib/high-point';
 import { weightedRacePoints } from '@/lib/race-scoring-options';
 import type { Competitor, Finish, Race, SeriesScoringCode } from '@/lib/types';
 
@@ -207,10 +207,15 @@ describe('the series code table', () => {
 });
 
 describe('the scoring codes, as a high-point series reads them', () => {
-  it('lists the built-ins at their high-point defaults, with no codes that add', async () => {
-    const { codeRows, ruleShortText } = await import('@/lib/scoring-codes-text');
+  it('lists the built-ins at their high-point defaults', async () => {
+    const { codeRows, ruleShortText, ruleSentence } = await import('@/lib/scoring-codes-text');
     const rows = codeRows('seriesEntries', [], CHIPS3);
-    expect(rows.add).toEqual([]);
+    expect(rows.add.map((r) => [r.code, r.status, ruleShortText(r.scored, CHIPS3)])).toEqual([
+      ['ZFP', 'rrs', '20% of the place after the last'],
+    ]);
+    expect(ruleSentence(rows.add[0].scored, CHIPS3)).toBe(
+      'A boat scored ZFP is scored as if she had finished lower by 20% of the place after the last boat in her fleet’s race, to the nearest tenth of a place, but is never scored worse than DNF. Other boats’ scores are unchanged. It can be discarded.',
+    );
     const byCode = new Map(rows.replace.map((r) => [r.code, r]));
     expect(ruleShortText(byCode.get('DNF')!.scored, CHIPS3)).toBe('the place after the last');
     expect(ruleShortText(byCode.get('DNS')!.scored, CHIPS3)).toBe('0 points · not in the fleet size');
@@ -233,5 +238,47 @@ describe('the scoring codes, as a high-point series reads them', () => {
     expect(highPointPreview('seriesEntries', [], HP_SCORING)).toEqual({
       sizes: [2, 5, 10, 20], first: [3, 6, 11, 21], last: [2, 2, 2, 2], dnf: [1, 1, 1, 1],
     });
+  });
+});
+
+describe('a penalty in high point', () => {
+  const penalised = (over: Partial<Finish>): Finish => ({ ...finish('r1', 'a', { place: 3 }), ...over });
+  const SOP: SeriesScoringCode = { code: 'SOP', description: 'Failed to sign out', kind: 'add', rule: { type: 'addPoints', points: 2 }, discardable: true };
+
+  it('is worth a point a place under boats beaten, and CHIPS3’s gap between places', () => {
+    expect(highPointPlaceStep(BOATS_BEATEN, 10)).toBe(1);
+    expect(highPointPlaceStep(CHIPS3, 20)).toBeCloseTo(chips3(1, 20) - chips3(2, 20), 10);
+    expect(highPointPlaceStep(CHIPS3, 20)).toBeCloseTo(chips3(19, 20) - chips3(20, 20), 10);
+  });
+
+  it('takes off under boats beaten exactly what low point adds', () => {
+    // 10 boats, 3rd: low point 3 + 20% of 11 = 5.2; boats beaten 8 − 2.2 = 5.8.
+    const hp = buildCodeTable('seriesEntries', [SOP], BOATS_BEATEN);
+    const lp = buildCodeTable('seriesEntries', [SOP]);
+    for (const over of [{ penaltyCode: 'ZFP' }, { penaltyCode: 'SCP', penaltyOverride: 30 }, { penaltyCode: 'DPI', penaltyOverride: 4 }, { penaltyCode: 'SOP' }] as Partial<Finish>[]) {
+      const low = applyScoringPenalty(3, penalised(over), 11, undefined, lp);
+      const high = applyScoringPenalty(8, penalised(over), 0, undefined, hp, 10);
+      expect(high, String(over.penaltyCode)).toBeCloseTo(11 - low, 10);
+    }
+  });
+
+  it('takes a percentage in places under CHIPS3', () => {
+    const codes = buildCodeTable('seriesEntries', [], CHIPS3);
+    const scored = applyScoringPenalty(chips3(3, 20), penalised({ penaltyCode: 'SCP' }), chips3(21, 20), undefined, codes, 20);
+    expect(scored).toBeCloseTo(chips3(7.2, 20), 10);
+  });
+
+  it('never leaves a boat with fewer points than DNF scores, nor lifts her to it', () => {
+    const codes = buildCodeTable('seriesEntries', [], CHIPS3);
+    expect(applyScoringPenalty(17.2, penalised({ penaltyCode: 'ZFP' }), 15, undefined, codes, 20)).toBe(15);
+    expect(applyScoringPenalty(12.6, penalised({ penaltyCode: 'ZFP' }), 15, undefined, codes, 20)).toBe(12.6);
+  });
+
+  it('leaves every other boat’s score alone', () => {
+    const boats = ['a', 'b', 'c', 'd'].map(competitor);
+    const finishes = boats.map((b, i) => finish('r1', b.id, { place: i + 1 }));
+    finishes[1] = { ...finishes[1], penaltyCode: 'DPI', penaltyOverride: 2 };
+    const scores = calculateRaceScores(finishes, boats, buildCodeTable('seriesEntries', [], BOATS_BEATEN));
+    expect(boats.map((b) => scores.get(b.id)!.points)).toEqual([4, 1, 2, 1]);
   });
 });

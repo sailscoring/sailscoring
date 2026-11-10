@@ -205,32 +205,18 @@ export async function putSeries(
 }
 
 /**
- * Refuse a high-point series what high point can't score yet: its own codes
- * that add to a finishing place, and — when it is switching to high point —
- * a penalty already recorded or a split-fleet format. Once high point, the
- * finish and split-fleet writes refuse them in turn.
+ * Refuse a series switching to high point the one thing high point can't
+ * score: a split-fleet format. Once high point, the split-fleet write
+ * refuses it in turn.
  */
 async function assertCanScoreHighPoint(
   repos: ReturnType<typeof createRepos>,
   series: Series,
   existing: Series | undefined,
 ): Promise<void> {
-  const addCodes = (series.scoringCodes ?? []).filter((c) => c.kind === 'add').map((c) => c.code);
-  let penalty: { raceNumber: number; code: string } | undefined;
-  let splitFleet = false;
-  if (existing && existing.pointsSystem !== 'highPoint') {
-    const db = getDb();
-    const [row] = await db
-      .select({ code: schema.finishes.penaltyCode, raceNumber: schema.races.raceNumber })
-      .from(schema.finishes)
-      .innerJoin(schema.races, eq(schema.finishes.raceId, schema.races.id))
-      .where(and(eq(schema.races.seriesId, series.id), isNotNull(schema.finishes.penaltyCode)))
-      .orderBy(schema.races.raceNumber)
-      .limit(1);
-    if (row?.code) penalty = { raceNumber: row.raceNumber, code: row.code };
-    splitFleet = (await repos.splitRounds.getConfig(series.id)) !== null;
-  }
-  const refusal = highPointRefusal({ addCodes, penalty, splitFleet });
+  if (!existing || existing.pointsSystem === 'highPoint') return;
+  const splitFleet = (await repos.splitRounds.getConfig(series.id)) !== null;
+  const refusal = highPointRefusal({ splitFleet });
   if (refusal) throw new BadRequestError(refusal);
 }
 

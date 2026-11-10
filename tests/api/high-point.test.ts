@@ -1,10 +1,9 @@
 // @vitest-environment node
 
 /**
- * High-point scoring at the API boundary: a series refuses to score high point
- * what it can't score yet — its own codes that add to a place, a penalty
- * already recorded, a split-fleet format — and once high point, a finish
- * refuses a penalty and the series refuses a split-fleet format.
+ * High-point scoring at the API boundary: a series carrying penalties and
+ * penalty codes of its own can switch to high point, a high-point finish
+ * takes a penalty, and a high-point series refuses a split-fleet format.
  *
  * Skipped when DATABASE_URL is unset; CI and `pnpm test:unit:db` provide it.
  */
@@ -103,32 +102,17 @@ describe.skipIf(!DATABASE_URL)('high point at the API', () => {
 
   const HIGH_POINT: Partial<Series> = { pointsSystem: 'highPoint', highPointFormula: 'boatsBeaten' };
 
-  test('a series with its own code that adds to a place can’t switch', async () => {
-    await expect(
-      series.putSeries(owner, otherSeriesId, seriesBody(otherSeriesId, { ...HIGH_POINT, scoringCodes: [SOP] })),
-    ).rejects.toMatchObject({
-      name: 'BadRequestError',
-      message: 'A high-point series can’t score a code that adds to a finishing place yet (SOP). Change or remove it first.',
-    });
-  });
-
-  test('a series with a penalty recorded can’t switch until it is removed', async () => {
+  test('a series with a penalty code of its own and a penalty recorded can switch', async () => {
     const zfp = finish(raceId, { sortOrder: 1, penaltyCode: 'ZFP' });
     await bulkPutFinishes(owner, raceId, { finishes: [zfp] });
-    await expect(series.putSeries(owner, seriesId, seriesBody(seriesId, HIGH_POINT))).rejects.toMatchObject({
-      message: 'A high-point series can’t score ZFP yet, and race 1 has one. Remove it first.',
-    });
-    await bulkPutFinishes(owner, raceId, { finishes: [{ ...zfp, penaltyCode: null }] });
-    await expect(series.putSeries(owner, seriesId, seriesBody(seriesId, HIGH_POINT))).resolves.toMatchObject({
-      pointsSystem: 'highPoint',
-    });
+    await expect(
+      series.putSeries(owner, seriesId, seriesBody(seriesId, { ...HIGH_POINT, scoringCodes: [SOP] })),
+    ).resolves.toMatchObject({ pointsSystem: 'highPoint', scoringCodes: [SOP] });
   });
 
-  test('a high-point series refuses a penalty on a finish', async () => {
+  test('a high-point series takes a penalty on a finish', async () => {
     const dpi = finish(raceId, { sortOrder: 1, penaltyCode: 'DPI', penaltyOverride: 2 });
-    await expect(putFinish(owner, raceId, dpi.id, dpi)).rejects.toMatchObject({
-      message: 'DPI adds to a finishing place, which a high-point series can’t score yet.',
-    });
+    await expect(putFinish(owner, raceId, dpi.id, dpi)).resolves.toMatchObject({ penaltyCode: 'DPI', penaltyOverride: 2 });
   });
 
   test('a high-point series refuses a split-fleet format', async () => {

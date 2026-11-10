@@ -78,33 +78,33 @@ export function highPointTiedPoints(hp: HighPointScoring, firstPlace: number, co
   return sum / count;
 }
 
-/** What a series holds that high point can't score yet. */
+/**
+ * What one place is worth in a race of `n` boats: the points a boat loses by
+ * finishing a place lower. Both formulas are linear in the place, so a
+ * penalty of 4.2 places is 4.2 of these. Boats beaten: 1. CHIPS3: 9.9 in a
+ * fleet of 6, 4.6 in a fleet of 20.
+ */
+export function highPointPlaceStep(hp: HighPointScoring, n: number): number {
+  if (hp.formula !== 'chips3') return 1;
+  if (n <= 0) return 0;
+  return (95 * (1 - 0.986682 * Math.exp(-0.1622 * n))) / n;
+}
+
+/** What a series holds that high point can’t score. */
 export interface HighPointBlockers {
-  /** A finish carrying an additive penalty (ZFP, SCP, DPI or a series' own
-   *  code that adds), by race number and code. */
-  penalty?: { raceNumber: number; code: string };
-  /** The series' own codes that add to a finishing place. */
-  addCodes?: readonly string[];
   /** The series is a split-fleet championship. */
   splitFleet?: boolean;
 }
 
 /**
- * Why a series can't score high point as it stands, in the scorer's words,
- * or null when it can. Refused rather than scored wrongly: the additive
- * penalties and the split-fleet stages' medal doubling and carried scores
- * are written for low point, where more points are worse.
+ * Why a series can’t score high point as it stands, in the scorer’s words,
+ * or null when it can. Refused rather than scored wrongly: the split-fleet
+ * stages’ medal doubling and carried scores are written for low point, where
+ * more points are worse.
  */
 export function highPointRefusal(b: HighPointBlockers): string | null {
   if (b.splitFleet) {
     return 'A split-fleet championship can’t be scored high point: its stages are scored low point.';
-  }
-  if (b.addCodes && b.addCodes.length > 0) {
-    const list = b.addCodes.join(', ');
-    return `A high-point series can’t score a code that adds to a finishing place yet (${list}). Change or remove ${b.addCodes.length === 1 ? 'it' : 'them'} first.`;
-  }
-  if (b.penalty) {
-    return `A high-point series can’t score ${b.penalty.code} yet, and race ${b.penalty.raceNumber} has one. Remove it first.`;
   }
   return null;
 }

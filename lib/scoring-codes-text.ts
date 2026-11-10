@@ -55,7 +55,7 @@ export function rrsCode(code: string, dnfScoring: DnfScoring, hp?: HighPointScor
     kind: def.kind === 'add' ? 'add' : 'replace',
     rule,
     discardable: def.discardable,
-    ...(hp ? { countsInFleetSize: def.countsInFleetSize ?? true } : {}),
+    ...(hp && def.kind !== 'add' ? { countsInFleetSize: def.countsInFleetSize ?? true } : {}),
   };
 }
 
@@ -102,8 +102,7 @@ export function codeRows(
       ...REPLACE_ORDER.map(builtIn),
       ...scoringCodes.filter((c) => !isBuiltIn(c.code) && c.kind === 'replace').map(own),
     ],
-    // High point can't score a code that adds to a place yet.
-    add: hp ? [] : [
+    add: [
       builtIn('ZFP'),
       ...scoringCodes.filter((c) => !isBuiltIn(c.code) && c.kind === 'add').map(own),
     ],
@@ -148,11 +147,11 @@ export function ruleShortText(sc: SeriesScoringCode, hp?: HighPointScoring): str
       break;
     case 'sameAs': text = `as ${r.code}`; break;
     case 'fixedPoints': text = points(r.points); break;
-    case 'addPoints': text = points(r.points); break;
-    case 'addPercent': text = `${r.percent}% of DNF`; break;
+    case 'addPoints': text = hp ? `${points(r.points)} off` : points(r.points); break;
+    case 'addPercent': text = hp ? `${r.percent}% of ${afterTheLast(1)}` : `${r.percent}% of DNF`; break;
   }
   if (sc.kind === 'replace' && sc.capAtDnf && r.type !== 'sameAs' && !hp) text += ', at most DNF';
-  if (hp && sc.countsInFleetSize === false) text += ' · not in the fleet size';
+  if (hp && sc.kind === 'replace' && sc.countsInFleetSize === false) text += ' · not in the fleet size';
   if (!sc.discardable) text += ' · not discardable';
   return text;
 }
@@ -185,17 +184,23 @@ export function ruleSentence(sc: SeriesScoringCode, hp?: HighPointScoring): stri
       first = `${who} scores ${points(r.points)}`;
       break;
     case 'addPoints':
-      first = `${who} has ${points(r.points)} added to her score for the race`;
+      first = hp
+        ? `${who} has ${points(r.points)} taken from her score for the race`
+        : `${who} has ${points(r.points)} added to her score for the race`;
       break;
     case 'addPercent':
-      first = `${who} has ${r.percent}% of the DNF score added to her score for the race, to the nearest tenth of a point`;
+      // High point takes the percentage in places: in low point the DNF
+      // score it is a share of is a place, the one after the last.
+      first = hp
+        ? `${who} is scored as if she had finished lower by ${r.percent}% of the place after the last boat in her fleet’s race, to the nearest tenth of a place`
+        : `${who} has ${r.percent}% of the DNF score added to her score for the race, to the nearest tenth of a point`;
       break;
   }
   const cap = sc.kind === 'add'
     ? ', but is never scored worse than DNF'
     : sc.capAtDnf && r.type !== 'sameAs' && !hp ? ', but never more than a DNF' : '';
   const others = sc.kind === 'add' ? ' Other boats’ scores are unchanged.' : '';
-  const fleet = !hp ? ''
+  const fleet = !hp || sc.kind === 'add' ? ''
     : sc.countsInFleetSize === false
       ? ' She is not counted in the fleet size, so no boat beats her.'
       : ' She counts in the fleet size: every boat placed ahead of her beats her.';

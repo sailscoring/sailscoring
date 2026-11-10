@@ -153,14 +153,14 @@ export function ScoringCodesDialog({ open, onOpenChange, seriesId, dnfScoring, s
         ) : (
           <>
             <CodeTable title="Replace the boat’s result" rows={rows.replace} usage={usage} highPoint={highPoint} preview={preview} onOpen={(code) => setEditing({ code })} />
-            {highPoint ? (
-              <p className={hint}>
-                Points are for a 10-boat race at a weight of 1. Codes that add to a finishing place can’t be scored
-                high point yet.
-              </p>
-            ) : (
-              <CodeTable title="Add to the boat’s finishing place" rows={rows.add} usage={usage} onOpen={(code) => setEditing({ code })} />
-            )}
+            {highPoint && <p className={hint}>Points are for a 10-boat race at a weight of 1.</p>}
+            <CodeTable
+              title={highPoint ? 'Take points from a boat that finished' : 'Add to the boat’s finishing place'}
+              rows={rows.add}
+              usage={usage}
+              highPoint={highPoint}
+              onOpen={(code) => setEditing({ code })}
+            />
             <p className={hint}>
               {DECIDED_PER_BOAT.join(', ').replace(/, ([^,]*)$/, ' and $1')} are decided for each boat, in the
               penalty and redress dialogs. A penalty your instructions apply at one amount every time can be a code
@@ -400,7 +400,7 @@ function codeOf(d: Draft, builtIn: boolean, highPoint?: HighPointScoring): Serie
     }
     case 'addPoints': {
       const points = num(d.addPoints);
-      if (!Number.isFinite(points) || points <= 0) return 'Enter the points to add as a number above 0, e.g. 2.';
+      if (!Number.isFinite(points) || points <= 0) return `Enter the points to ${highPoint ? 'take off' : 'add'} as a number above 0, e.g. 2.`;
       rule = { type: 'addPoints', points };
       break;
     }
@@ -418,7 +418,7 @@ function codeOf(d: Draft, builtIn: boolean, highPoint?: HighPointScoring): Serie
     rule,
     ...(d.kind === 'replace' && d.method !== 'sameAs' && d.capAtDnf && !highPoint ? { capAtDnf: true } : {}),
     discardable: d.discardable,
-    ...(highPoint ? { countsInFleetSize: d.countsInFleetSize } : {}),
+    ...(highPoint && d.kind === 'replace' ? { countsInFleetSize: d.countsInFleetSize } : {}),
   };
 }
 
@@ -554,7 +554,7 @@ function CodeEditor({
           </label>
           <fieldset className="space-y-1">
             <legend className="font-medium">The code</legend>
-            {(highPoint ? (['replace'] as const) : (['replace', 'add'] as const)).map((kind) => (
+            {(['replace', 'add'] as const).map((kind) => (
               <label key={kind} className="flex items-center gap-2">
                 <input
                   type="radio"
@@ -566,7 +566,7 @@ function CodeEditor({
                     set('method', kind === 'replace' ? 'placeAfter' : 'addPoints');
                   }}
                 />
-                {kind === 'replace' ? 'Replaces the boat’s result' : 'Adds points to her finishing place'}
+                {kind === 'replace' ? 'Replaces the boat’s result' : highPoint ? 'Takes points from a boat that finished' : 'Adds points to her finishing place'}
               </label>
             ))}
           </fieldset>
@@ -669,7 +669,7 @@ function CodeEditor({
                   inputMode="decimal"
                   value={draft.addPoints}
                   onChange={(e) => { set('method', 'addPoints'); set('addPoints', e.target.value); }}
-                  aria-label="Points to add"
+                  aria-label={highPoint ? 'Points to take off' : 'Points to add'}
                 />
               </label>
             )}
@@ -677,17 +677,21 @@ function CodeEditor({
               {!isZfp && (
                 <input type="radio" name="code-method" checked={draft.method === 'addPercent'} onChange={() => set('method', 'addPercent')} />
               )}
-              A percentage of DNF
+              {highPoint ? 'A percentage of the place after the last boat' : 'A percentage of DNF'}
               <Input
                 className="w-16"
                 inputMode="decimal"
                 value={draft.addPercent}
                 onChange={(e) => { set('method', 'addPercent'); set('addPercent', e.target.value); }}
-                aria-label="Percentage of DNF"
+                aria-label={highPoint ? 'Percentage of the place after the last boat' : 'Percentage of DNF'}
               />
               %
             </label>
-            <p className={hint}>Never more than DNF scores, as RRS 44.3(c) caps a scoring penalty.</p>
+            <p className={hint}>
+              {highPoint
+                ? 'In high point a percentage is taken in places, as the DNF score it is a share of is a place in low point. Never fewer points than DNF scores, as RRS 44.3(c) caps a scoring penalty.'
+                : 'Never more than DNF scores, as RRS 44.3(c) caps a scoring penalty.'}
+            </p>
           </>
         )}
         <label className="flex items-center gap-2">

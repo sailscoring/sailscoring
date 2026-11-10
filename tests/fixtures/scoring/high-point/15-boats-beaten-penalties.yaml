@@ -1,0 +1,76 @@
+description: "Penalties under boats beaten — the mirror of low point"
+notes: |
+  RRS 44.3(c) makes a penalised boat's score worse by the points stated, or
+  by 20% of the DNF score, never worse than DNF, and leaves every other
+  boat's score alone. In high point worse is fewer points.
+
+  Ten boats finish, so n = 10 and place p scores 11 − p. In low point the
+  DNF score would be the place after the last, 11, and under boats beaten a
+  place is a point, so each penalty takes off exactly what low point would
+  add.
+
+  Carol, 3rd, was over the line under flag Z: ZFP, 20% of place 11 = 2.2
+  places. 8 − 2.2 = 5.8. (Low point: 3 + 2.2 = 5.2, and 11 − 5.2 = 5.8.)
+
+  Eve, 5th, takes a scoring penalty the SIs state as 2.5 points: 6 − 2.5 =
+  3.5.
+
+  Grace, 7th, failed to sign out — the series' own code SOP, 2 points:
+  4 − 2 = 2.
+
+  Iris, 9th, is given a discretionary penalty of 5 points. She scored 2, and
+  a penalty can't take her below what DNF scores, the place after the last:
+  0.
+
+  Bob, Dave and the rest keep their scores: nobody moves up.
+
+series:
+  discardThresholds: []
+  dnfScoring: seriesEntries
+  pointsSystem: highPoint
+  highPointFormula: boatsBeaten
+  scoringCodes:
+    - code: SOP
+      description: "Failed to sign out (SI 19.1)"
+      kind: add
+      rule: { type: addPoints, points: 2 }
+      discardable: true
+
+competitors:
+  - { sailNumber: "1", name: "Alice" }
+  - { sailNumber: "2", name: "Bob" }
+  - { sailNumber: "3", name: "Carol" }
+  - { sailNumber: "4", name: "Dave" }
+  - { sailNumber: "5", name: "Eve" }
+  - { sailNumber: "6", name: "Finn" }
+  - { sailNumber: "7", name: "Grace" }
+  - { sailNumber: "8", name: "Hugo" }
+  - { sailNumber: "9", name: "Iris" }
+  - { sailNumber: "10", name: "Jack" }
+
+races:
+  - number: 1
+    finishes:
+      - { sailor: "1", position: 1 }
+      - { sailor: "2", position: 2 }
+      - { sailor: "3", position: 3, penaltyCode: ZFP }
+      - { sailor: "4", position: 4 }
+      - { sailor: "5", position: 5, penaltyCode: SCP, penaltyOverride: 2.5, penaltyInPoints: true }
+      - { sailor: "6", position: 6 }
+      - { sailor: "7", position: 7, penaltyCode: SOP }
+      - { sailor: "8", position: 8 }
+      - { sailor: "9", position: 9, penaltyCode: DPI, penaltyOverride: 5 }
+      - { sailor: "10", position: 10 }
+
+expected:
+  standings:
+    - { rank: 1, sailor: "1", racePoints: [10], raceCodes: [null], racePenaltyCodes: [null], raceDiscards: [false], totalPoints: 10, netPoints: 10 }
+    - { rank: 2, sailor: "2", racePoints: [9], raceCodes: [null], racePenaltyCodes: [null], raceDiscards: [false], totalPoints: 9, netPoints: 9 }
+    - { rank: 3, sailor: "4", racePoints: [7], raceCodes: [null], racePenaltyCodes: [null], raceDiscards: [false], totalPoints: 7, netPoints: 7 }
+    - { rank: 4, sailor: "3", racePoints: [5.8], raceCodes: [null], racePenaltyCodes: [ZFP], raceDiscards: [false], totalPoints: 5.8, netPoints: 5.8 }
+    - { rank: 5, sailor: "6", racePoints: [5], raceCodes: [null], racePenaltyCodes: [null], raceDiscards: [false], totalPoints: 5, netPoints: 5 }
+    - { rank: 6, sailor: "5", racePoints: [3.5], raceCodes: [null], racePenaltyCodes: [SCP], raceDiscards: [false], totalPoints: 3.5, netPoints: 3.5 }
+    - { rank: 7, sailor: "8", racePoints: [3], raceCodes: [null], racePenaltyCodes: [null], raceDiscards: [false], totalPoints: 3, netPoints: 3 }
+    - { rank: 8, sailor: "7", racePoints: [2], raceCodes: [null], racePenaltyCodes: [SOP], raceDiscards: [false], totalPoints: 2, netPoints: 2 }
+    - { rank: 9, sailor: "10", racePoints: [1], raceCodes: [null], racePenaltyCodes: [null], raceDiscards: [false], totalPoints: 1, netPoints: 1 }
+    - { rank: 10, sailor: "9", racePoints: [0], raceCodes: [null], racePenaltyCodes: [DPI], raceDiscards: [false], totalPoints: 0, netPoints: 0 }

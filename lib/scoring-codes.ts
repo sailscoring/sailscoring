@@ -355,8 +355,8 @@ export function buildCodeTable(
  *   after the last; a boat that did not start, or was disqualified (OCS
  *   included), scores 0. A boat that did not start is not one of the n.
  *
- * Redress is never one of the n: no boat beat her. The additive penalties
- * count, being finishers, though a high-point series can't apply them yet.
+ * Redress is never one of the n: no boat beat her. A boat carrying a
+ * penalty (ZFP, SCP, DPI) is a finisher and counts.
  */
 function highPointBuiltIns(hp: HighPointScoring): ScoringCodeDefinition[] {
   const ZERO: PointsMethod = { type: 'fixed_points', points: 0 };
@@ -597,7 +597,6 @@ export function finishCodeProblem(
     const def = codes.definition(finish.penaltyCode);
     if (!def) return `${finish.penaltyCode} isn’t a code in this series.`;
     if (def.kind !== 'add') return `${finish.penaltyCode} replaces a result: it can’t be a penalty.`;
-    if (codes.highPoint) return `${finish.penaltyCode} adds to a finishing place, which a high-point series can’t score yet.`;
   }
   return null;
 }
