@@ -135,6 +135,13 @@
     min-width: 0;
     max-width: 100%;
   }
+  /* Not a checkbox or radio, though: one beside wrapping text would shrink
+     by however much the text wants the room, leaving each box in a list a
+     different size. */
+  input[type='checkbox'],
+  input[type='radio'] {
+    flex-shrink: 0;
+  }
   * {
     @apply border-border outline-ring/50;
     }
