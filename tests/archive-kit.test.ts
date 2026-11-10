@@ -157,6 +157,36 @@ describe('sailwave-html parser', () => {
     expect(junior.rows[0].summaryCells).toEqual(['4.0', '2.0']);
   });
 
+  test('reads Sailwave 2.0x pages, whose tables and headings carry no class', () => {
+    const page = parseSailwaveHtml(`<BODY><DIV id="wrap">
+<H1>ISORA 2011</H1><H2>Irish Sea Offshore Racing Association</H2>
+<H3 id="title">Results as of 23:13 on September 11, 2011</H3>
+<H3 id="overall">Overall</H3>
+<DIV class="caption">Sailed: 2, Discards: 1, To count: 1, Ratings: IRC</DIV>
+<TABLE border="0"><COLGROUP span="6"><COL class="rank"><COL class="boat">
+<COL class="race"><COL class="race"><COL class="total"><COL class="nett"></COLGROUP>
+<TBODY><TR><TH>Rank</TH><TH>Boat</TH><TH><A class="racelink" href="#r1">Race 1</A><BR>30th April 2011</TH><TH>Race 2</TH><TH>Total</TH><TH>Nett</TH></TR>
+<TR><TD>1st</TD><TD>Raging Bull</TD><TD>109.4</TD><TD>(50.0)</TD><TD>159.4</TD><TD>109.4</TD></TR>
+</TBODY></TABLE>
+<H3 id="r1">Race 1 - 30th April 2011</H3>
+<DIV class="caption">Distance: 57 miles, Weight: 1.1</DIV>
+<TABLE border="0"><COLGROUP span="3"><COL class="rank"><COL class="boat"><COL class="nett"></COLGROUP>
+<TBODY><TR><TH>Rank</TH><TH>Boat</TH><TH>Points</TH></TR>
+<TR><TD>1</TD><TD>Raging Bull</TD><TD>109.4</TD></TR></TBODY></TABLE>
+</DIV></BODY>`);
+    expect(page.summaries).toHaveLength(1);
+    expect(page.summaries[0].title).toBe('Overall');
+    expect(page.summaries[0].caption).toContain('Sailed: 2');
+    // The heading's line break reads as a space, not as nothing.
+    expect(page.summaries[0].raceHeaders).toEqual(['Race 1 30th April 2011', 'Race 2']);
+    expect(page.summaries[0].rows[0].rank).toBe(1);
+    expect(page.summaries[0].rows[0].raceCells[1].discard).toBe(true);
+    expect(page.races).toHaveLength(1);
+    expect(page.races[0].title).toBe('Race 1 - 30th April 2011');
+    expect(page.races[0].caption).toContain('Weight: 1.1');
+    expect(page.races[0].rows).toEqual([['1', 'Raging Bull', '109.4']]);
+  });
+
   test('rank labels: ordinals, bare numbers, ties, and junk', () => {
     expect(parseRankLabel('1st')).toBe(1);
     expect(parseRankLabel('22nd')).toBe(22);

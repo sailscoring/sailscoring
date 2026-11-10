@@ -70,6 +70,15 @@ function textOf(el: Element | null): string {
   return (el?.textContent ?? '').replace(WS, ' ').trim();
 }
 
+/** A heading cell's text. Sailwave breaks a race heading over two lines —
+ *  `R3<br />04/08`, the race and its date — and a `<br>` has no text of its
+ *  own, so it is read as the space it stands for; "R304/08" is no heading. */
+function headingTextOf(el: Element): string {
+  const copy = el.cloneNode(true) as Element;
+  for (const br of [...copy.querySelectorAll('br')]) br.replaceWith(' ');
+  return textOf(copy);
+}
+
 /** "1st" → 1, "22nd" → 22, "3" → 3, "2=" → 2; anything else → null. */
 export function parseRankLabel(label: string): number | null {
   const m = /^(\d+)/.exec(label.trim());
@@ -79,12 +88,19 @@ export function parseRankLabel(label: string): number | null {
 }
 
 /** The nearest preceding sibling heading of the given class, stopping at any
- *  other table (which would own that heading instead). */
-function precedingHeading(table: Element, headingClass: string): string | null {
+ *  other table (which would own that heading instead). A null class takes any
+ *  `<h3>` — Sailwave 2.0x gave its headings ids and no classes. */
+function precedingHeading(
+  table: Element,
+  headingClass: string | null,
+): string | null {
   let el = table.previousElementSibling;
   while (el) {
     if (el.tagName === 'TABLE') return null;
-    if (el.tagName === 'H3' && el.classList.contains(headingClass)) {
+    if (
+      el.tagName === 'H3' &&
+      (headingClass === null || el.classList.contains(headingClass))
+    ) {
       return textOf(el);
     }
     el = el.previousElementSibling;
@@ -122,14 +138,14 @@ function parseTable(table: Element): RawTable {
   // Older Sailwave output (~2014) omits <thead>: the title row is a plain
   // <tr> of <th> cells, so fall back to the first row carrying th's.
   let headerLabels = [...table.querySelectorAll('thead th')].map((th) =>
-    textOf(th),
+    headingTextOf(th),
   );
   if (headerLabels.length === 0) {
     const titleRow = [...table.querySelectorAll('tr')].find(
       (tr) => tr.querySelector('th') !== null,
     );
     headerLabels = titleRow
-      ? [...titleRow.querySelectorAll('th')].map((th) => textOf(th))
+      ? [...titleRow.querySelectorAll('th')].map((th) => headingTextOf(th))
       : [];
   }
   // Data rows are the td-bearing ones wherever they sit (jsdom implies a
@@ -149,6 +165,7 @@ function parseTable(table: Element): RawTable {
 
 function toSummarySection(
   table: Element,
+  headingClass: string | null = 'summarytitle',
 ): SailwaveSummarySection | null {
   const raw = parseTable(table);
   const keys = raw.columnKeys;
@@ -206,7 +223,7 @@ function toSummarySection(
     });
 
   return {
-    title: precedingHeading(table, 'summarytitle'),
+    title: precedingHeading(table, headingClass),
     caption: precedingCaption(table),
     leadColumns,
     raceHeaders,
@@ -215,7 +232,10 @@ function toSummarySection(
   };
 }
 
-function toRaceSection(table: Element): SailwaveRaceSection | null {
+function toRaceSection(
+  table: Element,
+  headingClass: string | null = 'racetitle',
+): SailwaveRaceSection | null {
   const raw = parseTable(table);
   if (raw.headerLabels.length === 0) return null;
   const columns: SailwaveColumn[] = raw.headerLabels.map((label, i) => ({
@@ -223,7 +243,7 @@ function toRaceSection(table: Element): SailwaveRaceSection | null {
     label,
   }));
   return {
-    title: precedingHeading(table, 'racetitle') ?? 'Race',
+    title: precedingHeading(table, headingClass) ?? 'Race',
     caption: precedingCaption(table),
     columns,
     rows: raw.rows.filter((cells) => cells.length === columns.length),
@@ -238,12 +258,36 @@ export function parseSailwaveHtml(html: string): SailwavePage {
   // Window, and these parsers only need querySelector over the markup.
   const doc = JSDOM.fragment(html);
 
-  const summaries = [...doc.querySelectorAll('table.summarytable')]
-    .map(toSummarySection)
+  let summaries = [...doc.querySelectorAll('table.summarytable')]
+    .map((table) => toSummarySection(table))
     .filter((s): s is SailwaveSummarySection => s !== null);
-  const races = [...doc.querySelectorAll('table.racetable')]
-    .map(toRaceSection)
+  let races = [...doc.querySelectorAll('table.racetable')]
+    .map((table) => toRaceSection(table))
     .filter((r): r is SailwaveRaceSection => r !== null);
+
+  // Sailwave 2.0x (2011–2012) published the same tables with no class on the
+  // table or its heading: `<h3 id="overall">`, `<h3 id="r1">`, then a bare
+  // `<table>`. The colgroup already carried the column classes, so a table
+  // is told apart by them — standings have `race` columns, a race has none.
+  if (summaries.length === 0 && races.length === 0) {
+    const tables = [...doc.querySelectorAll('table')]
+      .filter((table) => !table.getAttribute('class'))
+      .map((table) => ({
+        table,
+        keys: [...table.querySelectorAll('colgroup col')].map(
+          (col) => col.getAttribute('class')?.trim() ?? '',
+        ),
+      }))
+      .filter(({ keys }) => keys.includes('rank'));
+    summaries = tables
+      .filter(({ keys }) => keys.includes('race'))
+      .map(({ table }) => toSummarySection(table, null))
+      .filter((s): s is SailwaveSummarySection => s !== null);
+    races = tables
+      .filter(({ keys }) => !keys.includes('race'))
+      .map(({ table }) => toRaceSection(table, null))
+      .filter((r): r is SailwaveRaceSection => r !== null);
+  }
 
   return {
     title: textOf(doc.querySelector('h1')),

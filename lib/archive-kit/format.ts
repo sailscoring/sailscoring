@@ -42,7 +42,10 @@ const columnSchema = z.object({
 });
 
 const raceHeaderSchema = z.object({
-  label: z.string().min(1).max(40),
+  // As wide as any other column label: a race heading that carries its date
+  // and start time ("Race 11 CW4 15th June 2024 08/06/2024@13:05:00") runs
+  // past 40.
+  label: z.string().min(1).max(80),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
 });
 
