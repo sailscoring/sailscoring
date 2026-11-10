@@ -32,7 +32,9 @@ including a plain BFD, is) is enforced by the scoring engine. A5.3 alternative
 scoring ("starting area" base for DNS/OCS/NSC/DNF/RET/DSQ/UFD/BFD) is selectable per
 series via the `dnfScoring` setting; DNC always uses series entries.
 Additive penalties (ZFP/SCP/DPI) apply on top of a recorded finish and
-do not re-rank other boats (RRS A6.2).
+do not re-rank other boats (RRS 44.3(c); this document says "A6.2" for that
+throughout, as Sailwave does, though A6.2 itself is about redress). In a
+high-point series they take points away: see *Penalties in high point*.
 
 The bulk of this document remains useful as a reference: the RRS
 sections that govern each code, the structural categories, the
@@ -821,6 +823,32 @@ changed to "the same as DNF", converted by an ADR-013 upgrader in step 2
 with no score changing. A built-in keeps its own came-to-the-start answer
 whatever its points, so a changed DNC still doesn't count the boat as
 having come. DBSC's workspace has the gate on.
+
+### Penalties in high point
+
+Added November 2026. RRS 44.3(c) carries over with one change of direction:
+the score is made worse, which in high point is fewer points, never worse
+than DNF, other boats' scores unchanged.
+
+| Rule | Low point | Boats beaten | CHIPS3 |
+|---|---|---|---|
+| Worse by N points (DPI, SCP in points, a series code) | + N | − N | − N |
+| Worse by X% (ZFP, SCP, a series code) | + X% of the DNF score | − X% of (n + 1) | X% of (n + 1) places, at what a place is worth |
+| Loses X% of her own points (a series code, high point only) | — | × (1 − X%) | × (1 − X%) |
+
+The percentage is taken in places because, read literally, 20% of the DNF
+score penalises nobody in high point: it is 0 under boats beaten. In low
+point the DNF score is a place, the one after the last, so high point takes
+the same share of place n + 1, to the nearest tenth of a place. Under boats
+beaten that mirrors low point exactly; CHIPS3 is linear in the place.
+
+The share of a boat's own points is the sailing instructions' own penalty
+(ISORA's 30% for an undeclared finish), not 44.3(c)'s, so DNF's score doesn't
+bound it. A low-point series is refused the rule.
+
+A result still holds one penalty. Letting the boats behind a penalised boat
+move up (ISORA NoR 17.5) is a separate change to 44.3(c), for either points
+system.
 
 ---
 

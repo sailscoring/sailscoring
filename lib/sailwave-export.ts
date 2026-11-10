@@ -209,7 +209,7 @@ function scoringCodeRows(
   });
   // The series' own codes, after Sailwave's: replacing codes came to the
   // starting area and started; adding codes also finished, and leave other
-  // boats' scores alone (A6.2).
+  // boats' scores alone (Sailwave's "Rule A6.2 applies" property).
   for (const sc of own) {
     if (getCodeDefinition(sc.code)) continue;
     const parts = ['', '', '', '', 'Yes', '', '', 'spare', 'spare', 'spare', 'spare', 'Yes', '', '', String(systemHandle), '', ''];

@@ -26,7 +26,7 @@ export type PointsMethod =
   | { type: 'same_as'; code: string }
   // Position-replacing: a fixed number of points.
   | { type: 'fixed_points'; points: number }
-  // Additive penalty (applied on top of finish place; A6.2: other scores unchanged).
+  // Additive penalty (applied on top of finish place; 44.3(c): other scores unchanged).
   // Formula (rule 44.3(c)): min(place + roundToTenth(pct/100 × dnfScore), dnfScore)
   // penaltyOverride on Finish overrides defaultPct for SCP — unless the SCP is
   // stated in points (Finish.penaltyInPoints), which scores as additive_stated.
@@ -56,7 +56,7 @@ export interface ScoringCodeDefinition {
   /** Whether the score for this code can be selected as a discard. */
   discardable: boolean;
   /**
-   * RRS A6.2: when true, other boats' scores are not recalculated when this
+   * RRS 44.3(c): when true, other boats' scores are not recalculated when this
    * code is applied (two boats may share the same score).
    */
   otherScoresUnchanged: boolean;
@@ -122,7 +122,7 @@ export const BUILT_IN_CODES: readonly ScoringCodeDefinition[] = [
     // Applied automatically — no hearing required. No penaltyOverride (percentage is fixed by rule).
     pointsMethod: { type: 'additive_percentage', defaultPct: 20 },
     discardable: true,
-    otherScoresUnchanged: true,   // A6.2: other boats keep their scores
+    otherScoresUnchanged: true,   // 44.3(c): other boats keep their scores
     cameToStart: true,
   },
   {

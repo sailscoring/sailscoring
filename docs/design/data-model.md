@@ -233,7 +233,7 @@ for absent competitors.
 | sort_order | integer | No | Index in the race's unified finish sheet (crossing order). Null for coded finishes other than RDG. Within-fleet rank is derived from sort_order among the fleet's finishers (scratch) or from corrected time (handicap) |
 | finish_time | time | No | Time of day the boat crossed the finish line. Required for handicap rows; absent on scratch rows |
 | result_code | string | No | DNC, DNS, OCS, NSC, DNF, RET, DSQ, DNE, UFD, BFD, RDG. If set, replaces sort_order/finish_time for scoring (except RDG, which may coexist with sort_order) |
-| penalty_code | string | No | Additive penalty applied on top of a finish: ZFP, SCP, or DPI (RRS A6.2 — other boats' scores are unchanged) |
+| penalty_code | string | No | Additive penalty applied on top of a finish: ZFP, SCP, or DPI (RRS 44.3(c) — other boats' scores are unchanged) |
 | penalty_override | decimal | No | SCP: explicit percentage; DPI: explicit points value. Null = use code default |
 | tied_with_previous | boolean | No | Marks this finisher as sharing the previous row's place (RRS A8.1 averaged ranks). Stored separately from sort_order so the visible row order stays stable |
 | start_present | boolean | No | True if the competitor was observed in the start area. Used to distinguish DNS (present but didn't start) from DNC (not present). Set during start-line check-in |

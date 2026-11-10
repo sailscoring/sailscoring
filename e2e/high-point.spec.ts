@@ -149,3 +149,78 @@ test('CHIPS3 counts a declared boat in the fleet size', async ({ page, signedInE
   await expect(rows.filter({ hasText: 'Bob' })).toContainText('8');
   await expect(rows.filter({ hasText: 'Carol' }).getByRole('cell').first()).toContainText('3');
 });
+
+test('a penalty takes points away, and a series code takes a share of the boat’s points', async ({ page, signedInEmail }) => {
+  await enableFeatures(page, signedInEmail, ['high-point-scoring', 'custom-scoring-codes']);
+  await createSeriesQuick(page, { name: 'High Point Penalties' });
+  await addCompetitors(page, [
+    { sailNumber: '101', name: 'Alice' },
+    { sailNumber: '202', name: 'Bob' },
+    { sailNumber: '303', name: 'Carol' },
+    { sailNumber: '404', name: 'Dave' },
+  ]);
+
+  // ── High point, boats beaten, and a code for an undeclared finish ───────
+  await openScoringCard(page);
+  await page.getByRole('radio', { name: /^High point/ }).check();
+  await expect(page.getByRole('radio', { name: /^Boats beaten/ })).toBeChecked();
+  await page.getByRole('button', { name: 'Change scoring codes…' }).click();
+  const dialog = page.getByTestId('scoring-codes-dialog');
+  await dialog.getByRole('button', { name: 'Change scoring codes', exact: true }).click();
+  // The penalty group is listed in high point, worded for it.
+  await expect(dialog.getByTestId('code-row-ZFP')).toContainText('20% of the place after the last');
+  await dialog.getByRole('button', { name: 'Add a code' }).click();
+  await dialog.getByLabel('Code', { exact: true }).fill('CMP');
+  await dialog.getByLabel('Description').fill('Finish not declared');
+  await dialog.getByRole('radio', { name: 'Takes points from a boat that finished' }).check();
+  await dialog.getByRole('textbox', { name: 'Percentage of her own points' }).fill('30');
+  await expect(dialog.getByTestId('code-sentence')).toContainText('A boat scored CMP loses 30% of her points for the race.');
+  await dialog.getByRole('button', { name: 'Save' }).click();
+  await expect(dialog.getByTestId('code-row-CMP')).toContainText('30% of her points');
+  await dialog.getByRole('button', { name: 'Done' }).click();
+
+  // ── Race 1: all four finish, in sail-number order ───────────────────────
+  await page.getByRole('navigation').getByRole('link', { name: 'Races' }).click();
+  await expect(page).toHaveURL(/\/races$/);
+  await page.getByRole('button', { name: 'Add race' }).click();
+  await page.getByText('Race 1').click();
+  await expect(page.getByTestId('non-finisher-404')).toBeVisible();
+  for (const sail of ['101', '202', '303', '404']) {
+    await page.getByLabel('Sail number').fill(sail);
+    await page.getByRole('button', { name: 'Add' }).click();
+  }
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+  await expect(page.getByTestId('high-point-race-line')).toContainText('High point · 4 boats in the race');
+
+  // ── Alice didn't declare her finish: the series' code, nothing to type ──
+  await page.getByRole('button', { name: 'Row actions for 101' }).click();
+  await page.getByRole('menuitem', { name: 'Set scoring penalty' }).click();
+  const penalty = page.getByRole('dialog');
+  await expect(penalty).toContainText('taking points away');
+  await penalty.getByRole('combobox').click();
+  await page.getByRole('option', { name: /CMP/ }).click();
+  await expect(penalty.getByTestId('penalty-code-rule')).toContainText('loses 30% of her points for the race');
+  await penalty.getByRole('button', { name: 'Apply' }).click();
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+
+  // ── Bob takes a scoring penalty: 20% of place 5 is one place ────────────
+  await page.getByRole('button', { name: 'Row actions for 202' }).click();
+  await page.getByRole('menuitem', { name: 'Set scoring penalty' }).click();
+  await penalty.getByRole('combobox').click();
+  await page.getByRole('option', { name: /SCP/ }).click();
+  await expect(penalty.getByTestId('penalty-outcome')).toContainText('20% of place 5 is 1 place: 1 point off.');
+  await penalty.getByRole('button', { name: 'Apply' }).click();
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+
+  // ── n = 4: Alice 4 less 30% = 2.8; Bob 3 − 1 = 2; Carol keeps her 2 ─────
+  await page.getByRole('navigation').getByRole('link', { name: 'Races' }).click();
+  await expect(page).toHaveURL(/\/races$/);
+  await page.getByRole('link', { name: 'Standings' }).click();
+  await expect(page).toHaveURL(/\/standings$/);
+  const rows = page.getByRole('row');
+  await expect(rows.filter({ hasText: 'Alice' })).toContainText('2.8');
+  await expect(rows.filter({ hasText: 'Alice' }).getByRole('cell').first()).toContainText('1');
+  await expect(rows.filter({ hasText: 'Bob' })).toContainText('SCP');
+  await expect(rows.filter({ hasText: 'Carol' })).toContainText('2');
+  await expect(rows.filter({ hasText: 'Dave' }).getByRole('cell').first()).toContainText('4');
+});

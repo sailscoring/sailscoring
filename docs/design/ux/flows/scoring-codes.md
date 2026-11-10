@@ -264,6 +264,12 @@ under a *This series* divider:
 - **Codes that add points** go in the penalty dialog's *Penalty* select,
   after ZFP, SCP and DPI. They need no figure, because the code carries its
   points.
+- **In a high-point series** the same dialog words a penalty as taking
+  points away, and for a percentage says what it comes to in the race, one
+  line for each fleet the boat is scored in: "20% of place 21 is 4.2 places:
+  19.2 points off." The Scoring codes table heads the group *Take points
+  from a boat that finished*, and a series' own code may take a percentage
+  of the boat's own points.
 - The quick-assign buttons (DNS, DNF, OCS …) are unchanged.
 - **A changed built-in** sits in its usual place, with a small marker. Its
   tooltip gives the series' rule.

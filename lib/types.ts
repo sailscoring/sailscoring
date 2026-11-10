@@ -1333,7 +1333,7 @@ export type PenaltyCode = BuiltInPenaltyCode | (string & {});
 
 /** The RRS additive penalty codes. */
 export type BuiltInPenaltyCode =
-  // Additive penalty codes (applied on top of finish; A6.2: other scores unchanged)
+  // Additive penalty codes (applied on top of finish; RRS 44.3(c): other scores unchanged)
   | 'ZFP'   // Z Flag Penalty (rule 30.2) — adds 20% of DNF score (formula per 44.3(c))
   | 'SCP'   // Scoring Penalty — adds specified % of DNF score (default 20%)
   | 'DPI';  // Discretionary Points Increase — adds stated number of points

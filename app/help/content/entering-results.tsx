@@ -239,10 +239,10 @@ export default function EnteringResults() {
         </p>
         <p>
           The note changes nothing about the score: the points come from the amount you enter,
-          and the penalty is discardable and A6.2-compliant either way.
+          and the penalty is discardable, and leaves other boats’ scores alone, either way.
         </p>
         <p>
-          Per RRS A6.2, additive penalties do not change other competitors’ scores —
+          Per RRS 44.3(c), a penalty does not change other competitors’ scores —
           two boats may legitimately share the same score. The penalised score is capped at
           the DNF score for that race. Penalty codes are shown in amber in the standings table,
           e.g. <em>4 (ZFP)</em>.

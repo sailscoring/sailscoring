@@ -184,7 +184,8 @@ score instead of a place-based score.
 
 These codes amend a recorded finish position by adding penalty points. The
 boat retains its finishing place for ranking purposes; only its own score
-changes (per RRS A6.2, other boats' scores are not recalculated).
+changes (per RRS 44.3(c), other boats' scores are not recalculated). In a
+high-point series the penalty takes points away instead.
 
 | Term | Definition |
 |------|------------|
