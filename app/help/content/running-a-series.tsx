@@ -594,7 +594,8 @@ export default function RunningASeries() {
         </p>
         <p>
           The Races tab lists races under the day they are sailed on, so a day of three races
-          sits under one heading, and each race shows how many finishers have been recorded. Click
+          sits under one heading, and each race shows how many finishers have been recorded —{' '}
+          <em>No results yet</em> until anything is. Click
           a race to open the result entry screen for it. The race date is shown beneath the
           heading there —
           click it to change it (handy after an import that guessed the date, or if a race is

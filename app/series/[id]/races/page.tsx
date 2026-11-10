@@ -277,8 +277,11 @@ function RaceRow({
           hasDetail && 'max-sm:row-start-2',
         )}
       >
-        {finisherCount !== undefined && (
-          <>{finisherCount} {finisherCount === 1 ? 'finisher' : 'finishers'}</>
+        {/* Nothing recorded reads differently from a race where every boat
+            was coded: a scheduled race isn't one nobody finished. */}
+        {finisherCount !== undefined && (rowCount === 0
+          ? 'No results yet'
+          : <>{finisherCount} {finisherCount === 1 ? 'finisher' : 'finishers'}</>
         )}
       </span>
       {!readOnly && (

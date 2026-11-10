@@ -231,5 +231,5 @@ test('a refused read says why, and a bad URL never leaves the browser', async ({
   await expect(page.getByTestId('racesense-player')).toBeVisible();
   await page.getByRole('button', { name: 'Cancel' }).click();
   await expect(page.getByTestId('racesense-player')).toBeHidden();
-  await expect(page.getByText('0 finishers').first()).toBeVisible();
+  await expect(page.getByText('No results yet').first()).toBeVisible();
 });
