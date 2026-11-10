@@ -128,7 +128,8 @@ both coastal series and the Royal Dee championship, which are complete.
 | Primary / secondary certificate per race | #749; typed per-race overrides meanwhile |
 | Races scored by another organiser | finish-sheet CSV import (exists) |
 | 10-hour distance race (2026, race 12 CW4) | entered as places on a timeless start (exists); native corrected-distance scoring is on the horizon |
-| Matrix-style results pages | combined pages with the race grid (#604) |
+| "Results Matrix" pages: overall, two-handed and YTC on one, the classes on another, each opening on a fleets × races matrix (Sailwave's ScoredSeperatelyMatrix script) | combined pages (#255), two per series, with the race grid (#604) |
+| Fleet column (the boat's IRC class) | the Class column; the design goes in a custom field |
 | Sailwave `.blw` | import (#754), which needs a sample file from ISORA |
 
 Penalties (#752) and the BCE / BCR / speed columns (#755) are ISORA requirements
