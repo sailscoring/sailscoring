@@ -289,8 +289,10 @@ function RaceRow({
         )}
       </div>
       {/* Stop the row's own click handler from navigating away underneath the
-          open dialog. */}
-      <div onClick={(e) => e.stopPropagation()}>
+          open dialog. `contents` keeps this wrapper out of the row's layout:
+          the dialogs portal out, so as a box it would be an empty flex item
+          that pushes the row's buttons off its right edge. */}
+      <div className="contents" onClick={(e) => e.stopPropagation()}>
         <RaceScoringOptionsDialog
           race={race}
           open={scoringOptionsOpen}
