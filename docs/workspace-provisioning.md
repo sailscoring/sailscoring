@@ -294,6 +294,8 @@ be flipped here. The operator-managed set is deliberately small:
 | `competitor-identity-crew` | changes which identities exist in an adopted corpus |
 | `rankings` | groups by the identity spine, so adoption travels with it |
 | `split-fleets` | expert machinery pending real-event validation; audience stays enumerable |
+| `racesense-import` | the export format is still being learned; turned on an event at a time |
+| `high-point-scoring` | ISORA and Bray SC are the only series that score high point |
 | `connected-apps` | outside apps reach only the workspaces we choose |
 
 Every other key is self-service — including opt-in ones like `vprs` and
