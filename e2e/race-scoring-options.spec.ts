@@ -107,9 +107,18 @@ test('a race can be weighted and protected from discard', async ({ page }) => {
   // when auditing the series.
   await page.getByRole('navigation').getByRole('link', { name: 'Races' }).click();
   await expect(page).toHaveURL(/\/races$/);
-  await expect(
-    page.getByTestId('race-row').filter({ hasText: 'Race 3' }).getByTestId('race-scoring-badge'),
-  ).toHaveText('×2 · must count');
+  const badge = page
+    .getByTestId('race-row')
+    .filter({ hasText: 'Race 3' })
+    .getByTestId('race-scoring-badge');
+  await expect(badge).toHaveText('Scoring: ×2 · must count');
+
+  // The badge opens the dialog that set it, without opening the race.
+  await badge.click();
+  await expect(dialog).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+  await expect(page).toHaveURL(/\/races$/);
 
   // Bob now wins: Alice keeps a doubled 6 she cannot discard and nets 7.
   await page.getByRole('link', { name: 'Standings' }).click();

@@ -207,11 +207,27 @@ function RaceRow({
               {finisherCount} {finisherCount === 1 ? 'finisher' : 'finishers'}
             </span>
           )}
-          {scoringOptionsGated && hasScoringOptions(race) && (
+          {/* Named, because a bare "×0.7" means nothing until you know what
+              it is; and a way into the dialog that sets it, where the row
+              can be edited. */}
+          {scoringOptionsGated && hasScoringOptions(race) && (readOnly ? (
             <Badge variant="outline" className="ml-2 font-normal" data-testid="race-scoring-badge">
-              {scoringOptionsSummary(race)}
+              Scoring: {scoringOptionsSummary(race)}
             </Badge>
-          )}
+          ) : (
+            <Badge asChild variant="outline" className="ml-2 font-normal">
+              <button
+                type="button"
+                tabIndex={-1}
+                data-testid="race-scoring-badge"
+                title="Scoring options"
+                className="cursor-pointer hover:bg-accent hover:text-accent-foreground"
+                onClick={(e) => { e.stopPropagation(); setScoringOptionsOpen(true); }}
+              >
+                Scoring: {scoringOptionsSummary(race)}
+              </button>
+            </Badge>
+          ))}
           {waitingCount > 0 && (
             <Badge className="ml-2 font-normal" data-testid="race-submissions-badge">
               {waitingCount === 1 ? 'Finish sheet to review' : `${waitingCount} finish sheets to review`}
