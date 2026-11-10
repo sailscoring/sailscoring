@@ -2023,7 +2023,7 @@ async function updateSeriesFromFileInner(
   // Spreading `...current` preserves `categoryId`/`archived` (#154): the file
   // doesn't carry them, and an update must not silently re-file or un-archive
   // the existing series.
-  await repos.seriesRepo.save({
+  const updated: Series = {
     ...current,
     name: file.series.name,
     venue: file.series.venue,
@@ -2061,8 +2061,9 @@ async function updateSeriesFromFileInner(
     publishDetail: file.series.publishDetail ?? 'full',
     rrsOrgPush: file.series.rrsOrgPush,
     prizes: remapPrizes(file.series.prizes, fleetIdMap),
-    resultsStatus: file.series.resultsStatus,
-    finalisedAt: file.series.finalisedAt,
+    // Provisional for the replay, whatever the file says: see the end.
+    resultsStatus: undefined,
+    finalisedAt: undefined,
     protestTimeLimit: file.series.protestTimeLimit,
     officials: file.series.officials,
     publishOfficials: file.series.publishOfficials,
@@ -2076,9 +2077,21 @@ async function updateSeriesFromFileInner(
     subdivisionAxes: subdivisions.axes,
     ...(file.series.customFields?.length ? { customFields: file.series.customFields } : {}),
     ...(file.series.resultsColumns ? { resultsColumns: file.series.resultsColumns } : {}),
-  });
+  };
+  await repos.seriesRepo.save(updated);
 
   await writeFleetsCompetitorsRaces(repos, file, seriesId, now, fleetIdMap, competitorIdMap, raceIdMap, subdivisions.legacyAxisId, true);
+
+  // The results lifecycle, last of all, as on open: a final series is
+  // read-only, so declaring it final before its children are written would
+  // have every write left to make refused.
+  if (file.series.resultsStatus === 'final') {
+    await repos.seriesRepo.save({
+      ...updated,
+      resultsStatus: 'final',
+      finalisedAt: file.series.finalisedAt,
+    });
+  }
 }
 
 // ---- Update existing series from a re-imported Sailwave file ----
