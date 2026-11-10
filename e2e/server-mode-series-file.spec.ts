@@ -3,8 +3,11 @@
  *
  * Covers the three repo-touching paths in `lib/series-file.ts`:
  *   - saveSeriesFile        (Save to File)
- *   - updateSeriesFromFile  (Update from File → "Update": in-place replace)
- *   - openSeriesFromFile    (Update from File → "Open as a new copy")
+ *   - updateSeriesFromFile  (Update from File → "Update": in-place replace,
+ *                            sent whole to PUT /api/v1/series/{id}/file)
+ *   - openSeriesFromFile    (Update from File → "Open as a new copy", sent
+ *                            whole to POST /api/v1/series/import)
+ *   - Import Series on the home page, updating the series a file is for
  *
  * Two tests rather than more: each magic-link sign-in counts against the
  * Better Auth rate limit shared with other server-mode specs.
@@ -59,6 +62,8 @@ interface SeriesFile {
     ftpHost: string;
     ftpPath: string;
     enabledCompetitorFields?: string[];
+    resultsStatus?: 'final';
+    finalisedAt?: number;
   };
   competitors: FileCompetitor[];
   races: FileRace[];
@@ -150,10 +155,17 @@ test.describe('series file save / open / update, server mode', () => {
     expect(original.races[0].finishes).toHaveLength(1);
 
     // Build an edited file carrying the same seriesId and upload it.
-    // Exercises updateSeriesFromFile against Postgres.
+    // Exercises updateSeriesFromFile against Postgres. The file is marked
+    // final: the replay must still write everything the status then locks.
     const edited: SeriesFile = {
       ...original,
-      series: { ...original.series, name: 'Updated by Co-scorer', venue: 'RIYC' },
+      series: {
+        ...original.series,
+        name: 'Updated by Co-scorer',
+        venue: 'RIYC',
+        resultsStatus: 'final',
+        finalisedAt: Date.now(),
+      },
       competitors: [
         ...original.competitors,
         {
@@ -175,9 +187,15 @@ test.describe('series file save / open / update, server mode', () => {
 
     await expect(page).toHaveURL(/\/races$/);
     await expect(page.getByRole('heading', { name: 'Updated by Co-scorer' })).toBeVisible();
+    await expect(page.getByTestId('final-badge')).toBeVisible();
+    await expect(page.getByText('Race 1')).toBeVisible();
+    await page.getByRole('navigation').getByRole('link', { name: 'Competitors' }).click();
+    await expect(page).toHaveURL(/\/competitors$/);
+    await expect(page.getByRole('cell', { name: '1234' })).toBeVisible();
+    await expect(page.getByRole('cell', { name: '99', exact: true })).toBeVisible();
   });
 
-  test('Update from File → "open as new copy" creates a second series', async ({ page }) => {
+  test('Update from File → "open as new copy" creates a second series; Import Series updates in place', async ({ page }) => {
     await signInFreshUser(page, 'server-file-newcopy');
 
     await createSeriesQuick(page, { name: 'Server New Copy Original' });
@@ -201,5 +219,27 @@ test.describe('series file save / open / update, server mode', () => {
     const newSeriesId = getSeriesId(page);
     expect(newSeriesId).not.toBe(originalSeriesId);
     await expect(page.getByRole('heading', { name: 'Server New Copy Result' })).toBeVisible();
+
+    // Import Series on the home page, given a file for a series already in
+    // the workspace, can update that series in place instead.
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Import Series' }).click();
+    const [chooser] = await Promise.all([
+      page.waitForEvent('filechooser'),
+      page.getByTestId('import-format-sailscoring').click(),
+    ]);
+    await chooser.setFiles({
+      name: 'original.sailscoring',
+      mimeType: 'application/json',
+      buffer: Buffer.from(JSON.stringify({
+        ...original,
+        series: { ...original.series, name: 'Server New Copy Updated From Home' },
+      })),
+    });
+    await page.getByRole('button', { name: 'Update the workspace copy' }).click();
+    await expect(page.getByRole('dialog', { name: /Update .* from file\?/ })).toBeVisible();
+    await page.getByRole('button', { name: 'Update', exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(`/series/${originalSeriesId}/races$`));
+    await expect(page.getByRole('heading', { name: 'Server New Copy Updated From Home' })).toBeVisible();
   });
 });

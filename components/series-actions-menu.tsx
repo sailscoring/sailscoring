@@ -29,8 +29,6 @@ import {
   saveSeriesFile,
   SaveNotRecordedError,
   parseSeriesFile,
-  openSeriesFromFile,
-  updateSeriesFromFile,
   type SeriesFile,
 } from '@/lib/series-file';
 import { parseSailwaveBlw, SailwaveImportError } from '@/lib/sailwave-import';
@@ -85,7 +83,7 @@ const SAILWAVE_EXPORT_ERROR_TITLE = 'Could not export to Sailwave';
  *  it carries its own title rather than assuming the file was being opened. */
 type UpdateFlow =
   | { step: 'idle' }
-  | { step: 'confirm'; file: SeriesFile }
+  | { step: 'confirm'; file: SeriesFile; content: string }
   | { step: 'working' }
   | { step: 'error'; title: string; message: string };
 
@@ -251,7 +249,7 @@ export function SeriesActionsMenu({ series }: { series: Series }) {
         return;
       }
 
-      setUpdateFlow({ step: 'confirm', file: parsed });
+      setUpdateFlow({ step: 'confirm', file: parsed, content });
     } catch (err) {
       setUpdateFlow({
         step: 'error',
@@ -263,17 +261,19 @@ export function SeriesActionsMenu({ series }: { series: Series }) {
 
   async function handleConfirmUpdate(asNewCopy: boolean) {
     if (updateFlow.step !== 'confirm') return;
-    const { file } = updateFlow;
+    const { content } = updateFlow;
     setUpdateFlow({ step: 'working' });
     try {
+      // Both go to the server, which replays the file in one transaction: a
+      // failure part-way leaves the series as it was rather than emptied.
       if (asNewCopy) {
-        const newId = await openSeriesFromFile(file, repos);
+        const { id: newId } = await repos.importSeriesDocument(content, 'sailscoring');
         await queryClient.invalidateQueries({ queryKey: queryKeys.series.list() });
         router.push(`/series/${newId}/races`);
         setUpdateFlow({ step: 'idle' });
       } else {
-        await updateSeriesFromFile(seriesId, file, repos);
-        // updateSeriesFromFile bypasses the React Query cache. The series
+        await repos.putSeriesFileDocument(seriesId, content);
+        // The update bypasses the React Query cache. The series
         // row keeps its id so invalidate is fine, but every child entity
         // (fleets, competitors, races, race-starts, finishes) is reissued
         // a fresh UUID inside writeFleetsCompetitorsRaces. Plain

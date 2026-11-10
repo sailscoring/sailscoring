@@ -1117,6 +1117,37 @@ export async function importSeriesDocument(
 }
 
 /**
+ * Replace a series' racing with a `.sailscoring` file's, in place — *Update
+ * from file*. The file must be this series' own (`seriesId` matches).
+ *
+ * One request, replayed server-side in a transaction, for the same reasons
+ * as {@link importSeriesDocument}: replayed here through the per-entity
+ * writes, the update deletes the series' children before writing the file's,
+ * and any failure after the delete — a dropped connection, one refused row —
+ * left the series empty.
+ */
+export async function putSeriesFileDocument(seriesId: string, content: string): Promise<void> {
+  await apiFetch(`/api/v1/series/${encodeURIComponent(seriesId)}/file`, {
+    method: 'PUT',
+    body: { content: withoutRevisionHistory(content) },
+  });
+}
+
+/**
+ * A file's text without its revision history. An update in place keeps the
+ * series' own history and never reads the file's, which is the bulk of a
+ * long-lived series' file; sending it would only bring the request nearer
+ * the platform's body-size limit. The rest goes as written, so the server
+ * reads the file's own version and brings it forward itself.
+ */
+function withoutRevisionHistory(content: string): string {
+  const raw = JSON.parse(content) as Record<string, unknown>;
+  delete raw.revisions;
+  delete raw.revisionSnapshots;
+  return JSON.stringify(raw);
+}
+
+/**
  * ADR-008 Phase 7 — copy a series into another workspace the caller is
  * a member of. Server-only feature; there's no Dexie equivalent because
  * local-first mode has only the implicit "this device" workspace.

@@ -10,7 +10,6 @@ import { useCategories } from '@/hooks/use-categories';
 import {
   openSeriesFromFile,
   parseSeriesFile,
-  updateSeriesFromFile,
   type SeriesFile,
 } from '@/lib/series-file';
 import { describeOpenSeriesError } from '@/lib/open-series-error';
@@ -24,8 +23,8 @@ export type OpenFlow =
   | { step: 'idle' }
   | { step: 'choose-format' }
   | { step: 'confirm-new'; file: SeriesFile; categoryId: string | null }
-  | { step: 'disambiguate'; file: SeriesFile; existing: Series }
-  | { step: 'confirm-update'; file: SeriesFile; existing: Series }
+  | { step: 'disambiguate'; file: SeriesFile; content: string; existing: Series }
+  | { step: 'confirm-update'; file: SeriesFile; content: string; existing: Series }
   | { step: 'working' }
   | { step: 'error'; message: string };
 
@@ -85,8 +84,9 @@ export function useOpenSeriesFile() {
     }
 
     let parsed: SeriesFile;
+    let content: string;
     try {
-      const content = await file.text();
+      content = await file.text();
       parsed = parseSeriesFile(content);
     } catch (err) {
       setOpenFlow({
@@ -124,7 +124,7 @@ export function useOpenSeriesFile() {
         return;
       }
 
-      setOpenFlow({ step: 'disambiguate', file: parsed, existing });
+      setOpenFlow({ step: 'disambiguate', file: parsed, content, existing });
     } catch (err) {
       console.error(err);
       setOpenFlow({ step: 'error', message: describeOpenSeriesError(err) });
@@ -149,7 +149,7 @@ export function useOpenSeriesFile() {
 
   async function handleDisambiguate(choice: 'update' | 'new-copy') {
     if (openFlow.step !== 'disambiguate') return;
-    const { file, existing } = openFlow;
+    const { file, content, existing } = openFlow;
 
     if (choice === 'new-copy') {
       setOpenFlow({ step: 'working' });
@@ -163,12 +163,12 @@ export function useOpenSeriesFile() {
       return;
     }
 
-    setOpenFlow({ step: 'confirm-update', file, existing });
+    setOpenFlow({ step: 'confirm-update', file, content, existing });
   }
 
   async function handleConfirmUpdate(asNewCopy: boolean) {
     if (openFlow.step !== 'confirm-update') return;
-    const { file, existing } = openFlow;
+    const { file, content, existing } = openFlow;
     setOpenFlow({ step: 'working' });
     try {
       if (asNewCopy) {
@@ -176,7 +176,9 @@ export function useOpenSeriesFile() {
         await queryClient.invalidateQueries({ queryKey: queryKeys.series.list() });
         router.push(`/series/${newId}/races`);
       } else {
-        await updateSeriesFromFile(existing.id, file, repos);
+        // Replayed server-side in one transaction: a failure part-way leaves
+        // the series as it was rather than emptied.
+        await repos.putSeriesFileDocument(existing.id, content);
         // The file-replay path bypasses the React Query cache; force every
         // affected query to refetch before we route to the next page.
         await queryClient.invalidateQueries({ queryKey: queryKeys.series.detail(existing.id) });
