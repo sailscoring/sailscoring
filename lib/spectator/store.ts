@@ -24,6 +24,7 @@ import type {
   Finish,
   Fleet,
   Race,
+  RaceRatingOverride,
   RaceStart,
   Series,
   SubSeries,
@@ -49,6 +50,9 @@ export interface SpectatorSeries {
   races: Race[];
   raceStarts: RaceStart[];
   finishes: Finish[];
+  /** Races scored on a rating other than the boat's own: a typed per-race
+   *  number, or a race declared on the boat's secondary certificate. */
+  ratingOverrides: RaceRatingOverride[];
   subSeries: SubSeries[];
   /** Split-fleet state, for a championship's data file. Null on an ordinary
    *  series — which is also what a file published before championships

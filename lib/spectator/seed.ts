@@ -18,6 +18,7 @@ import type {
   Finish,
   Fleet,
   Race,
+  RaceRatingOverride,
   RaceStart,
   Series,
   SubSeries,
@@ -80,6 +81,7 @@ function collectingRepos(): { repos: ImportRepos; collected: Collected } {
     races: [],
     raceStarts: [],
     finishes: [],
+    ratingOverrides: [],
     subSeries: [],
     splitFleets: null,
   };
@@ -91,6 +93,9 @@ function collectingRepos(): { repos: ImportRepos; collected: Collected } {
     raceRepo: { save: async (r: Race) => { collected.races.push(r); return r; } },
     raceStartRepo: { save: async (s: RaceStart) => { collected.raceStarts.push(s); return s; } },
     finishRepo: { saveMany: async (list: Finish[]) => { collected.finishes.push(...list); } },
+    raceRatingOverrideRepo: {
+      saveMany: async (list: RaceRatingOverride[]) => { collected.ratingOverrides.push(...list); },
+    },
     subSeriesRepo: { saveMany: async (list: SubSeries[]) => { collected.subSeries.push(...list); } },
     splitFleets: {
       get: async () => null,
@@ -136,6 +141,7 @@ interface Collected {
   races: Race[];
   raceStarts: RaceStart[];
   finishes: Finish[];
+  ratingOverrides: RaceRatingOverride[];
   subSeries: SubSeries[];
   splitFleets: { config: SplitFleetConfig; rounds: SplitRound[] } | null;
 }
@@ -165,6 +171,7 @@ export function buildSpectatorSeries(
       races: collected.races,
       raceStarts: collected.raceStarts,
       finishes: collected.finishes,
+      ratingOverrides: collected.ratingOverrides,
       subSeries: collected.subSeries,
       splitFleets: collected.splitFleets,
     };

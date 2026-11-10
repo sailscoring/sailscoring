@@ -80,10 +80,9 @@ function read(
       case 'race-starts': return view.raceStarts;
       case 'finishes': return view.finishes;
       case 'sub-series': return view.subSeries;
+      case 'rating-overrides': return view.ratingOverrides;
       // Progressive-handicap history is recomputed from finishes and starting
-      // ratings on render, and an import carries no stored overrides — so
-      // both are legitimately empty rather than missing.
-      case 'rating-overrides': return [];
+      // ratings on render, so it is legitimately empty rather than missing.
       case 'tcf-history': return [];
       // A championship's data file carries the config and rounds its pages
       // were built from; an ordinary series' file carries neither, and
@@ -105,7 +104,7 @@ function read(
       case undefined: return view.races.find((r) => r.id === id);
       case 'finishes': return view.finishes.filter((f) => f.raceId === id);
       case 'starts': return view.raceStarts.filter((s) => s.raceId === id);
-      case 'rating-overrides': return [];
+      case 'rating-overrides': return view.ratingOverrides.filter((o) => o.raceId === id);
     }
   }
 

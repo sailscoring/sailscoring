@@ -1,3 +1,4 @@
+import { ratingFieldSchema } from './validation/race-rating-override';
 import type {
   FinishRecording,
   ResultCode,
@@ -15,6 +16,7 @@ import type {
   Finish,
   FinishTrackData,
   Fleet,
+  IrcCertRecord,
   SubdivisionAxis,
   CustomField,
   ResultsColumn,
@@ -27,7 +29,9 @@ import type {
   Race,
   RaceFleetChange,
   RaceOfficial,
+  RaceRatingOverride,
   RaceStartCourse,
+  RatingField,
 } from './types';
 import type {
   CompetitorRepository,
@@ -113,6 +117,21 @@ export interface ExportFleetChange {
   sailNumber: string;
   add?: string[];
   drop?: string[];
+}
+
+/** One boat's rating for one race, where the race is not scored on the
+ *  boat's own (from v20). The boat is named by its export `ref`, with its
+ *  sail number beside it for a reader. `value` is in the field's own units.
+ *  With `certificate: 'secondary'` the race is declared on the boat's
+ *  secondary IRC certificate: a reader scores it on the competitor's
+ *  `ircSecondaryTcc`, and `value` is the TCC that resolved to when the file
+ *  was written. */
+export interface ExportRatingOverride {
+  competitorRef: string;
+  sailNumber: string;
+  field: RatingField;
+  value: number;
+  certificate?: 'secondary';
 }
 
 /**
@@ -219,10 +238,12 @@ export interface PublicSeriesExport {
    *  `pointForComingToStart`, and a code's `countsInFleetSize`); v17 adds a
    *  sub-series' own discard rule (`subSeries[*].discards`); v18 adds a
    *  race's `fleetChanges`; v19 adds the `reducePercent` rule of a series'
-   *  own penalty code in high point. Readers
+   *  own penalty code in high point; v20 adds a race's `ratingOverrides` and
+   *  a competitor's secondary IRC certificate (`ircSecondaryTcc`,
+   *  `ircSecondaryCert`). Readers
    *  accept them all, bringing an older export's courses forward as they
    *  read it. */
-  version: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19;
+  version: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20;
   /** Where the format, and what a reader may rely on, is documented. Written
    *  into every export so a reader handed only the file can find the
    *  contract. Optional: exports written before it was added lack it. */
@@ -472,6 +493,10 @@ export interface PublicSeriesExport {
      *  number and boat name, the hull dimensions — is the scorer's audit
      *  trail and stays in the app. */
     ircCert?: { certNumber?: string; source?: string; sourceUpdatedAt?: string };
+    /** The boat's secondary IRC certificate (from v20): the TCC a race
+     *  declared on it scores on, and where it came from, as `ircCert`. */
+    ircSecondaryTcc?: number;
+    ircSecondaryCert?: { certNumber?: string; source?: string; sourceUpdatedAt?: string };
   }[];
   races: {
     raceNumber: number;
@@ -504,6 +529,9 @@ export interface PublicSeriesExport {
      *  (from v18): fleets they are out of for the race (`drop`) and fleets
      *  they sail in for it only (`add`), by fleet name. */
     fleetChanges?: ExportFleetChange[];
+    /** The boats this race scores on a rating other than their own (from
+     *  v20). */
+    ratingOverrides?: ExportRatingOverride[];
     /** @deprecated split-fleet stage identity on the race (older exports).
      *  Read for back-compat (copied onto the starts), not written; the
      *  per-start fields below are authoritative. */
@@ -934,6 +962,20 @@ function uniqueFleetNames(fleets: Fleet[]): Map<string, string> {
   return byId;
 }
 
+/** Where an IRC rating came from, as the export carries it: the certificate
+ *  number, and the listing it was read off with that listing's date. Enough
+ *  for a reader to go and check the figure themselves; the rest of the stored
+ *  record is the scorer's audit trail and stays in the app. */
+function exportIrcCert(
+  cert: IrcCertRecord,
+): { certNumber?: string; source?: string; sourceUpdatedAt?: string } {
+  return {
+    ...(cert.certNumber ? { certNumber: cert.certNumber } : {}),
+    ...(cert.source ? { source: cert.source } : {}),
+    ...(cert.sourceUpdatedAt ? { sourceUpdatedAt: cert.sourceUpdatedAt } : {}),
+  };
+}
+
 /** A start's course as the export carries it. */
 function exportStartCourse(
   course: RaceStartCourse,
@@ -1176,6 +1218,26 @@ export function buildPublicExportFromSnapshot(
         ...(drop.length > 0 ? { drop } : {}),
       }];
     });
+  // A race's rating overrides, by competitor ref, in entry-list order so two
+  // writes of the same series give the same bytes. A boat no longer in the
+  // series leaves nothing to export.
+  const overridesByRaceId = new Map<string, RaceRatingOverride[]>();
+  for (const o of allRatingOverrides) {
+    if (!refById.has(o.competitorId)) continue;
+    const list = overridesByRaceId.get(o.raceId) ?? [];
+    list.push(o);
+    overridesByRaceId.set(o.raceId, list);
+  }
+  const exportRatingOverrides = (raceId: string): ExportRatingOverride[] =>
+    (overridesByRaceId.get(raceId) ?? [])
+      .map((o) => ({
+        competitorRef: refById.get(o.competitorId)!,
+        sailNumber: sailNumberById.get(o.competitorId)!,
+        field: o.field,
+        value: o.value,
+        ...(o.certificate === 'secondary' ? { certificate: 'secondary' as const } : {}),
+      }))
+      .sort((a, b) => Number(a.competitorRef) - Number(b.competitorRef) || a.field.localeCompare(b.field));
   const exportedFleetNames = (fleetIds: readonly string[]): string[] =>
     [...fleetIds]
       .sort((a, b) => {
@@ -1383,6 +1445,10 @@ export function buildPublicExportFromSnapshot(
         const fleetChanges = exportFleetChanges(race.fleetChanges);
         return fleetChanges.length > 0 ? { fleetChanges } : {};
       })(),
+      ...(() => {
+        const ratingOverrides = exportRatingOverrides(race.id);
+        return ratingOverrides.length > 0 ? { ratingOverrides } : {};
+      })(),
       starts,
       finishes,
       ...(nhcByFleet ? { nhcByFleet } : {}),
@@ -1446,7 +1512,7 @@ export function buildPublicExportFromSnapshot(
     : undefined;
 
   return {
-    version: 19 as const,
+    version: 20 as const,
     formatDoc: PUBLIC_EXPORT_FORMAT_DOC,
     exportedAt: (opts?.exportedAt ?? new Date()).toISOString(),
     timeZone: instanceTimeZone(),
@@ -1599,17 +1665,9 @@ export function buildPublicExportFromSnapshot(
       ...(c.nhcStartingTcf != null ? { nhcStartingTcf: c.nhcStartingTcf } : {}),
       ...(c.echoStartingTcf != null ? { echoStartingTcf: c.echoStartingTcf } : {}),
       ...(c.orcCert != null ? { orc: orcCertSummary(c.orcCert) } : {}),
-      ...(c.ircCert != null
-        ? {
-            ircCert: {
-              ...(c.ircCert.certNumber ? { certNumber: c.ircCert.certNumber } : {}),
-              ...(c.ircCert.source ? { source: c.ircCert.source } : {}),
-              ...(c.ircCert.sourceUpdatedAt
-                ? { sourceUpdatedAt: c.ircCert.sourceUpdatedAt }
-                : {}),
-            },
-          }
-        : {}),
+      ...(c.ircCert != null ? { ircCert: exportIrcCert(c.ircCert) } : {}),
+      ...(c.ircSecondaryTcc != null ? { ircSecondaryTcc: c.ircSecondaryTcc } : {}),
+      ...(c.ircSecondaryCert != null ? { ircSecondaryCert: exportIrcCert(c.ircSecondaryCert) } : {}),
     })),
     races: exportedRaces,
     standings: exportedStandings,
@@ -1729,10 +1787,13 @@ function importExportPrizes(
   return withoutPrizes(prizes, dropped);
 }
 
+/** The rating fields a race can override, for checking a file's. */
+const RATING_FIELDS: ReadonlySet<string> = new Set<RatingField>(ratingFieldSchema.options);
+
 /** Export format versions this build can read. A file written by a newer
  *  build is refused rather than half-read: the version is what says which
  *  fields mean what. Mirrors `SUPPORTED_FORMAT_VERSIONS` on the file side. */
-const SUPPORTED_EXPORT_VERSIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19];
+const SUPPORTED_EXPORT_VERSIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
 
 /**
  * Parse the text of a published `.sailscoring.json` data file.
@@ -2098,6 +2159,10 @@ export async function importPublicExport(
         ...(c.echoStartingTcf != null ? { echoStartingTcf: c.echoStartingTcf } : {}),
         ...(c.orc != null ? { orcCert: orcCertFromSummary(c.orc, now) } : {}),
         ...(c.ircCert != null ? { ircCert: { ...c.ircCert, appliedAt: now } } : {}),
+        ...(c.ircSecondaryTcc != null ? { ircSecondaryTcc: c.ircSecondaryTcc } : {}),
+        ...(c.ircSecondaryCert != null
+          ? { ircSecondaryCert: { ...c.ircSecondaryCert, appliedAt: now } }
+          : {}),
       });
     }),
   );
@@ -2124,6 +2189,26 @@ export async function importPublicExport(
       const drop = ids(c.drop);
       if (add.length === 0 && drop.length === 0) return [];
       return [{ competitorId, ...(add.length > 0 ? { add } : {}), ...(drop.length > 0 ? { drop } : {}) }];
+    });
+
+  // A race's rating overrides back onto the new ids. A boat that doesn't
+  // resolve, or a rating this build has no field for, is dropped; the
+  // secondary certificate is IRC's alone.
+  const importRatingOverrides = (
+    raceId: string,
+    overrides: ExportRatingOverride[] | undefined,
+  ): RaceRatingOverride[] =>
+    (overrides ?? []).flatMap((o) => {
+      const competitorId = competitorIdByRef.get(o.competitorRef);
+      if (!competitorId || !RATING_FIELDS.has(o.field) || typeof o.value !== 'number') return [];
+      return [{
+        id: newId(),
+        raceId,
+        competitorId,
+        field: o.field,
+        value: o.value,
+        ...(o.certificate === 'secondary' && o.field === 'ircTcc' ? { certificate: 'secondary' as const } : {}),
+      }];
     });
 
   // Races sequentially because their starts and finishes FK back to the
@@ -2240,6 +2325,9 @@ export async function importPublicExport(
       // bulk insert could race against.
       await repos.finishRepo.saveMany(finishes);
     }
+
+    const overrides = importRatingOverrides(raceId, race.ratingOverrides);
+    if (overrides.length > 0) await repos.raceRatingOverrideRepo.saveMany(overrides);
   }
 
   if (subSeriesIdByName.size > 0) {

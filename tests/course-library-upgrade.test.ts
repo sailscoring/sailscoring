@@ -295,7 +295,7 @@ describe('the series file and the public export, written now', () => {
     expect(file.races[0].starts[0].courseLegs).toEqual(imported.courseLegs);
 
     const data = buildPublicExportFromSnapshot(snapshot)!;
-    expect(data.version).toBe(19);
+    expect(data.version).toBe(20);
     expect(data).not.toHaveProperty('marks');
     expect(data).not.toHaveProperty('courses');
     expect(data.races[0].starts[0].course).toEqual(imported.course);

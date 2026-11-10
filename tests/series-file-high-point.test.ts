@@ -127,7 +127,7 @@ describe('high point in the .sailscoring file', () => {
 describe('high point in the public JSON export', () => {
   it('carries the points system and restores it on import', async () => {
     const data = buildPublicExportFromSnapshot({ ...snapshot, series: { ...series, highPointFormula: 'chips3', pointForComingToStart: undefined } })!;
-    expect(data.version).toBe(19);
+    expect(data.version).toBe(20);
     expect(data.series.pointsSystem).toBe('highPoint');
     expect(data.series.highPointFormula).toBe('chips3');
 
