@@ -6,7 +6,9 @@ coastal races between Ireland and Wales. It scores the season in Sailwave on a
 normalisation, a difficulty weight per race, and the best five results
 counting. This note records how that system actually works, checked against
 every table ISORA published for 2024, 2025 and 2026, and how it maps onto Sail
-Scoring. The work is tracked in #744.
+Scoring. The work was tracked in #744, closed in November 2026 with the
+season reproducible exactly and the remaining items deferred until ISORA shows
+interest in moving; that issue lists what is left.
 
 Sources are in `reference-docs:events/isora*`: each season's Notice of Race and
 General Sailing Instructions, race schedule, one set of race SIs per template,
