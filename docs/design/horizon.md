@@ -2069,6 +2069,40 @@ escape hatch for the long tail a club invents, not a substitute for modelling.
 > predicates above range over. Keep it distinct from these free-form tags:
 > the axes are modelled, the tags would be the escape hatch.
 
+### Prizes ranked on total points, no discards
+
+Deferred November 2026 from #751 (closed); that issue holds the full design and
+test cases. ISORA awards two season prizes on total points with no discards
+(NoR 20.5 Points Trophy, 20.6 Best New Boat), where every prize today ranks on
+net series standing. The shape: an optional `Prize.ranking` of `'standing'`
+(the default) or `'total'`, with `allocatePrize` sorting eligible rows by
+`totalPoints` and ties broken as series ties are. Eligibility for Best New Boat
+is an ordinary subdivision axis. ISORA's 2024 Wolf's Head table is the test:
+Ruth wins on best 5, Mojito on total. Until then, a no-discard sub-series over
+every race (#747) publishes the Points Series table, and the prize can be read
+off it by hand.
+
+### Team trophies
+
+Deferred November 2026 from #750 (closed); that issue holds the full design,
+mock-ups and test cases. A team trophy ranks groups of boats, which nothing in
+the app does today. Two real rules:
+
+- **ISORA's Victoria Cup** (NoR 20.7): each club's best three results per race
+  in the overall table, summed over the season, with a "Barbarian" team for
+  boats that elect it. Applied to the published 2024 table this gives the
+  announced winner, Pwllheli SC (2881.8 to National YC's 1575.7).
+- **HYC's Olympus Team Trophy** (Autumn League NoR 18.6): three declared boats
+  from different classes, their net series scores summed, lowest wins.
+
+The proposed shape: teams are values of a subdivision axis, filled from the
+club field through a mapping step (club spellings in ISORA's entries vary too
+much to use directly), and a trophy is either *best K per race in one fleet*
+or *members' series scores*, computed from the standings the engine already
+produces, never re-scored. In low point a team short of K boats takes DNC for
+each missing one. Each trophy publishes as its own page. Team racing
+(Appendix D) is a different thing and stays out of scope (Race formats, above).
+
 ---
 
 ### Crew prizes from race-by-race crew lists (ISORA's Under 25 Sailor Prize)

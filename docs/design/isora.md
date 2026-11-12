@@ -106,10 +106,10 @@ both coastal series and the Royal Dee championship, which are complete.
 
 ## Prizes beyond the standings
 
-- **Points Series** (NoR 20.5): total points, no discards (#751, or a sub-series #747).
-- **Best New Boat** (20.6): the same, among boats new to ISORA (#751).
+- **Points Series** (NoR 20.5): total points, no discards (a sub-series #747; a prize ranked on total was deferred to horizon.md, #751).
+- **Best New Boat** (20.6): the same, among boats new to ISORA (horizon.md, #751).
 - **Victoria Cup** (20.7): each club's best three results per race, from the
-  overall table, summed over the season, plus a Barbarian team (#750). Applied to
+  overall table, summed over the season, plus a Barbarian team (team trophies, deferred to horizon.md, #750). Applied to
   the published 2024 table it gives Pwllheli SC 2881.8 and National YC 1575.7,
   matching the announced winner.
 - **Under 25 Sailor Prize** (2026, 20.8): per sailor, 10 points down to 1 by
