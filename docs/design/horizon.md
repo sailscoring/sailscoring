@@ -1298,12 +1298,12 @@ no equivalent.
 
 Shape of the change: a qualification rule alongside the discard rule on
 `Series`, evaluated in `lib/scoring.ts` after totals, with a `DNQ` presentation
-in standings and published output. The natural time to build it is alongside
-proportional discards, since it wants the same rule vocabulary.
+in standings and published output. It can reuse the discard rule's
+vocabulary — thresholds, proportional, or best N (`lib/types.ts` `DiscardRule`).
 
 ### Per-fleet discard profiles
 
-`Series.discardThresholds` is series-wide. Sailwave allows a discard profile —
+The series' discard rule applies to every fleet. Sailwave allows a discard profile —
 and a rating system, and most of the rest of the scoring system — to be
 overridden per fleet from Edit → Fleets, which is how one file scores a
 cruiser fleet under IRC and a one-design fleet under level rating with
@@ -1312,7 +1312,8 @@ Sailwave's root profile because per-fleet variation isn't representable.
 
 Shape of the change: an optional per-fleet override of the series-wide discard
 rule. Worth doing only once a real series needs different allowances per fleet
-in one file; splitting into two series is the current workaround and is often
+in one file. Two workarounds exist: a sub-series scoped to the fleet, which can
+carry its own discard rule (#747), or splitting into two series, which is often
 the honest model anyway.
 
 ### Remaining RDG (redress) method — points for a place
@@ -1351,67 +1352,38 @@ over-penalty.
 So scoring as DNF is the standard, and a TLE that scores differently is
 esoteric. What would bring it back: a series that genuinely scores TLE off the
 finishers (HYC's Frostbites PY fleet did once, in 2026, against its own SI).
-The shape if it comes is a custom scoring code (below) on a `finishers + N`
+The shape if it comes is a series code (#717) on a `finishers + N`
 base, N ∈ {1, 2}, capped at the fleet's DNF score — the cap covers the
 nobody-finished race, where HYC's 2025 Howth 17 results show TLE falling back
 to DNF points. The 2025 LG wording counts places rather than points and
 excludes UFD/BFD boats from the "last finisher", which is what a finishers
 base already does.
 
-### Custom scoring codes
+### Further high-point and bonus-point systems
 
-No longer deferred: scoped in October 2026 as Phase 4 of
-`scoring-codes.md`, with the UX in `ux/flows/scoring-codes.md`.
+High point shipped as #745, behind the `high-point-scoring` gate: a per-series
+choice of low or high point, with two high-point formulas — **boats beaten**
+(HalSail's HP scoring, optionally with its point for coming to the start, as
+Bray Sailing Club uses) and ISORA's **CHIPS3** with a weight per race. Each is
+checked against every published Bray and ISORA high-point table.
 
-### High-point and bonus-point scoring systems
+Still unbuilt, and not to be built speculatively: **bonus point** (descending
+awards, e.g. 0 / 3 / 5.7 / 8 …, offered by Sailwave and HalSail), the
+percentage-of-fleet high point common in US college racing, and CHIPS3's
+relatives Cox-Sprague (RORC's) and Rinderle B (the Gulf of Maine Ocean Racing
+Association's). Each would be a new formula behind #745's choice, with a
+fixture, rather than a new model.
 
-The engine scores low-point (RRS Appendix A). Other published systems — **high-point**
-(score a percentage of the fleet; common in US college/team racing) and **bonus-point**
-(descending awards, e.g. 0 / 3 / 5.7 / 8 …) — are offered by Sailwave and HalSail. We
-don't have them and won't build them speculatively. Shape, when it comes: a per-series
-scoring-method selector that branches the points assignment and the A8 tie-break, with a
-fixture per method. #745 builds that selector with two high-point formulas, boats
-beaten (Bray's, below) and ISORA's CHIPS3, so another high-point system is a new
-formula behind it rather than a new model.
-
-**The first real user is Bray Sailing Club**, which has scored its dinghy series
-high-point for as long as anyone there remembers (Fiona Cassidy and Mark Henderson,
-October 2026). They are open to moving to low point, so the first conversation is
-whether they want high point carried over or would rather switch. The system is
-HalSail's "HP scoring": **one point for competing, one for finishing, one for each
-boat beaten**, so a DNF/DNS/RET/OCS scores 1, a DNC scores 0, and the lowest scores
-are the ones discarded. The 2023/24 and 2024 series, published from Sailwave under a
-system named "Bray Sailing Club", score the same without the point for competing,
-with DNS, DNF and RET at 1. #745 builds both, as its boats-beaten formula with and
-without that point. Every finish and code in the six `bray-archive` series matches
-once boats given redress are left out of the count of boats beaten; the redress
-averages are still to confirm.
-
-If Bray switches, it wants to keep what its high-point scale does for a boat that
-came out and didn't finish: DNF and DNS get a slight edge over a boat that didn't
-turn up. Its proposal is **DNC = entries + 2**, with the other codes at entries + 1,
-which is the low-point mirror of HP's 1-versus-0 and would be a fourth `dnfScoring`
-choice. Bray itself says there may be other ways to get there. The one the engine
-already has is A5.3 (`startingArea`), which keeps DNC at entries + 1 and scores the
-came-but-didn't-finish codes at boats in the starting area + 1. That edge is far from
-slight on Bray's turnout: the Sunday Dinghy Series 2025 had 49 entries and about 10
-starters a race, so a DNF would score about 11 against a DNC's 50. Settle which of
-the two Bray wants as part of the same conversation.
-
-### Fleet-size-adjusted high point: CHIPS3 *(graduated to active work)*
-
-ISORA's system — high point, CHIPS3 fleet-size normalisation, a difficulty
-weight per race, best five to count — is no longer speculative. It is researched
-and validated against every table ISORA published for 2024–2026 in
-`docs/design/isora.md`, and tracked in #744. The engine work is #745, and the
-"best N" discards and per-sub-series discards it needs are #746 and #747.
-
-The research corrected two assumptions this entry made. ISORA's DNF is not "the
-points for last-plus-one" but a fixed value — 10 × weight in 2024 and 2025, 15 ×
-weight in 2026. And since 2025 the fleet size is the boats *entered* in the race,
-not the starters. The other members of the family — Cox-Sprague (RORC's) and
-Rinderle B (the Gulf of Maine Ocean Racing Association's) — would be further formulas
-under #745's points-system choice; build them only for a user.
+**Bray's open question.** Bray has scored its dinghy series high point for as
+long as anyone there remembers (Fiona Cassidy and Mark Henderson, October 2026),
+and is open to moving to low point. If it switches, it wants to keep the slight
+edge its high-point scale gives a boat that came out and didn't finish over one
+that didn't turn up. Its proposal, **DNC = entries + 2** with the other codes at
+entries + 1, is now a series code change (#717: DNC as a place after entries,
+plus 2). The alternative already in the engine is A5.3 (`startingArea`), but on
+Bray's turnout that edge is far from slight: the Sunday Dinghy Series 2025 had
+49 entries and about 10 starters a race, so a DNF would score about 11 against a
+DNC's 50. Settle which Bray wants when it decides whether to switch.
 
 ### Configurable minimum-competitors-per-race rule
 
