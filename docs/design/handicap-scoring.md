@@ -1106,10 +1106,10 @@ dominated by that day's luck.
 
 | Sailwave | Ours | Means |
 |----------|------|-------|
-| BCR | — | Rating that would tie **the winner** |
+| BCR | **Rating to win** (race-table column, #755) | Rating that would tie **the winner** |
 | BCR × EchoIndex | **PI** (ECHO), **Q** (NHC1) | Rating that would tie **the fleet** |
 | ECHO / NHC new rating | **New H**, **New TCF** | Only `α` of the way to PI / Q |
-| BCE | — | Not computed anywhere |
+| BCE | **Time to win** (race-table column, #755) | Elapsed time to save to tie **the winner** |
 
 The middle row is an exact identity, not an analogy. Sailwave's `SWECHO`
 spreadsheet computes the raw BCR and then re-aligns it by
@@ -1162,12 +1162,12 @@ in the engine currently does.
 
 **The real gap is static fleets.** PI and Q exist only for progressive
 fleets, because they are steps in an adjustment the engine performs itself.
-A scratch, IRC, PY, or VPRS fleet gets no back-calculated rating at all —
-which is precisely the rating-committee case, where the numbers do not move
-on their own and a human needs the evidence to move them. Both halves are
-captured under **Results analytics** in
-[`docs/design/horizon.md`](horizon.md): *time-to-win* is BCE, and *handicap
-analysis* is BCR for systems whose rating is static.
+For an IRC, PY, or VPRS fleet, the opt-in Time to win and Rating to win
+race-table columns now give one race's BCE and BCR (#755). That is not
+enough for the rating-committee case, where the numbers do not move on
+their own and a human needs evidence gathered across a series to move them.
+That half stays under **Results analytics** in
+[`docs/design/horizon.md`](horizon.md) as *handicap analysis*.
 
 Source for the Sailwave behaviour, which its user guide does not document:
 the Sailwave user group threads

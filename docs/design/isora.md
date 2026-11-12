@@ -137,9 +137,11 @@ both coastal series and the Royal Dee championship, which are complete.
 | Fleet column (the boat's IRC class) | the Class column; the design goes in a custom field |
 | Sailwave `.blw` | import (deferred, #754), which needs a sample file from ISORA |
 
-Penalties, moving boats up behind a penalised boat (NoR 17.5, deferred, #760) and the
-BCE / BCR / speed columns (#755) are ISORA requirements no published race
-exercises yet. Two points to confirm with ISORA: NoR 8.3 still says
+Penalties and moving boats up behind a penalised boat (NoR 17.5, deferred, #760)
+are ISORA requirements no published race exercises yet. Sailwave's BCE, BCR and
+average-speed columns, which ISORA prints on its race tables, are the opt-in
+Time to win, Rating to win and Speed columns (#755); Speed needs each start's
+course length. Two points to confirm with ISORA: NoR 8.3 still says
 "disqualification" beside the 30%, and whether its 44.3(c) penalty is meant in
 places, as 17.5's wording implies, or as 20% of the fixed DNF score, which
 would be 3 points.

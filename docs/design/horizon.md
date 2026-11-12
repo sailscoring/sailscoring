@@ -2110,9 +2110,12 @@ Candidate analyses, roughly in order of usefulness:
 - **Time-to-win.** For a handicap race, how much faster each boat would have needed to
   sail to win — the corrected-time gap to first, expressed as elapsed time. Makes a
   handicap result legible to a sailor who only knows their own finish time ("you were 90
-  seconds off winning"). Pure post-processing of finishes already in the engine. The
-  per-race column — Sailwave's BCE, with BCR beside it — is now #755, because ISORA
-  publishes both on every race table. The series-level analysis below stays here.
+  seconds off winning"). The per-race columns landed with #755: Time to win (Sailwave's
+  BCE), Rating to win (BCR) and Speed, opt-in on published race tables. What stays here
+  is a scorer-facing view. The race page has no results table, so a scorer sees corrected
+  times, Delta and these columns only on a published page or in Preview. #755 proposed a
+  per-fleet results table on the race page, under an *Analysis* disclosure, and left it
+  for later.
 - **Handicap analysis.** Each boat's performance *relative to its own rating* across the
   series — are they consistently over- or under-performing their handicap? Distinct from
   the progressive-rating evolution captured under "Series-level rating-history page"

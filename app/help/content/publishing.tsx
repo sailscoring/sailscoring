@@ -529,7 +529,27 @@ export default function Publishing() {
               retitled, except Points. While a series has its own columns, the rating-calculation and
               per-race-rating settings live here rather than on the Publishing card.
             </li>
+            <li>
+              Three race-results columns are off until you tick them, for handicap fleets:{' '}
+              <strong className="text-foreground">Time to win</strong>, how much less elapsed time a
+              boat needed to tie the winner on corrected time;{' '}
+              <strong className="text-foreground">Rating to win</strong>, the rating that would have
+              tied the winner on the boat’s elapsed time; and{' '}
+              <strong className="text-foreground">Speed</strong>, the course length over the elapsed
+              time. They are Sailwave’s BCE, BCR and speed columns; retitle them that way if your
+              readers know them by those names. A boat that sailed fewer laps is worked from its
+              time scaled to the full course, so its speed is over the laps it sailed. Speed needs the
+              start’s <strong className="text-foreground">Course length</strong>, which the start
+              dialog asks for once the column is shown. Time and rating to win are left off an ORC
+              race scored time-on-distance or on performance curves, which correct by subtraction
+              rather than by a multiplier.
+            </li>
           </ul>
+          <HelpShot
+            src="/help/shots/race-time-to-win.webp"
+            alt="An IRC race table in Preview with Time to win, Rating to win and Speed columns after Delta."
+            caption="Time to win, Rating to win and Speed on an IRC race table: the winner’s time to win is blank and its rating to win is its own TCC."
+          />
           <p>
             A <strong className="text-foreground">custom field</strong> is a text field you add to a
             series and name — a WASZP rig size, a sponsor. Add one under{' '}

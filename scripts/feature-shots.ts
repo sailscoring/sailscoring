@@ -2585,7 +2585,83 @@ const SHOTS: Shot[] = [
       await shot('mixed-laps.png');
     },
   },
+  {
+    // Inventory: Time to win, rating to win and speed — an IRC race table in
+    // Preview with the three columns on. Sets the series' own columns and
+    // gives race 1's starts a course length, then puts both back.
+    slug: 'race-time-to-win',
+    group: 'Publishing',
+    async capture({ page, seriesId, shot }) {
+      if (!LOCAL) throw new Error('race-time-to-win changes the series, so it is local-mode only');
+      await ensureFeature(page, 'custom-columns');
+      const id = await seriesId();
+      await page.goto(`${BASE}/series/${id}/settings`);
+      await settle(page);
+      const heading = page.getByRole('heading', { name: 'Competitor fields' });
+      await heading.locator('..').getByRole('button', { name: 'Edit ▸' }).click();
+      await page.getByRole('button', { name: /^(Change|Edit) results columns…$/ }).click();
+      const dialog = page.getByTestId('results-columns-dialog');
+      const intro = dialog.getByRole('button', { name: 'Set this series’ columns' });
+      if (await intro.isVisible()) await intro.click();
+      for (const name of ['Time to win', 'Rating to win', 'Speed (kn)']) {
+        const box = dialog.getByRole('checkbox', { name: `Show ${name}` });
+        if (!(await box.isChecked())) {
+          await box.click();
+          await expectChecked(box);
+        }
+      }
+      await dialog.getByRole('button', { name: 'Done' }).click();
+      await dialog.waitFor({ state: 'hidden' });
+      await dbSetRaceDistance(id, 1, 6.4);
+      try {
+        await page.goto(`${BASE}/series/${id}/standings`);
+        await settle(page);
+        await page.getByRole('button', { name: 'Preview', exact: true }).click();
+        const preview = page.getByRole('dialog');
+        await preview.getByRole('heading', { name: 'Preview results' }).waitFor();
+        const frame = page.frameLocator('iframe[title="Results preview"]');
+        const table = frame.locator('#r1');
+        await table.waitFor();
+        // The race's heading at the top of the preview, its table below.
+        await table.evaluate((el) => el.scrollIntoView({ block: 'start' }));
+        await settle(page);
+        await shot('race-time-to-win.png');
+        await page.keyboard.press('Escape');
+        await preview.waitFor({ state: 'hidden' }).catch(() => {});
+      } finally {
+        await dbSetRaceDistance(id, 1, null);
+        await page.goto(`${BASE}/series/${id}/settings`);
+        await settle(page);
+        await heading.locator('..').getByRole('button', { name: 'Edit ▸' }).click();
+        await page.getByRole('button', { name: /^(Change|Edit) results columns…$/ }).click();
+        await dialog.getByRole('button', { name: 'Use automatic columns' }).click();
+        await dialog.getByTestId('automatic-confirm').getByRole('button', { name: 'Use automatic columns' }).click();
+        await dialog.waitFor({ state: 'hidden' });
+      }
+    },
+  },
 ];
+
+/** Wait for a controlled checkbox to show the state its save settled on. */
+async function expectChecked(box: ReturnType<Page['locator']>): Promise<void> {
+  for (let i = 0; i < 50 && !(await box.isChecked()); i++) await box.page().waitForTimeout(100);
+  if (!(await box.isChecked())) throw new Error('checkbox did not turn on');
+}
+
+/** Set (or, with null, clear) the course length of a race's starts at the
+ *  database: the sample's starts carry none, and the start dialog's edit
+ *  path is not what the shot is of. Local mode only. */
+async function dbSetRaceDistance(seriesId: string, raceNumber: number, distanceNm: number | null): Promise<void> {
+  if (!LOCAL) throw new Error('dbSetRaceDistance is local-mode prep only');
+  const url = process.env.DATABASE_URL;
+  if (!url) throw new Error('DATABASE_URL not set — run via pnpm feature-shots:local');
+  const sql = postgres(url, { max: 1 });
+  try {
+    await sql`update race_starts set distance_nm = ${distanceNm} where race_id in (select id from races where series_id = ${seriesId} and race_number = ${raceNumber})`;
+  } finally {
+    await sql.end();
+  }
+}
 
 /** Open a published fleet page (by URL substring) in the anonymous context,
  *  resolved via the workspace's public index. */

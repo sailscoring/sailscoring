@@ -55,7 +55,10 @@ Scoped October 2026.
 - **The scoring columns stay in order and can't be moved, only hidden or
   retitled**: a fixed-handicap fleet's Rating, races, Total and Nett in the standings, and the
   elapsed/rating/corrected sequence in race results. The arithmetic
-  reads left to right. The race columns themselves can't be hidden.
+  reads left to right. The race columns themselves can't be hidden. A few
+  scoring columns are off until the series ticks them: the IRC certificate a
+  boat declared, and time to win, rating to win and speed over the course
+  (Sailwave's BCE, BCR and speed).
 - **A column shows only where it means something.** A CT column stays off a
   scratch fleet's table, and a column that hides when empty stays off a
   table where no boat has a value. That decides which tables a column
