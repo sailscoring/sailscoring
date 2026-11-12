@@ -213,6 +213,10 @@ export interface RaceData {
    *  publishing officials. */
   officials?: RaceOfficial[];
   startTime?: string; // "HH:MM:SS" gun time for this fleet (handicap fleets only)
+  /** The course length this fleet sailed, in nautical miles: its start's
+   *  distance, or for an ORC race the distance it was corrected over. The
+   *  Speed column divides it by each boat's elapsed time. */
+  distanceNm?: number;
   results: RaceResultData[];
   /** True when the fleet uses NHC scoring. Drives the "TCF" rating column
    *  label (vs. "TCC") and, when nhcHeader is also set, the explainability
@@ -441,6 +445,11 @@ export interface RaceResultData {
    *  recorded one. */
   elapsedTimeSecs?: number;
   correctedTimeSecs?: number; // elapsedTimeSecs × tcc, rounded half-up to the same unit
+  /** Mixed laps: a boat on fewer laps than the most has its elapsed time
+   *  scaled up to the full course before it is corrected; this is that
+   *  scaled time. Absent where the boat sailed the full course, whose
+   *  full-course time is its elapsed time. */
+  courseElapsedTimeSecs?: number;
   /** Mixed laps: the laps this boat sailed, set on every finisher of a fleet
    *  whose boats sailed different numbers. A boat on fewer than the most was
    *  corrected on the full course, so its CT is not its ET × TCF. */
@@ -2749,6 +2758,15 @@ function renderRaceTable(
         null,
       )
     : null;
+  // Time and rating to win solve the time-on-time correction for the
+  // winner's corrected time. A time-on-distance or performance-curve race
+  // corrects by a subtraction against the scratch boat, so there is no one
+  // multiplier to solve for, and neither column is drawn. Each column, and
+  // Speed, is drawn only where some boat in the table has a value.
+  const timeOnTime = winnerCtSecs !== null && !isOrcTod;
+  const showTimeToWin = timeOnTime && view.scoringShown('timeToWin');
+  const showRatingToWin = timeOnTime && view.scoringShown('ratingToWin');
+  const showSpeed = view.scoringShown('speed') && race.results.some((r) => speedKn(r, race.distanceNm) != null);
   // Detect ties in within-fleet rank
   const rankCounts = new Map<number, number>();
   for (const r of race.results) {
@@ -2807,6 +2825,36 @@ function renderRaceTable(
           cell: (r: RaceResultData) =>
             `<td class="mono">${winnerCtSecs !== null && r.rank !== null && r.correctedTimeSecs != null ? formatTimeBehind(r.correctedTimeSecs - winnerCtSecs) : ''}</td>`,
         },
+        ...(showTimeToWin
+          ? [{
+              key: 'timeToWin' as const,
+              col: '<col class="bce" />',
+              th: head('timeToWin', 'Time to win', ' title="How much less elapsed time the boat needed to tie the winner on corrected time (BCE)"'),
+              cell: (r: RaceResultData) => {
+                const secs = timeToWinSecs(r, winnerCtSecs!);
+                return `<td class="mono">${secs != null ? formatTimeBehind(secs) : ''}</td>`;
+              },
+            }]
+          : []),
+        ...(showRatingToWin
+          ? [{
+              key: 'ratingToWin' as const,
+              col: '<col class="bcr" />',
+              th: head('ratingToWin', 'Rating to win', ' title="The rating that would have tied the winner on this elapsed time (BCR)"'),
+              cell: (r: RaceResultData) => `<td class="mono">${ratingToWinText(r, winnerCtSecs!, { decimals: isOrcTot ? 4 : 3 })}</td>`,
+            }]
+          : []),
+        ...(showSpeed
+          ? [{
+              key: 'speed' as const,
+              col: '<col class="speed" />',
+              th: head('speed', 'Speed (kn)', ` title="Average speed over the ${race.distanceNm!.toFixed(2)} NM course"`),
+              cell: (r: RaceResultData) => {
+                const kn = speedKn(r, race.distanceNm);
+                return `<td class="mono">${kn != null ? kn.toFixed(2) : ''}</td>`;
+              },
+            }]
+          : []),
       ].filter((c) => view.scoringShown(c.key))
     : [];
   const showIw = isOrcPcs && view.scoringShown('impliedWind');
@@ -3403,6 +3451,70 @@ export function formatPoints(n: number): string {
   return n.toFixed(1);
 }
 
+/**
+ * Time to win (Sailwave's BCE): how much less elapsed time a boat needed to
+ * tie the winner on corrected time, `ET − CT_winner ÷ TCF`. A boat on fewer
+ * laps than the most was corrected on its time scaled up to the full course,
+ * so the time it needed is scaled back down to the laps it sailed. Truncated
+ * to the second, as Sailwave prints it. Null for the winner, whose gap is
+ * nothing, and for a boat out of the ranking.
+ */
+export function timeToWinSecs(
+  r: Pick<RaceResultData, 'rank' | 'tcc' | 'elapsedTimeSecs' | 'courseElapsedTimeSecs' | 'correctedTimeSecs'>,
+  winnerCtSecs: number,
+): number | null {
+  if (r.rank === null || r.tcc == null || r.tcc <= 0 || r.elapsedTimeSecs == null || r.correctedTimeSecs == null) return null;
+  if (r.correctedTimeSecs <= winnerCtSecs) return null;
+  const courseEt = r.courseElapsedTimeSecs ?? r.elapsedTimeSecs;
+  if (courseEt <= 0) return null;
+  const needed = (winnerCtSecs / r.tcc) * (r.elapsedTimeSecs / courseEt);
+  // The epsilon keeps float noise just under a whole second from losing it.
+  return Math.max(0, Math.floor(r.elapsedTimeSecs - needed + 1e-6));
+}
+
+/**
+ * Rating to win (Sailwave's BCR): the rating that would have tied the winner
+ * on this boat's elapsed time, `CT_winner ÷ ET`, over the full course for a
+ * boat on fewer laps. The winner's is its own rating. Null for a boat out of
+ * the ranking.
+ */
+export function ratingToWin(
+  r: Pick<RaceResultData, 'rank' | 'tcc' | 'elapsedTimeSecs' | 'courseElapsedTimeSecs' | 'correctedTimeSecs'>,
+  winnerCtSecs: number,
+): number | null {
+  if (r.rank === null || r.tcc == null || r.elapsedTimeSecs == null || r.correctedTimeSecs == null) return null;
+  if (r.correctedTimeSecs <= winnerCtSecs) return r.tcc;
+  const courseEt = r.courseElapsedTimeSecs ?? r.elapsedTimeSecs;
+  return courseEt > 0 ? winnerCtSecs / courseEt : null;
+}
+
+/** Rating to win as the rating column prints the boat's rating: a PY or YTC
+ *  fleet as the whole yardstick number (1000 ÷ the factor), anything else to
+ *  the decimals its rating column uses. */
+export function ratingToWinText(
+  r: Pick<RaceResultData, 'rank' | 'tcc' | 'yardstickNumber' | 'elapsedTimeSecs' | 'courseElapsedTimeSecs' | 'correctedTimeSecs'>,
+  winnerCtSecs: number,
+  opts: { decimals: number },
+): string {
+  const factor = ratingToWin(r, winnerCtSecs);
+  if (factor == null) return '';
+  if (r.yardstickNumber != null) {
+    return factor === r.tcc ? formatRatingValue(r.yardstickNumber, 'py') : String(Math.round(1000 / factor));
+  }
+  return factor.toFixed(opts.decimals);
+}
+
+/** Speed over the course in knots: the course length over the elapsed time.
+ *  A boat on fewer laps sailed that share of the course, which comes to the
+ *  course length over its time scaled up to the full course. */
+export function speedKn(
+  r: Pick<RaceResultData, 'elapsedTimeSecs' | 'courseElapsedTimeSecs'>,
+  distanceNm: number | undefined,
+): number | null {
+  const et = r.courseElapsedTimeSecs ?? r.elapsedTimeSecs;
+  return distanceNm != null && distanceNm > 0 && et != null && et > 0 ? distanceNm / (et / 3600) : null;
+}
+
 /** A boat's corrected time behind the winner, always as h:mm:ss — the gaps
  *  are mostly minutes, and "0:03:12" reads as a time where "3:12" might not.
  *  A fraction is kept to the millisecond, the finest unit a race is timed in,
@@ -3738,7 +3850,7 @@ export function assembleSeriesResultsData(
     /** The series' own results columns; absent = automatic columns. */
     resultsColumns?: ResultsColumn[];
     /** RaceStart records for all races — used to find the gun time for this fleet */
-    raceStarts?: Array<{ raceId: string; fleetIds: string[]; startTime?: string; courseLegs?: OrcCourseLeg[]; course?: RaceStartCourse }>;
+    raceStarts?: Array<{ raceId: string; fleetIds: string[]; startTime?: string; distanceNm?: number; courseLegs?: OrcCourseLeg[]; course?: RaceStartCourse }>;
     /** ID of the fleet being rendered */
     fleetId?: string;
     /** Scoring system of the fleet */
@@ -3810,10 +3922,15 @@ export function assembleSeriesResultsData(
   // the handicap ones: a scratch fleet is scored on the order alone, but the
   // gun is still what turns its recorded times into elapsed times to publish.
   const startTimeByRaceId = new Map<string, string>();
+  // And the course length the fleet's start records, for the Speed column.
+  const distanceNmByRaceId = new Map<string, number>();
   if (raceStarts && fleetId) {
     for (const rs of raceStarts) {
       if (rs.raceId && rs.fleetIds.includes(fleetId) && rs.startTime) {
         startTimeByRaceId.set(rs.raceId, rs.startTime);
+      }
+      if (rs.raceId && rs.fleetIds.includes(fleetId) && rs.distanceNm != null && rs.distanceNm > 0) {
+        distanceNmByRaceId.set(rs.raceId, rs.distanceNm);
       }
     }
   }
@@ -4050,6 +4167,9 @@ export function assembleSeriesResultsData(
         ...publishedCell(score, startSecs, { publishTrackData: showTrackData === true }),
         ...(elapsedTimeSecs != null ? { elapsedTimeSecs } : {}),
         ...(correctedTimeSecs != null ? { correctedTimeSecs } : {}),
+        ...(elapsedTimeSecs != null && score.courseElapsedTime != null && score.courseElapsedTime !== elapsedTimeSecs
+          ? { courseElapsedTimeSecs: score.courseElapsedTime }
+          : {}),
         ...(isHandicap && score.laps != null ? { laps: score.laps } : {}),
         ...(nhcCell ? { nhc: nhcCell } : {}),
         ...(echoCell ? { echo: echoCell } : {}),
@@ -4080,6 +4200,12 @@ export function assembleSeriesResultsData(
       ...(hasConditions(race.conditions) ? { conditions: race.conditions } : {}),
       ...(publishOfficials && hasOfficials(race.officials) ? { officials: race.officials } : {}),
       ...(startTime ? { startTime } : {}),
+      // An ORC race states the distance it was corrected over, which a
+      // constructed course takes from its legs rather than the start.
+      ...(() => {
+        const distanceNm = orcHeaderData?.distanceNm ?? distanceNmByRaceId.get(race.id);
+        return distanceNm != null ? { distanceNm } : {};
+      })(),
       ...(scoringSystem === 'nhc' ? { isNhc: true } : {}),
       ...(ratingColumnLabel ? { ratingColumnLabel } : scoringSystem === 'py' ? { ratingColumnLabel: 'PY' } : scoringSystem === 'ytc' ? { ratingColumnLabel: 'YTC' } : {}),
       ...(scoringSystem === 'echo' ? { isEcho: true } : {}),

@@ -99,6 +99,9 @@ export const RACE_SCORING_COLUMNS = [
   'certificate',
   'corrected',
   'delta',
+  'timeToWin',
+  'ratingToWin',
+  'speed',
   'impliedWind',
   'newRating',
   'ratingCalculations',
@@ -115,8 +118,10 @@ export type StandingsScoringColumnKey = (typeof STANDINGS_SCORING_COLUMNS)[numbe
 export type RaceScoringColumnKey = (typeof RACE_SCORING_COLUMNS)[number];
 
 /** Scoring columns a table shows only when the series turns them on: the
- *  certificate a boat raced on is for organisers who publish the declaration. */
-export const OPT_IN_SCORING_COLUMNS: readonly string[] = ['certificate'];
+ *  certificate a boat raced on is for organisers who publish the declaration,
+ *  and the time and rating to win and the speed over the course for those
+ *  who publish Sailwave's BCE, BCR and speed columns. */
+export const OPT_IN_SCORING_COLUMNS: readonly string[] = ['certificate', 'timeToWin', 'ratingToWin', 'speed'];
 
 /** Scoring columns that can be retitled but not hidden: a race table is its
  *  points. */
@@ -790,6 +795,9 @@ export const SCORING_COLUMN_NAMES: Record<StandingsScoringColumnKey | RaceScorin
   certificate: { name: 'Certificate', detail: 'P or S: the IRC certificate a boat declared', titled: true },
   corrected: { name: 'CT', detail: 'Corrected time', titled: true },
   delta: { name: 'Delta', detail: 'Corrected time behind the winner', titled: true },
+  timeToWin: { name: 'Time to win', detail: 'BCE: elapsed time a boat had to save to tie the winner', titled: true },
+  ratingToWin: { name: 'Rating to win', detail: 'BCR: the rating that would have tied the winner', titled: true },
+  speed: { name: 'Speed (kn)', detail: 'the start’s course length over the elapsed time', titled: true },
   impliedWind: { name: 'Implied wind', detail: 'ORC performance curves', titled: true },
   newRating: { name: 'New TCF / New H', detail: 'the next race’s rating', titled: true },
   ratingCalculations: { name: 'Rating calculations', detail: 'the NHC and ECHO working', titled: false },

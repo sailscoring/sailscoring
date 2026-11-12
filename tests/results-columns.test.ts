@@ -64,3 +64,22 @@ describe('the standings Rating column', () => {
     expect(scoringColumnShown({ resultsColumns: [{ key: 'boatRating', hidden: true }] }, 'boatRating')).toBe(false);
   });
 });
+
+describe('time to win, rating to win and speed', () => {
+  const keys = ['timeToWin', 'ratingToWin', 'speed'] as const;
+
+  it('are offered on any handicap series, after Delta', () => {
+    const ctx = { handicap: true, fixedRating: true, progressive: false, orc: false, trackData: false };
+    const races = applicableScoringColumns(ctx).races;
+    expect(races.slice(races.indexOf('delta'), races.indexOf('delta') + 4)).toEqual(['delta', ...keys]);
+    expect(applicableScoringColumns({ ...ctx, handicap: false, fixedRating: false }).races).not.toContain('speed');
+  });
+
+  it('are off until the series turns them on, even in a list that predates them', () => {
+    for (const key of keys) {
+      expect(scoringColumnShown({}, key)).toBe(false);
+      expect(scoringColumnShown({ resultsColumns: [{ key: 'sailNumber' }, { key: 'primary' }] }, key)).toBe(false);
+      expect(scoringColumnShown({ resultsColumns: [{ key }] }, key)).toBe(true);
+    }
+  });
+});
