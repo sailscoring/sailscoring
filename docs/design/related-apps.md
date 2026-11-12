@@ -43,6 +43,7 @@ Studied but not integrated:
 | App | What it is | The obvious integration |
 |-----|------------|-------------------------|
 | [Pwllheli Race Officer](https://github.com/mojito9047/pwllheli-race-officer) | Race management for Pwllheli SC on a Windows PC in the start hut: course recommendation, RRS 26 start sequences driving a horn, start and finish video, GPS finish detection, live public pages and a TV display in the bar, 3D replays. It also scores IRC/YTC races and series under Appendix A. | It exports Sailwave CSV for importing elsewhere and has a read-only JSON API for the current race and its marks. A Sail Scoring import from either is the route. The code is All Rights Reserved, so we can read it for ideas but not reuse it. |
+| [Performance Factor](https://github.com/gregw/sailing-pf/wiki) | An experimental, open-source (Apache 2.0) database of Australian keelboat elapsed times. It back-calculates each boat's historical performance against certificate-anchored reference factors, and says it "can be used to inform initial PHS handicap allocation". It imports TopYacht and SailSys results, though fetching from SailSys was switched off at SailSys's request. | Reading our published results through the results API (ADR-015) is the same kind of import. Its method is relevant to [*Handicap allocation*](horizon.md#handicap-allocation). |
 | [Mojito RTC TWA calculator](https://github.com/mojito9047/mojito-rtc-twa-calculator) | Leg-by-leg bearings, wind angles and target speeds for one J/122. It reads the course from Pwllheli Race Officer's API. | The same kind of consumer our race schedule and courses could serve. |
 
 ## Alternatives
@@ -58,7 +59,8 @@ handle particular formats is covered in the design docs, notably
 | [Manage2Sail](https://www.manage2sail.com) | Entries, notice board and the ORM scorer. Has qualifying/final series natively. |
 | Sailti | Results platform for many international class championships. |
 | ORC Scorer | ORC's own scoring program for ORC events. |
-| [TopYacht](https://www.topyacht.com.au) | Australian scoring and entries. Also produces the IRC rating listing. |
+| [TopYacht](https://www.topyacht.com.au) | Australian desktop scoring, with TES for online entries and TY-Res, a shared online results and handicap database. Strong in keelboat performance handicapping: between races, the club handicapper adjusts each boat's next handicap in TES. Also produces the IRC rating listing. Technical documents in `reference-docs:tool-manuals/topyacht/`. |
+| [SailSys](https://www.sailsys.com.au) | Sydney cloud race management: entries, sub-series, on-the-water time capture, and fleet and pursuit races under PHS, IRC, ORCi or SMS. Its PHS handicapping is proprietary (John Maclurcan's, used for CYCA PHS racing). Its selling point is allocating starting handicaps from a cross-club history of PHS handicaps, searched by boat or by design. See [*Handicap allocation*](horizon.md#handicap-allocation) and `reference-docs:tool-manuals/sailsys/`. |
 | ZW | Dutch scoring tool with automated group assignment for split fleets. |
 | St Pete Scorer | IODA's co-recommendation alongside Sailwave. |
 | KSail | Listed by World Sailing as integrated with Sailor ID. |

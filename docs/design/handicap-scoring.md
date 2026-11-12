@@ -490,7 +490,9 @@ Three sources are recognised:
 The implementation surfaces a per-competitor starting-handicap
 field and leaves the choice to the scorer. The IS guide recommends
 basing opening handicaps on "known performance whenever possible
-and not Standard ECHO ratings" for club racing.
+and not Standard ECHO ratings" for club racing. Helping whoever allocates
+those numbers, the club's handicap committee, is deferred:
+[`horizon.md`](horizon.md#handicap-allocation) → *Handicap allocation*.
 
 #### Scoring-inquiry exclusions
 

@@ -1568,6 +1568,85 @@ algorithm — out of scope for the first pass, captured so it isn't lost:
 Detail in `docs/design/handicap-scoring.md` (ECHO → "Out of scope (first
 ECHO pass): certificate-layer features").
 
+### Handicap allocation
+
+The engine takes each boat's starting handicap as given. The scorer either
+types an `echoStartingTcf` or `nhcStartingTcf`, or carries one over from an
+earlier series with Update handicaps or a follow-on rollover. In practice
+someone *allocates* that number, and doing so takes judgement. At HYC a
+handicap allocation committee does it, working from past results, comparison
+with similar boats, and what it knows of the boat, owner and crew. Irish
+Sailing's ECHO guide for clubs expects a "club handicap committee/officer" to
+do the same:
+
+- base opening handicaps on known performance, not Standard ECHO;
+- protect the regular fleet from occasional entrants with Standard + 5%
+  (DBSC uses + 3%);
+- give an existing crew in a new boat a handicap that reflects their old
+  boat's form;
+- set the next series's handicaps from the mean or median of each boat's
+  performance indices.
+
+ECHO Rule 7.2 puts a newly rated boat on Standard + 7.5%, which a committee
+can move to anywhere between + 1% and + 10%.
+
+Sail Scoring supports none of this. It is the part of handicapping that
+comparable tools sell on:
+
+- **SailSys** (Sydney) leads with allocation. It keeps a cross-club "data
+  centre" of historic PHS handicaps, searched by boat name, sail number, make
+  or model. A handicapper takes a starting number from the boat's own history
+  or from similar boats, and a common scale across clubs lets those numbers
+  transfer.
+- **TopYacht**'s entry system gives the club handicapper a screen for
+  adjusting each boat's computed next-race handicap between races. It also
+  publishes a review-request form addressed to the Handicap Committee. For a
+  regatta with no trustworthy starting numbers, its method is to sail three
+  or four races at 1.0 without publishing handicap results. Each boat's
+  average back-calculated handicap then becomes its race-1 handicap and every
+  race is rescored.
+
+The captures are in `reference-docs:tool-manuals/sailsys/` and
+`reference-docs:tool-manuals/topyacht/`. See also
+[`related-apps.md`](related-apps.md).
+
+The pieces we could build, most valuable first:
+
+- **Evidence beside the field.** Show next to a starting handicap what the
+  committee would otherwise go looking for. That means this boat's handicaps
+  in the workspace's past series (the competitor-identity spine already links
+  them), its certificates (the Irish Sailing ECHO list, IRC, YTC), and the
+  current handicaps of boats of the same design. The same helm or owner in a
+  different boat is the harder match.
+- **A default rule for boats with no history.** A per-fleet rule such as
+  "Standard ECHO + 5%" turns allocation into reviewing exceptions rather than
+  setting every boat.
+- **Provenance.** Record where each starting handicap came from (carried
+  over, a rule, or the committee), who set it, and a note. Today the number
+  has no history.
+- **Mid-series adjustment.** Progressive fleets ignore `RaceRatingOverride`.
+  So there is no way, short of editing the starting TCF and re-flowing the
+  whole series, to act on any of these:
+  - a material change (ECHO Rule 3.2);
+  - an upgraded-crew declaration, which raises the TCF for that race or
+    event only;
+  - a change SailSys calls the "handicapper's prerogative".
+
+  The fix is an override of the progressive handicap for one race, or from a
+  given race on.
+- **Re-seeding from the first races.** TopYacht's method, as an explicit
+  action. It rescores races already sailed, so the SIs have to allow it, and
+  it is only sensible while the handicap results are unpublished.
+
+Further out:
+
+- a competitor's request for a handicap review, with the committee's decision
+  kept on record;
+- a handicapper role distinct from scorer;
+- searching handicap history across workspaces, as SailSys does across
+  clubs. Workspaces are closed units, so this needs a consent model, though
+  published results are already public.
+
 ### PHRF (time-on-distance)
 
 PHRF (Performance Handicap Racing Fleet) is the dominant North American keelboat
