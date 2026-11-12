@@ -21,6 +21,7 @@ their club runs and scores its racing, and helped shape what it does:
 - **Ian Bowring** — Royal St George Yacht Club, Dublin Bay Sailing Club
 - **Fiona Cassidy** — Bray Sailing Club
 - **Gary Cullen** — Howth Yacht Club
+- **Peter Dunlop** — Pwllheli Sailing Club, ISORA, Mojito
 - **Mark Henderson** — Bray Sailing Club
 - **John Kelly** — Royal Irish Yacht Club, ORC Ireland
 - **Fergal Lyons** — Galway Bay Sailing Club, RaceOps

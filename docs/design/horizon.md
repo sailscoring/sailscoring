@@ -257,6 +257,40 @@ shape. That is a small change on the Tally side and it answers every objection
 above — a conversation to have with whoever maintains the service, not a feature
 to build around them. Until an event asks for it, this stays here.
 
+### Elapsed times from YB trackers
+
+Requested by Peter Dunlop (ISORA vice chairman), November 2026: take elapsed
+times from the YB trackers. ISORA's SIs require every boat to carry a YB unit,
+which ISORA lends for each race, and YB publishes feeds for each event from a
+links page ([ISORA 2026](https://yb.tl/Links/ISORA2026)):
+
+- an HTML leaderboard and a CSV text leaderboard (`yb.tl/l/isora2026`), whose
+  columns are rank, team, TCF, time (UTC), position, average COG and SOG, VMG
+  and distance to finish, under a "predicted or provisional" banner;
+- a KML of the tracks for Google Earth;
+- position feeds for navigation software (Expedition, MaxSea / TimeZero, Adrena).
+
+The leaderboard was empty when we looked, after the season, and its header has
+no finish or elapsed-time column. The first step is a feed captured during and
+after a race, to see whether a finished boat's time appears in it.
+
+The import would work like the RaceSense one: a finish sheet the scorer reviews
+before applying it. The feed is provisional, so it should not set results
+directly. That needs times only, not tracks, so it stays inside the line the
+sector time analysis entry draws. Deriving a finish from a track crossing a
+line we define would not.
+
+Open questions:
+
+- **What the time counts as.** Does the tracker time stand as the finish under
+  ISORA's SIs, or only as evidence when nobody took the finish on the line?
+- **Matching boats.** YB lists boats by its own team names, which have to be
+  matched to the entry list, as RaceSense imports do.
+- **Terms.** Whether YB allows its feeds to be read automatically, or offers an
+  API.
+- **Distance to finish.** The fixed-time distance races entry needs each boat's
+  distance to go at the gun. The leaderboard's DTF column might supply it.
+
 ---
 
 ## Competitor roster
