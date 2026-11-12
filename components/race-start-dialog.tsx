@@ -70,6 +70,7 @@ import {
   snapshotOfImportedCourse,
   type ConstructedCourse,
 } from '@/lib/orc-constructed-course';
+import { scoringColumnShown } from '@/lib/results-columns';
 import { normalizeTimeInput } from '@/lib/time-parse';
 import type { Competitor, Fleet, OrcCourseLeg, RaceStart, RaceStartCourse } from '@/lib/types';
 
@@ -127,6 +128,7 @@ export function RaceStartDialog(props: RaceStartDialogProps) {
       {...props}
       mode={props.mode}
       venuePosition={series?.venuePosition}
+      speedShown={series ? scoringColumnShown(series, 'speed') : false}
     />
   );
 }
@@ -142,7 +144,8 @@ function RaceStartDialogInner({
   onSave,
   onCancel,
   venuePosition,
-}: RaceStartDialogProps & { mode: RaceStartDialogMode; venuePosition?: Position }) {
+  speedShown,
+}: RaceStartDialogProps & { mode: RaceStartDialogMode; venuePosition?: Position; speedShown: boolean }) {
   const seed = mode.kind === 'edit' ? mode.start : null;
   const confirm = useConfirm();
   const { has } = useFeatures();
@@ -185,10 +188,13 @@ function RaceStartDialogInner({
   const selectedKind = orcOptionValue ? orcOptionKind(orcOptionValue) : null;
   // Course distance is a scoring input for ORC time-on-distance (and shown
   // whenever the series scores ORC at all, so the habit forms before the
-  // first ToD race rather than during it). The scoring-wind override only
+  // first ToD race rather than during it). Any other handicap fleet needs it
+  // only for the Speed column, so it is offered once the series publishes
+  // that — and wherever a length is stored. The scoring-wind override only
   // applies to Performance Curve Scoring, so it appears when this start or
   // some fleet's default resolves to PCS — or when a value is stored.
-  const offerDistance = hasOrcFleet;
+  const distanceForSpeed = speedShown && fleets.some((f) => f.scoringSystem !== 'scratch');
+  const offerDistance = hasOrcFleet || distanceForSpeed || seed?.distanceNm != null;
   const offerScoringWind =
     selectedKind === 'pcs' ||
     fleets.some((f) => f.scoringSystem === 'orc' && f.orcProfile?.kind === 'pcs') ||
@@ -699,9 +705,13 @@ function RaceStartDialogInner({
                   {legsTotal > 0 && <> ({legsTotal.toFixed(2)} NM)</>}. Clear it unless the
                   start will be scored another way.
                 </p>
-              ) : (
+              ) : hasOrcFleet ? (
                 <p className="text-xs text-muted-foreground">
                   Required to score a time-on-distance fleet; record it to 0.01 NM.
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Gives each boat’s speed over the course on the race’s results.
                 </p>
               )}
             </div>
