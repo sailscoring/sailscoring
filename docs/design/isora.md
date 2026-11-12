@@ -73,7 +73,8 @@ necessary any discarded scores", then the last race both boats sailed.
 - Standings: highest net wins. A fleet discards (races *it* sailed − N), the
   lowest scores, and among equal scores the earliest race.
 - Ties go to the better counted scores, compared highest first, then to the last
-  race. NoR 13.5 puts a head-to-head step before the last race (#753).
+  race. NoR 13.5 puts a head-to-head step before the last race, but the published
+  results follow plain A8 (deferred, #753).
 - Weights come from the race's SI. Where the schedule disagrees, the SI wins
   (NoR 2.7): 2025's race 07O1 is "1.1" in the schedule and 1.2 in its SI, and was
   scored at 1.2.
@@ -132,7 +133,7 @@ both coastal series and the Royal Dee championship, which are complete.
 | 10-hour distance race (2026, race 12 CW4) | entered as places on a timeless start (exists); native corrected-distance scoring is on the horizon |
 | "Results Matrix" pages: overall, two-handed and YTC on one, the classes on another, each opening on a fleets × races matrix (Sailwave's ScoredSeperatelyMatrix script) | combined pages (#255), two per series, with the race grid (#604) |
 | Fleet column (the boat's IRC class) | the Class column; the design goes in a custom field |
-| Sailwave `.blw` | import (#754), which needs a sample file from ISORA |
+| Sailwave `.blw` | import (deferred, #754), which needs a sample file from ISORA |
 
 Penalties, moving boats up behind a penalised boat (NoR 17.5, #760) and the
 BCE / BCR / speed columns (#755) are ISORA requirements no published race
