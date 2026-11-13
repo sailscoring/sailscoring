@@ -73,6 +73,8 @@ How it works, and why.
 - [`oss-health-report.md`](design/oss-health-report.md) — April 2026
   sustainability review of the Vercel / Next.js / Postgres stack; source
   of the commitments in ADR-008's *Sustainability posture* section.
+- [`voice-recording.md`](design/voice-recording.md) — recording
+  finishes by voice: how it works and the milestones (ADR-017, proposed).
 - [`related-apps.md`](design/related-apps.md) — other software we know
   of: apps built on Sail Scoring, apps it integrates with, alternatives,
   and adjacent apps.

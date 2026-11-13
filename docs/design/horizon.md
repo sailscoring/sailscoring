@@ -357,46 +357,26 @@ time is inside the window. The concrete beneficiary is HYC's Frostbites, a
 
 ### Voice-driven start check-in and finish recording
 
-A browser-based accessory to Sail Scoring that replaces the manual finish-line recording
-process on the committee boat. Today one race official hails each finisher ("1613… NOW")
-while two others write down the sail number and the time by hand, for redundancy and
-cross-checking. Instead, the app listens on a noise-cancelling headset mic and does two
-things **independently**: a tiny keyword-spotting model detects the word "NOW" to fix the
-timestamp, while a speech recogniser constrained to the event's actual entry list resolves
-the sail number. Keeping the two apart is the central design point — a misheard number can
-never corrupt a finish time.
+No longer only an idea: [ADR-017](decisions/017-voice-finish-recording.md)
+proposes how to build it, [`voice-recording.md`](voice-recording.md) has the
+milestones, and there is a prototype in `prototypes/voice/`. The caller
+calls each finisher as now, a phone listening through a headset takes the
+sheet down, and it reaches the scorer as a finish sheet submission (#671).
 
-Both run fully offline on-device using **sherpa-onnx**, the next-gen Kaldi speech toolkit,
-whose WebAssembly build brings streaming recognition, voice-activity detection and a
-purpose-built 3.3M-parameter English keyword spotter into the browser, with frame-aligned
-timestamps and runtime hotword biasing to the entry list. Offline matters for its own sake:
-there is no usable connectivity on a committee boat.
+The first cut that stood here proposed spotting the word "now" for the time
+and holding a speech recogniser to the entry list for the number. A bench
+found neither worked, and the ADR records what replaced them. Two things
+from that cut are still out here, beyond the milestones:
 
-The raw audio is **always** recorded to disk as the authoritative record, and the software
-is assistive rather than autonomous. After the finish it produces a reviewable timeline —
-waveform plus detected hails — that officials confirm and correct, preserving the human
-cross-check the current paper system relies on, providing an auditable artefact for protest
-and redress hearings, and outputting confirmed finish times directly into the existing
-scoring pipeline. That puts it in the same family as attaching committee-boat finish-sheet
-photos to a race (below): a primary-source artifact kept with the race it documents, rather
-than in a drive nobody can find six months later.
-
-The same listening pipeline covers **start check-in**, which is the simpler half: only the
-constrained sail-number recogniser is needed, with no "NOW" timestamp, to mark which
-entrants are actually on the water — the job the printed starters checklist does with a
-pencil tick, and the thing that separates a genuine DNC from a boat that started.
-
-Not a third-party integration. It is a first-party accessory to the app, sharing the entry
-list it constrains recognition against and writing back through the same surface; if it does
-ride `/api/v1` it needs a low-latency write path that tolerates corrections and ambiguous
-identifiers. Finish sheet submissions (#671) are that write path: a whole-sheet recording
-the scorer reviews before applying, with unmatched sail numbers kept as unresolved
-crossings. The voice accessory would be one more submitter.
-
-If real-world trials expose browser limitations — iOS backgrounding killing the mic stream
-being the likeliest — the same web app can be wrapped in Capacitor and switched to
-sherpa-onnx's native Swift/Kotlin bindings, so shipping a native app later is a swap of the
-audio layer rather than a rewrite.
+- **A timeline to review.** The recording as a waveform with each call
+  marked on it, where a time is corrected by dragging its mark. The
+  milestones stop at playing a line's few seconds back. This is the form a
+  protest or redress hearing would want, and it belongs with attaching
+  committee-boat finish-sheet photos to a race: a primary source kept with
+  the race it documents.
+- **A second listen ashore.** With the recording uploaded, a larger
+  recogniser than a phone can carry could re-read every call and flag the
+  lines where it disagrees with what was taken down.
 
 *(Was GitHub issue #15)*
 
