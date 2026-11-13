@@ -67,3 +67,10 @@ next-env.d.ts
 
 # Private local Claude context (private sibling-repo map)
 CLAUDE.local.md
+
+# the voice prototype's listening engine and models: built and fetched, see
+# prototypes/voice/README.md
+/prototypes/voice/engine/
+/prototypes/voice/bench/**/node_modules/
+/prototypes/voice/bench/**/package-lock.json
+/prototypes/voice/bench/work/

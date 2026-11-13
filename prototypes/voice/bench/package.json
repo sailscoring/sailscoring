@@ -1,0 +1,9 @@
+{
+  "name": "voice-bench",
+  "private": true,
+  "description": "Scores speech recognisers on called sail numbers. Not part of the app: install here with npm.",
+  "type": "module",
+  "dependencies": {
+    "sherpa-onnx-node": "2.0.1"
+  }
+}
