@@ -291,6 +291,43 @@ Open questions:
 - **Distance to finish.** The fixed-time distance races entry needs each boat's
   distance to go at the gun. The leaderboard's DTF column might supply it.
 
+### Automatic backup to the club's own Dropbox, Google Drive or OneDrive
+
+Clubs coming from Sailwave keep their `.blw` files on a backup drive and in
+Dropbox, and expect the same of a web app (Tom McGrath, Royal Cork Yacht Club,
+asked how that works here). Save to File already gives a complete
+`.sailscoring` copy, but one series at a time, by hand.
+
+The idea: a workspace member connects a storage account once, and the
+workspace keeps itself copied there — every series as a `.sailscoring` file,
+and every published page with its data file, in folders that follow the
+publication tree. Each provider can confine the app to a folder of its own,
+so it never sees the club's other files: Dropbox's app folder, Google Drive's
+`drive.file` scope, OneDrive's `Files.ReadWrite.AppFolder`. Uploads would
+follow edits (coalesced, as revision snapshots are), follow each publish, and
+run as a nightly full sync. Files are overwritten in place; the provider's
+version history keeps the older copies, and restoring is Update from File.
+
+Things to settle:
+
+- **Provider order.** Dropbox is the lightest app review; Google wants brand
+  and privacy-policy verification (no security assessment for `drive.file`);
+  OneDrive needs publisher verification, and a club's Microsoft 365 tenant may
+  need its IT admin to approve the app. Dropbox first, the others when asked.
+- **Whose account.** The connection belongs to the member who made it, and
+  stops when they leave the panel. Workspace settings should show the last
+  successful backup, and a failing connection should email someone.
+- **Bad edits get backed up too.** A wiped series overwrites the good copy;
+  the provider's versions and the revision history inside each file are the
+  remedy, and the help should say so.
+- **Privacy Policy.** The data goes to an account the club controls, so no new
+  sub-processor, but the policy should describe it, and Google's review reads
+  it.
+
+A cheaper step first: download the whole workspace as one zip (every series
+file plus the published pages), which works with any storage and removes the
+one-series-at-a-time chore.
+
 ---
 
 ## Competitor roster
