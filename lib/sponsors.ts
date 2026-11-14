@@ -48,6 +48,14 @@ export const SPONSORS: readonly Sponsor[] = [
     href: 'https://www.hyc.ie',
     since: 2026,
   },
+  {
+    id: 'royal-cork-yc',
+    tier: 'founding',
+    name: 'Royal Cork Yacht Club',
+    logoUrl: 'https://logos.sailscoring.ie/royal-cork-yc.svg',
+    href: 'https://www.royalcork.com',
+    since: 2026,
+  },
 ];
 
 export const foundingSponsors = SPONSORS.filter((s) => s.tier === 'founding');
