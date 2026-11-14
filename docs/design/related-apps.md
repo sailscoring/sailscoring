@@ -71,6 +71,7 @@ handle particular formats is covered in the design docs, notably
 | Yacht Scoring, Regatta Network, Clubspot | US-centred regatta management with scoring. |
 | Sail100 | Results on Bray SC's site before 2025. |
 | Pwllheli Race Officer | Scores IRC/YTC series for one club, as part of race management (see above). |
+| [Afleet](https://afleet.app) | A paid Android app for scoring radio-controlled sailing, made in New Zealand (Wellington Radio Yacht Club). It is meant for scoring on a tablet beside the pond, and results are shared or saved as PDF from the device. It scores a single fleet under Appendix A or runs MYA HMS heats: the scorer seeds the heats on a fleet board, sets the number of fleets and promotions, and Afleet loads each boat into its next heat. "Average" scoring, for club days where people sit races out, averages each boat's score over the races it started. "Combined" scores a secondary event inside a regatta for sailors who sail only part of it. Events move between devices as an XML export. It has no web version and no server. |
 
 The CORK results-management manual is a reference for how a large regatta runs
 scoring. It isn't a tool.
