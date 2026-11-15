@@ -2207,6 +2207,52 @@ is correct.
 
 ---
 
+## Support and community
+
+Scorers at a major regatta need answers fast, and often because a protest
+committee's decision doesn't map cleanly onto what the software does. Today
+that support comes from the maintainer directly. Better software and better
+help docs reduce how often it's needed; the ideas below are about making sure
+an answer never depends on one person being reachable.
+
+### Answering scorers' questions from the code with AI
+
+The source is public, so any question about how Sail Scoring behaves can
+ultimately be answered by reading it — and anyone can already point an AI tool
+at the repository and ask. The step beyond that is offering it in the app: an
+"Ask" box in the help panel whose answers are grounded in the help chapters,
+the scoring fixtures and the engine source, citing the help section or fixture
+each answer rests on so the scorer can check it.
+
+Considerations: an answer about the software is not a ruling — it can say what
+the engine does with RDG or a changed DNC, not what the protest committee
+meant, and should say so; it must not be fed the copyrighted RRS or event
+documents (the scorer can paste the relevant SI clause themselves); cost per
+question, and whether the series being scored is sent along (useful, but it is
+workspace data leaving the system). The scoring fixtures are already written to
+be read by scorers, which makes them good grounding.
+
+### A community discussion space
+
+A place for real-time discussion among scorers, contributors and the
+maintainer — and somewhere to go for help mid-regatta, where the person who
+answers needn't be the maintainer. Which platform (Discord, Zulip, Matrix,
+Slack, or GitHub Discussions as an asynchronous start) is open; it needs to be
+free to join, searchable afterwards, and linked from the app's help panel.
+
+Considerations: it needs enough people in it to be worth visiting, so it likely
+follows growth beyond Ireland rather than leading it; moderation; and a norm
+against pasting competitor data or unpublished results into a public channel.
+
+### Paid support for the biggest events
+
+Once enough people know the software well, the largest events on the calendar
+could book one of them to be on call through the regatta. What it needs first
+is the pool of people; how they are found, vetted and paid is a governance
+question, not a software one.
+
+---
+
 ## Operator administration
 
 ### An admin interface for the instance operator
