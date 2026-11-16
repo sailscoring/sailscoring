@@ -252,6 +252,44 @@ describe.skipIf(skip)('archive ingest', () => {
     expect(hollyRow.identityId).toBe(identityId);
   });
 
+  test('a document that fails to publish is applied again, not skipped', async () => {
+    // A second series claiming the first one's page: its transaction
+    // commits, then publishing refuses the collision.
+    const otherId = uuid();
+    const otherFleet = uuid();
+    const kid = uuid();
+    const base = doc();
+    const clash: ArchiveSeriesDoc = {
+      ...base,
+      series: { ...base.series, id: otherId, name: 'Clashing series' },
+      fleets: [
+        {
+          ...base.fleets[0],
+          id: otherFleet,
+          results: {
+            ...base.fleets[0].results,
+            rows: [{ ...base.fleets[0].results.rows[0], competitorId: kid }],
+          },
+        },
+      ],
+      competitors: [{ ...base.competitors[0], id: kid, fleetIds: [otherFleet] }],
+    };
+    await expect(archive.putArchiveSeries(ctx, otherId, clash)).rejects.toThrow(
+      BadRequestError,
+    );
+    const [row] = await db
+      .select({ hash: schema.series.asPublishedHash })
+      .from(schema.series)
+      .where(eq(schema.series.id, otherId));
+    expect(row.hash).toBeNull();
+    // The same document again is not "unchanged": it is applied, and fails
+    // the same way, until whatever stopped it is fixed.
+    await expect(archive.putArchiveSeries(ctx, otherId, clash)).rejects.toThrow(
+      BadRequestError,
+    );
+    await archive.deleteArchiveSeries(ctx, otherId);
+  });
+
   test('the standard write surface rejects the regime with 423', async () => {
     await expect(
       competitorsApi.putCompetitor(

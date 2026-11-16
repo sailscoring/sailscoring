@@ -62,8 +62,9 @@ import { tidySponsors } from '@/lib/series-sponsors';
  * `convert` flag, the migration path.
  *
  * Idempotent by design: the document's content hash is stored on the series
- * row, an unchanged re-PUT is a no-op, and every id in the document is minted
- * deterministically by the generator, so updates land in place.
+ * row once the series is published, an unchanged re-PUT is a no-op, and every
+ * id in the document is minted deterministically by the generator, so updates
+ * land in place.
  */
 
 const PUBLISH_BLOB_CONCURRENCY = 16;
@@ -214,7 +215,8 @@ export async function putArchiveSeries(
         seriesNote: doc.series.seriesNote ?? '',
         pageNotes: archivePageNotes(doc),
         asPublished: true,
-        asPublishedHash: hash,
+        // Written once the series is published, at the end of the ingest.
+        asPublishedHash: null,
         updatedBy: workspace.userId,
         displayOrder: sql<number>`(select coalesce(max(${schema.series.displayOrder}) + 1, 0) from ${schema.series} where ${schema.series.workspaceId} = ${workspace.workspaceId})`,
       })
@@ -238,7 +240,10 @@ export async function putArchiveSeries(
           seriesNote: doc.series.seriesNote ?? '',
           pageNotes: archivePageNotes(doc),
           asPublished: true,
-          asPublishedHash: hash,
+          // Cleared until the series is published (see the end of the
+          // ingest): a request that fails after this commit leaves a
+          // document the next run applies again, not one it skips.
+          asPublishedHash: null,
           // Re-file to the document's category (or clear it when the document
           // names none); archived and display order are left untouched.
           categoryId,
@@ -402,6 +407,15 @@ export async function putArchiveSeries(
     seriesId,
     summary: `${existing ? 'Updated' : 'Ingested'} as-published archive “${doc.series.name}”`,
   });
+
+  // Only now is the document done with: the hash that makes a re-PUT a no-op
+  // goes on last, so anything failing above — publishing, a timeout — is
+  // retried by the next run rather than remembered as applied. No version
+  // bump: the row's content is what the transaction above wrote.
+  await getDb()
+    .update(schema.series)
+    .set({ asPublishedHash: hash })
+    .where(eq(schema.series.id, seriesId));
 
   return { seriesId, unchanged: false, published };
 }
