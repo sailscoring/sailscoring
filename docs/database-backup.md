@@ -369,8 +369,12 @@ valid policy that grants nothing, and the only other symptom is an
 ### 4. Create a Neon read replica
 
 In the Neon console for the new project: Branches → click the
-production branch → Add Compute → type **Read replica**, smallest size,
-autosuspend on. Copy the connection string.
+production branch → Add Compute → type **Read replica**, autoscaling
+range **0.25 ↔ 1 CU**, scale to zero on. Copy the connection string.
+
+Set the upper bound by hand: the console's default reaches 8 CU, and the
+range is what bounds the bill if something holds the replica awake. One
+daily `pg_dump` never needs more than the primary's own 1 CU ceiling.
 
 Sanity-check it really is read-only:
 
