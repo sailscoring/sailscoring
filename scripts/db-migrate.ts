@@ -21,6 +21,12 @@ async function main() {
   const sql = postgres(url, { max: 1 });
   const db = drizzle(sql);
 
+  // The database's own statement and idle-in-transaction timeouts are sized
+  // for app requests. A migration's DDL or backfill can legitimately run
+  // longer, so this session (max: 1, so every migration runs on it) lifts them.
+  await sql`set statement_timeout = 0`;
+  await sql`set idle_in_transaction_session_timeout = 0`;
+
   await migrate(db, { migrationsFolder: 'drizzle' });
   await sql.end();
 

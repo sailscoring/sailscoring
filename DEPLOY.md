@@ -639,6 +639,21 @@ pooling — what Neon's `-pooler` host gives you — breaks DDL.
 Drizzle's `__drizzle_migrations` table makes the runner idempotent, so
 re-running on every deploy is safe.
 
+### Database timeouts
+
+The database sets `statement_timeout` and
+`idle_in_transaction_session_timeout` to 60s as defaults for every session
+(migration `0138`). A query stuck on a lock or a dead client's open
+transaction then ends in an error, and the request fails with a logged 500
+instead of running to Vercel's 300s function limit. They are database
+defaults rather than connection settings because the app connects through
+Neon's transaction-mode pooler, which doesn't pass session settings through.
+A Neon branch forked from `main` inherits them.
+
+Anything that legitimately runs longer turns them off for its own session:
+`scripts/db-migrate.ts` does, and so does `pg_dump`. For a long ad-hoc query,
+start with `set statement_timeout = 0`.
+
 ### Expand-contract: migrations must be backwards-compatible
 
 Build-time migrate means the schema is updated a few seconds **before** the
