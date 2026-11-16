@@ -7,6 +7,7 @@ import { useFleetsBySeries } from '@/hooks/use-fleets';
 import { useRacesBySeries } from '@/hooks/use-races';
 import { isDuplicateSeriesName } from '@/lib/series-name';
 import { BasicsCard } from '@/components/series-settings/basics-card';
+import { SponsorsCard } from '@/components/series-settings/sponsors-card';
 import { ScoringCard } from '@/components/series-settings/scoring-card';
 import { FleetsCard } from '@/components/series-settings/fleets-card';
 import { ScoringModeCard } from '@/components/series-settings/scoring-mode-card';
@@ -131,6 +132,7 @@ export default function SettingsPage({
           });
         }}
       />
+      <SponsorsCard seriesId={seriesId} series={series} />
       <ScoringModeCard seriesId={seriesId} series={series} />
       {/* A split-fleet series carries its whole format — fleets, carry,
           discards, non-finisher scores — in the Format section of its Split
