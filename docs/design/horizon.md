@@ -1631,6 +1631,15 @@ NHC and ECHO can be configured to exclude specific results (e.g. RDG, BFD,
 DSQ) from the rating calculation while still counting them for series
 points. Currently every participating boat is adjusted on every race.
 
+Kinsale YC wants this for ECHO (November 2026). A scorer would exclude one
+boat from one race's handicap update, for example after a breakage, so that
+a bad result doesn't drag its handicap down, or exclude a whole race. KYC's
+Sailing Instructions reserve the right "to exclude some races from handicap
+calculation", and Sailwave has no way to do it. The assumption, still to be
+confirmed with KYC, is that the excluded boat's time is also left out of the
+fleet sums, so it doesn't move anyone else's handicap either. That is how
+`handicap-scoring.md` → *Scoring-inquiry adjustments* specifies it.
+
 ### Series-level rating-history page
 
 A view across the whole series showing each boat's rating evolution race
