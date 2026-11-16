@@ -330,6 +330,50 @@ one-series-at-a-time chore.
 
 ---
 
+## Business continuity
+
+### Producing results when the app is unreachable
+
+The case: Vercel or Neon is down half an hour before prize-giving, or for
+longer, or the service is gone altogether. The scorer still has to produce
+results. Today the options are thin. A `.sailscoring` file saved earlier
+needs the app to open it. Sailwave export works, but only for a workspace
+with the `sailwave-export` gate on, and only if someone exported before the
+outage.
+
+The idea: a standalone scorer, one self-contained HTML file built from the
+same code. It opens a `.sailscoring` file in a browser on a laptop, with no
+network and no server. It lets the scorer correct finishes and scoring codes,
+shows the standings, writes the results HTML (print it for a PDF), and saves
+the file back. When the app returns, Update from File brings the changes in,
+and it warns if the workspace copy moved on meanwhile.
+
+It is less far-fetched than it sounds. The scoring engine, the file reader
+and the results renderer are pure code in `lib/`, and the spectator viewer
+already loads a data file into memory and runs the ordinary series tabs off
+it, with no account. What's missing:
+
+- **Its own build.** The app is a Next.js server app. This needs a bundle with
+  everything inlined into one file, because browsers won't load scripts
+  from a file opened from disk.
+- **Writes.** The spectator viewer's in-memory store is read-only on purpose.
+  This one would accept edits and keep them in memory until saved.
+- **How much UI.** Finishes, codes, standings and export are what
+  prize-giving needs. Entry lists and series setup can wait for the real app.
+- **Staying working.** It would be used rarely and must work the one time it
+  matters, so it needs an e2e test that opens a fixture and renders it.
+
+Keeping a copy with the backed-up data, as part of the
+[automatic backup](#automatic-backup-to-the-clubs-own-dropbox-google-drive-or-onedrive)
+or the workspace zip, is the best place for it rather than a stretch. That
+copy is the build that wrote the files beside it, so it always reads them.
+There's nothing to install. It outlives an outage, and the project too.
+
+A cheaper middle step: the same bundle served from a host other than Vercel.
+That covers an outage, but not the longer case.
+
+---
+
 ## Competitor roster
 
 ### Competitors on the list but not in the racing
@@ -391,6 +435,28 @@ warning on the Races tab listing the boats outside the window with a one-click
 "score DNF" that keeps their times — plus the reverse check, a coded boat whose
 time is inside the window. The concrete beneficiary is HYC's Frostbites, a
 10-minute ILCA window on a timed sheet.
+
+### Recording finishes with no signal
+
+A committee boat out of mobile coverage can't use the Record finishes page:
+it needs a connection to open, and the sheet is lost if it can't be
+submitted. Rare on most Irish club waters, but not unknown.
+
+Not a full offline mode. ADR-008 set aside offline editing with sync, and
+nothing else on race day needs it: publishing needs a connection anyway.
+Finish recording is the one job done on the water, and a finish sheet
+submission suits it. The scorer reviews a submission before accepting it, so
+one recorded offline and sent later is merged by a person. Nothing has to
+reconcile two copies of a series.
+
+What it would take: the page opening with no signal (cached by the browser),
+the entry list and start times taken with it when it was last opened in
+coverage, the sheet kept on the device, and a clear "waiting for signal"
+state that submits once there is one. Times come from the phone's clock,
+which keeps good time for an afternoon without the network. Milestone M2 of
+[`voice-recording.md`](voice-recording.md) asks for the same of the voice
+page, so build it once for both. RaceOps already records finishes offline,
+and sending its sheets in as submissions is its next step.
 
 ### Voice-driven start check-in and finish recording
 
