@@ -439,6 +439,23 @@ export interface PageNote {
   updatedAt: number;   // Date.now() when the text was last written
 }
 
+/** What a series names someone for: backing the series, or giving the trophy
+ *  it is sailed for. Published on separate lines ("Sponsored by …", "Trophy
+ *  presented by …"), since a family that gave a cup is not a sponsor. */
+export type SeriesSponsorKind = 'sponsor' | 'donor';
+
+/** A sponsor or trophy donor named on a series' published pages. Array
+ *  position is the display order within its kind. */
+export interface SeriesSponsor {
+  name: string;
+  kind: SeriesSponsorKind;
+  /** A logo shown in place of the name, set like the venue and event logos:
+   *  a URL, or a logo-library pick (`/logos/{id}`). Absent = name only. */
+  logoUrl?: string;
+  /** The sponsor's website, which the logo or name links to. */
+  url?: string;
+}
+
 export interface Series {
   id: string;
   name: string;
@@ -453,6 +470,9 @@ export interface Series {
   // them. Absent until the scorer sets it.
   venuePosition?: { lat: number; lng: number };
   eventUrl: string;    // website the event logo/name links to in exports (empty if unset)
+  // Sponsors and trophy donors named under the title of every published page.
+  // Sparse; absent/empty means none.
+  sponsors?: SeriesSponsor[];
   createdAt: number;   // Date.now()
   // File tracking
   lastSavedAt: number | null;     // Date.now() of last Save to File
