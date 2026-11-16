@@ -77,6 +77,7 @@ describe.skipIf(skip)('archive ingest', () => {
     name?: string;
     season?: string;
     folders?: Array<{ path: string; label: string }>;
+    sponsors?: ArchiveSeriesDoc['series']['sponsors'];
     subPath?: string;
     competitors?: ArchiveSeriesDoc['competitors'];
     rows?: ArchiveSeriesDoc['fleets'][number]['results']['rows'];
@@ -121,6 +122,7 @@ describe.skipIf(skip)('archive ingest', () => {
         source: 'sailwave',
         ...(over.season ? { season: over.season } : {}),
         ...(over.folders ? { folders: over.folders } : {}),
+        ...(over.sponsors ? { sponsors: over.sponsors } : {}),
       },
       fleets: [
         {
@@ -904,6 +906,40 @@ describe.skipIf(skip)('archive ingest', () => {
     );
     const [again] = await folderRow();
     expect(again?.season).toBe('2015-16');
+  });
+
+  test('sponsors are stored, named on the page, and re-asserted on ingest', async () => {
+    await archive.putArchiveSeries(
+      ctx,
+      seriesId,
+      doc({
+        name: 'Ulsters 2015 Optimists (sponsored)',
+        sponsors: [
+          { name: 'Axiom Private Clients', url: 'https://axiom.example' },
+          { name: 'The Draper Family', kind: 'donor' },
+        ],
+      }),
+    );
+    const sponsorsOf = async () =>
+      (await db.select({ sponsors: schema.series.sponsors }).from(schema.series).where(eq(schema.series.id, seriesId)))[0]
+        .sponsors;
+    // The kind the format leaves to default is stored explicitly.
+    expect(await sponsorsOf()).toEqual([
+      { name: 'Axiom Private Clients', kind: 'sponsor', url: 'https://axiom.example' },
+      { name: 'The Draper Family', kind: 'donor' },
+    ]);
+    const [pub] = await db
+      .select()
+      .from(schema.publishedSeries)
+      .where(eq(schema.publishedSeries.seriesId, seriesId));
+    const html = await readPublishedHtml(pub.pages[0].blobUrl);
+    expect(html).toContain('Sponsored by <a href="https://axiom.example" target="_top" rel="noopener">Axiom Private Clients</a>');
+    expect(html).toContain('Trophy presented by The Draper Family');
+
+    // The archive repo is where they are edited: a document naming none
+    // clears them.
+    await archive.putArchiveSeries(ctx, seriesId, doc({ name: 'Ulsters 2015 Optimists (unsponsored)' }));
+    expect(await sponsorsOf()).toEqual([]);
   });
 
   test('pinned folder labels upsert folder metadata, kept alongside season (ADR-011)', async () => {

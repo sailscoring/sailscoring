@@ -183,6 +183,22 @@ export const archiveSeriesDocSchema = z
        *  URLs in practice). */
       venueLogoUrl: z.string().url().max(400).optional(),
       eventLogoUrl: z.string().url().max(400).optional(),
+      /** Sponsors and trophy donors, named under the header of every page
+       *  in this order: "Sponsored by A, B and C", then "Trophy presented
+       *  by …" for the `donor` entries. `kind` defaults to `sponsor`. A
+       *  `logoUrl` shows the logo in place of the name; a `url` links it.
+       *  Re-asserted on every ingest. */
+      sponsors: z
+        .array(
+          z.object({
+            name: z.string().trim().min(1).max(120),
+            kind: z.enum(['sponsor', 'donor']).optional(),
+            logoUrl: z.string().url().max(400).optional(),
+            url: z.string().url().max(400).optional(),
+          }),
+        )
+        .max(20)
+        .optional(),
       /** Which engine originally published these results ('sailwave',
        *  'halsail', …). Free-form but bounded; display context only. */
       source: z.string().max(40).optional(),

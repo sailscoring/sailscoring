@@ -100,6 +100,19 @@ const seriesSchema = z.object({
   venueUrl: z.string().optional(),
   venueLogoUrl: z.string().optional(),
   eventLogoUrl: z.string().optional(),
+  /** Sponsors and trophy donors, named under every page's header in this
+   *  order. `kind` is `sponsor` (the default) or `donor`, for whoever gave
+   *  the trophy. Re-asserted on every ingest, like the slug. */
+  sponsors: z
+    .array(
+      z.object({
+        name: z.string().min(1),
+        kind: z.enum(['sponsor', 'donor']).optional(),
+        logoUrl: z.string().optional(),
+        url: z.string().optional(),
+      }),
+    )
+    .optional(),
   /** `halsail` reads archive.halsail.com pages; `halsail-live` reads the
    *  results fragment halsail.com serves at `/Result/_Boat/{seriesId}`. */
   source: z.enum(['sailwave', 'halsail', 'halsail-live']),
@@ -179,6 +192,7 @@ function buildSeries(
     venueUrl: entry.venueUrl,
     venueLogoUrl: entry.venueLogoUrl,
     eventLogoUrl: entry.eventLogoUrl,
+    sponsors: entry.sponsors,
     category: entry.category,
     publishedSlug: entry.publishedSlug,
     season: entry.season,

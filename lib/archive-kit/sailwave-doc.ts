@@ -70,6 +70,8 @@ export interface SailwaveDocInput {
   venueUrl?: string;
   venueLogoUrl?: string;
   eventLogoUrl?: string;
+  /** Sponsors and trophy donors named under every page's header. */
+  sponsors?: Array<{ name: string; kind?: 'sponsor' | 'donor'; logoUrl?: string; url?: string }>;
   /** Initial category filing on first ingest (e.g. the season year). */
   category?: string;
   publishedSlug: string;
@@ -455,6 +457,7 @@ export function buildSailwaveArchiveDoc(
       ...(input.venueUrl ? { venueUrl: input.venueUrl } : {}),
       ...(input.venueLogoUrl ? { venueLogoUrl: input.venueLogoUrl } : {}),
       ...(input.eventLogoUrl ? { eventLogoUrl: input.eventLogoUrl } : {}),
+      ...(input.sponsors?.length ? { sponsors: input.sponsors } : {}),
       source: input.source ?? 'sailwave',
       ...(input.category ? { category: input.category } : {}),
       publishedSlug: input.publishedSlug,

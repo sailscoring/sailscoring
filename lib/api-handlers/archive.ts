@@ -50,7 +50,8 @@ import { publishedPageKey, type PageView } from '@/lib/public-api/published-view
 import { deletePublishedView, writePublishedView } from '@/lib/public-api/store';
 import { summariseArchiveDoc } from '@/lib/publication-summary';
 import { sharedFolderSegment } from '@/lib/published-tree';
-import type { PageNote, PublishedSeries, PublishedSeriesPage } from '@/lib/types';
+import type { PageNote, PublishedSeries, PublishedSeriesPage, SeriesSponsor } from '@/lib/types';
+import { tidySponsors } from '@/lib/series-sponsors';
 
 /**
  * The archive ingest surface (ADR-010, #283): the door through which
@@ -93,6 +94,14 @@ function archivePageNotes(doc: ArchiveSeriesDoc): PageNote[] {
     text: n.text,
     updatedAt: now,
   }));
+}
+
+/** The document's sponsors as the series stores them: in order, with the
+ *  kind the ingest format leaves to default made explicit. */
+function archiveSponsors(doc: ArchiveSeriesDoc): SeriesSponsor[] {
+  return tidySponsors(
+    (doc.series.sponsors ?? []).map((s) => ({ ...s, kind: s.kind ?? 'sponsor' })),
+  );
 }
 
 async function getSeriesRowById(id: string) {
@@ -197,6 +206,7 @@ export async function putArchiveSeries(
         venueUrl: doc.series.venueUrl ?? '',
         venueLogoUrl: doc.series.venueLogoUrl ?? '',
         eventLogoUrl: doc.series.eventLogoUrl ?? '',
+        sponsors: archiveSponsors(doc),
         source: (doc.series.source ?? null) as never,
         // What the archive has to say about itself (#628): a transcription
         // that is not a byte-faithful reproduction of a published page says
@@ -219,6 +229,8 @@ export async function putArchiveSeries(
           venueUrl: doc.series.venueUrl ?? '',
           venueLogoUrl: doc.series.venueLogoUrl ?? '',
           eventLogoUrl: doc.series.eventLogoUrl ?? '',
+          // Re-asserted every ingest, like the notes below.
+          sponsors: archiveSponsors(doc),
           source: (doc.series.source ?? null) as never,
           // Re-asserted every ingest, like the slug: the archive repo is
           // where an as-published series is edited, so a note removed there
@@ -435,6 +447,7 @@ async function publishArchiveSeries(
     rightLogoUrl: doc.series.eventLogoUrl,
     leftUrl: doc.series.venueUrl,
     rightUrl: doc.series.eventUrl,
+    sponsors: archiveSponsors(doc),
     seriesIndexUrl,
     flagSvgByCode,
     // What the archive has to say about the series as a whole (#628); each

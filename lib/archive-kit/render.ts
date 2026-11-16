@@ -13,6 +13,7 @@
 
 import { escapeHtml as esc } from '@/lib/html';
 import type { NationalFlag } from '@/lib/nationality/types';
+import type { SeriesSponsor } from '@/lib/types';
 import {
   renderFlagDefs,
   renderHtmlDocument,
@@ -36,6 +37,8 @@ export interface AsPublishedPageChrome {
   rightLogoUrl?: string;
   leftUrl?: string;
   rightUrl?: string;
+  /** Sponsors and trophy donors, named under the header. */
+  sponsors?: SeriesSponsor[];
   /** `/p/{ws}/{slug}` — the breadcrumb up to the series listing. */
   seriesIndexUrl?: string;
   /** Flags keyed by 3-letter code (the app's nationality dataset).
@@ -229,6 +232,7 @@ function documentChromeOf(chrome: AsPublishedPageChrome): DocumentChrome {
     rightLogoUrl: chrome.rightLogoUrl,
     leftUrl: chrome.leftUrl,
     rightUrl: chrome.rightUrl,
+    ...(chrome.sponsors?.length ? { sponsors: chrome.sponsors } : {}),
     seriesIndexUrl: chrome.seriesIndexUrl,
     ...(chrome.seriesNote ? { seriesNote: chrome.seriesNote } : {}),
     ...(chrome.pageNote ? { pageNote: chrome.pageNote } : {}),
