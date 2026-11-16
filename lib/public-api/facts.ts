@@ -6,7 +6,8 @@ import {
   getWorkspaceBySlug,
 } from '../published-repository';
 import { publicationPath, seasonLikeSlug } from '../published-tree';
-import type { PublicationSummary, PublishedSeriesPage } from '../types';
+import { tidySponsors } from '../series-sponsors';
+import type { PublicationSummary, PublishedSeriesPage, SeriesSponsor } from '../types';
 import { fleetKey, type PublicationFacts } from './published-view';
 
 /**
@@ -28,6 +29,8 @@ export async function publicationFacts(args: {
   publishedAt: number;
   /** The season the publish files the publication under, when it says. */
   season?: string | null;
+  /** The series' sponsors and trophy donors. */
+  sponsors?: readonly SeriesSponsor[];
 }): Promise<PublicationFacts> {
   const origin = (process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '');
   const workspace = await getWorkspaceBySlug(args.workspaceSlug);
@@ -55,5 +58,18 @@ export async function publicationFacts(args: {
       name: f.name,
       scoringSystem: f.scoringSystem ?? null,
     })),
+    ...(() => {
+      const sponsors = tidySponsors(args.sponsors ? [...args.sponsors] : []).map((s) => ({
+        ...s,
+        // A library logo is stored site-relative (`/logos/{id}`); an app
+        // reading the API is not on this site.
+        ...(s.logoUrl ? { logoUrl: absoluteUrl(origin, s.logoUrl) } : {}),
+      }));
+      return sponsors.length > 0 ? { sponsors } : {};
+    })(),
   };
+}
+
+function absoluteUrl(origin: string, url: string): string {
+  return /^https?:\/\//.test(url) ? url : `${origin}${url.startsWith('/') ? '' : '/'}${url}`;
 }

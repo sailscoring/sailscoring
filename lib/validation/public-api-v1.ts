@@ -329,6 +329,19 @@ export const scheduleSchema = named(
   'Every race of the series, sailed or not, as of when the Schedule page was last published.',
 );
 
+export const sponsorSchema = named(
+  z.object({
+    name: z.string(),
+    kind: z
+      .enum(['sponsor', 'donor'])
+      .describe('A sponsor of the series, or a donor of the trophy it is sailed for. Pages name sponsors first ("Sponsored by …"), then donors ("Trophy presented by …").'),
+    logoUrl: z.string().optional().describe('An absolute URL of its logo, which the pages show in place of its name.'),
+    url: z.string().optional().describe('Its website.'),
+  }),
+  'Sponsor',
+  'A sponsor or trophy donor the publication\'s pages name under their header.',
+);
+
 const resourceLinkSchema = z.object({
   url: z.string(),
   publishedAt: isoTimestamp,
@@ -352,6 +365,10 @@ export const publicationSchema = named(
     fleets: z.array(
       fleetRefSchema.extend({ scoringSystem: z.string().nullable() }),
     ),
+    sponsors: z
+      .array(sponsorSchema)
+      .optional()
+      .describe('In the order the pages name them, within each kind. Absent when the series names none.'),
     resources: z
       .object({
         standings: resourceLinkSchema.optional(),

@@ -359,8 +359,10 @@ what follows is what it cannot say.
 
 - **The publication** says what it is (`kind`: a scored `series`, a
   split-fleet `championship`, or an `archive` kept as originally published),
-  its fleets, its page and data file, and under `resources` which of the
-  others it publishes, with each one's URL and when it was last published.
+  its fleets, its page and data file, the `sponsors` and trophy donors its
+  pages name (absent when there are none), and under `resources` which of
+  the others it publishes, with each one's URL and when it was last
+  published.
   That is the list to go by: a resource missing there is a `404`. The pages
   `index.json` lists only hint at it.
 - **`{fleet}`** is a fleet's `key`, as the publication and every resource

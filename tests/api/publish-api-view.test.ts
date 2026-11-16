@@ -129,6 +129,7 @@ describe.skipIf(skip)('publish handler — the published results API view', () =
     expect(publication.kind).toBe('series');
     expect(publication.workspace.name).toBe('API View Club');
     expect(Object.keys(publication.resources).sort()).toEqual(['competitors', 'races', 'standings']);
+    expect(publication).not.toHaveProperty('sponsors');
 
     const standings = standingsSchema.parse(await resource('standings'));
     expect(standings.tables.map((t) => t.fleet.key)).toEqual(['cruisers', 'whitesails']);
@@ -140,6 +141,26 @@ describe.skipIf(skip)('publish handler — the published results API view', () =
     expect(standingsSchema.parse(await resource('standings/whitesails')).tables).toHaveLength(1);
     expect(raceSchema.parse(await resource('races/1')).fleets).toHaveLength(2);
     expect(competitorsSchema.parse(await resource('competitors')).count).toBe(4);
+  });
+
+  test('the publication names the series\' sponsors, a library logo made absolute', async () => {
+    await db
+      .update(schema.series)
+      .set({
+        sponsors: [
+          { name: 'Axiom Private Clients', kind: 'sponsor', logoUrl: '/logos/abc', url: 'https://axiom.example' },
+          { name: 'The Draper Family', kind: 'donor' },
+        ],
+      })
+      .where(eq(schema.series.id, seriesId));
+    await publishSeries(ctx, seriesId, {});
+    const publication = publicationSchema.parse(await resource(''));
+    const origin = (process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '');
+    expect(publication.sponsors).toEqual([
+      { name: 'Axiom Private Clients', kind: 'sponsor', logoUrl: `${origin}/logos/abc`, url: 'https://axiom.example' },
+      { name: 'The Draper Family', kind: 'donor' },
+    ]);
+    await db.update(schema.series).set({ sponsors: [] }).where(eq(schema.series.id, seriesId));
   });
 
   test('publishing only the entry list leaves the standings as published', async () => {

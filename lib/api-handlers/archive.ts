@@ -606,6 +606,7 @@ async function publishArchiveSeries(
       summary: published.summary ?? null,
       publishedAt: published.publishedAt,
       season: doc.series.season ?? null,
+      sponsors: archiveSponsors(doc),
     }),
     publishedAt: published.publishedAt,
   });

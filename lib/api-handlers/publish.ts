@@ -782,6 +782,7 @@ export async function publishSeries(
       summary: published.summary ?? null,
       publishedAt: published.publishedAt,
       season: existing ? null : (input.season?.trim() || null),
+      sponsors: series.sponsors,
     }),
     publishedAt: published.publishedAt,
   });

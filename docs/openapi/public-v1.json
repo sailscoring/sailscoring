@@ -4374,6 +4374,35 @@
           "races"
         ]
       },
+      "Sponsor": {
+        "description": "A sponsor or trophy donor the publication's pages name under their header.",
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "sponsor",
+              "donor"
+            ],
+            "description": "A sponsor of the series, or a donor of the trophy it is sailed for. Pages name sponsors first (\"Sponsored by …\"), then donors (\"Trophy presented by …\")."
+          },
+          "logoUrl": {
+            "description": "An absolute URL of its logo, which the pages show in place of its name.",
+            "type": "string"
+          },
+          "url": {
+            "description": "Its website.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "kind"
+        ]
+      },
       "Publication": {
         "description": "A published series.",
         "type": "object",
@@ -4479,6 +4508,13 @@
                 "name",
                 "scoringSystem"
               ]
+            }
+          },
+          "sponsors": {
+            "description": "In the order the pages name them, within each kind. Absent when the series names none.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Sponsor"
             }
           },
           "resources": {
