@@ -360,8 +360,8 @@ fallback, so add the new ones, redeploy, then remove the old pair (and
 rotate the key in the scupper project, since the old one was public).
 
 **`CRON_SECRET`** — shared secret for the Vercel crons defined in
-`vercel.json` (`/api/cron/sweep-idempotency` and `sweep-deleted-series`
-daily, `sweep-support-grants` hourly). Vercel injects
+`vercel.json` (`/api/cron/sweep-idempotency`, `sweep-deleted-series` and
+`sweep-voice-recordings` daily, `sweep-support-grants` hourly). Vercel injects
 `Authorization: Bearer ${CRON_SECRET}` on scheduled invocations; the route
 rejects any other caller. Generate with `openssl rand -hex 32`. Set on
 Production only — preview deployments don't run crons. Without it the route

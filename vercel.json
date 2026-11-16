@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/sweep-support-grants",
       "schedule": "30 * * * *"
+    },
+    {
+      "path": "/api/cron/sweep-voice-recordings",
+      "schedule": "30 4 * * *"
     }
   ],
   "git": {

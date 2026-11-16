@@ -16,6 +16,7 @@ import {
 import { matchOf, raceCandidates, readSubmission, type SubmissionMatch } from '@/lib/finish-submission';
 import { createRepos } from '@/lib/postgres-repository';
 import type { FinishSubmission, Race } from '@/lib/types';
+import { deleteRecordingsOfSubmission } from '@/lib/voice/server/recording-store';
 import type { ReviewSubmissionInput, SubmitFinishesInput } from '@/lib/validation/finish-submission';
 
 /**
@@ -214,6 +215,8 @@ export async function withdrawSubmission(
     throw new WouldReplaceError('This submission has been applied to the finish sheet; ask the scorer to change the sheet.');
   }
   await deleteSubmission(workspace.workspaceId, submissionId);
+  // A recording sent with the sheet goes with it.
+  await deleteRecordingsOfSubmission(workspace.workspaceId, submissionId);
   await recordActivity(workspace, {
     action: 'finishes.submission-withdrawn',
     seriesId: race.seriesId,

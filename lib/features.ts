@@ -485,6 +485,17 @@ export const FEATURES = {
     label: 'Mixed laps',
     helpSectionIds: ['mixed-laps'],
   },
+  'voice-recording': {
+    // Recording finishes by voice (ADR-017), a proof of concept: Listen on
+    // the Record finishes page takes the caller's sail numbers down with a
+    // recogniser running on the phone, and the recording goes to the scorer
+    // with the sheet. Operator-managed: nothing has yet heard a real caller,
+    // so it is turned on for a trial, not offered. Needs `finish-submissions`,
+    // whose page it lives on.
+    label: 'Finishes by voice',
+    helpSectionIds: [],
+    selfService: false,
+  },
 } as const satisfies Record<string, FeatureDef>;
 
 export type FeatureKey = keyof typeof FEATURES;

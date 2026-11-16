@@ -46,6 +46,12 @@ env:
   # one table empty. Using -T here instead would omit the table entirely and
   # the restored database would not run.
   ARCHIVE_TABLE: public.as_published_results
+  # The sound of finishes recorded by voice (ADR-017): what was said on a
+  # committee boat, kept for a stated time and then deleted. A backup is
+  # kept longer than that and can't be edited, so the sound never goes into
+  # one, daily or weekly. Data only, for the reason above. The recordings'
+  # lists of calls, which are text, are backed up with everything else.
+  VOICE_AUDIO_TABLE: public.voice_recording_segments
 
 jobs:
   backup:
@@ -90,10 +96,10 @@ jobs:
           # daily and the archive rows stop being backed up at all.
           if [ "$SCHEDULE" = '40 5 * * 0' ] || [ "$FULL_INPUT" = 'true' ]; then
             PREFIX=weekly
-            EXCLUDE=()
+            EXCLUDE=(--exclude-table-data="$VOICE_AUDIO_TABLE")
           else
             PREFIX=daily
-            EXCLUDE=(--exclude-table-data="$ARCHIVE_TABLE")
+            EXCLUDE=(--exclude-table-data="$ARCHIVE_TABLE" --exclude-table-data="$VOICE_AUDIO_TABLE")
           fi
 
           DATE=$(date -u +%Y-%m-%dT%H-%M-%SZ)
