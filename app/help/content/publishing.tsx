@@ -861,6 +861,38 @@ export default function Publishing() {
           </p>
         </Section>
       )}
+      <Section id="sponsors" title="Sponsors and trophy donors">
+        <HelpShot
+          src="/help/shots/series-sponsors.webp"
+          alt="A published results page naming its sponsors and trophy donor under the title."
+          caption="Sponsors under the title, and the trophy donor on a line of its own."
+        />
+        <p>
+          A series can name the people who back it. Open{' '}
+          <strong className="text-foreground">Settings → Sponsors</strong>, click{' '}
+          <strong className="text-foreground">Add sponsor</strong>, and type the name as it should
+          appear. Every published page of the series names it under the title: &ldquo;Sponsored by
+          O&rsquo;Leary Life&rdquo;, or with several, &ldquo;Sponsored by A, B and C&rdquo;.
+        </p>
+        <p>
+          Change an entry&rsquo;s kind to <strong className="text-foreground">Trophy donor</strong>{' '}
+          for whoever gave the cup the series is sailed for. Donors are named on a line of their
+          own after the sponsors, &ldquo;Trophy presented by the Draper Family&rdquo;, since a
+          family that gave a trophy isn&rsquo;t a sponsor.
+        </p>
+        <p>
+          Each entry can have a <strong className="text-foreground">logo</strong>, set the way the
+          venue and event logos are: paste a URL, or pick one from the logo library. A line where
+          an entry has a logo shows a row of logos instead of a sentence, and an entry without one
+          stands in by name. Give an entry a <strong className="text-foreground">website</strong>{' '}
+          and its logo or name links to it. Picking a built-in logo fills the website in for you
+          if it is empty.
+        </p>
+        <p>
+          Drag the entries into the order you want them named. A follow-on series starts with the
+          same sponsors, which is usually right for next season and easy to change when it isn&rsquo;t.
+        </p>
+      </Section>
       {has('logo-library') && (
       <Section id="logo-library" title="The logo library">
         <HelpShot

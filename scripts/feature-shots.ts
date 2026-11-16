@@ -1040,6 +1040,27 @@ const SHOTS: Shot[] = [
     },
   },
   {
+    // Inventory: Sponsors and trophy donors — the sample league's Preview
+    // with two sponsors' logos and a donor's line under the header.
+    slug: 'series-sponsors',
+    group: 'Publishing',
+    async capture({ page, seriesId, shot }) {
+      const id = await seriesId();
+      await withSampleSponsors(page, id, async () => {
+        await page.goto(`${BASE}/series/${id}/standings`);
+        await settle(page);
+        await page.getByRole('button', { name: 'Preview', exact: true }).click();
+        const dialog = page.getByRole('dialog');
+        await dialog.getByRole('heading', { name: 'Preview results' }).waitFor();
+        await page.frameLocator('iframe[title="Results preview"]').locator('.sponsors').waitFor();
+        await settle(page);
+        await shot('series-sponsors.png');
+        await page.keyboard.press('Escape');
+        await dialog.waitFor({ state: 'hidden' }).catch(() => {});
+      });
+    },
+  },
+  {
     // Inventory: Provisional and final results — the finalise checklist,
     // cancelled unconfirmed.
     slug: 'results-status-final',
@@ -2954,6 +2975,35 @@ async function openRace(page: Page, seriesId: string, raceNumber: number) {
  * with it ticked, which is why the dialog's button reads Re-publish the
  * second time round.
  */
+/** A small wordmark standing in for a sponsor's logo: made-up names, so the
+ *  shot implies no real company's backing. */
+function sampleWordmark(text: string, fill: string): string {
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='240' height='64'><rect width='240' height='64' rx='10' fill='${fill}'/><text x='120' y='41' font-family='Georgia,serif' font-size='22' fill='white' text-anchor='middle'>${text}</text></svg>`;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+}
+
+/** Give the sample league sponsors and a trophy donor for the length of
+ *  `body`, then put its list back. */
+async function withSampleSponsors(page: Page, id: string, body: () => Promise<void>): Promise<void> {
+  const original = (await (await page.request.get(`${BASE}/api/v1/series/${id}`)).json()) as { sponsors?: unknown };
+  const putSponsors = async (sponsors: unknown) => {
+    const current = (await (await page.request.get(`${BASE}/api/v1/series/${id}`)).json()) as Record<string, unknown>;
+    const res = await page.request.put(`${BASE}/api/v1/series/${id}`, { data: { ...current, sponsors } });
+    if (!res.ok()) throw new Error(`sample sponsors: PUT series ${res.status()}`);
+  };
+  await putSponsors([
+    { name: 'Harbour Chandlery', kind: 'sponsor', logoUrl: sampleWordmark('Harbour Chandlery', '#0b5d7a') },
+    { name: 'Lighthouse Marine', kind: 'sponsor', logoUrl: sampleWordmark('Lighthouse Marine', '#8a3b12') },
+    { name: 'The Quay Bar', kind: 'sponsor' },
+    { name: 'the Murphy family', kind: 'donor' },
+  ]);
+  try {
+    await body();
+  } finally {
+    await putSponsors(original.sponsors ?? []);
+  }
+}
+
 /** Give the sample league two prizes for the length of `body`, then put its
  *  prize list back: Class 1's IRC podium, and its ECHO podium passing over
  *  the IRC prize-winners (DBSC NoR 9.2). */

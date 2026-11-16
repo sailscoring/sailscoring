@@ -132,6 +132,7 @@ export const HELP_GROUPS: HelpGroupDef[] = [
       { id: 'race-schedule', title: 'Publishing the race schedule', feature: 'schedule-page', keywords: ['schedule', 'calendar', 'fixtures', 'race dates', 'start times', 'season'] },
       { id: 'prizes', title: 'Prizes', feature: 'prizes', keywords: ['trophy', 'prize giving', 'winners', 'award', 'one prize per boat', 'not eligible'] },
       { id: 'prize-giving-sheet', title: 'The prize-giving sheet', feature: 'prizes', keywords: ['compere', 'prize giving', 'running order', 'print', 'pdf', 'trophy table'] },
+      { id: 'sponsors', title: 'Sponsors and trophy donors', keywords: ['sponsor', 'sponsored by', 'trophy', 'donor', 'presented by', 'branding', 'logo', 'patron'] },
       { id: 'logo-library', title: 'The logo library', feature: 'logo-library', keywords: ['burgee', 'crest', 'badge', 'club logo', 'branding', 'flag'] },
     ],
   },
