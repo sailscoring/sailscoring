@@ -237,6 +237,11 @@ What the description can't say:
   since that version.
 - **Rate limit**: 120 calls a minute for each user an app acts for;
   `429` with `Retry-After` beyond it.
+- **Not for polling.** Every call is answered from the workspace's live
+  data, never from a cache. Read results from [the published
+  results](#the-published-results), which are built to be polled, and check
+  the outcome of a call (a submission's status, say) when someone is waiting
+  for it, not on a timer.
 - **Any origin** may call it: the token is the only credential, and no
   cookie is ever read.
 
@@ -430,12 +435,30 @@ re-keyed between one fetch and the next. `identity` never changes with it.
 
 ## Polling
 
-- Every response carries an `ETag`. Send it back as `If-None-Match` and an
-  unchanged resource is answered `304 Not Modified` with no body. From a
-  page, that header needs a CORS preflight, which the API answers.
-- Responses are cached at the CDN for at least a minute, and dropped from it
-  when the publication's view is written, so a publish shows within seconds.
-  Polling faster than once a minute gains nothing.
+Results change only when a scorer publishes, and scorers publish after
+racing. A good poller notices a publish soon after it happens and fetches
+nothing that hasn't moved.
+
+- **Poll the publication, then what moved.** The publication resource
+  changes on every publish, and its `resources` say when each of the others
+  was last published. Poll it alone, and fetch a standings table, a race or
+  the entry list only when its `publishedAt` moves: one call a poll for each
+  publication, not one for each resource.
+- **Send the ETag back.** Every response carries an `ETag`. Send it as
+  `If-None-Match` and an unchanged resource is answered `304 Not Modified`
+  with no body. From a page, that header needs a CORS preflight, which the
+  API answers.
+- **Poll hard only around racing.** The schedule, where the series
+  publishes one, says when racing is; failing that, the dates of the races
+  already sailed show the pattern. Every few minutes from the first gun
+  until the scorer has published is plenty. The rest of the week, and out
+  of season, once an hour finds a late correction just as well.
+- **Faster than once a minute gains nothing.** Responses are cached at the
+  CDN for at least a minute, and dropped from it when the publication's view
+  is written, so a publish shows within seconds.
+- **Not the data file.** A publication made before the API has no `api`
+  link until it is published again. Ask the scorer to publish it again
+  rather than polling its data file, which is not a stable API.
 - The published results take no query parameters, and refuse any with
   `400`.
 - There is no rate limit on them today. One may be introduced if a client
