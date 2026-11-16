@@ -78,6 +78,7 @@ describe.skipIf(skip)('archive ingest', () => {
     season?: string;
     folders?: Array<{ path: string; label: string }>;
     sponsors?: ArchiveSeriesDoc['series']['sponsors'];
+    pageNotes?: ArchiveSeriesDoc['series']['pageNotes'];
     subPath?: string;
     competitors?: ArchiveSeriesDoc['competitors'];
     rows?: ArchiveSeriesDoc['fleets'][number]['results']['rows'];
@@ -123,6 +124,7 @@ describe.skipIf(skip)('archive ingest', () => {
         ...(over.season ? { season: over.season } : {}),
         ...(over.folders ? { folders: over.folders } : {}),
         ...(over.sponsors ? { sponsors: over.sponsors } : {}),
+        ...(over.pageNotes ? { pageNotes: over.pageNotes } : {}),
       },
       fleets: [
         {
@@ -940,6 +942,26 @@ describe.skipIf(skip)('archive ingest', () => {
     // clears them.
     await archive.putArchiveSeries(ctx, seriesId, doc({ name: 'Ulsters 2015 Optimists (unsponsored)' }));
     expect(await sponsorsOf()).toEqual([]);
+  });
+
+  test('a page note reaches a page inside an event folder', async () => {
+    await archive.putArchiveSeries(
+      ctx,
+      seriesId,
+      doc({
+        name: 'Ulsters 2015 Optimists (page note)',
+        subPath: 'ulsters/main-fleet',
+        pageNotes: [{ page: 'ulsters/main-fleet', text: 'Transcribed by hand.' }],
+      }),
+    );
+    const [pub] = await db
+      .select()
+      .from(schema.publishedSeries)
+      .where(eq(schema.publishedSeries.seriesId, seriesId));
+    const page = pub.pages.find((p) => p.subPath === 'ulsters/main-fleet');
+    expect(page).toBeDefined();
+    const html = await readPublishedHtml(page!.blobUrl);
+    expect(html).toContain('Transcribed by hand.');
   });
 
   test('pinned folder labels upsert folder metadata, kept alongside season (ADR-011)', async () => {

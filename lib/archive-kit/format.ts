@@ -235,8 +235,9 @@ export const archiveSeriesDocSchema = z
         .array(
           z.object({
             /** The published sub-path the note belongs to, as the fleets and
-             *  combined pages name it. */
-            page: slugSegment,
+             *  combined pages name it — two segments for a page inside an
+             *  event folder (`kinsale-regatta/mixed-dinghies`). */
+            page: subPathSegments,
             text: z.string().max(2000),
           }),
         )

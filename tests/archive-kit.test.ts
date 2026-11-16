@@ -534,6 +534,23 @@ describe('document schema', () => {
       },
     };
     expect(archiveSeriesDocSchema.safeParse(twice).success).toBe(false);
+
+    // A page inside an event folder publishes at a two-segment sub-path, and
+    // its note names it the same way.
+    const nested = {
+      ...base,
+      fleets: [{ ...base.fleets[0], subPath: 'kinsale-regatta/mixed-dinghies' }],
+      series: {
+        ...base.series,
+        pageNotes: [{ page: 'kinsale-regatta/mixed-dinghies', text: 'Hand-transcribed.' }],
+      },
+    };
+    expect(archiveSeriesDocSchema.safeParse(nested).success).toBe(true);
+    const halfNamed = {
+      ...nested,
+      series: { ...base.series, pageNotes: [{ page: 'mixed-dinghies', text: 'Hand-transcribed.' }] },
+    };
+    expect(archiveSeriesDocSchema.safeParse(halfNamed).success).toBe(false);
   });
 
   test('a display-only fleet needs a structural one to account for it (#363)', async () => {
