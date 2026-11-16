@@ -3,6 +3,7 @@ import { join } from 'node:path';
 
 import { ApiError, SailscoringClient } from '../client';
 import { resolveConfig } from '../config';
+import { withRetry } from '../retry';
 
 /**
  * `sailscoring as-published …` — the archive-repo side of ADR-010 (#283).
@@ -45,27 +46,6 @@ function readDocFile(path: string): SeriesDocFile {
   return { path, doc };
 }
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-/** Run a request, riding out 429s: sleep the server's retry-after (or 10s)
- *  and try again, up to five times. A bulk push over a plain-rate-limit key
- *  must degrade to slower, never to half-ingested. */
-async function withRateLimitRetry<T>(fn: () => Promise<T>): Promise<T> {
-  for (let attempt = 0; ; attempt++) {
-    try {
-      return await fn();
-    } catch (err) {
-      const retryAfter =
-        err instanceof ApiError && err.status === 429
-          ? ((err.body as { retryAfter?: number } | undefined)?.retryAfter ?? 10)
-          : null;
-      if (retryAfter === null || attempt >= 5) throw err;
-      console.error(`  … rate-limited, retrying in ${retryAfter}s`);
-      await sleep(retryAfter * 1000);
-    }
-  }
-}
-
 async function pushDocs(
   client: SailscoringClient,
   files: SeriesDocFile[],
@@ -83,7 +63,7 @@ async function pushDocs(
       continue;
     }
     try {
-      const result = await withRateLimitRetry(() =>
+      const result = await withRetry(() =>
         client.putArchiveSeries(id, file.doc, opts),
       );
       if (result.unchanged) {
@@ -112,7 +92,7 @@ async function pushIdentities(
 ): Promise<number> {
   const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
   try {
-    const r = await withRateLimitRetry(() =>
+    const r = await withRetry(() =>
       client.applyArchiveIdentities(manifest),
     );
     console.log(
@@ -157,7 +137,7 @@ async function pushRankingDocs(
       continue;
     }
     try {
-      const result = await withRateLimitRetry(() =>
+      const result = await withRetry(() =>
         client.putArchiveRanking(id, doc, opts),
       );
       if (result.unchanged) {
