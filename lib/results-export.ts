@@ -326,6 +326,7 @@ async function buildScheduleFile(
         rightLogoUrl: series.eventLogoUrl || undefined,
         leftUrl: series.venueUrl || undefined,
         rightUrl: series.eventUrl || undefined,
+        ...(series.sponsors?.length ? { sponsors: series.sponsors } : {}),
         ...(seriesIndexUrl ? { seriesIndexUrl } : {}),
         ...noteChrome(series, { fleetName: SCHEDULE_PAGE }, includePageNotes),
       },
@@ -573,6 +574,7 @@ async function buildCompetitorListFile(
         rightLogoUrl: series.eventLogoUrl || undefined,
         leftUrl: series.venueUrl || undefined,
         rightUrl: series.eventUrl || undefined,
+        ...(series.sponsors?.length ? { sponsors: series.sponsors } : {}),
         generatedAt,
         ...(seriesIndexUrl ? { seriesIndexUrl } : {}),
         ...noteChrome(series, { fleetName: ENTRIES_PAGE }, includePageNotes),
@@ -816,6 +818,7 @@ export async function buildFleetHtmlFiles(
       ...(snapshot.series.eventLogoUrl ? { rightLogoUrl: snapshot.series.eventLogoUrl } : {}),
       ...(snapshot.series.venueUrl ? { leftUrl: snapshot.series.venueUrl } : {}),
       ...(snapshot.series.eventUrl ? { rightUrl: snapshot.series.eventUrl } : {}),
+      ...(snapshot.series.sponsors?.length ? { sponsors: snapshot.series.sponsors } : {}),
       generatedAt,
       ...(snapshot.series.resultsStatus === 'final'
         ? {
@@ -1017,7 +1020,7 @@ export async function buildFleetHtmlFiles(
     ? (await import('./nationality/flags')).NATIONAL_FLAGS
     : undefined;
 
-  const seriesInfo = { name: series.name, venue: series.venue, venueLogoUrl: series.venueLogoUrl, eventLogoUrl: series.eventLogoUrl, venueUrl: series.venueUrl, eventUrl: series.eventUrl, venuePosition: series.venuePosition };
+  const seriesInfo = { name: series.name, venue: series.venue, venueLogoUrl: series.venueLogoUrl, eventLogoUrl: series.eventLogoUrl, venueUrl: series.venueUrl, eventUrl: series.eventUrl, sponsors: series.sponsors, venuePosition: series.venuePosition };
 
   // The "Open in Sail Scoring" import URL is series-wide (the JSON covers
   // every fleet), so derive it once for all pages.
@@ -1733,6 +1736,7 @@ export async function buildFleetHtmlFiles(
           rightLogoUrl: series.eventLogoUrl || undefined,
           leftUrl: series.venueUrl || undefined,
           rightUrl: series.eventUrl || undefined,
+          ...(series.sponsors?.length ? { sponsors: series.sponsors } : {}),
           generatedAt,
           ...(series.resultsStatus === 'final'
             ? {

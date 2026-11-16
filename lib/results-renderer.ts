@@ -1,4 +1,4 @@
-import type { CustomField, ResultsColumn, FinishTrackData, Fleet, ResultCode, PenaltyCode, CompetitorFieldKey, MultiPersonFieldKey, OrcCertData, OrcCourseLeg, OrcRaceCalc, OrcScoringOptionCatalog, PrimaryPersonLabel, RaceConditions, RaceDiscardPolicy, RaceOfficial, RaceStartCourse, SubdivisionAxis } from './types';
+import type { CustomField, ResultsColumn, FinishTrackData, Fleet, ResultCode, PenaltyCode, CompetitorFieldKey, MultiPersonFieldKey, OrcCertData, OrcCourseLeg, OrcRaceCalc, OrcScoringOptionCatalog, PrimaryPersonLabel, RaceConditions, RaceDiscardPolicy, RaceOfficial, RaceStartCourse, SeriesSponsor, SubdivisionAxis } from './types';
 import type { HighPointScoring } from './high-point';
 import { buildOrcMix, type OrcMix } from './orc-mix';
 import { penaltyAmountText } from './scoring-codes';
@@ -47,6 +47,7 @@ import { lookupCode } from './nationality';
 import { formatConditions, hasConditions } from './race-conditions';
 import { formatOfficials, hasOfficials, namedOfficials, officialRoleLabel } from './race-officials';
 import { compareSailNumbers } from './sail-number-sort';
+import { joinNames, sponsorLines, type SponsorLine } from './series-sponsors';
 import { ratingFieldTcf, roundCorrectedSecs, staticRatingField } from './scoring';
 import { formatRatingValue } from './competitor-ratings';
 import { seriesSlug } from './series-name';
@@ -79,6 +80,8 @@ export interface SeriesResultsData {
   leftUrl?: string;
   /** Website the right (event) header logo / footer link points to. */
   rightUrl?: string;
+  /** The series' sponsors and trophy donors, named under the header. */
+  sponsors?: SeriesSponsor[];
   /** If set, renders "Results are provisional as of HH:MM on Month D, YYYY" */
   generatedAt?: Date;
   /** Results marked final: the stamp reads "Results are final …" instead of
@@ -885,6 +888,8 @@ export interface DocumentChrome {
   rightLogoUrl?: string;
   leftUrl?: string;
   rightUrl?: string;
+  /** The series' sponsors and trophy donors, named under the header. */
+  sponsors?: SeriesSponsor[];
   generatedAt?: Date;
   resultsFinal?: boolean;
   finalisedAt?: Date;
@@ -1145,6 +1150,7 @@ export function renderCombinedSeriesHtml(
     rightLogoUrl: first.rightLogoUrl,
     leftUrl: first.leftUrl,
     rightUrl: first.rightUrl,
+    ...(first.sponsors?.length ? { sponsors: first.sponsors } : {}),
     generatedAt: first.generatedAt,
     resultsFinal: first.resultsFinal,
     finalisedAt: first.finalisedAt,
@@ -1352,7 +1358,7 @@ ${byBoat}
 function renderPrizeGivingCss(): string {
   return `.pgsheet { display: none; }
 body.prizegiving .pgsheet { display: block; text-align: left; max-width: 190mm; margin: 0 auto; }
-body.prizegiving .prizesheet, body.prizegiving .caption, body.prizegiving > h2, body.prizegiving h3.seriestitle, body.prizegiving .seriesofficials, body.prizegiving .pagenotes, body.prizegiving table.headertable { display: none; }
+body.prizegiving .prizesheet, body.prizegiving .caption, body.prizegiving > h2, body.prizegiving h3.seriestitle, body.prizegiving .seriesofficials, body.prizegiving .pagenotes, body.prizegiving table.headertable, body.prizegiving .sponsors { display: none; }
 .pgback { display: none; }
 body.prizegiving .pgback { display: inline; }
 body.prizegiving .pglink { display: none; }
@@ -1840,7 +1846,7 @@ ${s} .starterscol > * + * { margin-top: ${d.gapMm}mm; }
   }).join('');
   return `.starterslist { display: none; }
 body.starters .starterslist { display: block; text-align: left; }
-body.starters .caption, body.starters .tablewrap, body.starters h3.grouptitle, body.starters > h2, body.starters h3.seriestitle, body.starters .seriesofficials, body.starters .pagenotes, body.starters table.headertable { display: none; }
+body.starters .caption, body.starters .tablewrap, body.starters h3.grouptitle, body.starters > h2, body.starters h3.seriestitle, body.starters .seriesofficials, body.starters .pagenotes, body.starters table.headertable, body.starters .sponsors { display: none; }
 .startersback { display: none; }
 body.starters .startersback { display: inline; }
 body.starters .starterslink { display: none; }
@@ -1994,7 +2000,7 @@ const SIGN_KEEP_WHOLE_ROWS = 12;
 function renderSignInOutCss(): string {
   return `.signsheet { display: none; }
 body.signinout .signsheet { display: block; text-align: left; max-width: 194mm; margin: 0 auto; }
-body.signinout .caption, body.signinout .tablewrap, body.signinout h3.grouptitle, body.signinout > h2, body.signinout h3.seriestitle, body.signinout .seriesofficials, body.signinout .pagenotes, body.signinout table.headertable { display: none; }
+body.signinout .caption, body.signinout .tablewrap, body.signinout h3.grouptitle, body.signinout > h2, body.signinout h3.seriestitle, body.signinout .seriesofficials, body.signinout .pagenotes, body.signinout table.headertable, body.signinout .sponsors { display: none; }
 .signback { display: none; }
 body.signinout .signback { display: inline; }
 body.signinout .signlink, body.signinout .startersnav, body.starters .signnav, body.prizegiving .signnav { display: none; }
@@ -2057,7 +2063,7 @@ export function renderHtmlDocument(
   content: string,
   flags: { fontPercent: number; hasNhcDetail: boolean; hasEchoDetail: boolean; flagDefs: string; startersChecklist?: boolean; signInOutSheet?: boolean; prizeGiving?: boolean },
 ): string {
-  const { series, fleetName, leftLogoUrl, rightLogoUrl, leftUrl, rightUrl, generatedAt, resultsFinal, finalisedAt, seriesIndexUrl, openInAppUrl, dataFileUrl, officials, seriesNote, pageNote, ircRatingSource, scoringNotesUrl, hidePageHeading, omitFooterDataLinks } = chrome;
+  const { series, fleetName, leftLogoUrl, rightLogoUrl, leftUrl, rightUrl, sponsors, generatedAt, resultsFinal, finalisedAt, seriesIndexUrl, openInAppUrl, dataFileUrl, officials, seriesNote, pageNote, ircRatingSource, scoringNotesUrl, hidePageHeading, omitFooterDataLinks } = chrome;
   const footerDataLinks = !omitFooterDataLinks && !scoringNotesUrl;
   const notesLink = scoringNotesUrl
     ? ` <span class="noteslink">&middot; <a href="${esc(scoringNotesUrl)}">Scoring notes</a></span>`
@@ -2180,6 +2186,15 @@ details.seriesofficials > summary { cursor: pointer; color: #073358; font-weight
 details.seriesofficials ul { list-style: none; padding: 0; margin: 6px 0 0 0; }
 details.seriesofficials li { margin: 0 0 2px 0; }
 details.seriesofficials .role { color: #555; }
+/* The series' sponsors and trophy donors, under the header: a line of
+   names, or a row of logos where an entry has one. */
+.sponsors { margin: -6px auto 14px auto; max-width: 720px; }
+.sponsors p { margin: 0 0 6px 0; color: #444; }
+.sponsors p.sponsorlogos { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px 20px; }
+.sponsors .sponsorlead { font-size: 0.9em; }
+.sponsors a { text-decoration: none; }
+.sponsors a:hover { text-decoration: underline; }
+.sponsorlogo { display: block; height: 44px; width: auto; max-width: 160px; object-fit: contain; }
 /* One line with the sponsor strip the live pages add after it. */
 p.credit-inline { display: inline-block; margin: 1em 0.4em; }
 p.credit-inline > a { text-decoration: none; }
@@ -2232,7 +2247,7 @@ ${series.venue ? `<h2>${leftLogoUrl ? esc(series.venue) : maybeLink(leftUrl, esc
 </tr>
 </tbody>
 </table>
-<div style="clear:both;"></div>
+${renderSponsorsHtml(sponsors)}<div style="clear:both;"></div>
 <style>div.applicant-break {page-break-after:always;}</style>
 ${resultsFinal
   ? `<h3 class="seriestitle">Final results${finalisedAt ? ` — declared ${formatDate(finalisedAt)}` : ''}${notesLink}</h3>`
@@ -2264,6 +2279,35 @@ function renderPageNotes(seriesNote: string | undefined, pageNote: string | unde
   ].filter((html) => html !== '');
   if (paragraphs.length === 0) return '';
   return `<div class="pagenotes">\n${paragraphs.join('\n')}\n</div>\n`;
+}
+
+/**
+ * The series' sponsors and trophy donors, a line for each kind: "Sponsored by
+ * A, B and C", then "Trophy presented by …". A line whose entries are all
+ * names reads as a sentence; one where any entry has a logo shows a row of
+ * logos instead, an entry without one standing in by name. Each links to its
+ * website when it has one.
+ */
+function renderSponsorsHtml(sponsors: SeriesSponsor[] | undefined): string {
+  const lines = sponsorLines(sponsors);
+  if (lines.length === 0) return '';
+  return `<div class="sponsors">\n${lines.map(renderSponsorLine).join('\n')}\n</div>\n`;
+}
+
+function renderSponsorLine(line: SponsorLine): string {
+  if (!line.entries.some((s) => s.logoUrl)) {
+    const names = line.entries.map((s) => maybeLink(s.url, esc(s.name)));
+    return `<p class="sponsorline">${esc(line.lead)} ${joinNames(names)}</p>`;
+  }
+  const items = line.entries.map((s) =>
+    maybeLink(
+      s.url,
+      s.logoUrl
+        ? `<img class="sponsorlogo" src="${esc(s.logoUrl)}" alt="${esc(s.name)}" title="${esc(s.name)}" />`
+        : esc(s.name),
+    ),
+  );
+  return `<p class="sponsorline"><span class="sponsorlead">${esc(line.lead)}</span></p>\n<p class="sponsorlogos">${items.join('\n')}</p>`;
 }
 
 /** The event's standing race management team, folded away under the results:
@@ -3813,7 +3857,7 @@ function renderOrcMixHtml(mix: OrcMix, boat: string | undefined, appliedAsTot = 
  * Call this from the standings page before passing to renderSeriesHtml().
  */
 export function assembleSeriesResultsData(
-  series: { name: string; venue: string; venueLogoUrl?: string; eventLogoUrl?: string; venueUrl?: string; eventUrl?: string; venuePosition?: { lat: number; lng: number } },
+  series: { name: string; venue: string; venueLogoUrl?: string; eventLogoUrl?: string; venueUrl?: string; eventUrl?: string; sponsors?: SeriesSponsor[]; venuePosition?: { lat: number; lng: number } },
   races: Array<{ id: string; raceNumber: number; order?: number; name?: string | null; date: string; discardPolicy?: RaceDiscardPolicy; pointsMultiplier?: number; conditions?: RaceConditions; officials?: RaceOfficial[] }>,
   standings: Array<{
     rank: number;
@@ -4316,6 +4360,7 @@ export function assembleSeriesResultsData(
     rightLogoUrl: series.eventLogoUrl || undefined,
     leftUrl: series.venueUrl || undefined,
     rightUrl: series.eventUrl || undefined,
+    ...(series.sponsors?.length ? { sponsors: series.sponsors } : {}),
     generatedAt,
     ...(resultsFinal ? { resultsFinal: true } : {}),
     ...(finalisedAt ? { finalisedAt } : {}),
