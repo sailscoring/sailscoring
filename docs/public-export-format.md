@@ -197,7 +197,8 @@ and `timeZone` are two such additions: both appear in version-9 files from
 2026-10-23 on. So are `series.customFields` with `competitors[].customFields`
 (text fields the scorer named, carried only when published as columns) and
 `series.resultsColumns` (the series' own results columns, a display hint),
-in version-14 files from 2026-11-01 on. The
+in version-14 files from 2026-11-01 on, and `series.sponsors` (the
+sponsors and trophy donors named on the pages) from 2026-11-16 on. The
 authoritative field-by-field shape is `PublicSeriesExport` in
 [`lib/public-export.ts`](../lib/public-export.ts), whose doc comments
 are written to be read as the format's reference.

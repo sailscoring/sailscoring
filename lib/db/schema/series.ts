@@ -54,6 +54,7 @@ import type {
   SubmittedFinish,
   SubmittedStart,
   RaceOfficial,
+  SeriesSponsor,
   RaceSenseLink,
   RaceFleetChange,
   RrsOrgPushConfig,
@@ -159,6 +160,12 @@ export const series = pgTable(
     eventLogoUrl: text('event_logo_url').notNull().default(''),
     venueUrl: text('venue_url').notNull().default(''),
     eventUrl: text('event_url').notNull().default(''),
+    // Sponsors and trophy donors named under the title of every published
+    // page (Series.sponsors). A small, ordered list never queried by content.
+    sponsors: jsonb('sponsors')
+      .$type<SeriesSponsor[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
     // Where the racing is ({lat, lng}), for the magnetic variation of legs
     // with nothing to place them. Null until the scorer sets it.
     venuePosition: jsonb('venue_position').$type<{ lat: number; lng: number }>(),

@@ -166,6 +166,12 @@ const FACETS: readonly Facet[] = [
     summary: () => 'Updated the venue and event details',
   },
   {
+    key: 'sponsors',
+    fields: ['sponsors'],
+    action: 'series.updated',
+    summary: () => 'Changed the sponsors',
+  },
+  {
     key: 'officials',
     fields: ['officials', 'publishOfficials'],
     action: 'series.updated',

@@ -205,6 +205,23 @@ describe.skipIf(skip)('postgres repositories', () => {
     await repos.series.delete(s.id);
   });
 
+  test('SeriesRepository.save sets and clears sponsors, keeping their order', async () => {
+    const repos = createRepos({ db, workspaceId: workspaceA });
+    const sponsors = [
+      { name: 'O\'Leary Life', kind: 'sponsor' as const, logoUrl: '/logos/abc', url: 'https://olearylife.ie' },
+      { name: 'The Draper Family', kind: 'donor' as const },
+    ];
+    const s = { ...makeSeries(), sponsors };
+
+    await repos.series.save(s);
+    expect((await repos.series.get(s.id))?.sponsors).toEqual(sponsors);
+
+    await repos.series.save({ ...s, sponsors: [] });
+    expect((await repos.series.get(s.id))?.sponsors).toBeUndefined();
+
+    await repos.series.delete(s.id);
+  });
+
   test('SeriesRepository.save sets and clears the series’ scoring codes', async () => {
     const repos = createRepos({ db, workspaceId: workspaceA });
     const codes = [

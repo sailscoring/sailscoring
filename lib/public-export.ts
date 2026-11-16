@@ -22,6 +22,7 @@ import type {
   ResultsColumn,
   LogoDefaults,
   Series,
+  SeriesSponsor,
   Prize,
   OfficialRole,
   RaceConditions,
@@ -56,6 +57,7 @@ import {
 } from './race-officials';
 import { calculateFleetStandings, calculateRaceScores, buildRaceFleetExclusionMap, discardRuleOf, startKeyResolver } from './scoring';
 import { seriesCodeTable } from './scoring-codes';
+import { tidySponsors } from './series-sponsors';
 import { pointsSystemFields } from './high-point';
 import { customFieldValues, publishedCustomFields } from './results-columns';
 import { loadSeriesSnapshot, type SeriesSnapshot } from './series-snapshot';
@@ -265,6 +267,11 @@ export interface PublicSeriesExport {
     eventLogoUrl?: string;
     venueUrl?: string;
     eventUrl?: string;
+    /** Sponsors and trophy donors named under the title of the published
+     *  pages, in order (display hint). Each has a `name`, a `kind`
+     *  (`sponsor`, or `donor` for whoever gave the trophy) and optionally a
+     *  `logoUrl` and a `url` for its website. Sparse. */
+    sponsors?: SeriesSponsor[];
     /** Where the racing is, which a course with no marks (a pasted leg
      *  table) takes its magnetic variation from. Sparse. */
     venuePosition?: { lat: number; lng: number };
@@ -1526,6 +1533,7 @@ export function buildPublicExportFromSnapshot(
       ...(series.venueUrl ? { venueUrl: series.venueUrl } : {}),
       ...(series.venuePosition ? { venuePosition: series.venuePosition } : {}),
       ...(series.eventUrl ? { eventUrl: series.eventUrl } : {}),
+      ...(series.sponsors?.length ? { sponsors: series.sponsors } : {}),
       discardThresholds: series.discardThresholds,
       ...(series.proportionalDiscard ? { proportionalDiscard: series.proportionalDiscard } : {}),
       ...(series.countBest != null ? { countBest: series.countBest } : {}),
@@ -2015,6 +2023,7 @@ export async function importPublicExport(
     eventLogoUrl: data.series.eventLogoUrl ?? '',
     venueUrl: data.series.venueUrl ?? '',
     eventUrl: data.series.eventUrl ?? '',
+    ...(data.series.sponsors?.length ? { sponsors: tidySponsors(data.series.sponsors) } : {}),
     ...(data.series.venuePosition ? { venuePosition: data.series.venuePosition } : {}),
     createdAt: now,
     lastSavedAt: null,

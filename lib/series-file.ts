@@ -30,6 +30,7 @@ import type {
   RaceDiscardPolicy,
   RaceFleetExclusion,
   RaceOfficial,
+  SeriesSponsor,
   RaceSenseLink,
   RaceFleetChange,
   PublishingGroup,
@@ -687,9 +688,14 @@ export interface SeriesFileRepos {
  *  v82 adds a rule a series' own penalty code may carry in high point,
  *  `{ type: 'reducePercent', percent }`: the boat loses that share of her own
  *  points for the race. An older build does not know the rule and would
- *  leave the boat unpenalised, hence a bump. */
-export const FORMAT_VERSION = 82;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82];
+ *  leave the boat unpenalised, hence a bump.
+ *
+ *  v83 adds `series.sponsors`: the sponsors and trophy donors named under the
+ *  title of every published page, each with an optional logo and website.
+ *  Sparse. An older build reading a v83 file drops them and republishes the
+ *  series without them, hence a bump rather than a ride-along. */
+export const FORMAT_VERSION = 83;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -760,6 +766,7 @@ interface SeriesFileSeries {
   eventLogoUrl: string;
   venueUrl?: string;   // additive; absent in files written before logo/event links landed
   eventUrl?: string;
+  sponsors?: SeriesSponsor[];  // v83+; sponsors and trophy donors (absent = none)
   venuePosition?: { lat: number; lng: number };  // v65+; where the racing is, for magnetic variation
   discardThresholds: DiscardThreshold[];
   proportionalDiscard?: ProportionalDiscard;  // v26+; replaces the thresholds when set
@@ -1169,6 +1176,7 @@ export async function buildSeriesFile(
       eventLogoUrl: series.eventLogoUrl,
       venueUrl: series.venueUrl,
       eventUrl: series.eventUrl,
+      ...(series.sponsors?.length ? { sponsors: series.sponsors } : {}),
       ...(series.venuePosition ? { venuePosition: series.venuePosition } : {}),
       discardThresholds: series.discardThresholds,
       ...(series.proportionalDiscard ? { proportionalDiscard: series.proportionalDiscard } : {}),
@@ -1798,6 +1806,7 @@ export async function openSeriesFromFile(
     eventLogoUrl: file.series.eventLogoUrl,
     venueUrl: file.series.venueUrl ?? '',
     eventUrl: file.series.eventUrl ?? '',
+    ...(file.series.sponsors?.length ? { sponsors: file.series.sponsors } : {}),
     venuePosition: file.series.venuePosition,
     createdAt: now,
     lastSavedAt: null,
@@ -1916,6 +1925,7 @@ export async function restoreSeriesFromFile(
     eventLogoUrl: file.series.eventLogoUrl,
     venueUrl: file.series.venueUrl ?? '',
     eventUrl: file.series.eventUrl ?? '',
+    ...(file.series.sponsors?.length ? { sponsors: file.series.sponsors } : {}),
     venuePosition: file.series.venuePosition,
     createdAt: now,
     lastSavedAt: null,
@@ -2033,6 +2043,8 @@ async function updateSeriesFromFileInner(
     eventLogoUrl: file.series.eventLogoUrl,
     venueUrl: file.series.venueUrl ?? '',
     eventUrl: file.series.eventUrl ?? '',
+    // The file is the whole series: one naming no sponsors clears them.
+    sponsors: file.series.sponsors ?? [],
     venuePosition: file.series.venuePosition,
     lastModifiedAt: now,
     scoringMode: file.series.scoringMode,

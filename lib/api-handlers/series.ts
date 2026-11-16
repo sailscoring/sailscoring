@@ -922,6 +922,9 @@ export async function createFollowOnSeries(
       eventLogoUrl: source.eventLogoUrl,
       venueUrl: source.venueUrl,
       eventUrl: source.eventUrl,
+      // A club's next series is usually backed by the same names; one that
+      // changes is easier to edit than to retype.
+      sponsors: source.sponsors ?? [],
       // Same venue: magnetic variation is read at the same position.
       venuePosition: source.venuePosition ?? null,
       createdAt: now,

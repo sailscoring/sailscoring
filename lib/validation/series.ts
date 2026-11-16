@@ -23,6 +23,11 @@ import {
   resultsColumnsProblems,
 } from '@/lib/results-columns';
 import { PAGE_NOTE_MAX_LENGTH } from '@/lib/page-note';
+import {
+  SPONSOR_NAME_MAX_LENGTH,
+  SPONSOR_URL_MAX_LENGTH,
+  SPONSORS_MAX,
+} from '@/lib/series-sponsors';
 import { PUBLISHING_GROUP_NAME_MAX_LENGTH } from '@/lib/publishing-groups';
 import {
   PRIZE_CLAUSES_MAX,
@@ -38,6 +43,19 @@ import {
   uuidSchema,
   versionSchema,
 } from './common';
+
+/** A series' sponsors and trophy donors, as stored: named, in order. The
+ *  settings card tidies half-filled rows out before it writes. */
+export const seriesSponsorsSchema = z
+  .array(
+    z.object({
+      name: z.string().trim().min(1).max(SPONSOR_NAME_MAX_LENGTH),
+      kind: z.enum(['sponsor', 'donor']),
+      logoUrl: z.string().max(SPONSOR_URL_MAX_LENGTH).optional(),
+      url: z.string().max(SPONSOR_URL_MAX_LENGTH).optional(),
+    }),
+  )
+  .max(SPONSORS_MAX);
 
 export const competitorFieldKeySchema = z.enum([
   'bowNumber',
@@ -234,6 +252,7 @@ export const seriesSchema = z.object({
   eventLogoUrl: z.string(),
   venueUrl: z.string(),
   eventUrl: z.string(),
+  sponsors: seriesSponsorsSchema.optional(),
   venuePosition: z.object({ lat: z.number().min(-90).max(90), lng: z.number().min(-180).max(180) }).optional(),
   createdAt: epochMsSchema,
   lastSavedAt: epochMsSchema.nullable(),
