@@ -75,6 +75,20 @@ describe('a voice session', () => {
     expect(line.at).toBe(T0 + 11_000);
   });
 
+  it('gives a second press to a boat not yet called, never to an earlier call', () => {
+    const h = harness();
+    h.say('sixteen thirteen', 10);
+    h.say('eight three three eight', 12);
+    h.session.pressNow(T0 + 13_500);
+    h.session.pressNow(T0 + 14_000);
+    expect(h.live().map((l) => [l.competitorId, l.timeFrom])).toEqual([
+      ['kestrel', 'called'],
+      ['gannet', 'tap'],
+      [null, 'tap'],
+    ]);
+    expect(h.live()[1].at).toBe(T0 + 13_500);
+  });
+
   it('keeps a press with no call as a line, and lets the next call name her', () => {
     const h = harness();
     h.session.pressNow(T0 + 30_000);

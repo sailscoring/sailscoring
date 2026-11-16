@@ -9,7 +9,7 @@
  * plays a µ-law WAV, but playback here decodes it itself.
  */
 
-import { SAMPLE_RATE } from './types';
+import { SAMPLE_RATE, SEGMENT_SAMPLES } from './types';
 
 /**
  * Any rate down to 16 kHz: average over the step, then pick. Returns a
@@ -157,4 +157,41 @@ export function fileOffset(
     before += take.samples / sampleRate;
   }
   return null;
+}
+
+/**
+ * The sound from `from` to `to` (the phone's clock), from whichever take has
+ * it: what playing a call back plays. `read` fetches one piece of a take,
+ * from the phone's storage or from the server. Null where no take covers
+ * the stretch; a piece that is missing plays as silence.
+ */
+export async function clipOf(
+  takes: readonly { index: number; startedAt: number; samples: number }[],
+  from: number,
+  to: number,
+  read: (take: number, index: number) => Promise<Int16Array | undefined>,
+): Promise<Float32Array | null> {
+  const take = takes.find((t) => to >= t.startedAt && from <= t.startedAt + (t.samples / SAMPLE_RATE) * 1000);
+  if (!take) return null;
+  const first = Math.max(0, Math.floor(((from - take.startedAt) / 1000) * SAMPLE_RATE));
+  const last = Math.min(take.samples, Math.ceil(((to - take.startedAt) / 1000) * SAMPLE_RATE));
+  if (last <= first) return null;
+  const out = new Float32Array(last - first);
+  for (let index = Math.floor(first / SEGMENT_SAMPLES); index * SEGMENT_SAMPLES < last; index++) {
+    const pcm = await read(take.index, index);
+    if (!pcm) continue;
+    const start = index * SEGMENT_SAMPLES;
+    const lo = Math.max(first, start);
+    const hi = Math.min(last, start + pcm.length);
+    if (hi > lo) out.set(toFloat(pcm.subarray(lo - start, hi - start)), lo - first);
+  }
+  return out;
+}
+
+/** How much of the recording to play for a line: from a little before the
+ *  call to a little after she crossed. */
+export function clipWindow(line: { heardAt: number | null; heardUntil: number | null; at: number }): { from: number; to: number } {
+  const start = Math.min(line.heardAt ?? line.at, line.at);
+  const end = Math.max(line.heardUntil ?? line.at, line.at);
+  return { from: start - 2000, to: end + 2500 };
 }

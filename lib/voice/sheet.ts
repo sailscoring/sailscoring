@@ -131,6 +131,27 @@ export function marksOf(line: VoiceLine, row: Finish | undefined, takesTime: (co
   return marks;
 }
 
+/** How a line reads on the screen: the number, and who or what that is. */
+export function lineLabel(
+  line: VoiceLine,
+  row: Finish | undefined,
+  boat: (competitorId: string) => { sailNumber: string; name: string } | undefined,
+): { number: string; who: string } {
+  const competitorId = row ? row.competitorId : line.competitorId;
+  const known = competitorId ? boat(competitorId) : undefined;
+  if (known) return { number: known.sailNumber, who: known.name };
+  if (line.how === 'tap') return { number: '—', who: 'Crossed, not yet called' };
+  if (line.how === 'ambiguous') return { number: `…${line.digits || '?'}`, who: `${line.couldBe.length} boats` };
+  return { number: line.digits || '?', who: 'Not on the entry list' };
+}
+
+/** A line's time as the screen shows it: the time alone, or "called" and
+ *  the time where no "now" was heard and nobody has confirmed it. */
+export function lineTime(line: VoiceLine): string {
+  const time = clockTime(line.at);
+  return line.how !== 'tap' && line.timeFrom === 'called' && !line.timeSettled ? `called ${time}` : time;
+}
+
 /** The lines with something left to settle, in the order they crossed. */
 export function linesToSettle(
   lines: readonly VoiceLine[],

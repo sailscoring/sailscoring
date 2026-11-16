@@ -221,14 +221,17 @@ export function createSession(options: SessionOptions): VoiceSession {
     },
 
     pressNow(at) {
-      // Whose crossing is this? The latest call still waiting for its time.
-      // A call that already has its "now" takes the press only if the two
-      // agree; otherwise the press is for a boat not yet called.
-      const line = live().reverse().find(
-        (l) =>
-          l.how !== 'tap' && l.timeFrom !== 'tap' && l.heardAt != null && l.heardUntil != null &&
-          at - l.heardUntil <= MARK_WITHIN * 1000 && at >= l.heardAt - PRESS_BEFORE * 1000,
-      );
+      // Whose crossing is this? The latest call's, if she was called just
+      // now and has no press yet. A call that already has its "now" takes
+      // the press only if the two agree. Otherwise the press is for a boat
+      // not yet called: it never reaches back past the latest call to an
+      // earlier one, which would move a boat the caller had finished with.
+      const latest = live().reverse().find((l) => l.how !== 'tap');
+      const line =
+        latest && latest.timeFrom !== 'tap' && latest.heardAt != null && latest.heardUntil != null &&
+        at - latest.heardUntil <= MARK_WITHIN * 1000 && at >= latest.heardAt - PRESS_BEFORE * 1000
+          ? latest
+          : undefined;
       if (line && (line.timeFrom === 'called' || Math.abs(at - line.at) <= PRESS_AGREES * 1000)) {
         line.at = at;
         line.timeFrom = 'tap';

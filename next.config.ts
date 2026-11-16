@@ -32,6 +32,27 @@ const nextConfig: NextConfig = {
     '/api/auth/[...all]': ['./lib/sample-series/*.sailscoring'],
     '/api/v1/series/[id]/publish': ['./public/course-cards/**/map/*.png'],
   },
+  async headers() {
+    return [
+      {
+        // The service worker for finishes by voice lives with the feature's
+        // other static files, and controls one page elsewhere: the Record
+        // finishes page. A worker may only reach above its own directory
+        // when the server says so, and never further than this.
+        source: '/voice/sw.js',
+        headers: [
+          { key: 'Service-Worker-Allowed', value: '/workspace/record' },
+          { key: 'Cache-Control', value: 'no-cache' },
+        ],
+      },
+      {
+        // The listening engine and its model: 85 MB that never changes under
+        // one version's path.
+        source: '/voice/engine/:version/:path*',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
+      },
+    ];
+  },
   async rewrites() {
     return {
       beforeFiles: [],

@@ -65,6 +65,10 @@ next-env.d.ts
 # pinned release; only where they sit (lib/course-cards/generated) is committed.
 /public/course-cards/
 
+# the listening engine and model for finishes by voice — fetched at build by
+# scripts/sync-voice-engine.ts from the pinned release (lib/voice/engine-release.json)
+/public/voice/engine/
+
 # Private local Claude context (private sibling-repo map)
 CLAUDE.local.md
 

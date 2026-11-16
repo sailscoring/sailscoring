@@ -15,6 +15,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { useSubmissionVoice, VoiceReviewNote } from '@/components/voice/race-recordings';
 import { useReviewFinishSubmission, useRaceSubmissions } from '@/hooks/use-finish-submissions';
 import { useShortcuts } from '@/hooks/use-keyboard-shortcut';
 import { useSaveRaceStart } from '@/hooks/use-race-starts';
@@ -188,6 +189,9 @@ function ReviewDialog({
   });
   const existingFinishCount = savedFinishes.filter((f) => f.sortOrder !== null || f.resultCode !== null).length;
   const changed = diff.filter((r) => r.changed).length;
+  // The recording that came with a sheet taken by voice: each line plays
+  // the call it came from.
+  const voice = useSubmissionVoice(submission, competitors);
 
   async function decide(status: 'applied' | 'dismissed') {
     setBusy(true);
@@ -250,6 +254,7 @@ function ReviewDialog({
             outcome={outcome}
             untimedHandicap={untimedHandicapCount(read, needsFinishTime)}
           />
+          {voice.recording && <VoiceReviewNote recording={voice.recording} />}
           {startChanges.length > 0 && (
             <ul className="text-sm space-y-0.5" data-testid="submission-start-changes">
               {startChanges.map((c) => (
@@ -269,6 +274,7 @@ function ReviewDialog({
                   <TableHead>Boat</TableHead>
                   <TableHead>Now</TableHead>
                   <TableHead>Submitted</TableHead>
+                  {voice.recording && <TableHead>Call</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -281,6 +287,11 @@ function ReviewDialog({
                     <TableCell>{boat(row.competitorId, row.unknownSailNumber)}</TableCell>
                     <TableCell>{lineText(row.before)}</TableCell>
                     <TableCell className={cn(row.changed && 'font-medium')}>{lineText(row.after)}</TableCell>
+                    {voice.recording && (
+                      <TableCell>
+                        {voice.cell(row, row.competitorId ? (byId.get(row.competitorId)?.sailNumber ?? 'this boat') : (row.unknownSailNumber ?? 'this boat'))}
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>

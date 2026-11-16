@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef, useState, type Ref } from 'react';
+import { useMemo, useRef, useState, type ReactNode, type Ref } from 'react';
 import { penaltyAmountText } from '@/lib/scoring-codes';
 import { X, Activity, AlertTriangle, Ban, ChevronDown, ChevronRight, Flag, Scale, MoreHorizontal, PanelRightClose, PanelRightOpen, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -206,6 +206,9 @@ export interface FinishTabProps {
   /** The series' A5 rule and its own scoring codes: its codes that replace
    *  the result join the code menus, and a changed RRS code is marked. */
   seriesScoring?: { dnfScoring: DnfScoring; scoringCodes?: readonly SeriesScoringCode[] } & Partial<PointsSystemFields>;
+  /** Something more to show on a finisher's row, after her time: where the
+   *  row came from, for a sheet filled in by something other than typing. */
+  rowExtra?: (finish: Finish) => ReactNode;
 }
 
 export function FinishTab(props: FinishTabProps) {
@@ -218,7 +221,7 @@ export function FinishTab(props: FinishTabProps) {
     finishRecording, onSetFinishRecording, derived, savedFinishes,
     finishSheetImportRef, applyCsvImport,
     setEditingPenaltyEntryId, openRedressDialog, setResolvingEntry,
-    patchCache, saveFinish, leave, readOnly = false, recording = false, seriesScoring, raceFleets,
+    patchCache, saveFinish, leave, readOnly = false, recording = false, seriesScoring, raceFleets, rowExtra,
   } = props;
   // The series' own codes that replace the result, after the RRS codes in
   // both menus; and the RRS codes it scores differently, marked where they
@@ -1152,6 +1155,10 @@ export function FinishTab(props: FinishTabProps) {
                     />
                   ))}
                   {showLapsColumn && <span className="w-16 shrink-0" aria-hidden />}
+                  {rowExtra && (() => {
+                    const f = derived.finishByEntryKey.get(eid);
+                    return f ? rowExtra(f) : null;
+                  })()}
                   {!readOnly && (
                     <>
                       {setResolvingEntry && (
@@ -1451,6 +1458,7 @@ export function FinishTab(props: FinishTabProps) {
                     RDG
                   </Badge>
                 )}
+                {rowExtra && finish && rowExtra(finish)}
                 {showTrackData && (
                   <button
                     type="button"

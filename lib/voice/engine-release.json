@@ -1,0 +1,42 @@
+{
+  "version": "1",
+  "model": "zipformer-en-70M",
+  "source": null,
+  "files": [
+    {
+      "path": "sherpa-onnx-wasm-main-asr.js",
+      "bytes": 78644,
+      "sha256": "1fffda8dfb1d77d8048265e901169dc139162b4f5bb30dfd8f13f58c106af9ed"
+    },
+    {
+      "path": "sherpa-onnx-wasm-main-asr.wasm",
+      "bytes": 13456013,
+      "sha256": "6bf5e06e437925f430d2631ccfc4f6d9192e8f2de92be2393c2ff7560ac32ff3"
+    },
+    {
+      "path": "sherpa-onnx-asr.js",
+      "bytes": 54712,
+      "sha256": "fff0b2059f4e203d8d3c9fc4af997d146e724236c081b9f5af1e5df05c5a421b"
+    },
+    {
+      "path": "model/encoder.onnx",
+      "bytes": 70108816,
+      "sha256": "5022b2eca5b19d1bc104fcf33e26bc32604b7df553cd2e1f62e31dc7b05e9c87"
+    },
+    {
+      "path": "model/decoder.onnx",
+      "bytes": 2093080,
+      "sha256": "85914f840b71110487ece7a30ebd0bd4b8fb5c2623215bba3aa5ab4c138fc591"
+    },
+    {
+      "path": "model/joiner.onnx",
+      "bytes": 259416,
+      "sha256": "abd5e30f3f16fc510605c6029dba33f10e4386bd75c5bdc30cf94076864db10d"
+    },
+    {
+      "path": "model/tokens.txt",
+      "bytes": 5048,
+      "sha256": "49e3c2646595fd907228b3c6787069658f67b17377c60aeb8619c4551b2316fb"
+    }
+  ]
+}

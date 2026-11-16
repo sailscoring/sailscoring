@@ -69,6 +69,7 @@ import {
 } from '@/components/race-entry/resolve-unknown-controller';
 import { CheckInTab } from '@/components/check-in-tab';
 import { FinishSubmissionsPanel } from '@/components/race-entry/finish-submissions-panel';
+import { RaceVoiceRecordings } from '@/components/voice/race-recordings';
 import { FinishTab, type RaceFleetControls } from '@/components/finish-tab';
 import { queryKeys } from '@/hooks/query-keys';
 import { RatingsTab } from '@/components/ratings-tab';
@@ -604,6 +605,10 @@ export default function ResultEntryPage({
           applyImport={applyCsvImport}
           seriesCodes={series?.scoringCodes}
         />
+      )}
+
+      {activeTab === 'finish' && has('voice-recording') && competitors && (
+        <RaceVoiceRecordings raceId={raceId} competitors={competitors} />
       )}
 
       {activeTab === 'finish' && (

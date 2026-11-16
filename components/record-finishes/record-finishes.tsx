@@ -5,6 +5,7 @@ import { useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 
+import { useFeatures } from '@/components/features-provider';
 import { FinishTab } from '@/components/finish-tab';
 import type { FinishSheetImportHandle } from '@/components/finish-sheet-import';
 import { Badge } from '@/components/ui/badge';
@@ -12,6 +13,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { VoiceOffline } from '@/components/voice/offline';
+import { useKeptDraft, useSendWhenOnline, worthSendingAgain } from '@/components/voice/use-kept-draft';
+import { useVoiceRecording } from '@/components/voice/use-voice-recording';
+import { VoiceFinishes, VoiceRowMark } from '@/components/voice/voice-finishes';
 import { useCompetitorsBySeries } from '@/hooks/use-competitors';
 import { useFinishInput } from '@/hooks/use-finish-input';
 import { useFinishRowOps } from '@/hooks/use-finish-row-ops';
@@ -24,7 +29,7 @@ import {
 import { useFleetsBySeries } from '@/hooks/use-fleets';
 import { useSeries } from '@/hooks/use-series';
 import type { DatedRace } from '@/lib/api-handlers/races';
-import { defaultEnabledCompetitorFields } from '@/lib/competitor-fields';
+import { defaultEnabledCompetitorFields, displayCompetitorLabel } from '@/lib/competitor-fields';
 import {
   deriveFinishState,
   deriveNonFinishers,
@@ -55,16 +60,24 @@ export function RecordFinishes({ userId }: { userId: string }) {
   const pathname = usePathname();
   const raceId = useSearchParams().get('race');
   const selected = races?.find((r) => r.race.id === raceId);
+  // Finishes by voice (ADR-017) keeps this page working with no signal.
+  const voice = useFeatures().has('voice-recording');
 
   if (isLoading) return <p className="text-sm text-muted-foreground">Loading races…</p>;
   if (selected) {
-    return <RaceRecording key={selected.race.id} dated={selected} userId={userId} onBack={() => router.push(pathname)} />;
+    return (
+      <>
+        {voice && <VoiceOffline />}
+        <RaceRecording key={selected.race.id} dated={selected} userId={userId} onBack={() => router.push(pathname)} />
+      </>
+    );
   }
 
   const groups = groupRaces(races ?? [], today);
   const pick = (id: string) => router.push(`${pathname}?race=${id}`);
   return (
     <div className="space-y-5" data-testid="record-race-picker">
+      {voice && <VoiceOffline />}
       {(races ?? []).length === 0 && (
         <p className="text-sm text-muted-foreground">
           No races are dated within a week of today. A scorer adds them, with their dates, in the series.
@@ -123,6 +136,8 @@ interface Draft {
   startTimes: Record<string, string>;
   recordedBy: string;
   complete: boolean;
+  /** Submitting found no signal: the sheet goes when there is one. */
+  waiting?: boolean;
 }
 
 function RaceRecording({ dated, userId, onBack }: { dated: DatedRace; userId: string; onBack: () => void }) {
@@ -159,7 +174,10 @@ function RaceRecording({ dated, userId, onBack }: { dated: DatedRace; userId: st
     recordedBy: mine?.recordedBy ?? '',
     complete: mine?.complete ?? false,
   }), [mine, race.id, candidates, sailNumberOf, series?.scoringCodes]);
-  const [draft, setDraft] = useState<Draft | null>(null);
+  // With finishes by voice the draft is kept on the phone, so a reload on
+  // the water loses nothing; otherwise it lives and dies with the page.
+  const voiceOn = useFeatures().has('voice-recording');
+  const { draft, setDraft, loaded: draftLoaded } = useKeptDraft<Draft>(`${race.id}:${userId}`, voiceOn);
   const shown = draft ?? sent;
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -229,6 +247,36 @@ function RaceRecording({ dated, userId, onBack }: { dated: DatedRace; userId: st
     revision: (mine?.revision ?? 0) + 1,
   });
 
+  // The boats a call can name, how a line reads, and which rows carry a
+  // time of day: a boat in a fleet that isn't scored on finishing order
+  // alone, on a sheet kept by the clock.
+  const byClock = race.finishRecording !== 'elapsed';
+  const timedBoat = (c: { fleetIds: string[] }) =>
+    c.fleetIds.some((id) => (raceFleets.size === 0 || raceFleets.has(id)) && (fleetById.get(id)?.scoringSystem ?? 'scratch') !== 'scratch');
+  const sheetTakesTimes = byClock && inRaceCompetitors.some(timedBoat);
+  const takesTime = (competitorId: string | null) => {
+    if (!byClock) return false;
+    const c = competitorId ? competitorMap.get(competitorId) : undefined;
+    return c ? timedBoat(c) : sheetTakesTimes;
+  };
+  const enabledFields = series?.enabledCompetitorFields ?? defaultEnabledCompetitorFields();
+  const boatLabel = (competitorId: string) => {
+    const c = competitorMap.get(competitorId);
+    return c
+      ? { sailNumber: c.sailNumber, name: displayCompetitorLabel(c, { enabledCompetitorFields: enabledFields, showCrew: false }) }
+      : undefined;
+  };
+  const voice = useVoiceRecording({
+    enabled: voiceOn,
+    raceId: race.id,
+    userId,
+    entries: inRaceCompetitors,
+    finishes: shown.finishes,
+    patch: patchCache,
+    takesTime,
+    submissionId: mine?.id ?? null,
+  });
+
   async function send() {
     setError(null);
     setMessage(null);
@@ -243,9 +291,16 @@ function RaceRecording({ dated, userId, onBack }: { dated: DatedRace; userId: st
           '.',
       );
     } catch (err) {
+      if (voiceOn && worthSendingAgain(err)) {
+        // No signal on the water: keep the sheet and send it when there is.
+        setDraft((d) => ({ ...(d ?? sent), waiting: true }));
+        return;
+      }
+      setDraft((d) => (d?.waiting ? { ...d, waiting: false } : d));
       setError(err instanceof Error ? `That didn’t go through (${err.message}). Your list is still here; try again.` : 'That didn’t go through; try again.');
     }
   }
+  useSendWhenOnline(Boolean(draft?.waiting) && !submit.isPending && upload.problems.length === 0, () => void send());
 
   async function takeBack() {
     if (!mine) return;
@@ -297,7 +352,24 @@ function RaceRecording({ dated, userId, onBack }: { dated: DatedRace; userId: st
         </section>
       )}
 
-      {storedCompetitors === undefined || series === undefined ? (
+      {voiceOn && storedCompetitors !== undefined && series !== undefined && draftLoaded && (
+        <VoiceFinishes
+          voice={voice}
+          entries={inRaceCompetitors}
+          finishes={shown.finishes}
+          boat={boatLabel}
+          takesTime={takesTime}
+          reveal={(finish) => {
+            const key = finish.competitorId ?? finish.id;
+            rowOps.flashRow(key);
+            requestAnimationFrame(() => {
+              document.querySelector(`[data-entry-key="${key}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            });
+          }}
+        />
+      )}
+
+      {storedCompetitors === undefined || series === undefined || !draftLoaded ? (
         <p className="text-sm text-muted-foreground">Loading the entry list…</p>
       ) : (
         <div className="rounded-lg border bg-card p-3 sm:p-5">
@@ -325,6 +397,7 @@ function RaceRecording({ dated, userId, onBack }: { dated: DatedRace; userId: st
             saveFinish={KEPT_IN_THE_DRAFT}
             leave={onBack}
             seriesScoring={series ? { dnfScoring: series.dnfScoring, scoringCodes: series.scoringCodes, ...pointsSystemFields(series) } : undefined}
+            rowExtra={voiceOn ? (finish) => <VoiceRowMark voice={voice} finish={finish} takesTime={takesTime} /> : undefined}
           />
         </div>
       )}
@@ -362,6 +435,11 @@ function RaceRecording({ dated, userId, onBack }: { dated: DatedRace; userId: st
         </section>
       )}
 
+      {draft?.waiting && (
+        <p className="text-sm" role="status" data-testid="record-waiting">
+          No signal: your sheet is kept on this phone and will be submitted when there is one. Keep this page open.
+        </p>
+      )}
       {message && <p className="text-sm" role="status" data-testid="record-message">{message}</p>}
       {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
     </div>
