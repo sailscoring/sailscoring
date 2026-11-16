@@ -1,5 +1,5 @@
 import { signedInTest as test, expect } from './fixtures';
-import { createFleets, createSeriesQuick, enableFeatures, setScoringMode } from './helpers';
+import { createFleets, createSeriesQuick, enableFeatures, setScoringMode, settleFinish } from './helpers';
 
 /**
  * Mixed laps: one start, the slow boat sent round once while the rest go
@@ -71,15 +71,17 @@ test('a boat on fewer laps is scored on the full course', async ({ page }) => {
   // ── Turn laps on: two laps for the full course, on every row ─────────────
   await page.getByTestId('turn-on-laps').click();
   await page.getByTestId('full-course-laps').fill('2');
-  await page.getByRole('button', { name: 'Set', exact: true }).click();
+  await settleFinish(page, () => page.getByRole('button', { name: 'Set', exact: true }).click());
   await expect(page.getByTestId('laps-3639')).toHaveValue('2');
   await expect(page.getByTestId('laps-1888')).toHaveValue('2');
 
   // ── The Hansa sailed one ─────────────────────────────────────────────────
+  // Wait for the count's own write: the pill can still read "All changes
+  // saved" from the Set before this save starts, and the reload would cut
+  // it off.
   await page.getByTestId('laps-1888').fill('1');
-  await page.getByTestId('laps-1888').press('Enter');
+  await settleFinish(page, () => page.getByTestId('laps-1888').press('Enter'));
   await expect(page.getByTestId('laps-1888')).toHaveValue('1');
-  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
 
   // A count survives a reload: it is on the finish row, not in the page.
   await page.reload();
