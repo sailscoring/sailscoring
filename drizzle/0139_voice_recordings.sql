@@ -15,7 +15,8 @@ CREATE TABLE "voice_recordings" (
 	"document" jsonb NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"expires_at" timestamp with time zone NOT NULL
+	"expires_at" timestamp with time zone NOT NULL,
+	"deleted_at" timestamp with time zone
 );
 --> statement-breakpoint
 ALTER TABLE "voice_recording_segments" ADD CONSTRAINT "voice_recording_segments_recording_id_voice_recordings_id_fk" FOREIGN KEY ("recording_id") REFERENCES "public"."voice_recordings"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint

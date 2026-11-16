@@ -1,5 +1,5 @@
 {
-  "id": "e4f5e4bf-3c2c-4b78-b3af-fbc5a709843b",
+  "id": "d0e7da0c-5871-4e14-8fe3-846367679d90",
   "prevId": "a80d714d-06d5-47e2-bc16-e0077bc8008f",
   "version": "7",
   "dialect": "postgresql",
@@ -7275,6 +7275,12 @@
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {

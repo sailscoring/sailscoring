@@ -76,8 +76,9 @@ and a review fetches only the pieces around the line it plays.
 
 **Keeping it.** The phone removes its copy after 7 days. The server's copy
 goes when the sheet is withdrawn, when the recorder or a scorer deletes it,
-and in any case 30 days after it was sent. Whoever made it and anyone who
-can score may hear it. The sound is in Postgres for now and is left out of
+and in any case 30 days after it was sent. A scorer's deletion is for good:
+the phone it came from, which still has its own copy, is refused if it
+sends it again. Whoever made it and anyone who can score may hear it. The sound is in Postgres for now and is left out of
 the database backups, which are kept longer than a recording is. Both
 numbers are first guesses (`lib/voice/types.ts`).
 

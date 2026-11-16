@@ -43,6 +43,11 @@ export const voiceRecordings = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    // Set when a scorer deletes someone else's recording: its sound and its
+    // list of calls go at once, and this row stays behind for a while so
+    // that the phone it came from, which still has its own copy, can't
+    // send it again.
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },
   (table) => [
     index('voice_recordings_race_idx').on(table.raceId),

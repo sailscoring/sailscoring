@@ -1,18 +1,19 @@
 import 'server-only';
-import { and, asc, desc, eq, gt, gte, lt, lte, sql, type SQL } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, gte, isNull, lt, lte, sql, type SQL } from 'drizzle-orm';
 
 import { getDb } from '@/lib/db/client';
 import { user } from '@/lib/db/schema/auth';
 import { voiceRecordingSegments, voiceRecordings } from '@/lib/db/schema/voice';
 
-import { SERVER_KEEPS_DAYS, type VoiceDocument } from '../types';
+import { PHONE_KEEPS_DAYS, SERVER_KEEPS_DAYS, type VoiceDocument } from '../types';
 
 /**
  * Recordings of finishes taken by voice, as stored. Workspace-scoped like
  * every other read and write; `handlers.ts` decides who may do what.
  *
- * A recording past its `expires_at` is treated as gone by every read here,
- * whether or not the nightly sweep has removed it yet.
+ * A recording past its `expires_at`, or one a scorer has deleted, is treated
+ * as gone by every read here, whether or not the nightly sweep has removed
+ * its row yet.
  */
 
 export interface StoredRecording {
@@ -35,7 +36,7 @@ export interface StoredSegment {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-const live = () => gt(voiceRecordings.expiresAt, new Date());
+const live = () => and(gt(voiceRecordings.expiresAt, new Date()), isNull(voiceRecordings.deletedAt));
 
 async function select(workspaceId: string, where: SQL | undefined): Promise<StoredRecording[]> {
   const rows = await getDb()
@@ -66,11 +67,19 @@ export function listRaceRecordings(workspaceId: string, raceId: string): Promise
   return select(workspaceId, eq(voiceRecordings.raceId, raceId));
 }
 
-/** Whether the id is taken by a recording this workspace can't see: another
- *  workspace's, or one that has expired and not yet been swept. */
-export async function recordingIdTaken(id: string): Promise<boolean> {
-  const [row] = await getDb().select({ id: voiceRecordings.id }).from(voiceRecordings).where(eq(voiceRecordings.id, id)).limit(1);
-  return row !== undefined;
+/**
+ * What stands in the way of storing a recording under an id nobody can
+ * see: nothing, a recording that was `deleted` and mustn't come back, or
+ * one that is `taken` (another workspace's, or expired and not yet swept).
+ */
+export async function recordingIdState(id: string): Promise<'free' | 'deleted' | 'taken'> {
+  const [row] = await getDb()
+    .select({ deletedAt: voiceRecordings.deletedAt })
+    .from(voiceRecordings)
+    .where(eq(voiceRecordings.id, id))
+    .limit(1);
+  if (!row) return 'free';
+  return row.deletedAt ? 'deleted' : 'taken';
 }
 
 /**
@@ -149,6 +158,31 @@ export async function deleteRecording(workspaceId: string, id: string): Promise<
     .where(and(eq(voiceRecordings.id, id), eq(voiceRecordings.workspaceId, workspaceId)))
     .returning({ id: voiceRecordings.id });
   return gone.length > 0;
+}
+
+/**
+ * Delete a recording so that it stays deleted: the sound and the list of
+ * calls go now, and the emptied row is kept until the phone it came from
+ * has removed its own copy, so that phone can't send it again.
+ */
+export async function deleteRecordingForGood(workspaceId: string, id: string): Promise<boolean> {
+  const now = new Date();
+  const [row] = await getDb()
+    .select({ document: voiceRecordings.document })
+    .from(voiceRecordings)
+    .where(and(eq(voiceRecordings.id, id), eq(voiceRecordings.workspaceId, workspaceId)))
+    .limit(1);
+  if (!row) return false;
+  await getDb().delete(voiceRecordingSegments).where(eq(voiceRecordingSegments.recordingId, id));
+  await getDb()
+    .update(voiceRecordings)
+    .set({
+      document: { ...row.document, takes: [], gaps: [], lines: [], words: [] },
+      deletedAt: now,
+      expiresAt: new Date(now.getTime() + (PHONE_KEEPS_DAYS + 1) * DAY_MS),
+    })
+    .where(and(eq(voiceRecordings.id, id), eq(voiceRecordings.workspaceId, workspaceId)));
+  return true;
 }
 
 /** Delete the recordings that went with a submission: it was withdrawn. */

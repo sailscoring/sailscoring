@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { ApiError } from '@/lib/api-client';
+import { ApiError, ForbiddenApiError } from '@/lib/api-client';
 import type { Finish } from '@/lib/types';
 import type { CallEntry } from '@/lib/voice/calls';
 import { deleteRecording, sendRecording } from '@/lib/voice/client/api';
@@ -190,6 +190,19 @@ export function useVoiceRecording(args: VoiceRecordingArgs) {
     [engine, entries, raceId, userId, sheetContext],
   );
 
+  // Leaving the page stops listening: the microphone is let go, and what
+  // was heard is kept.
+  const recorderRef = useRef<Recorder | null>(null);
+  useEffect(() => {
+    recorderRef.current = recorder;
+  }, [recorder]);
+  useEffect(() => {
+    // Whichever recorder is running when the page goes, not the one (none)
+    // there was when it came.
+    const running = recorderRef;
+    return () => void running.current?.stop();
+  }, []);
+
   const stop = useCallback(async () => {
     if (!recorder) return;
     const finished = await recorder.stop();
@@ -320,7 +333,8 @@ export function useVoiceRecording(args: VoiceRecordingArgs) {
         // The server said no: trying again won't change its mind.
         if (err instanceof ApiError && err.status < 500) {
           sentRef.current = recording;
-          setSend({ kind: 'refused', message: err.message });
+          const deleted = err instanceof ForbiddenApiError && err.reason === 'recording-deleted';
+          setSend({ kind: 'refused', message: deleted ? 'a scorer deleted it' : err.message });
         } else {
           setSend({ kind: 'waiting' });
           retry = setTimeout(attempt, 30_000);

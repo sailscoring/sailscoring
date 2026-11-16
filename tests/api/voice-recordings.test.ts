@@ -184,14 +184,33 @@ describe.skipIf(!DATABASE_URL)('voice recording handlers', () => {
     await expect(removeRecording(member, id)).rejects.toThrow('not-found: recording');
   });
 
-  test('a scorer or its maker deletes it, sound and all', async () => {
+  test('a scorer’s deletion is for good: the phone can’t send it again', async () => {
     const id = uuid();
     await sendRecording(recorder, id, upload(id));
     await sendSegments(recorder, id, putSegmentsSchema.parse({ segments: [piece(0, 0)] }));
     await removeRecording(scorer, id);
     expect((await listRecordings(recorder, raceId)).map((r) => r.id)).not.toContain(id);
+    expect((await listRecordings(scorer, raceId)).map((r) => r.id)).not.toContain(id);
     const left = await getDb().select().from(schema.voiceRecordingSegments).where(eq(schema.voiceRecordingSegments.recordingId, id));
     expect(left).toEqual([]);
+    // What stays behind says nothing of what was called.
+    const [row] = await getDb().select().from(schema.voiceRecordings).where(eq(schema.voiceRecordings.id, id));
+    expect(row.document).toMatchObject({ lines: [], words: [], takes: [] });
+    // The recorder's phone still has its copy, and tries again.
+    await expect(sendRecording(recorder, id, upload(id))).rejects.toThrow('recording-deleted');
+    await expect(listenToSegments(recorder, id, { take: 0, from: 0, to: 0 })).rejects.toThrow('not-found: recording');
+  });
+
+  test('its maker deletes it, and may send it again', async () => {
+    const id = uuid();
+    await sendRecording(recorder, id, upload(id));
+    await sendSegments(recorder, id, putSegmentsSchema.parse({ segments: [piece(0, 0)] }));
+    await removeRecording(recorder, id);
+    expect((await listRecordings(scorer, raceId)).map((r) => r.id)).not.toContain(id);
+    const rows = await getDb().select().from(schema.voiceRecordings).where(eq(schema.voiceRecordings.id, id));
+    expect(rows).toEqual([]);
+    const again = await sendRecording(recorder, id, upload(id));
+    expect(again.stored).toEqual([]);
   });
 
   test('a recording past its date is gone, swept or not', async () => {

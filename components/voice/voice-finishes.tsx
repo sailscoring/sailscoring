@@ -45,10 +45,13 @@ export function PlayCall({ voice, line, label }: { voice: VoiceRecording; line: 
 export function VoiceRowMark({
   voice,
   finish,
+  label,
   takesTime,
 }: {
   voice: VoiceRecording;
   finish: Finish;
+  /** Her sail number, for the button's name. */
+  label: string;
   takesTime: (competitorId: string | null) => boolean;
 }) {
   const line = voice.lineById.get(finish.id);
@@ -58,7 +61,7 @@ export function VoiceRowMark({
     <span className="flex shrink-0 items-center gap-1.5" data-testid={`voice-row-${finish.id}`}>
       {marks.includes('check') && <Badge variant="outline" className="border-amber-400 text-amber-700 dark:text-amber-400">check</Badge>}
       {marks.includes('time') && <Badge variant="outline" className="border-amber-400 text-amber-700 dark:text-amber-400">called</Badge>}
-      {line.heardAt !== null && voice.recording && <PlayCall voice={voice} line={line} label={finish.unknownSailNumber ?? 'this boat'} />}
+      {line.heardAt !== null && voice.recording && <PlayCall voice={voice} line={line} label={label} />}
     </span>
   );
 }
@@ -268,7 +271,7 @@ export function VoiceFinishes({
                     : 'Sending the recording…')}
                 {voice.send.kind === 'sent' && `The scorer has the recording, until ${day(voice.send.expiresAt)}.`}
                 {voice.send.kind === 'waiting' && 'No signal: the recording goes when there is one. Keep this page open.'}
-                {voice.send.kind === 'refused' && `The recording couldn’t be sent (${voice.send.message}). It is still on this phone.`}
+                {voice.send.kind === 'refused' && `The recording wasn’t sent (${voice.send.message}). It is still on this phone.`}
               </p>
             )}
           </div>

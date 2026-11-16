@@ -397,7 +397,14 @@ function RaceRecording({ dated, userId, onBack }: { dated: DatedRace; userId: st
             saveFinish={KEPT_IN_THE_DRAFT}
             leave={onBack}
             seriesScoring={series ? { dnfScoring: series.dnfScoring, scoringCodes: series.scoringCodes, ...pointsSystemFields(series) } : undefined}
-            rowExtra={voiceOn ? (finish) => <VoiceRowMark voice={voice} finish={finish} takesTime={takesTime} /> : undefined}
+            rowExtra={voiceOn ? (finish) => (
+              <VoiceRowMark
+                voice={voice}
+                finish={finish}
+                label={(finish.competitorId ? boatLabel(finish.competitorId)?.sailNumber : finish.unknownSailNumber) ?? 'this boat'}
+                takesTime={takesTime}
+              />
+            ) : undefined}
           />
         </div>
       )}

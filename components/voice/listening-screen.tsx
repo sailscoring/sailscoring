@@ -93,7 +93,7 @@ export function ListeningScreen({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex h-dvh flex-col bg-background text-foreground"
+      className="fixed inset-0 z-50 flex h-dvh touch-manipulation select-none flex-col overscroll-contain bg-background text-foreground"
       role="dialog"
       aria-label="Listening for finishes"
       data-testid="voice-listening"

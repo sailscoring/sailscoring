@@ -10,12 +10,13 @@ import { SEGMENT_SAMPLES } from '../types';
 import { MAX_SEGMENTS_PER_REQUEST, type PutRecordingInput, type PutSegmentsInput } from '../validation';
 import {
   deleteRecording,
+  deleteRecordingForGood,
   getRecording,
   listRaceRecordings,
   putRecording,
   putSegments,
   readSegments,
-  recordingIdTaken,
+  recordingIdState,
   storedSegments,
   type StoredRecording,
 } from './recording-store';
@@ -30,7 +31,9 @@ import {
  * - whoever made it, and anyone who can score, can listen to it and delete
  *   it. It is the people on the committee boat talking, so nobody else can;
  * - it is gone when its submission is withdrawn, and in any case
- *   `SERVER_KEEPS_DAYS` after it was first sent.
+ *   `SERVER_KEEPS_DAYS` after it was first sent;
+ * - one a scorer deleted stays deleted: the phone that made it still has
+ *   its own copy for a few days, and is refused if it sends it again.
  */
 
 /** A recording, and how much of its sound has arrived. */
@@ -90,8 +93,10 @@ export async function sendRecording(
   if (existing) {
     if (existing.recordedBy.id !== workspace.userId) throw new ForbiddenError('recording-not-yours');
     if (existing.raceId !== input.raceId) throw new WouldReplaceError('That recording is of another race.');
-  } else if (await recordingIdTaken(recordingId)) {
-    throw new WouldReplaceError('That recording id is already used; choose a new one.');
+  } else {
+    const state = await recordingIdState(recordingId);
+    if (state === 'deleted') throw new ForbiddenError('recording-deleted');
+    if (state === 'taken') throw new WouldReplaceError('That recording id is already used; choose a new one.');
   }
   const submission = await getSubmission(workspace.workspaceId, input.submissionId);
   if (!submission || submission.raceId !== input.raceId) throw new NotFoundError('submission');
@@ -150,8 +155,13 @@ export async function listenToSegments(
   return { segments: segments.map((s) => ({ take: s.take, index: s.index, audio: s.audio.toString('base64') })) };
 }
 
-/** Delete a recording: whoever made it, or a scorer. */
+/**
+ * Delete a recording: whoever made it, or a scorer. Its maker can send it
+ * again, as they do when they change their mind about sending it. A
+ * scorer's deletion is for good.
+ */
 export async function removeRecording(workspace: WorkspaceContext, recordingId: string): Promise<void> {
-  await heard(workspace, recordingId);
-  await deleteRecording(workspace.workspaceId, recordingId);
+  const recording = await heard(workspace, recordingId);
+  if (recording.recordedBy.id === workspace.userId) await deleteRecording(workspace.workspaceId, recordingId);
+  else await deleteRecordingForGood(workspace.workspaceId, recordingId);
 }
