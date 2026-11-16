@@ -20,8 +20,9 @@ const ENGINE = 'voice-engine-v1';
 const STATIC = 'voice-static-v1';
 const PAGES = 'voice-pages-v1';
 const PAGE = '/workspace/record';
-/** How long to wait on a network that is there in name only. */
-const NETWORK_WAIT_MS = 4000;
+/** How long to wait on a network that is there in name only, before
+ *  showing last time's copy instead. */
+const NETWORK_WAIT_MS = 5000;
 
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim()));
@@ -48,20 +49,26 @@ async function fromPhoneFirst(cacheName, request) {
   return response;
 }
 
-/** The network's answer, kept for next time; without one, last time's. */
-async function fromNetworkFirst(request, key) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), NETWORK_WAIT_MS);
-  try {
-    const response = await fetch(request, { signal: controller.signal });
-    clearTimeout(timer);
+/**
+ * The network's answer, kept for next time. Without one, last time's: when
+ * the network fails, or when it is taking so long that it may as well have.
+ * A slow answer is never cut off, only overtaken; where there is no copy
+ * from last time, the network is waited for however long it takes.
+ */
+async function fromNetworkFirst(event, request, key) {
+  const network = fetch(request).then(async (response) => {
     await keep(PAGES, key, response).catch(() => undefined);
     return response;
-  } catch (err) {
-    clearTimeout(timer);
-    const hit = await kept(PAGES, key);
-    if (hit) return hit;
-    throw err;
+  });
+  const hit = await kept(PAGES, key);
+  if (!hit) return network;
+  // Let a slow answer finish and be kept, whoever is served meanwhile.
+  event.waitUntil(network.catch(() => undefined));
+  const tooSlow = new Promise((resolve) => setTimeout(() => resolve(null), NETWORK_WAIT_MS));
+  try {
+    return (await Promise.race([network, tooSlow])) ?? hit;
+  } catch {
+    return hit;
   }
 }
 
@@ -83,7 +90,7 @@ self.addEventListener('fetch', (event) => {
   // The page. Which race it shows is read from the address by the page's
   // own script, so one kept copy opens any race.
   if (request.mode === 'navigate') {
-    if (path === PAGE) event.respondWith(fromNetworkFirst(request, PAGE));
+    if (path === PAGE) event.respondWith(fromNetworkFirst(event, request, PAGE));
     return;
   }
   // The router's own requests for a page are left to fail with no signal:
@@ -95,11 +102,11 @@ self.addEventListener('fetch', (event) => {
     // The list of races is asked for by date, and the dates move on each
     // day: without a signal, yesterday's list is better than none.
     const key = path === '/api/v1/races' ? path : path + url.search;
-    event.respondWith(fromNetworkFirst(request, key));
+    event.respondWith(fromNetworkFirst(event, request, key));
     return;
   }
   // Fonts, icons and the like.
   if (request.destination === 'font' || request.destination === 'image' || request.destination === 'style' || request.destination === 'worklet') {
-    event.respondWith(fromNetworkFirst(request, path + url.search));
+    event.respondWith(fromNetworkFirst(event, request, path + url.search));
   }
 });

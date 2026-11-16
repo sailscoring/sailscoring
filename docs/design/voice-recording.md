@@ -9,10 +9,13 @@ and submits the sheet for the scorer to review.
 - **Why it is built this way:** [ADR-017](decisions/017-voice-finish-recording.md)
 - **What the recorder sees and says:** [the flow](ux/flows/voice-finish-recording.md)
 - **What else does this, and what we measured:** [`notes/voice-recording/`](../notes/voice-recording/)
-- **Something to try now:** [the prototype](../../prototypes/voice/README.md)
+- **The bench, and the page it began as:** [the prototype](../../prototypes/voice/README.md)
 
-Status, November 2026: proposed. A prototype page and a bench exist.
-Nothing has heard a real caller.
+Status, November 2026: M1 to M3 are built as a proof of concept, behind the
+operator-managed `voice-recording` gate, to be tried on the water. M0 was
+not done first: nothing has heard a real caller, and the first trials are
+where its questions get answered. See [Trying it](#trying-it) and
+[What the proof of concept leaves rough](#what-the-proof-of-concept-leaves-rough).
 
 ## How it works
 
@@ -27,6 +30,96 @@ Nothing has heard a real caller.
    after the number, or failing both the moment of the call.
 5. The lines fill the finishing order on the Record finishes page, and go
    to the scorer as a finish sheet submission.
+
+## Where it lives
+
+Arranged so it can leave the app, as the course builder did. Everything is
+under a `voice` directory, and the rest of the app touches it in the few
+places listed.
+
+| Where | What |
+|-------|------|
+| `lib/voice/` | Pure logic, no browser: `calls.ts` (words to calls), `session.ts` (a spell of listening: lines, Now, Undo, the time rules), `sheet.ts` (lines onto finish rows, and what is left to settle), `audio.ts`, `types.ts` (the list of calls, a versioned document), `validation.ts` |
+| `lib/voice/client/` | The phone: the engine's download and worker, the microphone, the recorder that ties them to a session, its own IndexedDB database, playback, the upload |
+| `lib/voice/server/` | The recording store and the API's rules |
+| `components/voice/` | The setup dialog, the listening screen, the panel on Record finishes, the scorer's playback |
+| `public/voice/` | The recogniser's worker, the microphone worklet, the service worker; the engine itself is fetched at build (`pnpm voice:sync`, pinned in `lib/voice/engine-release.json`) and not committed |
+| `lib/db/schema/voice.ts` | Two tables nothing else refers to: `voice_recordings`, `voice_recording_segments` |
+| `app/api/v1/voice/`, `app/api/cron/sweep-voice-recordings/` | Its routes |
+
+The rest of the app knows about it in these places, each a line or two:
+
+- `components/record-finishes/record-finishes.tsx` holds the voice state,
+  renders the panel, and keeps its draft on the phone when the gate is on.
+- `components/finish-tab.tsx` has a `rowExtra` slot, which is where a
+  row's ▶ goes.
+- `components/race-entry/finish-submissions-panel.tsx` and the race page
+  show the recording to the scorer.
+- `lib/api-handlers/finish-submissions.ts` deletes a withdrawn sheet's
+  recording.
+- `lib/features.ts`, `next.config.ts` (two headers), `vercel.json` (the
+  sweep), the backup workflow (the sound is left out), `package.json`.
+
+**The data model.** A recording belongs to a race and is found by the
+finish sheet submission it went with, whose id it holds without a foreign
+key. The submission itself is unchanged: a line taken by voice is an
+ordinary row of the sheet, and the recording's list of calls says, by the
+row's id, which call it came from and what was in doubt. So the public
+API's submissions are untouched, and a sheet reads the same with the
+recording gone.
+
+Every time is the phone's clock. A recording is one or more *takes*,
+unbroken runs of sound; an interruption ends a take, and the gap is kept.
+The sound is stored and sent in five-second pieces (16 kHz, µ-law on the
+wire and the server), so it uploads a little at a time over a poor signal
+and a review fetches only the pieces around the line it plays.
+
+**Keeping it.** The phone removes its copy after 7 days. The server's copy
+goes when the sheet is withdrawn, when the recorder or a scorer deletes it,
+and in any case 30 days after it was sent. Whoever made it and anyone who
+can score may hear it. The sound is in Postgres for now and is left out of
+the database backups, which are kept longer than a recording is. Both
+numbers are first guesses (`lib/voice/types.ts`).
+
+## Trying it
+
+1. Get the engine: build or copy it as the
+   [prototype's README](../../prototypes/voice/README.md) says, then
+   `pnpm voice:sync --from <its engine directory>`. A deployed build needs
+   the engine published and `source` set in `lib/voice/engine-release.json`;
+   until then the setup dialog says the engine isn't available.
+2. Turn on `finish-submissions` and `voice-recording` for the workspace
+   (see [workspace provisioning](../workspace-provisioning.md)).
+3. Open **Record finishes**, pick the race, **Set up**. Do this ashore.
+
+`e2e/voice-recording.spec.ts` runs the whole flow with a scripted
+recogniser. `e2e/voice-real-engine.spec.ts` runs the real one against a
+synthetic caller, on a machine that has the engine and `flite`.
+
+What a trial should bring back is M0's list: of ten calls, how many went
+down right and how many wrong without a mark; whether the phone kept up
+(the saved list of calls has `realTimeFactor`); how often listening
+stopped; and the saved recording with the paper sheet, for the bench.
+
+## What the proof of concept leaves rough
+
+- **No published engine.** Nothing is uploaded anywhere yet, so only a
+  local build can listen.
+- **Never run on a phone.** Chromium on a laptop only. iPhone behaviour
+  (the microphone when the screen locks, how much the browser will store)
+  is what ADR-017 §8 is waiting to hear about.
+- **Sail numbers only.** A boat's alternative sail numbers and bow number
+  aren't on the list a call is read against.
+- **Fleets timed off a stopwatch** get the order and no times.
+- **Kept copies outlive a sign-out.** The page and data the service worker
+  keeps for opening with no signal stay on the phone after signing out.
+- **A waiting sheet needs the page open.** A phone's browser gives no way
+  to send from the background.
+- **Not in the activity log.** Sending or deleting a recording leaves no
+  entry.
+- **No help page, and no privacy policy change.** The policy has to change
+  before a volunteer's voice reaches the server:
+  [proposed wording](../notes/voice-recording/privacy-wording.md).
 
 ## Milestones
 

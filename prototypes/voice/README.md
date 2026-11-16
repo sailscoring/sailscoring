@@ -13,6 +13,12 @@ submission. The entry list is typed into a box and everything is gone on
 reload. What is meant to survive is `calls.mjs`, the part that reads a
 recogniser's words as calls, and what the bench in `bench/` measures.
 
+The app now has its own version of this, on the Record finishes page: see
+[`docs/design/voice-recording.md`](../../docs/design/voice-recording.md).
+`calls.mjs` lives on there as `lib/voice/calls.ts`, and the engine built
+here is what the app serves (`pnpm voice:sync --from prototypes/voice/engine`).
+This page stays for the bench, and for trying a model the app doesn't ship.
+
 ## Trying it
 
 The listening engine and its models aren't committed (13 MB and 180 MB).

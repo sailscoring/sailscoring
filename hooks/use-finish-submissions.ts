@@ -53,6 +53,9 @@ export function useSubmitFinishSheet() {
     mutationFn: (args: { raceId: string; submissionId: string; input: SubmitFinishesInput }) =>
       submitFinishSheet(args.raceId, args.submissionId, args.input),
     onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.finishSubmissions.all }),
+    // The Record finishes page says what happened beside the button: that
+    // the list is still there, or that it will go when there is a signal.
+    meta: { errorShownToUser: true },
   });
 }
 

@@ -239,6 +239,14 @@ export function startRecorder(options: RecorderOptions): Recorder {
       void wakeLock?.release().catch(() => undefined);
       // The recogniser is a moment behind the microphone: let its last words in.
       await new Promise((resolve) => setTimeout(resolve, 400));
+      // Stopped while the microphone was away: that stretch is a gap too.
+      if (take) {
+        const heardUntil = take.startedAt + (take.samples / SAMPLE_RATE) * 1000;
+        const now = Date.now();
+        if (now - heardUntil > (GAP_SECONDS + 0.4) * 1000) {
+          recording = { ...recording, gaps: [...recording.gaps, { from: Math.round(heardUntil), to: now }] };
+        }
+      }
       endTake();
       listener.onWords = null;
       recording = { ...recording, lines: session.lines(), words: [...earlierWords, ...session.words()] };

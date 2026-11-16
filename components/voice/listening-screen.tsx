@@ -76,6 +76,8 @@ export function ListeningScreen({
     return { ...label, tag: mark ? TAG[mark] : null, time: timed ? lineTime(line) : '' };
   };
   const taken = live.filter((l) => l.how !== 'tap').length;
+  // A sheet that takes no times has no time column to leave room for.
+  const showTimes = takesTime(null);
   const gap = recorder.gap();
   const hearing = recorder.hearing();
 
@@ -144,7 +146,7 @@ export function ListeningScreen({
           const d = describe(line);
           return (
             <li key={line.id} className="flex items-baseline gap-3 border-b py-2">
-              <span className="w-28 shrink-0 font-mono text-sm text-muted-foreground">{d.time || '·'}</span>
+              {showTimes && <span className="w-28 shrink-0 font-mono text-sm text-muted-foreground">{d.time || '·'}</span>}
               <span className="font-mono text-lg font-medium">{d.number}</span>
               <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">{d.who}</span>
               {d.tag && (
@@ -189,7 +191,7 @@ export function ListeningScreen({
 
       {locked && (
         <div
-          className="absolute inset-0 z-10 flex select-none flex-col items-center justify-center gap-3 bg-background/85 text-center"
+          className="absolute inset-0 z-10 flex select-none flex-col items-center justify-center gap-3 bg-background/95 text-center"
           data-testid="voice-lock"
           onPointerDown={() => {
             hold.current = setTimeout(() => setLocked(false), UNLOCK_MS);

@@ -130,11 +130,21 @@ export async function openMicrophone(deviceId: string | null): Promise<Microphon
   // destination keeps the microphone out of the headset's earpiece.
   const quiet = ctx.createGain();
   quiet.gain.value = 0;
-  ctx.createMediaStreamSource(stream).connect(node).connect(quiet).connect(ctx.destination);
+  node.connect(quiet).connect(ctx.destination);
+  let source = ctx.createMediaStreamSource(stream);
+  source.connect(node);
 
-  const track = stream.getAudioTracks()[0];
+  let track: MediaStreamTrack | undefined = stream.getAudioTracks()[0];
   const down = resampler(ctx.sampleRate);
   let closed = false;
+  let reopening = false;
+  const report = () => microphone.onRunning?.(microphone.running());
+  const watch = (t: MediaStreamTrack | undefined) => {
+    if (!t) return;
+    t.onmute = report;
+    t.onunmute = report;
+    t.onended = report;
+  };
   const microphone: Microphone = {
     label: track?.label ?? '',
     deviceId: track?.getSettings().deviceId ?? deviceId,
@@ -142,7 +152,32 @@ export async function openMicrophone(deviceId: string | null): Promise<Microphon
     onRunning: null,
     running: () => !closed && ctx.state === 'running' && track?.readyState === 'live' && !track.muted,
     async resume() {
-      if (!closed && ctx.state !== 'running') await ctx.resume().catch(() => undefined);
+      if (closed) return;
+      if (ctx.state !== 'running') await ctx.resume().catch(() => undefined);
+      // A phone call, or the phone locking, can end the capture outright:
+      // open the same microphone again and carry on.
+      if (track?.readyState !== 'ended' || reopening) return;
+      reopening = true;
+      try {
+        const again = await navigator.mediaDevices.getUserMedia({
+          audio: { ...audio, ...(microphone.deviceId ? { deviceId: { exact: microphone.deviceId } } : {}) },
+        });
+        if (closed) {
+          again.getTracks().forEach((t) => t.stop());
+          return;
+        }
+        source.disconnect();
+        stream = again;
+        source = ctx.createMediaStreamSource(again);
+        source.connect(node);
+        track = again.getAudioTracks()[0];
+        watch(track);
+      } catch {
+        // Still not ours to open: the screen says it isn't listening.
+      } finally {
+        reopening = false;
+        report();
+      }
     },
     cue: (cue) => play(ctx, cue),
     close() {
@@ -157,12 +192,7 @@ export async function openMicrophone(deviceId: string | null): Promise<Microphon
     const samples = down(e.data);
     if (samples.length) microphone.onAudio?.(samples, Date.now(), level(samples));
   };
-  const report = () => microphone.onRunning?.(microphone.running());
   ctx.onstatechange = report;
-  if (track) {
-    track.onmute = report;
-    track.onunmute = report;
-    track.onended = report;
-  }
+  watch(track);
   return microphone;
 }
