@@ -35,6 +35,7 @@ import { publicationFacts } from '@/lib/public-api/facts';
 import { publishedPageKey, type PageContribution } from '@/lib/public-api/published-view';
 import { writePublishedView } from '@/lib/public-api/store';
 import { purgePublishedCache } from '@/lib/published-cache';
+import { printPublicCacheReminder } from '@/scripts/public-cache-reminder';
 import { buildFleetHtmlFiles } from '@/lib/results-export';
 import type { PublicationSummary, PublishedSeriesPage } from '@/lib/types';
 import { workspaceContextFor } from '@/scripts/republish';
@@ -199,6 +200,9 @@ export async function runCli(argv: string[]): Promise<number> {
   }
   // The workspace indexes now link the views written.
   for (const workspaceId of touched) await purgePublishedCache(workspaceId);
+  // Run from a terminal, that purge is a no-op: it only reaches the CDN
+  // from inside a Vercel function.
+  printPublicCacheReminder(touched);
 
   console.log(
     `\n${rows.length} publication${rows.length === 1 ? '' : 's'} without a published view: ` +

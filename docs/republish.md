@@ -81,8 +81,10 @@ skipped for rendering identically on its own.
 Two production notes:
 
 - The pass runs from a laptop, so it cannot purge the CDN cache the way
-  an in-app publish does. `/p/` pages are cached at the edge for 60
-  seconds, so a rebuilt page is live within a minute either way.
+  an in-app publish does, and a rebuilt page stays cached at the edge
+  until something purges it. When it has rebuilt anything, the pass ends
+  by printing the `pnpm public-cache:purge:prod …` command for the
+  workspaces it touched; run it.
 - Each rebuilt page is one Blob upload and one delete, concurrent per
   publication. The pass runs publications one at a time, so it stays
   well inside the Pro plan's per-second budget.

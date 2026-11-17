@@ -58,6 +58,7 @@
     "redirects": "tsx --env-file-if-exists=.env.local scripts/manage-redirects.ts",
     "redirects:test": "./scripts/local-env.sh --local-db tsx scripts/manage-redirects.ts",
     "redirects:prod": "./scripts/prod-env.sh tsx scripts/manage-redirects.ts",
+    "public-cache:purge:prod": "./scripts/vercel-env.sh tsx --conditions=react-server scripts/purge-public-cache.ts",
     "firewall:diff": "./scripts/vercel-env.sh tsx scripts/vercel-firewall.ts diff",
     "firewall:apply": "./scripts/vercel-env.sh tsx scripts/vercel-firewall.ts apply",
     "delete-account": "tsx --env-file-if-exists=.env.local scripts/delete-account.ts",

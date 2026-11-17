@@ -366,6 +366,26 @@ Never prefix a command with `DATABASE_URL=…` by hand — the Bash guard
 blocks it, and the point of the `:prod` script is that it says out loud
 where it is going before it goes there.
 
+### Purging the public pages afterwards
+
+The public `/p` pages are cached at Vercel's edge until something purges
+them. The app purges on every change it makes itself, but a command run
+from a terminal can't reach the CDN. So `rename-org`, `enable-feature`,
+`disable-feature` and `delete-org` end by printing the purge command for
+the workspace they changed:
+
+```bash
+pnpm public-cache:purge:prod <workspace-id>
+```
+
+It takes ids, not slugs, so it needs only the Vercel token and works for
+a workspace that has just been deleted (`--dry-run` prints the Vercel CLI
+command instead of running it, `--directory` purges just `/p`). The same
+goes for anything else that writes what `/p` shows from outside the app:
+the publication backfills and `republish` print the command too. For a
+migration or a hand-run `db:psql` change, purge the workspaces it touched,
+or `pnpm vercel cache purge` to empty the project's whole CDN.
+
 ## What Phase 7 deliberately left out (since shipped in Phase 10)
 
 - **Self-service org creation.** Landed as the admin-approved request

@@ -66,6 +66,7 @@ import {
 } from '@/lib/support-grants';
 
 import { ROLE_PERMISSIONS, type WorkspaceRole } from '@/lib/auth/permissions';
+import { printPublicCacheReminder } from '@/scripts/public-cache-reminder';
 
 export type Role = WorkspaceRole;
 
@@ -1076,6 +1077,7 @@ export async function runCli(argv: string[]): Promise<number> {
         console.log(
           `renamed org "${result.previousName}" to "${result.name}" (slug: ${result.slug}, id: ${result.id})`,
         );
+        printPublicCacheReminder([result.id]);
         return 0;
       }
       case 'delete-org': {
@@ -1095,6 +1097,7 @@ export async function runCli(argv: string[]): Promise<number> {
         }
         await deleteOrg(db, { orgSlugOrId: org.id });
         console.log(`\ndeleted org "${org.slug}"`);
+        printPublicCacheReminder([org.id]);
         return 0;
       }
       case 'pre-create-user': {
@@ -1279,6 +1282,7 @@ export async function runCli(argv: string[]): Promise<number> {
             result.enabledFeatures.length > 0 ? result.enabledFeatures.join(', ') : '(none)'
           }`,
         );
+        printPublicCacheReminder([result.org.id]);
         return 0;
       }
       case 'list-feature': {

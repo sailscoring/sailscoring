@@ -50,6 +50,8 @@ import { computeEffectiveFeatures } from '@/lib/features';
 import { getPublishedBySeries } from '@/lib/published-repository';
 import type { PublishedSeriesPage } from '@/lib/types';
 
+import { printPublicCacheReminder } from '@/scripts/public-cache-reminder';
+
 /** One publication as the pass sees it: the row joined to its workspace and
  *  (when it still has one) its series. */
 export interface PublicationRow {
@@ -326,6 +328,9 @@ export async function runCli(argv: string[]): Promise<number> {
   }
 
   const counts = { rebuild: 0, rebuilt: 0, unchanged: 0, skipped: 0, failed: 0 };
+  // Run from a terminal, the publish can't reach the CDN (its purge is a
+  // no-op off Vercel), so the operator is told which workspaces to purge.
+  const rebuiltWorkspaces = new Set<string>();
   let acted = 0;
   const width = Math.min(60, Math.max(...rows.map((r) => label(r).length)));
   for (const row of rows) {
@@ -351,6 +356,7 @@ export async function runCli(argv: string[]): Promise<number> {
     switch (outcome.kind) {
       case 'rebuilt':
         counts.rebuilt++;
+        rebuiltWorkspaces.add(row.workspaceId);
         console.log(`${name}  rebuilt    ${describe(row, outcome.pages, outcome.dataFile)}`);
         // Every page of the publication was rewritten (blobs are addressed by
         // the publication's hash); list them as URLs so checking one is a click.
@@ -378,6 +384,7 @@ export async function runCli(argv: string[]): Promise<number> {
       (counts.rebuild > 0 ? `, deferred ${counts.rebuild}` : '')
     : `would rebuild ${counts.rebuild}, skip ${counts.skipped}`;
   console.log(`\n${rows.length} publication${rows.length === 1 ? '' : 's'}: ${summary}`);
+  printPublicCacheReminder(rebuiltWorkspaces);
   return counts.failed > 0 ? 1 : 0;
 }
 
