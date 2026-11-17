@@ -17,6 +17,7 @@ import postgres, { type Sql } from 'postgres';
 import { NextRequest } from 'next/server';
 
 import * as schema from '@/lib/db/schema';
+import { serializeOrgMetadata } from '@/lib/features';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
 import * as series from '@/lib/api-handlers/series';
 import * as competitors from '@/lib/api-handlers/competitors';
@@ -47,6 +48,15 @@ describe.skipIf(!DATABASE_URL)('public pages in the CDN', () => {
       id: workspaceId,
       name: 'Etag Club',
       slug,
+      // Unlisted, so its renames don't move the public directory that other
+      // test files read in parallel.
+      metadata: serializeOrgMetadata({
+        kind: 'club',
+        enabledFeatures: [],
+        disabledFeatures: [],
+        seededFeatureSamples: [],
+        directory: { unlisted: true },
+      }),
       createdAt: new Date(),
     });
     ctx = {

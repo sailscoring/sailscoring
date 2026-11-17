@@ -83,11 +83,14 @@ describe.skipIf(!DATABASE_URL)('writers purge the public cache', () => {
       id: workspaceId,
       name: 'Purge Club',
       slug: `purge-${workspaceId.slice(10, 22)}`,
+      // Unlisted, so the public directory other test files read in parallel
+      // doesn't change under them as these workspaces publish.
       metadata: serializeOrgMetadata({
         kind: 'club',
         enabledFeatures: ownFeatures as never,
         disabledFeatures: [],
         seededFeatureSamples: [],
+        directory: { unlisted: true },
       }),
       createdAt: new Date(),
     });
