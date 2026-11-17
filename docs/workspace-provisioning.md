@@ -56,7 +56,9 @@ The default sign-in flow already gives every user a personal workspace
 
    The new workspace gets the same two sample series a personal
    workspace gets at sign-up, in a *Samples* category, so the panel's
-   first sign-in lands on a populated list. Pass `--no-samples` for a
+   first sign-in lands on a populated list. In a club workspace the
+   samples — and any feature demo seeded later — take the workspace's
+   name as their venue. Pass `--no-samples` for a
    workspace that will only hold ingested archives (ADR-010).
    `fulfil-request` seeds them the same way and takes the same flag.
    A workspace created empty — before creation seeded them, or with

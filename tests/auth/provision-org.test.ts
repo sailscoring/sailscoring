@@ -109,6 +109,8 @@ describe.skipIf(skip)('provision-org operations', () => {
       .from(schema.categories)
       .where(eq(schema.categories.workspaceId, orgId));
     expect(cats.map((c) => c.name)).toEqual(['Samples']);
+    // "My Workspace" is no venue, so the samples keep their own.
+    expect(await venuesIn(orgId)).toEqual(['Howth Yacht Club']);
 
     // Re-running is a no-op: the workspace now has series, so it's skipped
     // rather than seeded a second time.
@@ -150,12 +152,22 @@ describe.skipIf(skip)('provision-org operations', () => {
     return rows.map((r) => r.name);
   }
 
+  async function venuesIn(orgId: string): Promise<string[]> {
+    const rows = await db
+      .select({ venue: schema.series.venue })
+      .from(schema.series)
+      .where(eq(schema.series.workspaceId, orgId));
+    return [...new Set(rows.map((r) => r.venue))];
+  }
+
   test('createOrg seeds the sample series only when asked', async () => {
     const stamp = Date.now();
     const seeded = await createOrg(db, { name: `Seeded Club ${stamp}`, seedSamples: true });
     cleanupOrgIds.push(seeded.id);
     expect(await seriesIn(seeded.id)).toHaveLength(2);
     expect(await categoriesIn(seeded.id)).toEqual(['Samples']);
+    // The samples take the club's own name as their venue.
+    expect(await venuesIn(seeded.id)).toEqual([`Seeded Club ${stamp}`]);
 
     const bare = await createOrg(db, { name: `Archive Club ${stamp}` });
     cleanupOrgIds.push(bare.id);
@@ -171,6 +183,7 @@ describe.skipIf(skip)('provision-org operations', () => {
     cleanupOrgIds.push(org.id);
     expect(await seriesIn(org.id)).toHaveLength(3);
     expect(await categoriesIn(org.id)).toEqual(['Samples']);
+    expect(await venuesIn(org.id)).toEqual([org.name]);
   });
 
   test('seedSamplesForOrg seeds an empty club workspace, then skips on re-run', async () => {

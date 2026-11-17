@@ -24,7 +24,7 @@ import { and, eq, inArray, sql } from 'drizzle-orm';
 
 import { getDb, type SailScoringDb } from '@/lib/db/client';
 import * as schema from '@/lib/db/schema';
-import { FEATURES, type FeatureDef, type FeatureKey } from '@/lib/features';
+import { FEATURES, parseOrgMetadata, type FeatureDef, type FeatureKey } from '@/lib/features';
 import { openSeriesFromFile, parseSeriesFile, type SeriesFileRepos } from '@/lib/series-file';
 import type { Competitor, Fleet, Race, RaceStart, RaceRatingOverride, Finish, Series, SubSeries } from '@/lib/types';
 
@@ -360,6 +360,36 @@ async function ensureSamplesCategory(
 }
 
 /**
+ * The venue a sample takes in this workspace: a club workspace's own name, so
+ * the samples read as that club's racing rather than someone else's. A
+ * personal workspace's name ("My Workspace") is no venue, so there the sample
+ * keeps the one it was written with.
+ */
+async function workspaceVenue(
+  db: SailScoringDb,
+  workspaceId: string,
+): Promise<string | undefined> {
+  const [org] = await db
+    .select({
+      name: schema.organization.name,
+      slug: schema.organization.slug,
+      metadata: schema.organization.metadata,
+    })
+    .from(schema.organization)
+    .where(eq(schema.organization.id, workspaceId))
+    .limit(1);
+  if (!org || parseOrgMetadata(org.metadata, org.slug).kind !== 'club') return undefined;
+  return org.name.trim() || undefined;
+}
+
+/** Read and parse one committed sample, giving it the workspace's venue. */
+function readSample(fileName: string, venue: string | undefined) {
+  const file = parseSeriesFile(readFileSync(join(SAMPLE_DIR, fileName), 'utf8'));
+  if (venue) file.series.venue = venue;
+  return file;
+}
+
+/**
  * Seed both sample series into `workspaceId`. Atomic per call (one transaction)
  * so a mid-seed failure leaves no half-written series. Callers run this
  * best-effort: a failure must never block account creation.
@@ -374,10 +404,10 @@ export async function seedSampleSeries(
     // workspace-local (not carried in the .sailscoring file), so we create the
     // category here and pass its id to openSeriesFromFile.
     const categoryId = await ensureSamplesCategory(txDb, workspaceId);
+    const venue = await workspaceVenue(txDb, workspaceId);
     const repos = seedRepos(txDb, workspaceId);
     for (const name of SAMPLE_FILES) {
-      const file = parseSeriesFile(readFileSync(join(SAMPLE_DIR, name), 'utf8'));
-      await openSeriesFromFile(file, repos, { categoryId });
+      await openSeriesFromFile(readSample(name, venue), repos, { categoryId });
     }
   });
 }
@@ -403,9 +433,9 @@ export async function seedFeatureSample(
   await db.transaction(async (tx) => {
     const txDb = tx as unknown as SailScoringDb;
     const categoryId = await ensureSamplesCategory(txDb, workspaceId);
+    const venue = await workspaceVenue(txDb, workspaceId);
     const repos = seedRepos(txDb, workspaceId);
-    const file = parseSeriesFile(readFileSync(join(SAMPLE_DIR, fileName), 'utf8'));
-    await openSeriesFromFile(file, repos, { categoryId });
+    await openSeriesFromFile(readSample(fileName, venue), repos, { categoryId });
   });
   return true;
 }
