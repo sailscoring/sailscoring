@@ -441,11 +441,19 @@ Results change only when a scorer publishes, and scorers publish after
 racing. A good poller notices a publish soon after it happens and fetches
 nothing that hasn't moved.
 
+- **Following a workspace, poll its index.** The workspace's `index.json`
+  (or a season's) changes on every publish in it, and while nothing has,
+  the CDN answers `If-None-Match` with a `304` itself. That makes it one
+  cheap request a poll however many publications you follow. When it
+  changes, compare each publication's `publishedAt` with what you last saw,
+  and look at only the ones that moved. It also changes when a series is
+  renamed or a season added; then no `publishedAt` has moved, and there is
+  nothing more to fetch.
 - **Poll the publication, then what moved.** The publication resource
   changes on every publish, and its `resources` say when each of the others
-  was last published. Poll it alone, and fetch a standings table, a race or
-  the entry list only when its `publishedAt` moves: one call a poll for each
-  publication, not one for each resource.
+  was last published. Following one publication, poll it alone. Either way,
+  fetch a standings table, a race or the entry list only when its
+  `publishedAt` moves, not on every poll.
 - **Send the ETag back.** Every response carries an `ETag`. Send it as
   `If-None-Match` and an unchanged resource is answered `304 Not Modified`
   with no body. From a page, that header needs a CORS preflight, which the

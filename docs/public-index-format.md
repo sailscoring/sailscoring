@@ -20,6 +20,8 @@ published series with its pages and its data file.
 - Served with `Access-Control-Allow-Origin: *`, and `ETag` exposed
   (`Access-Control-Expose-Headers: ETag`), so a script can poll it with
   `If-None-Match` and get `304 Not Modified` while nothing has changed.
+  The CDN holds the index until something in it changes and answers that `304`
+  itself, so a poll costs nothing while nothing has changed.
 - Lists only what is already published. Unpublishing a series drops it from
   the index; a workspace with nothing published, or a season with nothing
   filed under it, is `404`.
@@ -106,9 +108,10 @@ Field notes:
   contract. This is what an app should read; the data file is not a stable
   API. Absent on a publication made before the API, until it is published
   again.
-- **`publishedAt`.** When the series was last published. A poller can
-  compare it with what it last saw and skip fetching an unchanged series'
-  data file.
+- **`publishedAt`.** When the series was last published. A poller
+  holding the index compares it with what it last saw to find the
+  publications that moved, and fetches only those, through their `api`
+  link (see [Polling](public-api.md#polling)).
 - **`fleets`.** The series' fleets as scored, with each one's scoring system
   (`scratch`, `irc`, `py`, `nhc`, `echo`, `vprs`, `orc`, `tcf`) where known.
   A series that never defined a fleet has none. An as-published archive
