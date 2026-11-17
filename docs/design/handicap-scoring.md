@@ -1178,6 +1178,67 @@ cross-checked against Nepean Sailing Club's
 The `SWECHO` / `EchoIndex` formulas are in
 [`docs/notes/sailwave/excel-handicap-protocol.md`](../notes/sailwave/excel-handicap-protocol.md).
 
+### Places-based progressive handicap (Garrykennedy SC) — not implemented
+
+Garrykennedy Sailing Club on Lough Derg moves handicaps by **finishing place**
+rather than by elapsed time
+([garrykennedysailing.org/sailing-handicap](https://garrykennedysailing.org/sailing-handicap/),
+read 2026-11-17; brought to our attention by Patrick Blaney, LDYC). The club
+chose this on purpose. Its fleet varies widely in boat type and crew
+consistency, and under an elapsed-time system that variation shows up as
+handicap anomalies which only subjective overrides can fix. Its stated aim is
+prizes "well spread across the fleet, largely pro-rata to participation". It
+is not trying to estimate boat speed.
+
+**The rule.** After each race, scored per class, the first five boats' handicaps
+go up by a fixed step, and the trophy winner gets one more:
+
+| Place | 1st | 2nd | 3rd | 4th | 5th | Trophy winner |
+|-------|-----|-----|-----|-----|-----|---------------|
+| Increase | 0.040 | 0.030 | 0.020 | 0.015 | 0.010 | +0.010 |
+
+The total handed out (0.125 in a trophy race) is then taken off every boat in
+the race in equal shares, so the class's sum of handicaps is unchanged. The gap
+between 1st and a boat outside the top five is always 0.050. How it divides
+depends on fleet size: in a 16-boat race the winner nets +0.042 and the others
+lose 0.008 each; in a 7-boat race it is +0.032 and −0.018. A boat racing alone
+nets zero. The numbers are TCF-style multipliers. A new boat (one that hasn't
+raced in either of the previous two years) starts at RYA NHC Base + 7.5%, and the
+committee may adjust it by hand after three races. The step table can change
+between series. White-sail racing has a separate set of handicaps, kept the same
+way.
+
+**Fit with the engine.** The pipeline shape is the same as NHC and ECHO: score
+the race, adjust handicaps, apply the new ones to the next race. Only step 1
+differs. Instead of computing a fair handicap from elapsed times (`Q_i`), the
+engine looks up each boat's place in a table and then subtracts an equal share
+from every boat. Outliers, blend rates and realignment don't apply. The
+zero-sum share is a realignment step that is built in. It is a third adjustment
+model alongside the `ProgressiveHandicapConfig` profiles, not another profile of
+the same formula.
+
+**Properties worth stating to a club adopting it:**
+
+- The steps are added rather than multiplied, so +0.040 is about 5% on a boat
+  at 0.800 but 3.6% on one at 1.100. Proportionally, the slow end of the fleet
+  moves further.
+- Downward correction is slow in a big fleet (−0.008 a race at 16 boats), and
+  upward correction is fast. Starting newcomers above base puts most errors on
+  the slow side.
+- Because the sum is conserved, the fleet's overall level is set by what
+  newcomers bring in. The +7.5% only makes sense relative to wherever the
+  established fleet sits.
+- In a class of four, 3rd and 4th still net a reduction for placing.
+
+**Not stated on the page,** and needed before any implementation: the "minor,
+special-case adjustments" for DNFs; which results count as participating for the
+share (DNS, OCS, DSQ, RET); how tied places split the steps; what "single class
+basis" means when classes share a start; which races are trophy races; and
+whether the handicap carries across series (it appears to). If built, the
+explainability columns would be Old H, Place, Increase, Share and New H. A past
+GSC results sheet with handicaps would serve as the gold fixture. Tracked in
+[`horizon.md`](horizon.md) → *Places-based progressive handicap*.
+
 ### Why Phase 2 is a significant jump
 
 Phase 1 is stateless: the same TCC/PY number applies to every race; results can be

@@ -1745,6 +1745,23 @@ Further out:
   clubs. Workspaces are closed units, so this needs a consent model, though
   published results are already public.
 
+### Places-based progressive handicap
+
+Garrykennedy Sailing Club (Lough Derg) adjusts handicaps by finishing place.
+After each race the top five get fixed increases (+0.040 down to +0.010, and a
+further +0.010 for the trophy winner), and the total is then taken off every
+boat in equal shares, so the class's sum of handicaps doesn't change. Elapsed
+times play no part. Patrick Blaney (LDYC) brought it to our attention in
+November 2026. The rule, its properties and the open questions are in
+`handicap-scoring.md` → *Places-based progressive handicap (Garrykennedy SC)*.
+
+The engine's adjustment phase needs a step 1 that works from places rather than
+from `Q_i`. It also needs a per-race trophy-race flag, a step table on the
+fleet, and a rule for who shares the reduction. That is small next to NHC or
+ECHO. It is held back until a club asks to score with it. Before building we
+need GSC's DNF and participation rules and a past results sheet with handicaps
+to use as the fixture.
+
 ### PHRF (time-on-distance)
 
 PHRF (Performance Handicap Racing Fleet) is the dominant North American keelboat
