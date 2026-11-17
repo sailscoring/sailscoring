@@ -3,6 +3,7 @@ import 'server-only';
 import { BadRequestError, NotFoundError } from '@/app/api/v1/_lib/handler';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
 import { createRepos } from '@/lib/postgres-repository';
+import { purgePublishedCacheIfPublished } from '@/lib/published-repository';
 import {
   categoryCreateSchema,
   categoryRenameSchema,
@@ -52,6 +53,8 @@ export async function renameCategory(
   assertNameFree(await repos.categories.list(), name, id);
   const updated = await repos.categories.rename(id, name);
   if (!updated) throw new NotFoundError('category');
+  // The public workspace listing groups and orders by category.
+  await purgePublishedCacheIfPublished(workspace.workspaceId);
   return updated;
 }
 
@@ -62,6 +65,7 @@ export async function deleteCategory(
   // Series in this category fall back to Uncategorized via ON DELETE SET NULL.
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   await repos.categories.delete(id);
+  await purgePublishedCacheIfPublished(workspace.workspaceId);
 }
 
 export async function reorderCategories(
@@ -71,5 +75,6 @@ export async function reorderCategories(
   const { orderedIds } = categoryReorderSchema.parse(body);
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   await repos.categories.reorder(orderedIds);
+  await purgePublishedCacheIfPublished(workspace.workspaceId);
   return { items: await repos.categories.list() };
 }

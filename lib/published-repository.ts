@@ -118,6 +118,40 @@ export async function workspaceHasPublished(workspaceId: string): Promise<boolea
   return rows.length > 0;
 }
 
+/** Whether this series has a live publication. */
+export async function seriesHasPublication(seriesId: string): Promise<boolean> {
+  const rows = await getDb()
+    .select({ id: schema.publishedSeries.id })
+    .from(schema.publishedSeries)
+    .where(eq(schema.publishedSeries.seriesId, seriesId))
+    .limit(1);
+  return rows.length > 0;
+}
+
+/**
+ * Drop a workspace's public pages from the CDN after a write to a series row
+ * that has a publication. The public listings, the season tree and every
+ * page's navigation read the series' name, start date, order, category and
+ * archive flag live from the series row, not from the publication. A change
+ * to any of them shows on `/p` only once the cached copies go.
+ *
+ * Call this after the write has committed, never inside its transaction.
+ * A reader arriving between the purge and the commit would re-cache the old
+ * state for the full CDN lifetime.
+ */
+export async function purgePublishedCacheForSeries(
+  workspaceId: string,
+  seriesId: string,
+): Promise<void> {
+  if (await seriesHasPublication(seriesId)) await purgePublishedCache(workspaceId);
+}
+
+/** The same for a workspace-wide change that publications read (series
+ *  order, categories): purge only when there's something published. */
+export async function purgePublishedCacheIfPublished(workspaceId: string): Promise<void> {
+  if (await workspaceHasPublished(workspaceId)) await purgePublishedCache(workspaceId);
+}
+
 /** The set of series ids that have a live publication in the workspace. One
  *  query, used to filter the public competitor index down to published series
  *  (an unpublished series is the club's explicit "not public"). */

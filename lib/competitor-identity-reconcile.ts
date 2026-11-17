@@ -615,11 +615,12 @@ export async function gcOrphanIdentities(
 export async function sweepOrphanIdentitiesBestEffort(
   workspaceId: string,
   db: SailScoringDb = getDb(),
-): Promise<void> {
+): Promise<number> {
   try {
-    await gcOrphanIdentities(db, workspaceId, [], 'app');
+    return await gcOrphanIdentities(db, workspaceId, [], 'app');
   } catch (err) {
     console.error('competitor-identity orphan sweep failed:', err);
+    return 0;
   }
 }
 
@@ -732,10 +733,11 @@ export async function relinkIdentitiesAfterWrite(
  */
 export async function relinkIdentitiesBestEffort(
   workspaceId: string,
-): Promise<void> {
+): Promise<ApplyResult | null> {
   try {
-    await relinkIdentitiesAfterWrite(workspaceId);
+    return await relinkIdentitiesAfterWrite(workspaceId);
   } catch (err) {
     console.error('competitor-identity relink failed:', err);
+    return null;
   }
 }

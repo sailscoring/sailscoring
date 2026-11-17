@@ -7,6 +7,7 @@ import { BadRequestError } from '@/app/api/v1/_lib/handler';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
 import { getDb } from '@/lib/db/client';
 import * as schema from '@/lib/db/schema';
+import { purgePublishedCache } from '@/lib/published-cache';
 import { getPublishedSeasonTree } from '@/lib/published-repository';
 
 /**
@@ -53,6 +54,8 @@ export async function createSeason(
     .insert(schema.workspaceSeasons)
     .values({ workspaceId: workspace.workspaceId, label })
     .onConflictDoNothing();
+  // The season tree is in every public page's navigation.
+  await purgePublishedCache(workspace.workspaceId);
   return listSeasons(workspace);
 }
 
@@ -80,5 +83,6 @@ export async function setCurrentSeason(
       target: [schema.workspaceSeasons.workspaceId, schema.workspaceSeasons.label],
       set: { isCurrent: true },
     });
+  await purgePublishedCache(workspace.workspaceId);
   return listSeasons(workspace);
 }

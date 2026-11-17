@@ -13,10 +13,16 @@ import {
 import { hasPermission } from '@/lib/auth/permissions';
 import { recordActivity } from '@/lib/activity-log';
 import {
-  relinkIdentitiesBestEffort,
-  sweepOrphanIdentitiesBestEffort,
-} from '@/lib/competitor-identity-reconcile';
+  relinkIdentitiesAfterCompetitorWrite,
+  sweepIdentitiesAfterCompetitorDelete,
+} from '@/lib/competitor-identity-after-write';
 import { captureTombstone } from '@/lib/deleted-series';
+import {
+  purgePublishedCacheForSeries,
+  purgePublishedCacheIfPublished,
+  seriesHasPublication,
+} from '@/lib/published-repository';
+import { purgePublishedCache } from '@/lib/published-cache';
 import { trackChange } from '@/lib/revision-log';
 import { getDb } from '@/lib/db/client';
 import * as schema from '@/lib/db/schema';
@@ -206,6 +212,8 @@ export async function putSeries(
     dedupeKey: change ? `series:${id}:${change.facet}` : undefined,
     touch: false,
   });
+  // The name and dates feed the public listings and season tree.
+  if (existing) await purgePublishedCacheForSeries(workspace.workspaceId, id);
   return saved;
 }
 
@@ -311,9 +319,13 @@ export async function deleteSeries(workspace: WorkspaceContext, id: string): Pro
   // recovers it within the retention window.
   const actor = { workspaceId: workspace.workspaceId, userId: workspace.userId };
   await captureTombstone(actor, id);
+  // Asked before the delete: the publication outlives its series (orphaned,
+  // its series id cleared), and its public title and placement change with it.
+  const published = await seriesHasPublication(id);
   await repos.series.delete(id);
+  if (published) await purgePublishedCache(workspace.workspaceId);
   // Its competitors went with it; so do the sailors they alone accounted for.
-  await sweepOrphanIdentitiesBestEffort(workspace.workspaceId);
+  await sweepIdentitiesAfterCompetitorDelete(workspace.workspaceId);
   // Workspace-level entry: the series page is gone, so it carries the name and
   // no seriesId.
   await recordActivity(workspace, {
@@ -329,10 +341,11 @@ export async function deleteSeries(workspace: WorkspaceContext, id: string): Pro
  * while this — the one write that must work *on* an archived series — bypasses
  * it. Archiving makes the series read-only; unarchiving restores edits.
  *
- * A placement write, not an edit: archiving changes no published page, so it
- * leaves `version` alone rather than reporting an unpublished edit on every
- * series a season's end tidies away. It touches only `archived`, so it can't
- * clobber a concurrent settings edit either.
+ * A placement write, not an edit: archiving changes no published results
+ * page, so it leaves `version` alone rather than reporting an unpublished edit
+ * on every series a season's end tidies away. It touches only `archived`, so
+ * it can't clobber a concurrent settings edit either. The public workspace
+ * listing does group by it, so its cached copy is dropped.
  */
 export async function setSeriesArchived(
   workspace: WorkspaceContext,
@@ -343,6 +356,7 @@ export async function setSeriesArchived(
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   const saved = await repos.series.setPlacement(id, { archived });
   if (!saved) throw new NotFoundError('series');
+  await purgePublishedCacheForSeries(workspace.workspaceId, id);
   await recordActivity(workspace, {
     action: archived ? 'series.archived' : 'series.unarchived',
     seriesId: id,
@@ -405,7 +419,8 @@ export async function setSeriesResultsStatus(
  * the home-list `⋯` menu doesn't round-trip the whole series. `null` clears
  * the assignment back to the synthetic "Uncategorized". Like the archive
  * toggle, a placement write that leaves `version` alone: filing a series
- * changes no published page.
+ * changes no published results page. The public workspace listing groups by
+ * category, though, so its cached copy is dropped.
  */
 export async function setSeriesCategory(
   workspace: WorkspaceContext,
@@ -430,6 +445,7 @@ export async function setSeriesCategory(
   }
   const saved = await repos.series.setPlacement(id, { categoryId });
   if (!saved) throw new NotFoundError('series');
+  await purgePublishedCacheForSeries(workspace.workspaceId, id);
   await recordActivity(workspace, {
     action: 'series.recategorized',
     seriesId: id,
@@ -452,6 +468,7 @@ export async function reorderSeries(
   const { orderedIds } = seriesReorderSchema.parse(body);
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   await repos.series.reorder(orderedIds);
+  await purgePublishedCacheIfPublished(workspace.workspaceId);
   return { items: await repos.series.list() };
 }
 
@@ -594,7 +611,7 @@ export async function copySeries(
   );
   // Lazy identity population (#222) in the *target* workspace — the copy's
   // competitors are new rows there.
-  await relinkIdentitiesBestEffort(targetWorkspaceId);
+  await relinkIdentitiesAfterCompetitorWrite(targetWorkspaceId);
   return { id: newSeriesId };
 }
 
@@ -667,7 +684,7 @@ export async function importSeries(
   // Lazy identity population (#222): link the imported competitors. Identity
   // is workspace-local and never travels in either document, so it's
   // re-derived here.
-  await relinkIdentitiesBestEffort(workspace.workspaceId);
+  await relinkIdentitiesAfterCompetitorWrite(workspace.workspaceId);
   return { id };
 }
 
@@ -758,7 +775,8 @@ export async function putSeriesFile(
   });
   // Identity is workspace-local and never travels in the file, so the
   // competitor rows this just wrote need re-linking (#222).
-  await relinkIdentitiesBestEffort(workspace.workspaceId);
+  await relinkIdentitiesAfterCompetitorWrite(workspace.workspaceId);
+  if (existing) await purgePublishedCacheForSeries(workspace.workspaceId, seriesId);
   return { id: seriesId, created: !existing };
 }
 
@@ -1054,6 +1072,6 @@ export async function createFollowOnSeries(
     },
   );
   // Lazy identity population (#222): the rolled-over entry list is new rows.
-  await relinkIdentitiesBestEffort(workspace.workspaceId);
+  await relinkIdentitiesAfterCompetitorWrite(workspace.workspaceId);
   return { id: newSeriesId, seededCount };
 }
