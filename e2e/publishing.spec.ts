@@ -363,11 +363,11 @@ test('published pages carry CDN cache headers and a workspace purge tag', async 
   expect(headers['etag']).toBeTruthy();
 
   // The CDN is told something different, and only the CDN sees it: it may
-  // answer that revalidation itself for a minute rather than waking a
-  // function. Vercel consumes this header at the edge, so it never reaches a
-  // real browser — it is visible here only because there is no CDN in front
-  // of the local test server.
-  expect(headers['vercel-cdn-cache-control']).toBe('public, s-maxage=60');
+  // answer that revalidation itself for a day, until a write purges the
+  // workspace's tag, rather than waking a function. Vercel consumes this
+  // header at the edge, so it never reaches a real browser — it is visible
+  // here only because there is no CDN in front of the local test server.
+  expect(headers['vercel-cdn-cache-control']).toBe('public, s-maxage=86400');
 
   // One tag per workspace, so publishing can drop every page it might have
   // changed — the navigation cascade means that is potentially all of them.
