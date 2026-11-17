@@ -54,6 +54,19 @@ The default sign-in flow already gives every user a personal workspace
    the `/p/hyc/...` segment every published URL carries. Slugs are
    URL-safe and unique across the platform.
 
+   The new workspace gets the same two sample series a personal
+   workspace gets at sign-up, in a *Samples* category, so the panel's
+   first sign-in lands on a populated list. Pass `--no-samples` for a
+   workspace that will only hold ingested archives (ADR-010).
+   `fulfil-request` seeds them the same way and takes the same flag.
+   A workspace created empty — before creation seeded them, or with
+   `--no-samples` — can be backfilled; it is skipped if it already
+   holds any series:
+
+   ```bash
+   pnpm provision-org seed-samples --org hyc
+   ```
+
    Got the name wrong? `rename-org` fixes it:
 
    ```bash

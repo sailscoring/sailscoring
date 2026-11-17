@@ -20,6 +20,7 @@ import {
   preCreateUser,
   removeMember,
   renameOrg,
+  seedSamplesForOrg,
   seedSamplesForUser,
   setOrgFeature,
   setRole,
@@ -131,6 +132,62 @@ describe.skipIf(skip)('provision-org operations', () => {
     const outcome = await seedSamplesForUser(db, { email });
     expect(outcome.seeded).toBe(false);
     expect(outcome.existingSeries).toBeGreaterThan(0);
+  });
+
+  async function seriesIn(orgId: string): Promise<string[]> {
+    const rows = await db
+      .select({ name: schema.series.name })
+      .from(schema.series)
+      .where(eq(schema.series.workspaceId, orgId));
+    return rows.map((r) => r.name).sort();
+  }
+
+  async function categoriesIn(orgId: string): Promise<string[]> {
+    const rows = await db
+      .select({ name: schema.categories.name })
+      .from(schema.categories)
+      .where(eq(schema.categories.workspaceId, orgId));
+    return rows.map((r) => r.name);
+  }
+
+  test('createOrg seeds the sample series only when asked', async () => {
+    const stamp = Date.now();
+    const seeded = await createOrg(db, { name: `Seeded Club ${stamp}`, seedSamples: true });
+    cleanupOrgIds.push(seeded.id);
+    expect(await seriesIn(seeded.id)).toHaveLength(2);
+    expect(await categoriesIn(seeded.id)).toEqual(['Samples']);
+
+    const bare = await createOrg(db, { name: `Archive Club ${stamp}` });
+    cleanupOrgIds.push(bare.id);
+    expect(await seriesIn(bare.id)).toEqual([]);
+  });
+
+  test('createOrg puts the sample series and a feature demo in one Samples category', async () => {
+    const org = await createOrg(db, {
+      name: `Sub Club ${Date.now()}`,
+      enabledFeatures: ['sub-series'],
+      seedSamples: true,
+    });
+    cleanupOrgIds.push(org.id);
+    expect(await seriesIn(org.id)).toHaveLength(3);
+    expect(await categoriesIn(org.id)).toEqual(['Samples']);
+  });
+
+  test('seedSamplesForOrg seeds an empty club workspace, then skips on re-run', async () => {
+    const org = await createOrg(db, { name: `Backfill Club ${Date.now()}` });
+    cleanupOrgIds.push(org.id);
+
+    const first = await seedSamplesForOrg(db, { orgSlugOrId: org.slug });
+    expect(first).toMatchObject({ seeded: true, org: { id: org.id } });
+    expect(await seriesIn(org.id)).toHaveLength(2);
+
+    const second = await seedSamplesForOrg(db, { orgSlugOrId: org.id });
+    expect(second).toMatchObject({ seeded: false, existingSeries: 2 });
+    expect(await seriesIn(org.id)).toHaveLength(2);
+
+    await expect(seedSamplesForOrg(db, { orgSlugOrId: 'no-such-org' })).rejects.toThrow(
+      /not found/,
+    );
   });
 
   test('seedSamplesForUser rejects an unknown user', async () => {
@@ -329,6 +386,9 @@ describe.skipIf(skip)('provision-org operations', () => {
     cleanupOrgIds.push(org.id);
     expect(org.name).toBe(`Requested Panel ${stamp}`);
 
+    // A requested workspace gets the sample series by default.
+    expect(await seriesIn(org.id)).toHaveLength(2);
+
     // Requester is the owner of the new workspace.
     const members = await listMembers(db, { orgSlugOrId: org.id });
     expect(members.members).toHaveLength(1);
@@ -420,6 +480,16 @@ describe.skipIf(skip)('provision-org operations', () => {
     const after = await setOrgFeature(db, { orgSlugOrId: org.slug, feature: 'irc-rating', enabled: true });
     expect(after.enabledFeatures).toContain('irc-rating');
     expect(await disabledOf(org.id)).toEqual([]);
+  });
+
+  test('fulfilRequest skips the sample series when told to', async () => {
+    const stamp = Date.now();
+    const email = `requester-bare-${stamp}@sailscoring.test`;
+    const userId = await makeUser(email);
+    const requestId = await makeRequest(userId, email, `Bare Panel ${stamp}`);
+    const { org } = await fulfilRequest(db, { requestId, seedSamples: false });
+    cleanupOrgIds.push(org.id);
+    expect(await seriesIn(org.id)).toEqual([]);
   });
 
   test('declineRequest marks a pending request declined', async () => {
