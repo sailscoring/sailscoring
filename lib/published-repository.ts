@@ -181,6 +181,11 @@ export async function getPublishedById(
   return row ? rowToPublished(row) : null;
 }
 
+/** A publication in a slug group, with its series' current name: null for
+ *  an orphan, whose series is gone. The public pages show the name, so it is
+ *  part of what their ETags must cover. */
+export type PublishedGroupMember = PublishedSeries & { seriesName: string | null };
+
 /** Every publication sharing `(workspaceId, slug)`. A slug is a shared
  *  namespace, so this can be more than one series' publication; the public read
  *  path unions their pages (sub-heading each series in this order) and the
@@ -196,9 +201,10 @@ export async function getPublishedById(
 export async function getPublishedGroupByWorkspaceSlug(
   workspaceId: string,
   slug: string,
-): Promise<PublishedSeries[]> {
+): Promise<PublishedGroupMember[]> {
   const rows = await getDb()
     .select({
+      seriesName: schema.series.name,
       id: schema.publishedSeries.id,
       workspaceId: schema.publishedSeries.workspaceId,
       seriesId: schema.publishedSeries.seriesId,
@@ -227,7 +233,7 @@ export async function getPublishedGroupByWorkspaceSlug(
       asc(schema.series.displayOrder),
       desc(schema.publishedSeries.publishedAt),
     );
-  return rows.map(rowToPublished);
+  return rows.map(({ seriesName, ...row }) => ({ ...rowToPublished(row), seriesName }));
 }
 
 /** Resolve a workspace from its public slug: id, display name, own logo, and
