@@ -1762,6 +1762,29 @@ ECHO. It is held back until a club asks to score with it. Before building we
 need GSC's DNF and participation rules and a past results sheet with handicaps
 to use as the fixture.
 
+TopYacht ships the same idea as its "Place Based HC" recipe, and Ocean Racing
+WA's PHS is a percentage version. See the PHS entry below.
+
+### PHS (Australian performance handicap)
+
+PHS is the usual club keelboat handicap in Australia. It is a family of club
+systems rather than one specification: SailSys's proprietary method (John
+Maclurcan's, used by the CYCA), TopYacht's documented recipes, and places-based
+variants such as ORWA's. TopYacht's method takes the mark boat 45% down the
+corrected-time order and back-calculates each boat's TCF against it. It clamps
+or rejects results beyond ±4–6% of the boat's handicap, then takes either a
+running average of the last four or an exponential blend (ECHO's α, as
+`1/gain`). The detail is in `handicap-scoring.md` → *PHS (Australia)*.
+
+TopYacht's exponential method needs three new options on the shared engine: a
+mark-boat reference, a clamp relative to the boat's own handicap, and no
+realignment. The running average needs a window of each boat's past results,
+which the engine doesn't keep today. SailSys's version can't be reproduced,
+because the algorithm and its per-race TCFs are withheld, so the goal would be
+TopYacht parity, checked against its public results pages if they carry AHC
+and BCH, as its handicap results output does. Held back until an Australian club wants to score with it; it would
+matter for Sail Scoring use in Australia.
+
 ### PHRF (time-on-distance)
 
 PHRF (Performance Handicap Racing Fleet) is the dominant North American keelboat
