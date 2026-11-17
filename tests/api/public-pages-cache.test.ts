@@ -1,11 +1,12 @@
 // @vitest-environment node
 
 /**
- * A `/p` page's ETag must change whenever anything the page shows changes.
- * The CDN keeps a page until a writer purges it. After a purge, a browser
- * revalidates with the ETag it holds, and an unchanged ETag gets a 304: the
- * old copy stays on screen. The workspace and series names are read live
- * rather than from the publication, so they are the inputs at risk.
+ * How `/p` pages are cached. The CDN keeps a page for a day, unless a
+ * writer purges it first. So a page's ETag must change whenever anything the
+ * page shows changes. After a purge, a browser revalidates with the ETag it
+ * holds, and an unchanged ETag gets a 304: the old copy stays on screen. The
+ * workspace and series names are read live rather than from the
+ * publication, so they are the inputs at risk.
  *
  * Skipped when DATABASE_URL is unset.
  */
@@ -30,7 +31,7 @@ function uuid() {
   return crypto.randomUUID();
 }
 
-describe.skipIf(!DATABASE_URL)('public page ETags follow the names they show', () => {
+describe.skipIf(!DATABASE_URL)('public pages in the CDN', () => {
   let sql!: Sql;
   let db!: PostgresJsDatabase<typeof schema>;
   let workspaceId: string;
@@ -121,6 +122,17 @@ describe.skipIf(!DATABASE_URL)('public page ETags follow the names they show', (
       expect((await get(path, { 'if-none-match': etag })).status, path).toBe(200);
     }
   }
+
+  test('published pages are held by the CDN for a day; purges keep them fresh', async () => {
+    const base = `/p/${ctx.workspaceSlug}`;
+    for (const path of [base, `${base}/index.json`, `${base}/summer-series`, `${base}/summer-series/standings`]) {
+      const res = await get(path);
+      expect(res.headers.get('vercel-cdn-cache-control'), path).toBe('public, s-maxage=86400');
+      expect(res.headers.get('vercel-cache-tag'), path).toBe(`p:${workspaceId}`);
+      // The browser still revalidates every view.
+      expect(res.headers.get('cache-control'), path).toBe('public, no-cache');
+    }
+  });
 
   test('renaming the workspace changes every listing', async () => {
     const base = `/p/${ctx.workspaceSlug}`;

@@ -43,8 +43,11 @@ export const DIRECTORY_CACHE_TAG = 'p:directory';
  * uncached anyway and therefore always fresh.
  *
  * Failure is logged, not thrown. The write it follows has already succeeded,
- * and failing the publish would be worse than the staleness: `s-maxage` is
- * the floor, so an unpurged page self-corrects within a minute.
+ * and failing it would be worse than the staleness, which `s-maxage` bounds
+ * (a day for most pages; see `app/p/[[...slug]]/route.ts`).
+ *
+ * Call it after the write commits, never inside its transaction: a reader
+ * arriving between the purge and the commit would re-cache the old state.
  */
 export async function purgePublishedCache(workspaceId: string): Promise<void> {
   await deleteTags([publishedCacheTag(workspaceId), DIRECTORY_CACHE_TAG]);

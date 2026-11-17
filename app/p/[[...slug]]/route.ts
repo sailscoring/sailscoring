@@ -97,17 +97,26 @@ const CACHE_CONTROL = 'public, no-cache';
 // `Vercel-CDN-Cache-Control` is consumed at the edge and never forwarded, so
 // the browser still revalidates on every view and can never hold a stale copy.
 // That revalidation then terminates at the CDN, which answers 304 from its own
-// copy without waking a function or touching Postgres. Publishing purges the
-// tag below, so the guarantee above survives: browser asks, CDN has been
-// emptied, origin regenerates.
+// copy without waking a function or touching Postgres.
 //
-// 60s is a deliberate floor rather than a target. The purge covers everything
-// that writes through the publication repository; a series rename, a
-// re-ordering, or a feature flag flipped by an out-of-band script does not go
-// through it, and this is what picks those up without anything having to be
-// enumerated. No stale-while-revalidate: it would serve past the floor, which
-// is the property being bought.
-const CDN_CACHE_CONTROL = 'public, s-maxage=60';
+// The CDN keeps a page for a day, so a client polling every few minutes
+// doesn't keep the database awake. Freshness comes from the purge, not the
+// lifetime: every write that changes what these pages show deletes the
+// workspace's tag after it commits (publishing, seasons, series names and
+// placement, the logo, features, rankings), and a write made from a terminal
+// prints the `public-cache:purge:prod` command to run. So the guarantee above
+// survives: browser asks, CDN has been emptied, origin regenerates. A writer
+// that misses its purge leaves pages stale for up to the lifetime. A deploy
+// empties the CDN, so a renderer change never waits for it. No
+// stale-while-revalidate: it would serve a purged page's old copy once more.
+const CDN_CACHE_CONTROL = 'public, s-maxage=86400';
+
+// The exception: pages scored from the live series on every request (the
+// computed ranking ladder, the competitor timeline and index). Every
+// competitor, finish or setting written to a published series can change
+// them, and purging on all of those would empty the workspace's cache on
+// every race-day save. They keep a short lifetime instead.
+const LIVE_CDN_CACHE_CONTROL = 'public, s-maxage=60';
 
 /** The served ETag for an HTML page: the caller's content-derived tag plus the
  *  sponsor revision. The burgee footer is injected into every page this route
@@ -136,13 +145,14 @@ function htmlResponse(
   html: string,
   contentEtag: string,
   cacheTag: string,
+  cdnCacheControl: string = CDN_CACHE_CONTROL,
 ): Response {
   return new Response(injectBeforeBodyEnd(html, renderSponsorFooterHtml()), {
     status: 200,
     headers: {
       'content-type': 'text/html; charset=utf-8',
       'cache-control': CACHE_CONTROL,
-      'Vercel-CDN-Cache-Control': CDN_CACHE_CONTROL,
+      'Vercel-CDN-Cache-Control': cdnCacheControl,
       'Vercel-Cache-Tag': cacheTag,
       etag: pageEtag(contentEtag),
     },
@@ -580,7 +590,7 @@ async function rankingPage(
     standings,
     { competitorLinks, logoUrl: workspace.logo },
   );
-  return htmlResponse(html, etag, publishedCacheTag(workspace.id));
+  return htmlResponse(html, etag, publishedCacheTag(workspace.id), LIVE_CDN_CACHE_CONTROL);
 }
 
 /** The as-published fall-through for `/p/{ws}/ranking/{slug}` (#309): a
@@ -696,7 +706,7 @@ async function careerArc(
     identity,
     workspace.logo,
   );
-  return htmlResponse(html, etag, publishedCacheTag(workspace.id));
+  return htmlResponse(html, etag, publishedCacheTag(workspace.id), LIVE_CDN_CACHE_CONTROL);
 }
 
 /** `/p/{ws}/competitors` — the browsable, searchable index of every recurring
@@ -756,7 +766,7 @@ async function competitorIndex(
     competitors,
     workspace.logo,
   );
-  return htmlResponse(html, etag, publishedCacheTag(workspace.id));
+  return htmlResponse(html, etag, publishedCacheTag(workspace.id), LIVE_CDN_CACHE_CONTROL);
 }
 
 /** `/p/{ws}/{series}` — the fleet listing for a slug. A slug is a shared
