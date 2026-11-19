@@ -41,6 +41,11 @@ const columnSchema = z.object({
   label: z.string().max(80),
 });
 
+/** The most races one standings table carries. A sanity bound, not a
+ *  storage limit: a club's season ranking across every one of its leagues
+ *  runs to 95 (Royal Cork's Optimists, 2011). */
+const MAX_RACES = 100;
+
 const raceHeaderSchema = z.object({
   // As wide as any other column label: a race heading that carries its date
   // and start time ("Race 11 CW4 15th June 2024 08/06/2024@13:05:00") runs
@@ -60,7 +65,7 @@ const rowSchema = z.object({
   rank: z.number().int().min(1).max(10_000).nullable(),
   rankLabel: z.string().max(20),
   leadCells: z.array(z.string().max(200)).max(20),
-  raceCells: z.array(raceCellSchema).max(60),
+  raceCells: z.array(raceCellSchema).max(MAX_RACES),
   summaryCells: z.array(z.string().max(80)).max(20),
 });
 
@@ -85,10 +90,10 @@ const fleetResultsSchema = z.object({
    *  synthesises the summary rows it no longer displays. */
   detail: z.enum(['races']).optional(),
   leadColumns: z.array(columnSchema).max(20),
-  raceHeaders: z.array(raceHeaderSchema).max(60),
+  raceHeaders: z.array(raceHeaderSchema).max(MAX_RACES),
   summaryColumns: z.array(columnSchema).max(20),
   rows: z.array(rowSchema).max(2000),
-  raceTables: z.array(raceTableSchema).max(60).optional(),
+  raceTables: z.array(raceTableSchema).max(MAX_RACES).optional(),
 });
 
 const fleetSchema = z.object({
