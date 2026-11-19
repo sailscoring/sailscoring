@@ -165,20 +165,37 @@ export function parseSail100Html(html: string): {
   };
 }
 
+/** A race page's results: the first table holding no table of its own whose
+ *  first row is at least three cells, with a row after it. That passes over
+ *  the layout tables a page may set its heading in — Royal Cork's wrap the
+ *  whole page in one, with the logos and headings a single row of a table
+ *  inside it, and Cork Week 2004's stack the headings one cell to a row. */
+function resultsTable(doc: DocumentFragment): Element | null {
+  return (
+    [...doc.querySelectorAll('table')].find((table) => {
+      if (table.querySelector('table')) return false;
+      const trs = table.querySelectorAll('tr');
+      return trs.length >= 2 && trs[0].querySelectorAll('td, th').length >= 3;
+    }) ?? null
+  );
+}
+
 /**
  * Parse one Sail100 race page — the page a standings column links to, or a
- * race the club published on its own. The page is headed by two `<h1>`s, the
- * series and the race ("C1 060523"), then an `<h2>` start line ("Start: Sat 6
- * May 23 10:35:00"), and one table whose first row is its headers. Its
- * columns are published as they stand, keyed by label; a label the table
- * repeats ("Points" leads and ends Bray's) gets a numbered key. Returns null
- * for a page with no such table.
+ * race the club published on its own. The page is headed by `<h1>`s, the last
+ * of them the race ("C1 060523", "Race 3") — Bray's has the series above it,
+ * Royal Cork's the sponsor and the class as well — then an `<h2>` start line
+ * ("Start: Sat 6 May 23 10:35:00"), and a table whose first row is its
+ * headers. An older page (Cork Week 2004) sets the same headings as bold
+ * lines and the start line as plain text. Its columns are published as they
+ * stand, keyed by label; a label the table repeats ("Points" leads and ends
+ * Bray's) gets a numbered key. Returns null for a page with no such table.
  */
 export function parseSail100RaceHtml(html: string): SailwaveRaceSection | null {
   const doc = JSDOM.fragment(html);
-  const table = doc.querySelector('table');
+  const table = resultsTable(doc);
   const trs = table ? [...table.querySelectorAll('tr')] : [];
-  if (trs.length < 2) return null;
+  if (!table || trs.length < 2) return null;
   const labels = [...trs[0].querySelectorAll('td, th')].map(headerText);
   const seen = new Map<string, number>();
   const columns = labels.map((label, i) => {
@@ -191,10 +208,16 @@ export function parseSail100RaceHtml(html: string): SailwaveRaceSection | null {
     .slice(1)
     .map((tr) => [...tr.querySelectorAll('td')].map((c) => textOf(c)))
     .filter((cells) => cells.length === labels.length);
-  const headings = [...doc.querySelectorAll('h1')].map((h) => textOf(h));
+  const outside = (el: Element) => !table.contains(el);
+  const headings = [...doc.querySelectorAll('h1')].map((h) => textOf(h)).filter(Boolean);
+  const bold = [...doc.querySelectorAll('b')].filter(outside).map((b) => textOf(b)).filter(Boolean);
+  const startLine = [...doc.querySelectorAll('td, th')]
+    .filter(outside)
+    .map((c) => textOf(c))
+    .find((text) => /^start:/i.test(text));
   return {
-    title: headings[1] ?? headings[0] ?? '',
-    caption: textOf(doc.querySelector('h2')) || null,
+    title: headings.at(-1) ?? bold.at(-1) ?? '',
+    caption: textOf(doc.querySelector('h2')) || startLine || null,
     columns,
     rows,
   };

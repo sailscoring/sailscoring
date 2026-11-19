@@ -105,6 +105,46 @@ describe('sail100 parser', () => {
     ]);
   });
 
+  test('a race page inside a layout table reads its results, and its last heading is the race', () => {
+    // Royal Cork's: the whole page sits in one table, the logos and headings
+    // in a single row of another inside it.
+    const race = parseSail100RaceHtml(`<body><center>
+<table border="0"><tr><th class="m"><center>
+<table border="0" width="100%"><tr>
+<th class="l"><img src="UK.jpg"/></th>
+<th class="m"><h1>UK Halsey</h1><h1>May League ECHO 2</h1><h1>Race 1</h1>
+<h2>Start: Fri 2 May 14 19:05:00</h2></th>
+<th class="n"><img src="RCYC.jpg"/></th>
+</tr></table></center></th></tr><tr><td class="m"><center>
+<table border="1">
+<tr><td class="q">Points</td><td class="o">Sail No</td><td class="o">Boat</td><td class="q">Corrected</td></tr>
+<tr><td class="i">1</td><td>GBR9896</td><td class="c">Magnet</td><td class="n">1:03:58</td></tr>
+</table></center></td></tr></table></center></body>`)!;
+    expect(race.title).toBe('Race 1');
+    expect(race.caption).toBe('Start: Fri 2 May 14 19:05:00');
+    expect(race.columns.map((c) => c.label)).toEqual(['Points', 'Sail No', 'Boat', 'Corrected']);
+    expect(race.rows).toEqual([['1', 'GBR9896', 'Magnet', '1:03:58']]);
+  });
+
+  test('an older race page reads its headings from bold lines and its start from plain text', () => {
+    // Cork Week 2004's: no <h1> or <h2>, the headings stacked a cell to a row.
+    const race = parseSail100RaceHtml(`<BODY><Table border="0" Width="100%"><TR>
+<TD><IMG SRC="2004 logo.jpg"></TD>
+<TD Align="center"><Table border="0">
+<TR><TD Align="center"><Font Size="+1"><B>Cork Week IRC1</B></Font></TD></TR>
+<TR><TD Align="center"><Font Size="+1"><B>Race 1</B></Font></TD></TR>
+<TR><TD Align="center">Start: Mon 12 Jul 04 11:10:00</TD></TR>
+<TR><TD Align="center">Provisional Result</TD></TR>
+</Table></TD></TR></Table>
+<Center><Table border="1">
+<TR><TD>Points</TD><TD>Sail No</TD><TD>Boat</TD><TD>Elapsed</TD></TR>
+<TR><TD>1</TD><TD>GBR2027</TD><TD><B>Eclipse</B></TD><TD>4:25:15</TD></TR>
+</Table></Center></BODY>`)!;
+    expect(race.title).toBe('Race 1');
+    expect(race.caption).toBe('Start: Mon 12 Jul 04 11:10:00');
+    expect(race.rows).toEqual([['1', 'GBR2027', 'Eclipse', '4:25:15']]);
+  });
+
   test('a race page reads as a race table, keeping its repeated column', () => {
     const race = parseSail100RaceHtml(RACE)!;
     expect(race.title).toBe('S2 270523');
