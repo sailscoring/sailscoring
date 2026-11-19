@@ -18,6 +18,11 @@
  * each boat's finish time, handicap and corrected time — and
  * `parseSail100RaceHtml` reads one into a race table. Generator-side only
  * (jsdom).
+ *
+ * Older Sail100 pages (Cork Week's, 2004 and 2006) carry no classes and no
+ * `<h1>`: the heading is a bold line in a layout table above the standings
+ * ("Cork Week IRC1"), and a discarded race cell is shaded grey
+ * (`BGCOLOR="#999999"`) rather than given class `j`.
  */
 
 import { JSDOM } from 'jsdom';
@@ -39,6 +44,16 @@ function headerText(el: Element): string {
   const copy = el.cloneNode(true) as Element;
   for (const br of copy.querySelectorAll('br')) br.replaceWith(' ');
   return textOf(copy);
+}
+
+/** Whether Sail100 showed a race cell as discarded: class `j`, grey shading
+ *  (older pages), or parentheses (some pages). */
+function isDiscardCell(cell: Element, text: string): boolean {
+  return (
+    cell.classList.contains('j') ||
+    cell.getAttribute('bgcolor')?.trim().toLowerCase() === '#999999' ||
+    /^\(.*\)$/.test(text.trim())
+  );
 }
 
 /** Whether a header cell is a race column: it links to the race's page, or
@@ -105,12 +120,8 @@ function toSection(
             ? []
             : texts.slice(firstRace, lastRace + 1).map((text, i) => ({
                 text,
-                // Sail100 marks a discarded cell with class `j` (counted
-                // cells are `n`); some pages parenthesise instead. It has no
-                // podium colouring.
-                discard:
-                  cells[firstRace + i].classList.contains('j') ||
-                  /^\(.*\)$/.test(text.trim()),
+                // Sail100 has no podium colouring.
+                discard: isDiscardCell(cells[firstRace + i], text),
                 podium: 0,
               })),
         summaryCells: firstRace === -1 ? [] : texts.slice(lastRace + 1),
@@ -134,7 +145,8 @@ function toSection(
 
 /** Parse a Sail100 results page into Sailwave-shaped summary sections.
  *  `raceLinks` runs parallel to `summaries`: for each, the page every race
- *  column's header links to, aligned with its `raceHeaders`. */
+ *  column's header links to, aligned with its `raceHeaders`. The title is the
+ *  page's first `<h1>`, or on an older page without one its first bold line. */
 export function parseSail100Html(html: string): {
   title: string | null;
   summaries: SailwaveSummarySection[];
@@ -147,7 +159,7 @@ export function parseSail100Html(html: string): {
     .map(toSection)
     .filter((s) => s !== null && s.section.rows.length > 0);
   return {
-    title: textOf(doc.querySelector('h1')) || null,
+    title: textOf(doc.querySelector('h1')) || textOf(doc.querySelector('b')) || null,
     summaries: parsed.map((s) => s!.section),
     raceLinks: parsed.map((s) => s!.raceLinks),
   };

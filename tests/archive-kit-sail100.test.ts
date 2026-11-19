@@ -51,7 +51,45 @@ const RACE = `<html><body><center>
 </table>
 </center></body></html>`;
 
+/** An older Sail100 page, shaped like Cork Week 2004's: no classes, no
+ *  `<h1>` — the heading is bold text in a layout table — and discards shaded
+ *  grey. */
+const OLDER_STANDINGS = `<HTML><BODY BGCOLOR="#FFFFFF"><Font Face=helvetica,arial>
+<Table border="0" Width="100%"><TR><TD Align="center"><Table border="0">
+<TR><TD Align="center"><Font Size="+1"><B>
+Cork Week IRC1</B></Font></TD></TR>
+<TR><TD Align="center"><Font Size="+1"><B>
+Provisional Results</B></Font></TD></TR>
+</Table></TD></TR></Table>
+<BR><center>
+<Table border="1">
+<TR>
+<TD ALIGN="right" BGCOLOR="#CCFFFF">Series Place</TD><TD>Sail No</TD>
+<TD BGCOLOR="#CCFFFF">Boat</TD><TD>Owner</TD>
+<TD ALIGN="right" BGCOLOR="#CCFFFF">Series Points</TD>
+<TD ALIGN="right"><A HREF="cwirc101.html">Race 1</A></TD>
+<TD ALIGN="right"><A HREF="cwirc102.html">Race 2</A></TD>
+</TR>
+<TR><TD ALIGN="right" BGCOLOR="#CCFFFF">1</TD><TD>IRL9779</TD><TD BGCOLOR="#CCFFFF">Wow</TD><TD>George Sisk</TD>
+<TD ALIGN="right" BGCOLOR="#CCFFFF"> 7 </TD><TD BGCOLOR="#999999" ALIGN="right"> 9 </TD><TD ALIGN="right"> 7 </TD></TR>
+<TR><TD ALIGN="right" BGCOLOR="#CCFFFF">2</TD><TD>GBR1776L</TD><TD BGCOLOR="#CCFFFF">Smile</TD><TD>Mr &amp; Mrs Smith</TD>
+<TD ALIGN="right" BGCOLOR="#CCFFFF"> 5.6 </TD><TD ALIGN="right"> APS5.6 </TD><TD BGCOLOR="#999999" ALIGN="right"> 13 </TD></TR>
+</Table></center></BODY></HTML>`;
+
 describe('sail100 parser', () => {
+  test('an older page: its bold heading is its title, and a grey cell is a discard', () => {
+    const { title, summaries, raceLinks } = parseSail100Html(OLDER_STANDINGS);
+    expect(title).toBe('Cork Week IRC1');
+    expect(summaries).toHaveLength(1);
+    const [section] = summaries;
+    expect(section.leadColumns.map((c) => c.label)).toEqual(['Sail No', 'Boat', 'Owner', 'Series Points']);
+    expect(raceLinks[0]).toEqual(['cwirc101.html', 'cwirc102.html']);
+    expect(section.rows.map((r) => r.raceCells)).toEqual([
+      [{ text: '9', discard: true, podium: 0 }, { text: '7', discard: false, podium: 0 }],
+      [{ text: 'APS5.6', discard: false, podium: 0 }, { text: '13', discard: true, podium: 0 }],
+    ]);
+  });
+
   test('a linked header after Series Points is a race column, whatever it reads', () => {
     const { title, summaries, raceLinks } = parseSail100Html(STANDINGS);
     expect(title).toBe('Saturday series 2023');
