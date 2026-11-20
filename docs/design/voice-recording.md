@@ -9,7 +9,7 @@ and submits the sheet for the scorer to review.
 - **Why it is built this way:** [ADR-017](decisions/017-voice-finish-recording.md)
 - **What the recorder sees and says:** [the flow](ux/flows/voice-finish-recording.md)
 - **What else does this, and what we measured:** [`notes/voice-recording/`](../notes/voice-recording/)
-- **The bench, and the page it began as:** [the prototype](../../prototypes/voice/README.md)
+- **The recogniser, its bench, and a page to try it on a phone:** [voice-engine](https://github.com/sailscoring/voice-engine)
 
 Status, November 2026: M1 to M3 are built as a proof of concept, behind the
 operator-managed `voice-recording` gate, to be tried on the water. M0 was
@@ -127,9 +127,9 @@ end the project.
 
 ### M0. Real recordings, and a verdict
 
-Record real finishes, with the prototype page or any voice recorder, and
+Record real finishes, with voice-engine's check page or any voice recorder, and
 keep the paper sheet. Turn each into a bench session and run the candidate
-recognisers over them. Try the prototype on the phones recorders actually
+recognisers over them. Try the check page on the phones recorders actually
 carry: does it keep up, and how often does listening stop.
 
 Done when we can say, for real callers: how many calls in ten go down

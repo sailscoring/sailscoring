@@ -152,8 +152,6 @@ const config = [
       'e2e/**',
       'tests/**',
       'public/**',
-      // A standalone page and its bench, not part of the app.
-      'prototypes/**',
       'coverage/**',
       'test-results/**',
       'playwright-report/**',

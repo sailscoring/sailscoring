@@ -25,7 +25,6 @@
     "e2e:install": "playwright install chromium",
     "test:e2e:mobile": "E2E_MOBILE=1 pnpm test:e2e",
     "phone-sheet": "./scripts/phone-sheet.sh",
-    "voice-prototype": "node prototypes/voice/serve.mjs",
     "phone-sheet:index": "tsx scripts/phone-sheet.ts",
     "test:e2e:triage": "./scripts/e2e-with-triage.sh",
     "test:e2e:stress": "./scripts/e2e-stress.sh",

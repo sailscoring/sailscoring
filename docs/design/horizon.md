@@ -462,7 +462,7 @@ and sending its sheets in as submissions is its next step.
 
 No longer only an idea: [ADR-017](decisions/017-voice-finish-recording.md)
 proposes how to build it, [`voice-recording.md`](voice-recording.md) has the
-milestones, and there is a prototype in `prototypes/voice/`. The caller
+milestones, and the recogniser is built in `sailscoring/voice-engine`. The caller
 calls each finisher as now, a phone listening through a headset takes the
 sheet down, and it reaches the scorer as a finish sheet submission (#671).
 

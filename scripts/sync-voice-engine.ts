@@ -58,6 +58,8 @@ interface ReleaseFile {
 interface ReleaseManifest {
   protocol: number;
   release: string;
+  /** Carries a model no release may: for the bench and trials, never the app. */
+  trialsOnly?: boolean;
   runtimes: Record<string, { worker: string; files: ReleaseFile[] }>;
   models: { id: string; runtime: string; lagSeconds: number; files: (ReleaseFile & { role: string })[] }[];
   notices: ReleaseFile[];
@@ -89,6 +91,9 @@ async function fetchBytes(url: string): Promise<Uint8Array> {
 
 function readManifest(bytes: Uint8Array, pin: Pin, where: string): ReleaseManifest {
   const manifest = JSON.parse(Buffer.from(bytes).toString('utf8')) as ReleaseManifest;
+  if (manifest.trialsOnly) {
+    throw new Error(`${where} is for trials only: it carries a model a release may not, so the app won't serve it.`);
+  }
   if (manifest.protocol !== PROTOCOL) {
     throw new Error(`${where} speaks protocol ${manifest.protocol}; the app speaks ${PROTOCOL}.`);
   }

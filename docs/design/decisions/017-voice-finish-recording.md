@@ -310,7 +310,8 @@ ADR-016 as a connected app. Two fully native apps are not proposed.
   [the milestones](../voice-recording.md)
 - [What already exists](../../notes/voice-recording/prior-art.md)
 - [The bench](../../notes/voice-recording/recognition-bench.md)
-- [The prototype](../../../prototypes/voice/README.md)
+- [voice-engine](https://github.com/sailscoring/voice-engine): the recogniser's build, its bench, and a page to
+  try a release on a phone (the prototype, reworked)
 - WebKit bugs on the microphone when a page leaves the screen:
   [204681](https://bugs.webkit.org/show_bug.cgi?id=204681) (Safari in the
   background), [236509](https://bugs.webkit.org/show_bug.cgi?id=236509)

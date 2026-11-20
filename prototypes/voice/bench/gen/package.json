@@ -1,9 +1,0 @@
-{
-  "name": "voice-bench-gen",
-  "private": true,
-  "description": "Makes the synthetic sessions. Separate from the bench because it needs the 1.x engine.",
-  "type": "module",
-  "dependencies": {
-    "sherpa-onnx-node": "1.13.8"
-  }
-}

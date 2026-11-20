@@ -2,8 +2,11 @@
 
 What was learned, on 2026-11-12 and 13, by running speech recognisers over
 synthetic recordings of a caller on a finish boat. It informed
-[ADR-017](../../design/decisions/017-voice-finish-recording.md). The scripts
-are in [`prototypes/voice/bench/`](../../../prototypes/voice/bench/).
+[ADR-017](../../design/decisions/017-voice-finish-recording.md). This run
+used a native build of each recogniser. The bench now lives in
+[voice-engine](https://github.com/sailscoring/voice-engine/tree/main/bench),
+which benches each release's own WebAssembly on these same sessions,
+published there as `sessions-synthetic-1`.
 
 **Read the numbers as comparisons, not predictions.** The voices are
 text-to-speech, the noise is made up, and nobody was on a boat. The first
@@ -27,7 +30,7 @@ milestone of the build replaces this with recordings of real finishes.
   ("sixteen thirteen"), with "oh" or "zero", and with "double".
 
 Each recogniser's words went through the same reading
-([`calls.mjs`](../../../prototypes/voice/calls.mjs)) and the result was
+(the prototype's `calls.mjs`, now the app's `lib/voice/calls.ts`) and the result was
 scored against what was called: the right boat, the wrong boat, a line left
 open for a person, or nothing.
 
@@ -94,7 +97,7 @@ suggestion" is the share of timed calls that were right only by sound.
 
 ## In a browser
 
-The [prototype page](../../../prototypes/voice/README.md) runs the same
+The prototype page (now voice-engine's [check page](https://github.com/sailscoring/voice-engine/tree/main/check)) runs the same
 recognisers as WebAssembly, on one thread, and was driven in headless
 Chromium at phone size with one of the timed sessions, both as a file and
 through a simulated microphone in real time.
@@ -128,14 +131,13 @@ through a simulated microphone in real time.
 
 ## Running it again
 
-```
-cd prototypes/voice/bench && npm install
-node run.mjs <models> <sessions> [engine …]
-```
+voice-engine's [bench](https://github.com/sailscoring/voice-engine/tree/main/bench) runs a release over these
+sessions and scores it with the app's own reading of calls. Its first run,
+on release v1 (the larger Zipformer above), gave 76.7 / 79.5 / 76.1% right
+for the timed sessions and 77.2 / 72.4 / 76.5% for the burst ones, with
+"now" landing 0.60 to 0.66 s late.
 
-`<models>` holds the sherpa-onnx release archives, unpacked under their own
-names; `run.mjs` lists the ones it expects. `<sessions>` holds pairs of
-`name.wav` (16 kHz, mono, 16-bit) and `name.json` (the entry list, and for
-each call the boat and when it was said). `gen/gen.mjs` makes the synthetic
-ones. A real recording becomes a session by writing its `.json` from the
-paper sheet.
+It benches the streaming recognisers a release can carry. The native runs
+above of Moonshine and Parakeet, cut at silences, and of the keyword
+spotter, were made with the prototype's own bench, which is in this repo's
+history (`prototypes/voice/bench/run.mjs`, removed in November 2026).
