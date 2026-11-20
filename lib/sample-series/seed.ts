@@ -22,6 +22,7 @@ import { join } from 'node:path';
 
 import { and, eq, inArray, sql } from 'drizzle-orm';
 
+import { mintCategorySlug } from '@/lib/category-slug';
 import { getDb, type SailScoringDb } from '@/lib/db/client';
 import * as schema from '@/lib/db/schema';
 import { FEATURES, parseOrgMetadata, type FeatureDef, type FeatureKey } from '@/lib/features';
@@ -354,6 +355,7 @@ async function ensureSamplesCategory(
     id: categoryId,
     workspaceId,
     name: SAMPLES_CATEGORY_NAME,
+    slug: await mintCategorySlug(db, workspaceId, SAMPLES_CATEGORY_NAME),
     displayOrder: sql<number>`(select coalesce(max(${schema.categories.displayOrder}) + 1, 0) from ${schema.categories} where ${schema.categories.workspaceId} = ${workspaceId})`,
   });
   return categoryId;

@@ -32,6 +32,7 @@ import {
   gcOrphanIdentities,
   workspaceCrewIdentityFeatureOn,
 } from '@/lib/competitor-identity-reconcile';
+import { mintCategorySlug } from '@/lib/category-slug';
 import { clusterCompetitors } from '@/lib/competitor-identity-cluster';
 import { mapWithConcurrency } from '@/lib/concurrency';
 import { getDb } from '@/lib/db/client';
@@ -183,6 +184,7 @@ export async function putArchiveSeries(
           id: categoryId,
           workspaceId: workspace.workspaceId,
           name: doc.series.category,
+          slug: await mintCategorySlug(tx, workspace.workspaceId, doc.series.category),
           displayOrder: sql<number>`(select coalesce(max(${schema.categories.displayOrder}) + 1, 0) from ${schema.categories} where ${schema.categories.workspaceId} = ${workspace.workspaceId})`,
         });
       }

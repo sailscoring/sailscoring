@@ -152,6 +152,12 @@ export interface Category {
   id: string;
   name: string;
   displayOrder: number;
+  /** The last segment of the category's public page, `/p/{ws}/-/{slug}`. */
+  slug: string;
+  /** The public page's path, while anything in the category is published;
+   *  null while nothing is (the page 404s then). Set by the list endpoint
+   *  only — create and rename leave it out. */
+  publicPath?: string | null;
 }
 
 /** Where a series originally came from. Currently only Sailwave imports are
