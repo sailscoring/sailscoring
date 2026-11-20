@@ -4100,7 +4100,9 @@ export function assembleSeriesResultsData(
             { finishTime: score.finishTime, elapsedSecs: score.elapsedSecs },
             startSecs,
           );
-        if (tcc != null && et != null) {
+        // A time at or before the gun is a data error the engine refused to
+        // score, and a negative elapsed time is nothing to publish.
+        if (tcc != null && et != null && et > 0) {
           elapsedTimeSecs = et;
           // Prefer the engine's corrected time when the score carries one —
           // for time-on-distance the ET × TCF recompute would be wrong, and

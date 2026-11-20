@@ -143,30 +143,39 @@ describe('ECHO handicap scoring fixtures', () => {
           }
         }
 
-        // Per-race `rejected` — ECHO rejections are fleet-level. Verify
-        // rejected competitors are absent from per-race scores.
+        // Per-race `rejected` — a missing handicap rejects the boat from the
+        // fleet, so it is absent from per-race scores. A finish before the
+        // start is about this race only: the boat is scored (DNF) and the
+        // rejection names the race.
         for (const rej of fixtureRace.rejected ?? []) {
           const cid = sailToId.get(rej.sailor);
           if (!cid) throw new Error(`${yamlPath}: unknown sailor "${rej.sailor}" in rejected`);
+          if (rej.reason === 'finish_before_start') {
+            expect(
+              rejections.some((r) => r.competitorId === cid && r.reason === rej.reason && r.raceId === raceId),
+              `${raceLabel} ${rej.sailor} rejected for this race`,
+            ).toBe(true);
+            continue;
+          }
           const scores = echoRaceScoresByRaceId.get(raceId);
           expect(scores?.has(cid) ?? false, `${raceLabel} ${rej.sailor} should not be in scores`).toBe(false);
         }
       }
 
-      // ─── Series-level rejections (union across races) ───────────────────
-      const allFixtureRejections = new Map<string, string>();
-      for (const race of fixture.races) {
-        for (const r of race.rejected ?? []) {
-          allFixtureRejections.set(r.sailor, r.reason);
+      // ─── Rejections (fleet-level ones once, per-race ones per race) ─────
+      const allFixtureRejections = new Map<string, { sailor: string; reason: string }>();
+      for (let ri = 0; ri < fixture.races.length; ri++) {
+        for (const r of fixture.races[ri].rejected ?? []) {
+          const key = r.reason === 'finish_before_start' ? `${r.sailor}|${races[ri].id}` : r.sailor;
+          allFixtureRejections.set(key, r);
         }
       }
       expect(rejections.length, 'series rejection count').toBe(allFixtureRejections.size);
-      for (const [sailor, reason] of allFixtureRejections) {
+      for (const { sailor, reason } of allFixtureRejections.values()) {
         const cid = sailToId.get(sailor);
         if (!cid) throw new Error(`${yamlPath}: unknown sailor "${sailor}" in rejected`);
-        const rejection = rejections.find((r) => r.competitorId === cid);
-        expect(rejection, `rejection for ${sailor}`).toBeDefined();
-        expect(rejection?.reason, `rejection reason for ${sailor}`).toBe(reason);
+        const rejection = rejections.find((r) => r.competitorId === cid && r.reason === reason);
+        expect(rejection, `${reason} rejection for ${sailor}`).toBeDefined();
       }
 
       // ─── Series standings ───────────────────────────────────────────────

@@ -496,7 +496,7 @@ export default function StandingsPage({
               </p>
             )}
             {rejections.length > 0 && (
-              <ScoringRejectionsWarning rejections={rejections} competitors={competitors} />
+              <ScoringRejectionsWarning rejections={rejections} competitors={competitors} races={raceLabels} />
             )}
             <RaceScoringGapsWarning
               gaps={raceGaps}

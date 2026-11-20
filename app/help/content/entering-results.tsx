@@ -131,6 +131,12 @@ export default function EnteringResults() {
           matches the crossing order, the row slides to its correct slot.
         </p>
         <p>
+          A time at or before the boat’s start — usually a digit mistyped — is marked{' '}
+          <strong className="text-foreground">Before start</strong> on its row. It isn’t
+          scored as a finish: the standings score the boat DNF, leave her out of the race’s
+          ECHO or NHC calculation, and name her and the race until the time is corrected.
+        </p>
+        <p>
           When two boats cross together they share the points for the places they occupy —
           two boats tied for 3rd take 3.5 each, and the next boat is 5th (RRS A7). On a sheet
           that records times the app reads the tie off the times: write the same finish time

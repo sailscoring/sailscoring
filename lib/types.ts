@@ -1963,11 +1963,18 @@ export type ScoringRejectionReason =
   | 'rdg_missing_fleet_points'
   // A multi-fleet boat has per-fleet DPI (or SCP) points but none set for
   // this fleet — no penalty applied until the scorer enters one.
-  | 'dpi_missing_fleet_points';
+  | 'dpi_missing_fleet_points'
+  // A finish recorded at or before the boat's start gun — a mistyped time.
+  // Scored as a finish with no time (DNF) until the scorer corrects it, and
+  // left out of a progressive fleet's race aggregates.
+  | 'finish_before_start';
 
 export interface ScoringRejection {
   competitorId: string;
   reason: ScoringRejectionReason;
+  /** The race the rejection is about, for a reason that concerns one race
+   *  rather than the whole series. */
+  raceId?: string;
 }
 
 /** Why a race isn't scored the way its fleet's rating system says it should
