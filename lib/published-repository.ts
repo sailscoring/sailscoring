@@ -6,6 +6,7 @@ import * as schema from './db/schema';
 import { listedInDirectory, parseOrgMetadata, type OrgMetadata } from './features';
 import { purgePublishedCache } from './published-cache';
 import { humanizeSlug, kebab } from './publishing';
+import type { PublishedCategory } from './published-category';
 import { publicationPath, seasonLikeSlug } from './published-tree';
 import type { PublicationSummary, PublishedSeries, PublishedSeriesPage } from './types';
 
@@ -152,6 +153,33 @@ export async function purgePublishedCacheIfPublished(workspaceId: string): Promi
   if (await workspaceHasPublished(workspaceId)) await purgePublishedCache(workspaceId);
 }
 
+/** The workspace's categories that hold at least one publication, in display
+ *  order. A category with nothing published has no public page, so it is not
+ *  listed here and every link to it is left out. */
+export async function listPublishedCategories(
+  workspaceId: string,
+): Promise<PublishedCategory[]> {
+  const rows = await getDb()
+    .select({
+      id: schema.categories.id,
+      name: schema.categories.name,
+      slug: schema.categories.slug,
+      formerSlugs: schema.categories.formerSlugs,
+      displayOrder: schema.categories.displayOrder,
+      publishedCount: sql<number>`count(${schema.publishedSeries.id})::int`,
+    })
+    .from(schema.categories)
+    .innerJoin(schema.series, eq(schema.series.categoryId, schema.categories.id))
+    .innerJoin(
+      schema.publishedSeries,
+      eq(schema.publishedSeries.seriesId, schema.series.id),
+    )
+    .where(eq(schema.categories.workspaceId, workspaceId))
+    .groupBy(schema.categories.id)
+    .orderBy(asc(schema.categories.displayOrder));
+  return rows;
+}
+
 /** The set of series ids that have a live publication in the workspace. One
  *  query, used to filter the public competitor index down to published series
  *  (an unpublished series is the club's explicit "not public"). */
@@ -184,7 +212,11 @@ export async function getPublishedById(
 /** A publication in a slug group, with its series' current name: null for
  *  an orphan, whose series is gone. The public pages show the name, so it is
  *  part of what their ETags must cover. */
-export type PublishedGroupMember = PublishedSeries & { seriesName: string | null };
+export type PublishedGroupMember = PublishedSeries & {
+  seriesName: string | null;
+  /** The contributing series' category; null when uncategorised or orphaned. */
+  categoryId: string | null;
+};
 
 /** Every publication sharing `(workspaceId, slug)`. A slug is a shared
  *  namespace, so this can be more than one series' publication; the public read
@@ -205,6 +237,7 @@ export async function getPublishedGroupByWorkspaceSlug(
   const rows = await getDb()
     .select({
       seriesName: schema.series.name,
+      categoryId: schema.series.categoryId,
       id: schema.publishedSeries.id,
       workspaceId: schema.publishedSeries.workspaceId,
       seriesId: schema.publishedSeries.seriesId,
@@ -233,7 +266,11 @@ export async function getPublishedGroupByWorkspaceSlug(
       asc(schema.series.displayOrder),
       desc(schema.publishedSeries.publishedAt),
     );
-  return rows.map(({ seriesName, ...row }) => ({ ...rowToPublished(row), seriesName }));
+  return rows.map(({ seriesName, categoryId, ...row }) => ({
+    ...rowToPublished(row),
+    seriesName,
+    categoryId: categoryId ?? null,
+  }));
 }
 
 /** Resolve a workspace from its public slug: id, display name, own logo, and
@@ -593,6 +630,8 @@ export interface IndexPublicationRow {
   publishedAt: number;
   /** The publication's id while its API resources exist (ADR-015). */
   apiId: string | null;
+  /** The series' category; null when uncategorised or orphaned. */
+  categoryId: string | null;
 }
 
 /**
@@ -618,6 +657,7 @@ export async function listPublicationsForIndex(
       publishedAt: schema.publishedSeries.publishedAt,
       id: schema.publishedSeries.id,
       apiView: schema.publishedSeries.apiView,
+      categoryId: schema.series.categoryId,
     })
     .from(schema.publishedSeries)
     .leftJoin(
@@ -630,6 +670,7 @@ export async function listPublicationsForIndex(
       desc(schema.publishedSeries.publishedAt),
     );
   return rows.map((r) => ({
+    categoryId: r.categoryId ?? null,
     slug: r.slug,
     seriesName: r.seriesName,
     pages: r.pages.map(({ blobUrl: _blobUrl, ...page }) => page),

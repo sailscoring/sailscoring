@@ -76,6 +76,8 @@ h3.subseries { font-size: 1.0em; color: #073358; font-weight: 700; margin: 20px 
 h3.subseries a { color: inherit; text-decoration: none; }
 h3.subseries a:hover { color: #fb3a3b; text-decoration: underline; }
 h3.cat { font-size: 0.78em; text-transform: uppercase; letter-spacing: 0.08em; color: #073358; font-weight: 700; margin: 20px 0 8px; }
+h3.cat a { color: inherit; text-decoration: none; }
+h3.cat a:hover { color: #fb3a3b; text-decoration: underline; }
 details.season { border-top: 1px solid #e2e6ea; padding: 14px 0 6px; }
 details.season summary { font-size: 1.2em; color: #073358; font-weight: 700; cursor: pointer; }
 details.season summary:hover { color: #fb3a3b; }
