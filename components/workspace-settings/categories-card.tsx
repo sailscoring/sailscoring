@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Tags } from 'lucide-react';
+import { ExternalLink, Tags } from 'lucide-react';
 
 import { useCategories } from '@/hooks/use-categories';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,8 @@ import { ManageCategoriesDialog } from '@/components/manage-categories-dialog';
 /**
  * Series categories management, surfaced in workspace settings (#154). The
  * dialog does the actual editing; this card is the entry point plus a
- * read-only preview of the current set.
+ * read-only preview of the current set, each category with something
+ * published in it linking its public page.
  */
 export function CategoriesCard() {
   const { data: categories } = useCategories();
@@ -36,16 +37,38 @@ export function CategoriesCard() {
           until you add some.
         </p>
       ) : (
-        <div className="flex flex-wrap gap-1.5">
-          {list.map((c) => (
-            <span
-              key={c.id}
-              className="text-xs border rounded-full px-2.5 py-1 text-muted-foreground"
-            >
-              {c.name}
-            </span>
-          ))}
-        </div>
+        <>
+          <div className="flex flex-wrap gap-1.5">
+            {list.map((c) =>
+              c.publicPath ? (
+                <a
+                  key={c.id}
+                  href={c.publicPath}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs border rounded-full px-2.5 py-1 text-foreground hover:bg-muted"
+                  aria-label={`${c.name} — open its public page`}
+                >
+                  {c.name}
+                  <ExternalLink className="h-3 w-3" />
+                </a>
+              ) : (
+                <span
+                  key={c.id}
+                  className="text-xs border rounded-full px-2.5 py-1 text-muted-foreground"
+                >
+                  {c.name}
+                </span>
+              ),
+            )}
+          </div>
+          {list.some((c) => c.publicPath) && (
+            <p className="text-xs text-muted-foreground">
+              A category with published results has a public page listing them
+              across every season — the linked ones above.
+            </p>
+          )}
+        </>
       )}
 
       <ManageCategoriesDialog open={open} onClose={() => setOpen(false)} />
