@@ -1,24 +1,29 @@
 /**
  * Put the listening engine for recording finishes by voice (ADR-017) where
- * the app serves it from: sherpa-onnx's streaming recogniser built as
- * WebAssembly, and the model it runs. About 85 MB, so neither is committed.
+ * the app serves it from: a release of github.com/sailscoring/voice-engine,
+ * the recogniser built as WebAssembly with its worker and model. About 85 MB,
+ * so none of it is committed.
  *
- * Run: pnpm voice:sync            (also run automatically by `prebuild`)
- *      pnpm voice:sync --from <dir> [--pin]
+ * Run: pnpm voice:sync                         (also run automatically by `prebuild`)
+ *      pnpm voice:sync --from <release dir> [--pin]
  *
- * The pinned release lives in lib/voice/engine-release.json: its version,
- * the model, where the files are published (`source`), and each file's size
- * and SHA-256. The files land in public/voice/engine/<version>/, gitignored,
- * beside a manifest.json the page reads to know what to download.
+ * The pin is lib/voice/engine-release.json: the release, the model the app
+ * uses from it, where the release is published (`source`), and the SHA-256
+ * of its manifest.json. That manifest lists every file with its size and
+ * SHA-256, so checking the one checksum checks them all. The files land in
+ * public/voice/engine/<release>/, gitignored, beside a manifest.json of the
+ * app's own (/voice/engine/manifest.json) that the page reads to know what
+ * to download and which worker to start.
  *
- * Idempotent: a file already there at the pinned size is left alone, so
- * repeat builds are fast and need no network.
+ * Idempotent: a file already there at its size is left alone, so repeat
+ * builds are fast and need no network.
  *
- * `--from <dir>` copies from a local build instead of fetching: the layout
- * `prototypes/voice/build-engine.sh` and `fetch-models.sh` leave in
- * `prototypes/voice/engine/`. With `--pin` the pin file is rewritten to
- * match what was copied, which is how a new build becomes the pinned one
- * before its files are published.
+ * `--from <dir>` copies a release from a voice-engine checkout instead of
+ * fetching it: `dist/<release>/`, which its scripts/assemble.mjs writes.
+ * That is how a build is tried before it is published. The pin is left
+ * alone, unless `--pin` rewrites it to name that release (with `source`
+ * null until it is published); a later plain run with a different release
+ * pinned leaves the copy where it is if it can't fetch the pinned one.
  *
  * While the pin names no `source` and there is no local copy, this prints a
  * notice and succeeds: the app builds, and the voice setup says the engine
@@ -26,55 +31,53 @@
  */
 
 import { createHash } from 'node:crypto';
-import { copyFileSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { setTimeout } from 'node:timers/promises';
 
-interface PinnedFile {
-  /** Where the file sits under the version's directory. */
+/** The worker messages the app speaks: voice-engine's PROTOCOL.md. */
+const PROTOCOL = 1;
+
+interface Pin {
+  release: string | null;
+  model: string;
+  /** Where the release's files are published, ending in `/`; null until
+   *  they are. */
+  source: string | null;
+  manifestSha256: string | null;
+}
+
+interface ReleaseFile {
   path: string;
+  /** Its name among the published files. */
+  asset: string;
   bytes: number;
   sha256: string;
 }
 
-interface Pin {
-  version: string;
-  model: string;
-  /** The base URL the files are published under, each as its `path` with
-   *  `/` written `-`; null until they are published. */
-  source: string | null;
-  files: PinnedFile[];
+interface ReleaseManifest {
+  protocol: number;
+  release: string;
+  runtimes: Record<string, { worker: string; files: ReleaseFile[] }>;
+  models: { id: string; runtime: string; lagSeconds: number; files: (ReleaseFile & { role: string })[] }[];
+  notices: ReleaseFile[];
 }
 
 const ROOT = join(__dirname, '..');
 const PIN_FILE = join(ROOT, 'lib', 'voice', 'engine-release.json');
 const PUBLIC_DIR = join(ROOT, 'public', 'voice', 'engine');
 
-/** Each file, and where a local build keeps it. */
-const LOCAL_LAYOUT = (model: string): Record<string, string> => ({
-  'sherpa-onnx-wasm-main-asr.js': 'sherpa-onnx-wasm-main-asr.js',
-  'sherpa-onnx-wasm-main-asr.wasm': 'sherpa-onnx-wasm-main-asr.wasm',
-  'sherpa-onnx-asr.js': 'sherpa-onnx-asr.js',
-  'model/encoder.onnx': `models/${model}/encoder.onnx`,
-  'model/decoder.onnx': `models/${model}/decoder.onnx`,
-  'model/joiner.onnx': `models/${model}/joiner.onnx`,
-  'model/tokens.txt': `models/${model}/tokens.txt`,
-});
-
 const FETCH_ATTEMPTS = 3;
 
-const sha256 = (file: string) => createHash('sha256').update(readFileSync(file)).digest('hex');
+const sha256 = (bytes: Uint8Array) => createHash('sha256').update(bytes).digest('hex');
 
-async function fetchTo(url: string, target: string): Promise<void> {
+async function fetchBytes(url: string): Promise<Uint8Array> {
   let lastError: unknown;
   for (let attempt = 1; attempt <= FETCH_ATTEMPTS; attempt++) {
     if (attempt > 1) await setTimeout(1000 * 2 ** (attempt - 2));
     try {
       const res = await fetch(url);
-      if (res.ok) {
-        writeFileSync(target, new Uint8Array(await res.arrayBuffer()));
-        return;
-      }
+      if (res.ok) return new Uint8Array(await res.arrayBuffer());
       lastError = new Error(`${res.status} ${res.statusText}`);
       if (res.status < 500 && res.status !== 408 && res.status !== 429) break;
     } catch (err) {
@@ -84,15 +87,59 @@ async function fetchTo(url: string, target: string): Promise<void> {
   throw new Error(`Failed to fetch ${url}: ${lastError instanceof Error ? lastError.message : String(lastError)}`);
 }
 
-function writeManifest(pin: Pin): void {
-  const manifest = {
-    version: pin.version,
-    model: pin.model,
-    bytes: pin.files.reduce((n, f) => n + f.bytes, 0),
-    files: pin.files.map((f) => ({ path: `${pin.version}/${f.path}`, bytes: f.bytes })),
-  };
-  writeFileSync(join(PUBLIC_DIR, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
+function readManifest(bytes: Uint8Array, pin: Pin, where: string): ReleaseManifest {
+  const manifest = JSON.parse(Buffer.from(bytes).toString('utf8')) as ReleaseManifest;
+  if (manifest.protocol !== PROTOCOL) {
+    throw new Error(`${where} speaks protocol ${manifest.protocol}; the app speaks ${PROTOCOL}.`);
+  }
+  if (!manifest.models.some((m) => m.id === pin.model)) {
+    throw new Error(`${where} has no model ${pin.model}: it has ${manifest.models.map((m) => m.id).join(', ')}.`);
+  }
+  return manifest;
 }
+
+/** What the app serves from a release: its model, that model's runtime,
+ *  and the licences. */
+function wanted(manifest: ReleaseManifest, modelId: string) {
+  const model = manifest.models.find((m) => m.id === modelId)!;
+  const runtime = manifest.runtimes[model.runtime];
+  if (!runtime) throw new Error(`release ${manifest.release} has no runtime ${model.runtime}`);
+  return { model, runtime, phone: [...runtime.files, ...model.files], all: [...runtime.files, ...model.files, ...manifest.notices] };
+}
+
+/** The manifest the page reads: /voice/engine/manifest.json. */
+function writeServedManifest(manifest: ReleaseManifest, modelId: string): void {
+  const { model, runtime, phone } = wanted(manifest, modelId);
+  const at = (path: string) => `${manifest.release}/${path}`;
+  const served = {
+    version: manifest.release,
+    model: model.id,
+    worker: at(runtime.worker),
+    lagSeconds: model.lagSeconds,
+    entry: model,
+    bytes: phone.reduce((n, f) => n + f.bytes, 0),
+    files: phone.map((f) => ({ path: at(f.path), bytes: f.bytes })),
+  };
+  writeFileSync(join(PUBLIC_DIR, 'manifest.json'), JSON.stringify(served, null, 2) + '\n');
+  // Another release's files are no use now.
+  for (const name of readdirSync(PUBLIC_DIR)) {
+    if (name !== manifest.release && name !== 'manifest.json') rmSync(join(PUBLIC_DIR, name), { recursive: true, force: true });
+  }
+}
+
+function place(manifest: ReleaseManifest, f: ReleaseFile, bytes: Uint8Array, from: string): void {
+  if (bytes.length !== f.bytes || sha256(bytes) !== f.sha256) {
+    throw new Error(`${from} is not the file release ${manifest.release}'s manifest lists: its size or SHA-256 differs.`);
+  }
+  const out = join(PUBLIC_DIR, manifest.release, f.path);
+  mkdirSync(dirname(out), { recursive: true });
+  writeFileSync(out, bytes);
+}
+
+const present = (release: string, f: ReleaseFile) => {
+  const file = join(PUBLIC_DIR, release, f.path);
+  return existsSync(file) && statSync(file).size === f.bytes;
+};
 
 async function main() {
   const args = process.argv.slice(2);
@@ -103,64 +150,74 @@ async function main() {
   if (repin && !from) throw new Error('--pin only makes sense with --from <dir>.');
 
   const pin = JSON.parse(readFileSync(PIN_FILE, 'utf8')) as Pin;
-  const target = join(PUBLIC_DIR, pin.version);
+  mkdirSync(PUBLIC_DIR, { recursive: true });
 
   if (from) {
-    const layout = LOCAL_LAYOUT(pin.model);
-    const files: PinnedFile[] = [];
-    for (const [path, local] of Object.entries(layout)) {
-      const source = join(from, local);
-      if (!existsSync(source)) throw new Error(`${source} is missing. Build the engine and fetch the model first: see prototypes/voice/README.md.`);
-      const out = join(target, path);
-      mkdirSync(dirname(out), { recursive: true });
-      copyFileSync(source, out);
-      files.push({ path, bytes: statSync(out).size, sha256: sha256(out) });
+    const manifestFile = join(from, 'manifest.json');
+    if (!existsSync(manifestFile)) {
+      throw new Error(`${manifestFile} is missing. Assemble a release in voice-engine first: see its README.`);
     }
+    const bytes = new Uint8Array(readFileSync(manifestFile));
+    const manifest = readManifest(bytes, pin, manifestFile);
     if (repin) {
-      const next: Pin = { ...pin, files };
+      const next: Pin = { ...pin, release: manifest.release, source: null, manifestSha256: sha256(bytes) };
       writeFileSync(PIN_FILE, JSON.stringify(next, null, 2) + '\n');
-      writeManifest(next);
-      console.log(`Pinned the engine in ${from} as version ${pin.version}: ${files.length} files.`);
-      return;
+    } else if (manifest.release === pin.release && sha256(bytes) !== pin.manifestSha256) {
+      throw new Error(`${from} is a different build of the pinned release ${pin.release}. Pass --pin to pin it instead.`);
     }
-    for (const f of files) {
-      const pinned = pin.files.find((p) => p.path === f.path);
-      if (!pinned || pinned.sha256 !== f.sha256) {
-        throw new Error(`${f.path} in ${from} is not the pinned file. Pass --pin to pin this build instead.`);
-      }
+    for (const f of wanted(manifest, pin.model).all) {
+      place(manifest, f, new Uint8Array(readFileSync(join(from, f.path))), join(from, f.path));
     }
-    writeManifest(pin);
-    console.log(`Copied the voice engine (version ${pin.version}) from ${from}.`);
+    writeFileSync(join(PUBLIC_DIR, manifest.release, 'manifest.json'), bytes);
+    writeServedManifest(manifest, pin.model);
+    console.log(`Copied voice engine release ${manifest.release} (${pin.model}) from ${from}${repin ? ', and pinned it' : ''}.`);
     return;
   }
 
-  const missing = pin.files.filter((f) => {
-    const file = join(target, f.path);
-    return !existsSync(file) || statSync(file).size !== f.bytes;
-  });
-  if (missing.length === 0 && pin.files.length > 0) {
-    writeManifest(pin);
-    console.log(`Voice engine already at version ${pin.version}; nothing to do.`);
+  if (!pin.release || !pin.manifestSha256) {
+    console.log('No voice engine release is pinned: skipping. Finishes by voice will say the engine isn’t available.');
     return;
   }
-  if (!pin.source || pin.files.length === 0) {
+
+  // Already here from an earlier run: check the manifest, then only sizes.
+  const keptManifest = join(PUBLIC_DIR, pin.release, 'manifest.json');
+  if (existsSync(keptManifest)) {
+    const bytes = new Uint8Array(readFileSync(keptManifest));
+    if (sha256(bytes) === pin.manifestSha256) {
+      const manifest = readManifest(bytes, pin, keptManifest);
+      if (wanted(manifest, pin.model).all.every((f) => present(pin.release!, f))) {
+        writeServedManifest(manifest, pin.model);
+        console.log(`Voice engine already at release ${pin.release}; nothing to do.`);
+        return;
+      }
+    }
+  }
+
+  if (!pin.source) {
     console.log(
-      'The voice engine is not published yet and there is no local copy: skipping.\n' +
+      `Voice engine release ${pin.release} is not published and there is no local copy: skipping.\n` +
         'Finishes by voice will say the engine isn’t available. For a local copy:\n' +
-        '  pnpm voice:sync --from <path to prototypes/voice/engine>',
+        '  pnpm voice:sync --from <voice-engine checkout>/dist/<release>',
     );
     return;
   }
-  for (const f of missing) {
-    const out = join(target, f.path);
-    mkdirSync(dirname(out), { recursive: true });
-    const url = `${pin.source.replace(/\/$/, '')}/${f.path.replace(/\//g, '-')}`;
-    console.log(`Fetching ${url} (${(f.bytes / 1048576).toFixed(1)} MB)…`);
-    await fetchTo(url, out);
-    if (sha256(out) !== f.sha256) throw new Error(`${url} is not the pinned file: its SHA-256 differs.`);
+
+  const base = pin.source.endsWith('/') ? pin.source : `${pin.source}/`;
+  const bytes = await fetchBytes(`${base}manifest.json`);
+  if (sha256(bytes) !== pin.manifestSha256) {
+    throw new Error(`${base}manifest.json is not the pinned manifest: its SHA-256 differs.`);
   }
-  writeManifest(pin);
-  console.log(`Fetched the voice engine, version ${pin.version}: ${missing.length} files.`);
+  const manifest = readManifest(bytes, pin, `${base}manifest.json`);
+  let fetched = 0;
+  for (const f of wanted(manifest, pin.model).all) {
+    if (present(manifest.release, f)) continue;
+    console.log(`Fetching ${f.asset} (${(f.bytes / 1048576).toFixed(1)} MB)…`);
+    place(manifest, f, await fetchBytes(base + f.asset), base + f.asset);
+    fetched++;
+  }
+  writeFileSync(keptManifest, bytes);
+  writeServedManifest(manifest, pin.model);
+  console.log(`Fetched voice engine release ${manifest.release} (${pin.model}): ${fetched} files.`);
 }
 
 main().catch((err) => {

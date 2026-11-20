@@ -70,7 +70,7 @@ from?", start here.
 | `pnpm generate:fixtures` | Regenerate scoring fixture HTML                      | No              |
 | `pnpm racesense:inspect` | Read a RaceSense regatta — the committee's `.xlsx` export, a player URL or regatta id (read live from the RaceSense player), or a captured regatta — and report what the import made of it, plus anything it didn't recognise; `--race N`, `--division NAME`, `--anomalies`, `--save FILE.json` keeps a pruned copy of the regatta | No |
 | `pnpm nationality:sync`  | Regenerate `lib/nationality/generated/` from upstream dataset | No     |
-| `pnpm voice:sync`        | Put the listening engine for finishes by voice (ADR-017) in `public/voice/engine/`, from the release pinned in `lib/voice/engine-release.json`; runs in `prebuild`, and succeeds with a notice while no release is published. `--from <dir>` copies a local build (the layout `prototypes/voice/` leaves in its `engine/`), and `--pin` with it rewrites the pin to match | No |
+| `pnpm voice:sync`        | Put the listening engine for finishes by voice (ADR-017) in `public/voice/engine/`, from the release pinned in `lib/voice/engine-release.json`; runs in `prebuild`, and succeeds with a notice while no release is published. `--from <dir>` copies a release a voice-engine checkout assembled (`dist/<release>`), and `--pin` with it rewrites the pin to name that release | No |
 | `pnpm vercel …`          | The Vercel CLI, with its token fetched from Bitwarden for the run (see [account-admin.md](account-admin.md#the-vercel-cli)) | - |
 | `pnpm deploy`            | `vercel deploy` (preview), through `pnpm vercel`     | -               |
 | `pnpm deploy:prod`       | `vercel deploy --prod`, through `pnpm vercel`        | -               |

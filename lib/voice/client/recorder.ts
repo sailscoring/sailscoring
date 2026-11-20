@@ -71,7 +71,7 @@ export function startRecorder(options: RecorderOptions): Recorder {
   const { entries, onSheet, microphone, listener, onEvent, onChange, onLevel } = options;
   let recording: LocalRecording = {
     ...options.recording,
-    engine: { ...options.engine, lagSeconds: LAG_SECONDS },
+    engine: { ...options.engine, lagSeconds: listener.lagSeconds ?? LAG_SECONDS },
     device: { userAgent: navigator.userAgent, microphone: microphone.label || null },
   };
   const earlierWords = recording.words;
@@ -79,6 +79,7 @@ export function startRecorder(options: RecorderOptions): Recorder {
   const session: VoiceSession = createSession({
     entries,
     lines: recording.lines,
+    lagSeconds: listener.lagSeconds,
     onSheet,
     newId: () => crypto.randomUUID(),
     onEvent: (event) => {
@@ -277,6 +278,7 @@ export function startTrial(options: {
   let last: VoiceLine | null = null;
   const session = createSession({
     entries: options.entries,
+    lagSeconds: listener.lagSeconds,
     newId: () => crypto.randomUUID(),
     onEvent: (event) => {
       if (event.type === 'added') {

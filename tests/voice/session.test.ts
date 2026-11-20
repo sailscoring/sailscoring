@@ -14,7 +14,7 @@ const ENTRIES = [
 // 12:00:00 on some day: the take starts here.
 const T0 = Date.UTC(2026, 10, 14, 12, 0, 0);
 
-function harness(options: { onSheet?: (id: string) => boolean; lines?: VoiceLine[] } = {}) {
+function harness(options: { onSheet?: (id: string) => boolean; lines?: VoiceLine[]; lagSeconds?: number } = {}) {
   const events: SessionEvent[] = [];
   const cues: Cue[] = [];
   let n = 0;
@@ -63,6 +63,13 @@ describe('a voice session', () => {
     // The end of the number, less the recogniser's delay.
     expect(secondsIn(line)).toBeCloseTo(20 + 3 * 0.3 - LAG_SECONDS, 3);
     expect(line.heardAt).toBe(T0 + (20 - LAG_SECONDS) * 1000);
+  });
+
+  it('takes off the delay its model has, not the usual one', () => {
+    const h = harness({ lagSeconds: 0.25 });
+    h.say('sixteen thirteen', 10);
+    h.say('mow', 12);
+    expect(secondsIn(h.live()[0])).toBeCloseTo(12 - 0.25, 3);
   });
 
   it('prefers a press of Now to the word', () => {

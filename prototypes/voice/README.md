@@ -15,9 +15,12 @@ recogniser's words as calls, and what the bench in `bench/` measures.
 
 The app now has its own version of this, on the Record finishes page: see
 [`docs/design/voice-recording.md`](../../docs/design/voice-recording.md).
-`calls.mjs` lives on there as `lib/voice/calls.ts`, and the engine built
-here is what the app serves (`pnpm voice:sync --from prototypes/voice/engine`).
-This page stays for the bench, and for trying a model the app doesn't ship.
+`calls.mjs` lives on there as `lib/voice/calls.ts`. The engine the app
+serves is a release of
+[voice-engine](https://github.com/sailscoring/voice-engine), which builds
+it in CI; the build here is the prototype's own. This page stays for the
+bench, and for trying a model the app doesn't ship, until both move to
+voice-engine too.
 
 ## Trying it
 

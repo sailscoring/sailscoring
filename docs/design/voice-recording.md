@@ -43,7 +43,7 @@ places listed.
 | `lib/voice/client/` | The phone: the engine's download and worker, the microphone, the recorder that ties them to a session, its own IndexedDB database, playback, the upload |
 | `lib/voice/server/` | The recording store and the API's rules |
 | `components/voice/` | The setup dialog, the listening screen, the panel on Record finishes, the scorer's playback |
-| `public/voice/` | The recogniser's worker, the microphone worklet, the service worker; the engine itself is fetched at build (`pnpm voice:sync`, pinned in `lib/voice/engine-release.json`) and not committed |
+| `public/voice/` | The microphone worklet and the service worker. The engine (the recogniser, its worker and its model) is a release of [voice-engine](https://github.com/sailscoring/voice-engine), fetched at build by `pnpm voice:sync` as pinned in `lib/voice/engine-release.json`, and not committed |
 | `lib/db/schema/voice.ts` | Two tables nothing else refers to: `voice_recordings`, `voice_recording_segments` |
 | `app/api/v1/voice/`, `app/api/cron/sweep-voice-recordings/` | Its routes |
 
@@ -84,11 +84,12 @@ numbers are first guesses (`lib/voice/types.ts`).
 
 ## Trying it
 
-1. Get the engine: build or copy it as the
-   [prototype's README](../../prototypes/voice/README.md) says, then
-   `pnpm voice:sync --from <its engine directory>`. A deployed build needs
-   the engine published and `source` set in `lib/voice/engine-release.json`;
-   until then the setup dialog says the engine isn't available.
+1. Get the engine: build a release in a
+   [voice-engine](https://github.com/sailscoring/voice-engine) checkout as
+   its README says, then `pnpm voice:sync --from <checkout>/dist/<release>`.
+   A deployed build needs a published release pinned in
+   `lib/voice/engine-release.json`; until then the setup dialog says the
+   engine isn't available.
 2. Turn on `finish-submissions` and `voice-recording` for the workspace
    (see [workspace provisioning](../workspace-provisioning.md)).
 3. Open **Record finishes**, pick the race, **Set up**. Do this ashore.
@@ -104,8 +105,8 @@ stopped; and the saved recording with the paper sheet, for the bench.
 
 ## What the proof of concept leaves rough
 
-- **No published engine.** Nothing is uploaded anywhere yet, so only a
-  local build can listen.
+- **No published engine.** voice-engine builds a release, but none is
+  published yet, so only a local build can listen.
 - **Never run on a phone.** Chromium on a laptop only. iPhone behaviour
   (the microphone when the screen locks, how much the browser will store)
   is what ADR-017 §8 is waiting to hear about.

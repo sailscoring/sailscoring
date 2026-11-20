@@ -18,7 +18,8 @@ import type { VoiceLine, VoiceWord } from './types';
 export const MAX_GAP = 1.0;
 /** And this much longer before it is read, in case a word is still coming. */
 const SETTLE = 0.35;
-/** The recogniser writes a word about this long after it was said. */
+/** The recogniser writes a word about this long after it was said, unless
+ *  its model says otherwise. */
 export const LAG_SECONDS = 0.5;
 /** The word after a number counts as its time for this long. */
 const MARK_WITHIN = 6;
@@ -70,6 +71,9 @@ export interface SessionOptions {
   newId: () => string;
   onEvent: (event: SessionEvent) => void;
   onCue?: (cue: Cue) => void;
+  /** How long after a word is said the recogniser gives its time: the
+   *  model's, from the engine's manifest. */
+  lagSeconds?: number;
 }
 
 export interface VoiceSession {
@@ -92,7 +96,7 @@ export interface VoiceSession {
 }
 
 export function createSession(options: SessionOptions): VoiceSession {
-  const { entries, onSheet = () => false, newId, onEvent, onCue = () => {} } = options;
+  const { entries, onSheet = () => false, newId, onEvent, onCue = () => {}, lagSeconds = LAG_SECONDS } = options;
   const lines: VoiceLine[] = (options.lines ?? []).map((l) => ({ ...l }));
   const callOf = new Map<string, Call>();
   const lineOfCall = new Map<Call, VoiceLine>();
@@ -134,7 +138,7 @@ export function createSession(options: SessionOptions): VoiceSession {
     if ('marked' in x) {
       const line = lineOfCall.get(x.marked);
       if (line && !line.removed && line.timeFrom === 'called') {
-        line.at = clock(x.marked.markAt! - LAG_SECONDS);
+        line.at = clock(x.marked.markAt! - lagSeconds);
         line.timeFrom = 'word';
         emit('changed', line);
         onCue('mark');
@@ -142,8 +146,8 @@ export function createSession(options: SessionOptions): VoiceSession {
       return;
     }
     const call = x.call;
-    const heardAt = clock(call.t - LAG_SECONDS);
-    const heardUntil = clock(call.tEnd - LAG_SECONDS);
+    const heardAt = clock(call.t - lagSeconds);
+    const heardUntil = clock(call.tEnd - lagSeconds);
     if (call.again && 'entry' in call) {
       const first = live().find((l) => l.competitorId === call.entry.id) ?? null;
       if (first) {
@@ -177,7 +181,7 @@ export function createSession(options: SessionOptions): VoiceSession {
       line = {
         id: newId(),
         ...read,
-        at: call.markAt != null ? clock(call.markAt - LAG_SECONDS) : heardUntil,
+        at: call.markAt != null ? clock(call.markAt - lagSeconds) : heardUntil,
         timeFrom: call.markAt != null ? 'word' : 'called',
         calledAgainAt: [],
         boatSettled: false,
