@@ -71,6 +71,15 @@ jobs:
           path: public/canonical-logos
           key: canonical-logos-${{ hashFiles('lib/canonical-logos/dataset-version.txt') }}
 
+      # The same for the listening engine of finishes by voice, 82 MB from
+      # the voice-engine release `prebuild` fetches: scripts/sync-voice-engine.ts
+      # skips the fetch when the pinned release is already there.
+      - name: Cache the voice engine
+        uses: actions/cache@v4
+        with:
+          path: public/voice/engine
+          key: voice-engine-${{ hashFiles('lib/voice/engine-release.json') }}
+
       - name: Apply Drizzle migrations
         run: pnpm db:migrate
 

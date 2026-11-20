@@ -84,12 +84,11 @@ numbers are first guesses (`lib/voice/types.ts`).
 
 ## Trying it
 
-1. Get the engine: build a release in a
-   [voice-engine](https://github.com/sailscoring/voice-engine) checkout as
-   its README says, then `pnpm voice:sync --from <checkout>/dist/<release>`.
-   A deployed build needs a published release pinned in
-   `lib/voice/engine-release.json`; until then the setup dialog says the
-   engine isn't available.
+1. Get the engine: `pnpm voice:sync` (also run by `prebuild`) fetches the
+   [voice-engine](https://github.com/sailscoring/voice-engine) release
+   pinned in `lib/voice/engine-release.json`. To try a build of your own,
+   assemble one in a voice-engine checkout as its README says, then
+   `pnpm voice:sync --from <checkout>/dist/<release>`.
 2. Turn on `finish-submissions` and `voice-recording` for the workspace
    (see [workspace provisioning](../workspace-provisioning.md)).
 3. Open **Record finishes**, pick the race, **Set up**. Do this ashore.
@@ -105,8 +104,6 @@ stopped; and the saved recording with the paper sheet, for the bench.
 
 ## What the proof of concept leaves rough
 
-- **No published engine.** voice-engine builds a release, but none is
-  published yet, so only a local build can listen.
 - **Never run on a phone.** Chromium on a laptop only. iPhone behaviour
   (the microphone when the screen locks, how much the browser will store)
   is what ADR-017 §8 is waiting to hear about.

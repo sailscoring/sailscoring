@@ -13,9 +13,9 @@ import { addCompetitor, createSeriesQuick, enableFeatures } from './helpers';
  * all inside the app, hearing a synthetic caller through Chromium's fake
  * microphone.
  *
- * Runs only on a machine that has both the engine (`pnpm voice:sync`, 85 MB,
- * which CI doesn't fetch) and `flite` to speak the calls; elsewhere it is
- * skipped, and `voice-recording.spec.ts` covers the flow with a scripted
+ * Runs only on a machine that has both the engine (`pnpm voice:sync`, which
+ * every build runs) and `flite` to speak the calls, which CI lacks; elsewhere
+ * it is skipped, and `voice-recording.spec.ts` covers the flow with a scripted
  * recogniser. A text-to-speech voice in a quiet room says nothing about a
  * caller in a breeze: this shows the plumbing works, not that recognition
  * is good enough.

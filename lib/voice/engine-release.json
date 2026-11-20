@@ -1,6 +1,6 @@
 {
-  "release": null,
+  "release": "v1",
   "model": "zipformer-en-70M",
-  "source": null,
-  "manifestSha256": null
+  "source": "https://github.com/sailscoring/voice-engine/releases/download/v1/",
+  "manifestSha256": "eb65b59a509d6a3b3708dc1ac502eb90464171229948b42ed3649418c17fb004"
 }
