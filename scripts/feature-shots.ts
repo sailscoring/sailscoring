@@ -386,7 +386,7 @@ const SHOTS: Shot[] = [
       const pub = await anon.newPage();
       await pub.goto(new URL(href, BASE).toString());
       await settle(pub);
-      await shot('category-pages.png', { page: pub });
+      await shot('category-pages.png', { page: pub, helpOnly: true });
       await pub.close();
     },
   },
