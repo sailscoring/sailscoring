@@ -4,7 +4,9 @@
 (the cascade, interior index pages, seasons + the workspace-index
 rework, and the publish-dialog/CLI reframing), with the redirect table
 maintained via `pnpm redirects`. The Context describes the
-pre-implementation state that #320's picker left behind.
+pre-implementation state that #320's picker left behind. Amended
+2026-11-20: a category gets a page of its own beside the tree, under
+the reserved `-` segment (see the note on decision 4).
 
 **Date:** 2026-07-28
 
@@ -233,6 +235,19 @@ Adopt the **publication tree**. The sub-decisions:
    categories, and **never a URL segment** — URL stability rules out
    splicing `open`/`club` into HYC's announced paths, and day-group
    categories cut across seasons rather than nesting inside them.
+
+   *Amended 2026-11-20:* a category still isn't a level of the tree — no
+   page's path changes — but each one with something published gains a
+   page of its own **beside** the tree, at `/p/{ws}/-/{category-slug}`,
+   listing its events across every season (#775). Cutting across seasons
+   is exactly why it is worth an address: Royal Cork's Cork Weeks from
+   2004 on each sit in their own season, and nothing linked them. The
+   bare hyphen can never be a published slug, so the reserved segment
+   can't collide with a season or folder; a bare `/p/{ws}/{category}`
+   was rejected because it would collide with top-level folders, and
+   resolving it only as a fallback would let a link change meaning when
+   a folder is later published there. The slug follows the category's
+   name; a rename keeps the old slug, which redirects.
 
 5. **One cascade, every page.** A server-rendered row of selects —
    Season / Category (when non-degenerate) / Folder / Page — appears on

@@ -360,6 +360,37 @@ const SHOTS: Shot[] = [
     },
   },
 
+  {
+    // Inventory: Category pages — one category's events across every season.
+    // Production captures the live archive this was built for (Royal Cork's
+    // Cork Weeks, 2004 on), signed out. Local mode has no archive: it
+    // publishes both seeded samples, which share the seeded "Samples"
+    // category, and captures that category's page.
+    slug: 'category-pages',
+    group: 'Publishing',
+    async capture({ page, anon, shot }) {
+      let href: string;
+      if (LOCAL) {
+        for (const name of ['Sample Tuesday Evening League 2026', 'Sample Junior Regatta 2026']) {
+          await publishSeriesOnce(page, name);
+        }
+        await page.goto(`${BASE}/workspace`);
+        await settle(page);
+        const link = page.getByRole('link', { name: 'Samples — open its public page' });
+        const found = await link.getAttribute('href', { timeout: 10_000 });
+        if (!found) throw new Error('no public page link for the Samples category');
+        href = found;
+      } else {
+        href = '/p/rcyc/-/cork-week';
+      }
+      const pub = await anon.newPage();
+      await pub.goto(new URL(href, BASE).toString());
+      await settle(pub);
+      await shot('category-pages.png', { page: pub });
+      await pub.close();
+    },
+  },
+
   // ── Batch 2 ────────────────────────────────────────────────────────────────
   // Registry order matters within a full run: the feature-toggles shot below
   // switches the batch's self-service gates on, so it (and everything gated)
@@ -3078,6 +3109,32 @@ async function publishSeries(page: Page, name: string) {
   await dialog.waitFor();
   await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
   await dialog.locator('a[href*="/p/"]').first().waitFor({ timeout: 30_000 });
+  await page.keyboard.press('Escape');
+  await dialog.waitFor({ state: 'hidden' }).catch(() => {});
+}
+
+/** LOCAL-mode prep only: publish a series by name unless an earlier shot in
+ *  the run already has — then its dialog offers Re-publish, and is left
+ *  alone. */
+async function publishSeriesOnce(page: Page, name: string) {
+  if (!LOCAL) throw new Error('publishSeriesOnce is local-mode prep only');
+  await page.goto(`${BASE}/`);
+  await settle(page);
+  await page.getByRole('link', { name }).first().click();
+  await page.waitForURL(/\/series\/[^/]+/);
+  const seriesId = new URL(page.url()).pathname.split('/')[2];
+  await page.goto(`${BASE}/series/${seriesId}/standings`);
+  await settle(page);
+  await page.getByRole('button', { name: 'Publish…', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.waitFor();
+  const publish = dialog.getByRole('button', { name: 'Publish', exact: true });
+  const republish = dialog.getByRole('button', { name: 'Re-publish', exact: true });
+  await publish.or(republish).first().waitFor();
+  if (await publish.isVisible()) {
+    await publish.click();
+    await dialog.locator('a[href*="/p/"]').first().waitFor({ timeout: 30_000 });
+  }
   await page.keyboard.press('Escape');
   await dialog.waitFor({ state: 'hidden' }).catch(() => {});
 }
