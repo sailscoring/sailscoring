@@ -178,3 +178,39 @@ run together in a busy finish. Ordered by what the trials ask for.
 
 ADR-017 lists what would. The screens and the reading of calls carry over;
 the microphone and the recogniser move into native code.
+
+## Follow-up: a second hearing online
+
+Recognising on the phone is what makes this work with no signal, and it
+probably costs some accuracy. An online recognition service would hear
+better, and most of them can be told what to expect: the entry list's sail
+numbers can be given as expected words (Deepgram, AssemblyAI, Google, Azure
+and Speechmatics all offer this; SailScores uses Azure's). It would replace
+only the step from sound to words. Reading the words against the entry list
+stays as it is.
+
+**After the race, not during it.** The recording already reaches the server
+in five-second pieces. Once it is all there, the server can send it to a
+service that transcribes recordings, and the scorer's review marks each line
+where that reading and the phone's disagree. Nothing needs a signal on the
+water, every phone still hears a call the same way, and a disagreement
+becomes a marked line rather than a wrong boat taken down with confidence.
+Streaming to a service live, when the signal allows, would help the caller
+but make what the phone hears depend on its signal, and leave two readings
+to reconcile on the spot.
+
+**Cost.** Small enough not to shape the design. A call is two or three
+seconds, so a 40-boat finish is about two minutes of speech: around a cent
+a race at transcription prices (roughly $0.003 to $0.005 a minute), a few
+dollars to a few tens of dollars for a club's season. A per-workspace quota
+of minutes, behind its own gate and counted so the real cost is visible, is
+enough to start with.
+
+**What it needs first.**
+
+- **Evidence that it's better.** Run M0's real recordings through two or
+  three services with the entry list as expected words, scored as the bench
+  scores the on-device candidates. Without that number this is a guess.
+- **A privacy policy change.** The service becomes a sub-processor of
+  volunteers' voices: a data processing agreement, an EU endpoint, and the
+  service's settings for not training on or keeping the sound.
