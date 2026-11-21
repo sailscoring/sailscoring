@@ -368,6 +368,8 @@ const SHOTS: Shot[] = [
     // category, and captures that category's page.
     slug: 'category-pages',
     group: 'Publishing',
+    // Production needs no session: it captures a public page only.
+    signedOut: true,
     async capture({ page, anon, shot }) {
       let href: string;
       if (LOCAL) {

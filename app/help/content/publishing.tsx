@@ -235,8 +235,8 @@ export default function Publishing() {
       <Section id="category-pages" title="A page for each category">
         <HelpShot
           src="/help/shots/category-pages.webp"
-          alt="A category's public page: its published events, each with its results pages linked."
-          caption="A category's page: every published event filed in it, newest season first."
+          alt="A category's public page: Cork Week listed under each season it was sailed in, each year's classes linked."
+          caption="One event across the years: every Cork Week on one page, newest first."
         />
         <p>
           A category you file series under (see{' '}
