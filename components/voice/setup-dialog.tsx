@@ -26,9 +26,9 @@ import {
 } from '@/lib/voice/client/microphone';
 import { startTrial, type Trial } from '@/lib/voice/client/recorder';
 import { clockTime } from '@/lib/voice/sheet';
-import type { VoiceLine } from '@/lib/voice/types';
+import type { TimelineCall } from '@/lib/voice/timeline';
 
-import type { BoatLabel } from './listening-screen';
+import type { NameOf } from './timeline-view';
 import type { VoiceRecording } from './use-voice-recording';
 
 function Step({ done, title, children }: { done: boolean; title: string; children?: React.ReactNode }) {
@@ -57,23 +57,24 @@ function PhoneClock() {
 }
 
 /**
- * Getting ready to take finishes by voice, done ashore while there is a
- * signal: the engine's one download, the microphone, the entry list, and a
- * trial call that is the microphone check and the calling lesson in one.
- * Listen hands the open microphone and the running engine straight on, so
- * the caller's first tap is also the only one.
+ * Getting ready to record finishes by voice, done ashore while there is a
+ * signal: the recogniser's one download, the microphone, the entry list,
+ * and a trial call that is the microphone check and the calling lesson in
+ * one. Record hands the open microphone and the running recogniser straight
+ * on, so the caller's first tap is also the only one. Without the
+ * recogniser, Record still records the sound and the NOWs.
  */
 export function VoiceSetupDialog({
   voice,
   entries,
-  boat,
-  onListen,
+  name,
+  onRecord,
   onClose,
 }: {
   voice: VoiceRecording;
   entries: readonly CallEntry[];
-  boat: (competitorId: string) => BoatLabel | undefined;
-  onListen: (microphone: Microphone, listener: Listener) => void;
+  name: NameOf;
+  onRecord: (microphone: Microphone, listener: Listener | null) => void;
   onClose: () => void;
 }) {
   const { engine } = voice;
@@ -82,9 +83,9 @@ export function VoiceSetupDialog({
   const [opening, setOpening] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const [listener, setListener] = useState<Listener | null>(null);
-  const [heard, setHeard] = useState<{ words: string; line: VoiceLine | null } | null>(null);
+  const [heard, setHeard] = useState<{ words: string; call: TimelineCall | null } | null>(null);
   const level = useRef<HTMLSpanElement | null>(null);
-  // Whatever is open when the dialog goes, unless Listen took it on.
+  // Whatever is open when the dialog goes, unless Record took it on.
   const held = useRef<{ microphone: Microphone | null; trial: Trial | null; handedOn: boolean }>({
     microphone: null,
     trial: null,
@@ -135,7 +136,7 @@ export function VoiceSetupDialog({
         if (!gone) setListener(started);
       },
       (err: unknown) => {
-        if (!gone) setProblem(err instanceof Error ? `The listening engine didn’t start (${err.message}). Reload the page, then try again.` : 'The listening engine didn’t start.');
+        if (!gone) setProblem(err instanceof Error ? `The recogniser didn’t start (${err.message}). Record still records the sound; reload the page to try again.` : 'The recogniser didn’t start.');
       },
     );
     return () => {
@@ -155,37 +156,40 @@ export function VoiceSetupDialog({
     };
   }, [microphone, listener, entries]);
 
-  function listen() {
-    if (!microphone || !listener) return;
+  function record() {
+    if (!microphone) return;
     held.current.trial?.stop();
     held.current.trial = null;
     held.current.handedOn = true;
-    onListen(microphone, listener);
+    onRecord(microphone, listener);
   }
 
-  const heardBoat = heard?.line?.competitorId ? boat(heard.line.competitorId) : undefined;
+  const heardCompetitor = heard?.call?.competitorId ? name(heard.call.competitorId) : undefined;
   const size = 'manifest' in engine ? megabytes(engine.manifest.bytes) : 0;
 
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent className="w-[95vw] max-w-md sm:max-w-md" data-testid="voice-setup">
         <DialogHeader>
-          <DialogTitle>Take finishes by voice</DialogTitle>
+          <DialogTitle>Record finishes by voice</DialogTitle>
           <DialogDescription>
-            Set up while you have a signal. Once it is listening, it needs none.
+            Set up while you have a signal. Once it is recording, it needs none.
           </DialogDescription>
         </DialogHeader>
         <DialogBody>
           <ol className="space-y-4 text-sm">
-            <Step done={engineReady} title="Listening on this phone">
+            <Step done={engineReady} title="Recognising sail numbers on this phone">
               {engine.kind === 'checking' && <p className="text-muted-foreground">Checking…</p>}
               {engine.kind === 'unavailable' && (
-                <p className="text-destructive">The listening engine isn’t available on this server.</p>
+                <p className="text-muted-foreground">
+                  The recogniser isn’t available on this server. Record still records the sound and the NOWs.
+                </p>
               )}
               {engine.kind === 'absent' && (
                 <>
                   <p className="text-muted-foreground">
-                    Downloaded once ({size} MB). Nothing you say leaves the phone to be recognised.
+                    Downloaded once ({size} MB). Sail numbers are recognised on the phone; no sound is sent anywhere to be
+                    recognised. Without it, the sound and the NOWs are still recorded, and the sail numbers can be found later.
                   </p>
                   <Button size="sm" onClick={() => void voice.downloadEngine()}>Download ({size} MB)</Button>
                 </>
@@ -202,7 +206,7 @@ export function VoiceSetupDialog({
                 </>
               )}
               {engineReady && (
-                <p className="text-muted-foreground">Downloaded. Nothing you say leaves the phone to be recognised.</p>
+                <p className="text-muted-foreground">Downloaded. Sail numbers are recognised on the phone; no sound is sent anywhere to be recognised.</p>
               )}
             </Step>
 
@@ -242,31 +246,32 @@ export function VoiceSetupDialog({
               )}
             </Step>
 
-            <Step done={entries.length > 0} title={`Entry list: ${entries.length} boat${entries.length === 1 ? '' : 's'} in this race`}>
+            <Step done={entries.length > 0} title={`Entry list: ${entries.length} competitor${entries.length === 1 ? '' : 's'} in this race`}>
               {entries.length === 0 && (
-                <p className="text-muted-foreground">With no entries, every number called goes down as an unknown boat.</p>
+                <p className="text-muted-foreground">With no entry list, every sail number is shown as not on the entry list.</p>
               )}
             </Step>
 
-            <Step done={heard?.line != null} title="Try it: call any boat’s number">
+            <Step done={heard?.call != null} title="Try it: call out any competitor’s sail number">
               {!microphone || !engineReady ? (
                 <p className="text-muted-foreground">Once the microphone is on.</p>
               ) : !listener ? (
-                <p className="text-muted-foreground" role="status">Getting ready to listen…</p>
+                <p className="text-muted-foreground" role="status">Getting the recogniser ready…</p>
               ) : heard ? (
                 <div data-testid="voice-trial-heard">
                   <p className="text-muted-foreground">Heard “{heard.words}”</p>
-                  {heardBoat ? (
+                  {heardCompetitor ? (
                     <p className="font-medium">
-                      <span className="font-mono">{heardBoat.sailNumber}</span> {heardBoat.name}
+                      <span className="font-mono">{heardCompetitor.sailNumber}</span> {heardCompetitor.name}
+                      {heard.call?.how === 'sounds' && <span className="font-normal text-muted-foreground"> (a close match)</span>}
                     </p>
                   ) : (
-                    <p>{heard.line?.how === 'ambiguous' ? 'More than one boat it could be.' : 'No boat in this race.'}</p>
+                    <p>{heard.call?.how === 'ambiguous' ? 'It could be more than one competitor.' : 'Not on the entry list.'}</p>
                   )}
                 </div>
               ) : (
                 <p className="text-muted-foreground">
-                  Say her number as you would read it off the sail: “sixteen thirteen”, “one six one three”.
+                  Call out a sail number as you would read it off the sail: “sixteen thirteen”, “one six one three”.
                 </p>
               )}
             </Step>
@@ -274,9 +279,13 @@ export function VoiceSetupDialog({
 
           <div className="mt-4 rounded-md border bg-muted/40 p-3 text-sm">
             <p className="font-medium">Calling finishers</p>
-            <p>Say her number, then “now” as she crosses, and leave a breath between boats.</p>
+            <p>
+              Call out each sail number, then “now” as they finish, or press NOW. Leave a pause between competitors. Everything
+              said near the phone is recorded, and the recording goes to the scorer with the finish sheet.
+            </p>
             <p className="text-muted-foreground">
-              One tone: she’s down. Two low tones: look when you can. Or press Now as she crosses.
+              One tone: a sail number was recognised. Two low tones: a sail number not on the entry list. A click: a time was
+              marked.
             </p>
           </div>
 
@@ -287,7 +296,7 @@ export function VoiceSetupDialog({
         </DialogBody>
         <DialogFooter className="gap-2">
           <Button variant="outline" onClick={onClose}>Not now</Button>
-          <Button onClick={listen} disabled={!microphone || !listener} data-testid="voice-setup-listen">Listen</Button>
+          <Button onClick={record} disabled={!microphone || (engineReady && !listener && !problem)} data-testid="voice-setup-record">Record</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

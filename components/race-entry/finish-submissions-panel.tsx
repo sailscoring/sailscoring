@@ -15,7 +15,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useSubmissionVoice, VoiceReviewNote } from '@/components/voice/race-recordings';
+import { SubmissionTimeline, useSubmissionVoice, VoiceReviewNote } from '@/components/voice/race-recordings';
 import { useReviewFinishSubmission, useRaceSubmissions } from '@/hooks/use-finish-submissions';
 import { useShortcuts } from '@/hooks/use-keyboard-shortcut';
 import { useSaveRaceStart } from '@/hooks/use-race-starts';
@@ -175,9 +175,16 @@ function ReviewDialog({
     () => raceCandidates(competitors, raceStarts, (id) => fleetName.get(id)),
     [competitors, raceStarts, fleetName],
   );
+  // The recording that came with a sheet taken by voice: ▶ on each row,
+  // and the finishes the scorer accepts from it added to what is applied.
+  const takesTime = useMemo(() => {
+    const anyTimed = competitors.some((c) => needsFinishTime(c.id));
+    return (competitorId: string | null) => (competitorId ? needsFinishTime(competitorId) : anyTimed);
+  }, [competitors, needsFinishTime]);
+  const voice = useSubmissionVoice(submission, competitors, takesTime);
   const read = useMemo(
-    () => readSubmission(submission.finishes, candidates, (id) => byId.get(id)?.sailNumber, seriesCodes),
-    [submission, candidates, byId, seriesCodes],
+    () => readSubmission(voice.finishes, candidates, (id) => byId.get(id)?.sailNumber, seriesCodes),
+    [voice.finishes, candidates, byId, seriesCodes],
   );
   const carried = useMemo(() => carryAcrossImport(savedFinishes, read.finishes), [savedFinishes, read]);
   const outcome = useMemo(() => carryOutcome(savedFinishes, carried), [savedFinishes, carried]);
@@ -189,9 +196,6 @@ function ReviewDialog({
   });
   const existingFinishCount = savedFinishes.filter((f) => f.sortOrder !== null || f.resultCode !== null).length;
   const changed = diff.filter((r) => r.changed).length;
-  // The recording that came with a sheet taken by voice: each line plays
-  // the call it came from.
-  const voice = useSubmissionVoice(submission, competitors);
 
   async function decide(status: 'applied' | 'dismissed') {
     setBusy(true);
@@ -234,6 +238,10 @@ function ReviewDialog({
     );
   };
 
+  // The recording's timeline is shown in place of the dialog, which would
+  // otherwise keep the focus and the pointer to itself; the dialog comes
+  // back as it was when the timeline closes.
+  if (voice.open) return <SubmissionTimeline voice={voice} competitors={competitors} />;
   return (
     <Dialog open onOpenChange={(open) => { if (!open && !busy) onClose(); }}>
       <DialogContent className="w-[95vw] max-w-2xl sm:max-w-2xl">
@@ -254,7 +262,7 @@ function ReviewDialog({
             outcome={outcome}
             untimedHandicap={untimedHandicapCount(read, needsFinishTime)}
           />
-          {voice.recording && <VoiceReviewNote recording={voice.recording} />}
+          {voice.recording && <VoiceReviewNote voice={voice} />}
           {startChanges.length > 0 && (
             <ul className="text-sm space-y-0.5" data-testid="submission-start-changes">
               {startChanges.map((c) => (
@@ -274,7 +282,7 @@ function ReviewDialog({
                   <TableHead>Boat</TableHead>
                   <TableHead>Now</TableHead>
                   <TableHead>Submitted</TableHead>
-                  {voice.recording && <TableHead>Call</TableHead>}
+                  {voice.recording && <TableHead>Recording</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -289,7 +297,7 @@ function ReviewDialog({
                     <TableCell className={cn(row.changed && 'font-medium')}>{lineText(row.after)}</TableCell>
                     {voice.recording && (
                       <TableCell>
-                        {voice.cell(row, row.competitorId ? (byId.get(row.competitorId)?.sailNumber ?? 'this boat') : (row.unknownSailNumber ?? 'this boat'))}
+                        {voice.cell(row, row.competitorId ? (byId.get(row.competitorId)?.sailNumber ?? 'this competitor') : (row.unknownSailNumber ?? 'this competitor'))}
                       </TableCell>
                     )}
                   </TableRow>

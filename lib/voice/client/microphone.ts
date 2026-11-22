@@ -5,7 +5,7 @@
  */
 
 import { level, resampler } from '../audio';
-import type { Cue } from '../session';
+import type { Cue } from '../live';
 import { SAMPLE_RATE } from '../types';
 
 export interface MicrophoneChoice {

@@ -85,7 +85,7 @@ test.use({
   permissions: ['microphone'],
 });
 
-test('the real recogniser takes a synthetic caller’s finishes down', async ({ page, signedInEmail }) => {
+test('the real recogniser hears a synthetic caller’s finishes', async ({ page, signedInEmail }) => {
   test.skip(audio === null, 'needs the voice engine (pnpm voice:sync) and flite');
   await enableFeatures(page, signedInEmail, ['finish-submissions', 'voice-recording']);
   await createSeriesQuick(page, { name: 'Real Engine', date: todayIsoDate() });
@@ -103,23 +103,23 @@ test('the real recogniser takes a synthetic caller’s finishes down', async ({ 
   const setup = page.getByTestId('voice-setup');
   // The one download, then the engine starts by itself.
   await setup.getByRole('button', { name: /^Download/ }).click();
-  await expect(setup).toContainText('Downloaded. Nothing you say leaves the phone', { timeout: 30_000 });
+  await expect(setup).toContainText('Downloaded. Sail numbers are recognised on the phone', { timeout: 30_000 });
   await setup.getByRole('button', { name: 'Turn on the microphone' }).click();
-  await expect(setup.getByTestId('voice-setup-listen')).toBeEnabled({ timeout: 30_000 });
   // The trial call hears the caller too.
   await expect(setup.getByTestId('voice-trial-heard')).toBeVisible({ timeout: 30_000 });
-  await setup.getByTestId('voice-setup-listen').click();
+  await setup.getByTestId('voice-setup-record').click();
 
-  // A full turn of the caller's loop, and every boat is on the sheet.
-  const screen = page.getByTestId('voice-listening');
-  await expect(screen.getByTestId('voice-state')).toHaveText('Listening');
-  const taken = screen.getByTestId('voice-last').or(screen.getByTestId('voice-lines'));
-  for (const sail of ['1613', '4078', '8338']) {
-    await expect(taken.filter({ hasText: sail })).toBeVisible({ timeout: 40_000 });
+  // A full turn of the caller's loop, and every competitor is on the timeline.
+  const screen = page.getByTestId('voice-recording-screen');
+  await expect(screen.getByTestId('voice-state')).toHaveText('Recording');
+  const list = screen.getByTestId('voice-timeline-list');
+  for (const name of ['Kestrel Crew', 'Dunlin Crew', 'Gannet Crew']) {
+    await expect(list.getByTestId('voice-chip').filter({ hasText: name }).first()).toBeVisible({ timeout: 40_000 });
   }
-  await screen.getByRole('button', { name: 'Stop' }).click();
-  await screen.getByTestId('voice-stop-confirm').getByRole('button', { name: 'Stop' }).click();
+  await screen.getByTestId('voice-stop').click();
+  await screen.getByTestId('voice-stop-confirmed').click();
+  // Each is suggested, with the "now" said after it.
+  await expect(page.getByTestId('voice-summary')).toContainText('3 suggested');
+  await page.getByTestId('voice-accept-all').click();
   await expect(page.locator('[data-entry-key]')).toHaveCount(3);
-  // Second time round the engine is on the phone: Listen is one tap.
-  await expect(page.getByTestId('voice-listen')).toBeVisible();
 });

@@ -1,27 +1,30 @@
 /**
- * How lines taken by voice land on the finish sheet: the same rows the
- * recorder types, in the same finishing order. Pure: each function takes the
- * sheet's rows and gives back the rows as they should now be.
+ * How a recording's finishes land on the finish sheet: the same rows the
+ * recorder types, in the same finishing order. Pure: each function takes
+ * the sheet's rows and gives back the rows as they should now be.
  *
- * A line makes one row, under the line's own id. A boat the call was sure
- * of, or read by sound, goes down as that boat; a call that fits several
- * boats, a number on no entry, and a press of Now nobody named a boat for
- * all go down as an unknown boat, for a person to resolve as they would a
- * typed number that matched nothing.
+ * Two kinds of row come from a recording. An accepted finish makes an
+ * ordinary row, under the finish's own id, and from then on the row is the
+ * finish: a person can change it on the sheet like any other. A suggested
+ * finish makes a row marked as a suggestion, kept in step with the
+ * suggestions as they change and never submitted. Changing a suggested row
+ * by hand accepts it as changed; deleting it says it is not a finish.
  */
 
 import { makeFinish } from '@/lib/finish-entry';
 import type { Finish } from '@/lib/types';
 
-import type { VoiceLine, VoiceMark } from './types';
+import type { Suggestion } from './timeline';
+import type { VoiceFinish } from './types';
 
 export interface SheetContext {
   raceId: string;
-  /** Whether a boat's row carries a time of day. An unknown boat's does
-   *  whenever the sheet takes times at all (`competitorId` null). */
+  /** Whether a competitor's row carries a time of day. A row for someone
+   *  not on the entry list (`competitorId` null) does whenever the sheet
+   *  takes times at all. */
   takesTime: (competitorId: string | null) => boolean;
-  /** When each row taken by voice crossed, by row id: the order of rows on
-   *  a sheet without times comes from this. */
+  /** When each row from the recording finished, by row id: the order of
+   *  rows on a sheet without times comes from this. */
   crossedAt: (rowId: string) => number | undefined;
 }
 
@@ -32,16 +35,58 @@ export function clockTime(at: number): string {
   return [d.getHours(), d.getMinutes(), d.getSeconds()].map((n) => String(n).padStart(2, '0')).join(':');
 }
 
-/** What an unknown boat's row is filed under. */
-export function unknownLabel(line: Pick<VoiceLine, 'digits'>): string {
-  return line.digits || '?';
+/** A time on the phone's clock to a tenth of a second, as the timeline shows it. */
+export function clockTenths(at: number): string {
+  const tenths = Math.round(at / 100);
+  const d = new Date(Math.floor(tenths / 10) * 1000);
+  const hms = [d.getHours(), d.getMinutes(), d.getSeconds()].map((n) => String(n).padStart(2, '0')).join(':');
+  return `${hms}.${tenths % 10}`;
 }
+
+/**
+ * `HH:MM:SS` typed on the sheet, as a time on the phone's clock on the day
+ * of `near`: the one closest to it, so a finish typed just after midnight
+ * lands on the right day.
+ */
+export function atOfClockTime(time: string, near: number): number | null {
+  const m = /^(\d{1,2}):(\d{2}):(\d{2})$/.exec(time);
+  if (!m) return null;
+  const d = new Date(near);
+  d.setHours(Number(m[1]), Number(m[2]), Number(m[3]), 0);
+  const day = 24 * 60 * 60 * 1000;
+  const at = d.getTime();
+  return [at - day, at, at + day].sort((a, b) => Math.abs(a - near) - Math.abs(b - near))[0];
+}
+
+const SUGGESTION = 'voice-suggestion-';
+/** The row a suggestion makes, by its key. */
+export const suggestionRowId = (key: string) => `${SUGGESTION}${key}`;
+export const isSuggestionRow = (row: Pick<Finish, 'id'>) => row.id.startsWith(SUGGESTION);
+export const suggestionKeyOf = (rowId: string) => (rowId.startsWith(SUGGESTION) ? rowId.slice(SUGGESTION.length) : null);
+
+/** What a row from the recording says, to tell a person's change from ours. */
+export interface RowSignature {
+  competitorId: string | null;
+  unknownSailNumber: string | null;
+  finishTime: string | null;
+}
+export const signatureOf = (row: Finish): RowSignature => ({
+  competitorId: row.competitorId,
+  unknownSailNumber: row.unknownSailNumber ?? null,
+  finishTime: row.finishTime ?? null,
+});
+const sameSignature = (a: RowSignature, b: RowSignature) =>
+  a.competitorId === b.competitorId && a.unknownSailNumber === b.unknownSailNumber && a.finishTime === b.finishTime;
+
+/** What an unknown competitor's row is filed under: the sail number heard
+ *  or typed, or `?` for a NOW with none. */
+const unknownLabel = (sailNumber: string | null) => sailNumber || '?';
 
 const placed = (rows: readonly Finish[]) =>
   rows.filter((r) => r.sortOrder !== null).sort((a, b) => a.sortOrder! - b.sortOrder!);
 
 /** Put `row` among the placed rows, just before the first one known to have
- *  crossed later, and number the order again from 1. */
+ *  finished later, and number the order again from 1. */
 function slot(rows: readonly Finish[], row: Finish, at: number, ctx: SheetContext): Finish[] {
   const order = placed(rows).filter((r) => r.id !== row.id);
   const time = clockTime(at);
@@ -50,7 +95,10 @@ function slot(rows: readonly Finish[], row: Finish, at: number, ctx: SheetContex
     const other = order[i];
     const crossed = ctx.crossedAt(other.id);
     const later = crossed !== undefined ? crossed > at : other.finishTime !== undefined && other.finishTime > time;
-    if (later) { insertAt = i; break; }
+    if (later) {
+      insertAt = i;
+      break;
+    }
   }
   const next = [...order.slice(0, insertAt), row, ...order.slice(insertAt)];
   const renumbered = new Map(next.map((r, i) => [r.id, i + 1]));
@@ -60,107 +108,117 @@ function slot(rows: readonly Finish[], row: Finish, at: number, ctx: SheetContex
   return [...out, { ...row, sortOrder: renumbered.get(row.id)! }];
 }
 
-/**
- * Put a line on the sheet, or bring its row up to date: a line whose time
- * was fixed moves to where that time puts it, and a press of Now that was
- * given its boat becomes that boat's row.
- *
- * A boat that already has a place on the sheet under another row keeps it:
- * the rows come back unchanged, as a second typed entry of her number would
- * leave them.
- */
-export function placeLine(rows: readonly Finish[], line: VoiceLine, ctx: SheetContext): Finish[] {
-  if (line.removed) return removeLine(rows, line.id);
-  const own = rows.find((r) => r.id === line.id);
-  // A row the recorder has since put a boat to by hand stays that boat's.
-  const settledByHand = own !== undefined && own.competitorId !== null;
-  const competitorId = settledByHand ? own.competitorId : line.competitorId;
-  const hers = competitorId && !settledByHand
-    ? rows.find((r) => r.competitorId === competitorId && r.id !== line.id)
-    : undefined;
-  if (hers && hers.sortOrder !== null) return own ? removeLine(rows, line.id) : [...rows];
-
-  const time = ctx.takesTime(competitorId) ? { finishTime: clockTime(line.at) } : {};
-  const identity = competitorId
-    ? { competitorId, unknownSailNumber: undefined }
-    : { competitorId: null, unknownSailNumber: unknownLabel(line) };
-  let row: Finish;
-  if (own && !hers) {
-    row = { ...own, ...(settledByHand ? {} : identity), tiedWithPrevious: false };
-    if ('finishTime' in time) row.finishTime = time.finishTime;
-    else delete row.finishTime;
-  } else if (hers) {
-    // She has a row with no place: a code, or a start check-in. The crossing
-    // joins it, as it does when her number is typed.
-    row = { ...hers, id: line.id, tiedWithPrevious: false, ...time };
-  } else {
-    row = makeFinish(ctx.raceId, { id: line.id, ...identity, sortOrder: 0, startPresent: competitorId ? true : null, ...time });
-  }
-  if (row.unknownSailNumber === undefined) delete row.unknownSailNumber;
-  // Her unplaced row, and the line's own unknown row where it had one, both
-  // give way to the row just made.
-  const without = hers ? rows.filter((r) => r.id !== hers.id && r.id !== line.id) : rows;
-  return slot(without, row, line.at, ctx);
-}
-
-/** Take a line's row off the sheet. */
-export function removeLine(rows: readonly Finish[], lineId: string): Finish[] {
-  if (!rows.some((r) => r.id === lineId)) return [...rows];
-  const rest = rows.filter((r) => r.id !== lineId);
+/** Take a row off the sheet, and number the order again. */
+export function removeRow(rows: readonly Finish[], rowId: string): Finish[] {
+  if (!rows.some((r) => r.id === rowId)) return [...rows];
+  const rest = rows.filter((r) => r.id !== rowId);
   const renumbered = new Map(placed(rest).map((r, i) => [r.id, i + 1]));
   return rest.map((r) => (renumbered.has(r.id) && r.sortOrder !== renumbered.get(r.id) ? { ...r, sortOrder: renumbered.get(r.id)! } : r));
 }
 
+/** The competitor's row, other than a suggestion and other than `exceptId`. */
+const theirRow = (rows: readonly Finish[], competitorId: string | null, exceptId: string) =>
+  competitorId === null ? undefined : rows.find((r) => r.competitorId === competitorId && r.id !== exceptId && !isSuggestionRow(r));
+
+function makeRow(id: string, competitorId: string | null, sailNumber: string | null, at: number, ctx: SheetContext, base?: Finish): Finish {
+  const time = ctx.takesTime(competitorId) ? clockTime(at) : undefined;
+  const row: Finish = base
+    ? { ...base, id, competitorId, tiedWithPrevious: false }
+    : makeFinish(ctx.raceId, { id, competitorId, sortOrder: 0, startPresent: competitorId ? true : null });
+  if (competitorId) delete row.unknownSailNumber;
+  else row.unknownSailNumber = unknownLabel(sailNumber);
+  if (time) row.finishTime = time;
+  else delete row.finishTime;
+  return row;
+}
+
 /**
- * What a line still needs a person to look at, given its row as the sheet
- * has it now. A line whose row is gone, or whose row the recorder has since
- * put a boat to by hand, has nothing left to settle about its boat.
+ * Put an accepted finish on the sheet, or bring its row up to date, in
+ * place of `replacing` (the suggestion it was accepted from) where given.
+ * A competitor who has a row with no place yet (a code, a start check-in)
+ * finishes on it, as typing their number does; one with a place already
+ * keeps it, and the rows come back unchanged.
  */
-export function marksOf(line: VoiceLine, row: Finish | undefined, takesTime: (competitorId: string | null) => boolean): VoiceMark[] {
-  if (line.removed || !row) return [];
-  const marks: VoiceMark[] = [];
-  if (row.competitorId === null) {
-    marks.push(line.how === 'ambiguous' ? 'choose' : line.how === 'tap' ? 'no-boat' : 'unknown');
-  } else if (line.how === 'sounds' && !line.boatSettled && row.competitorId === line.competitorId) {
-    marks.push('check');
-  }
-  if (line.how !== 'tap' && line.timeFrom === 'called' && !line.timeSettled && row.finishTime && takesTime(row.competitorId)) {
-    // Only while the row still carries the time the call gave it.
-    if (row.finishTime === clockTime(line.at)) marks.push('time');
-  }
-  return marks;
+export function placeFinish(rows: readonly Finish[], finish: VoiceFinish, ctx: SheetContext, replacing?: string): Finish[] {
+  if (finish.removed) return removeRow(rows, finish.id);
+  const theirs = theirRow(rows, finish.competitorId, finish.id);
+  if (theirs && theirs.sortOrder !== null) return [...rows];
+  let out = replacing ? removeRow(rows, replacing) : [...rows];
+  // Their suggestion goes: they have a finish now.
+  if (finish.competitorId) out = out.filter((r) => !(isSuggestionRow(r) && r.competitorId === finish.competitorId));
+  const own = out.find((r) => r.id === finish.id);
+  const row = makeRow(finish.id, finish.competitorId, finish.sailNumber, finish.at, ctx, own ?? theirs);
+  if (theirs) out = out.filter((r) => r.id !== theirs.id);
+  return slot(out, row, finish.at, ctx);
 }
 
-/** How a line reads on the screen: the number, and who or what that is. */
-export function lineLabel(
-  line: VoiceLine,
-  row: Finish | undefined,
-  boat: (competitorId: string) => { sailNumber: string; name: string } | undefined,
-): { number: string; who: string } {
-  const competitorId = row ? row.competitorId : line.competitorId;
-  const known = competitorId ? boat(competitorId) : undefined;
-  if (known) return { number: known.sailNumber, who: known.name };
-  if (line.how === 'tap') return { number: '—', who: 'Crossed, not yet called' };
-  if (line.how === 'ambiguous') return { number: `…${line.digits || '?'}`, who: `${line.couldBe.length} boats` };
-  return { number: line.digits || '?', who: 'Not on the entry list' };
-}
-
-/** A line's time as the screen shows it: the time alone, or "called" and
- *  the time where no "now" was heard and nobody has confirmed it. */
-export function lineTime(line: VoiceLine): string {
-  const time = clockTime(line.at);
-  return line.how !== 'tap' && line.timeFrom === 'called' && !line.timeSettled ? `called ${time}` : time;
-}
-
-/** The lines with something left to settle, in the order they crossed. */
-export function linesToSettle(
-  lines: readonly VoiceLine[],
+/**
+ * The sheet with its suggested rows in step with `suggestions`: one row for
+ * each, in the order they finished, except for a competitor who already
+ * has a place on the sheet. Returns the same array when nothing changes, so
+ * keeping it in step costs nothing between changes, and what each
+ * suggested row says, to tell a person's change to it later.
+ */
+export function syncSuggestions(
   rows: readonly Finish[],
-  takesTime: (competitorId: string | null) => boolean,
-): { line: VoiceLine; row: Finish; marks: VoiceMark[] }[] {
-  const byId = new Map(rows.map((r) => [r.id, r]));
-  return lines
-    .map((line) => ({ line, row: byId.get(line.id), marks: marksOf(line, byId.get(line.id), takesTime) }))
-    .filter((x): x is { line: VoiceLine; row: Finish; marks: VoiceMark[] } => x.row !== undefined && x.marks.length > 0)
-    .sort((a, b) => a.line.at - b.line.at);
+  suggestions: readonly Suggestion[],
+  ctx: SheetContext,
+): { rows: readonly Finish[]; written: Map<string, RowSignature> } {
+  const want = suggestions.filter((s) => {
+    const theirs = theirRow(rows, s.competitorId, suggestionRowId(s.key));
+    return !theirs || theirs.sortOrder === null;
+  });
+  const wantIds = new Set(want.map((s) => suggestionRowId(s.key)));
+  let out: Finish[] = rows.filter((r) => !isSuggestionRow(r) || wantIds.has(r.id));
+  const written = new Map<string, RowSignature>();
+  for (const s of want) {
+    const id = suggestionRowId(s.key);
+    const own = out.find((r) => r.id === id);
+    const row = makeRow(id, s.competitorId, s.sailNumber, s.at, ctx, own);
+    written.set(id, signatureOf(row));
+    if (own && sameSignature(signatureOf(own), signatureOf(row)) && own.sortOrder !== null) continue;
+    out = slot(out, row, s.at, ctx);
+  }
+  // Keep the order right as suggestions move: a row whose neighbours no
+  // longer agree with when it finished is put back in its place.
+  for (const s of want) {
+    const id = suggestionRowId(s.key);
+    const order = placed(out);
+    const i = order.findIndex((r) => r.id === id);
+    const before = order[i - 1];
+    const after = order[i + 1];
+    const timeOf = (r: Finish) => ctx.crossedAt(r.id);
+    const wrong = (before && (timeOf(before) ?? -Infinity) > s.at) || (after && (timeOf(after) ?? Infinity) < s.at);
+    if (wrong) out = slot(out, out.find((r) => r.id === id)!, s.at, ctx);
+  }
+  const unchanged =
+    out.length === rows.length &&
+    out.every((r) => {
+      const was = rows.find((x) => x.id === r.id);
+      return was !== undefined && was.sortOrder === r.sortOrder && sameSignature(signatureOf(was), signatureOf(r));
+    });
+  return { rows: unchanged ? rows : out, written };
 }
+
+/**
+ * What a person has done by hand, on the sheet, to the suggested rows the
+ * recording last wrote (`written`): changed one, which accepts it as
+ * changed, or deleted one, which says it is not a finish.
+ */
+export function handChanges(
+  rows: readonly Finish[],
+  written: ReadonlyMap<string, RowSignature>,
+): { changed: { key: string; row: Finish }[]; deleted: string[] } {
+  const changed: { key: string; row: Finish }[] = [];
+  const deleted: string[] = [];
+  for (const [id, signature] of written) {
+    const key = suggestionKeyOf(id)!;
+    const row = rows.find((r) => r.id === id);
+    if (!row) deleted.push(key);
+    else if (!sameSignature(signatureOf(row), signature)) changed.push({ key, row });
+  }
+  return { changed, deleted };
+}
+
+/** The rows a submission carries: suggestions nobody accepted stay behind. */
+export const submittableRows = (rows: readonly Finish[]) => rows.filter((r) => !isSuggestionRow(r));

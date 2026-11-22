@@ -2,195 +2,157 @@ import { describe, expect, it } from 'vitest';
 
 import { makeFinish } from '@/lib/finish-entry';
 import type { Finish } from '@/lib/types';
-import { clockTime, linesToSettle, marksOf, placeLine, removeLine, type SheetContext } from '@/lib/voice/sheet';
-import type { VoiceLine } from '@/lib/voice/types';
+import {
+  atOfClockTime,
+  clockTenths,
+  clockTime,
+  handChanges,
+  placeFinish,
+  removeRow,
+  submittableRows,
+  suggestionRowId,
+  syncSuggestions,
+  type SheetContext,
+} from '@/lib/voice/sheet';
+import type { Suggestion } from '@/lib/voice/timeline';
+import type { VoiceFinish } from '@/lib/voice/types';
 
 const RACE = 'race-1';
 // Local times, so the sheet's HH:MM:SS is the same wherever the test runs.
-const at = (h: number, m: number, s: number, ms = 0) => new Date(2026, 10, 14, h, m, s, ms).getTime();
+const at = (h: number, m: number, s: number, ms = 0) => new Date(2026, 10, 22, h, m, s, ms).getTime();
 
-function line(id: string, overrides: Partial<VoiceLine> = {}): VoiceLine {
+function suggestion(key: string, competitorId: string | null, when: number, overrides: Partial<Suggestion> = {}): Suggestion {
   return {
-    id,
-    how: 'whole',
-    competitorId: id,
+    key,
+    competitorId,
+    sailNumber: null,
     couldBe: [],
-    digits: '',
-    words: [],
-    heardAt: at(12, 0, 0),
-    heardUntil: at(12, 0, 1),
-    at: at(12, 0, 2),
-    timeFrom: 'word',
-    calledAgainAt: [],
-    boatSettled: false,
-    timeSettled: false,
-    removed: false,
+    heard: null,
+    at: when,
+    timeFrom: 'press',
+    pressId: null,
+    calledAt: null,
+    callKey: null,
+    nowKey: null,
+    check: null,
     ...overrides,
   };
 }
 
-function context(lines: VoiceLine[], timed = true): SheetContext {
-  return {
-    raceId: RACE,
-    takesTime: () => timed,
-    crossedAt: (rowId) => lines.find((l) => l.id === rowId)?.at,
-  };
+function finish(id: string, competitorId: string | null, when: number, overrides: Partial<VoiceFinish> = {}): VoiceFinish {
+  return { id, competitorId, sailNumber: null, at: when, timeFrom: 'press', pressId: null, calledAt: null, removed: false, ...overrides };
 }
 
-const order = (rows: Finish[]) =>
+function context(times: Record<string, number>, timed = true): SheetContext {
+  return { raceId: RACE, takesTime: () => timed, crossedAt: (rowId) => times[rowId] };
+}
+
+const order = (rows: readonly Finish[]) =>
   rows.filter((r) => r.sortOrder !== null).sort((a, b) => a.sortOrder! - b.sortOrder!).map((r) => r.competitorId ?? `?${r.unknownSailNumber}`);
 
-describe('clockTime', () => {
-  it('writes the phone’s clock to the nearest second', () => {
+describe('clock times', () => {
+  it('writes the phone’s clock to the nearest second, and to a tenth', () => {
     expect(clockTime(at(12, 41, 7, 400))).toBe('12:41:07');
     expect(clockTime(at(12, 41, 7, 600))).toBe('12:41:08');
-    expect(clockTime(at(9, 5, 59, 700))).toBe('09:06:00');
+    expect(clockTenths(at(12, 41, 7, 340))).toBe('12:41:07.3');
+    expect(clockTenths(at(12, 41, 59, 960))).toBe('12:42:00.0');
+  });
+
+  it('reads a time typed on the sheet onto the nearest day', () => {
+    expect(atOfClockTime('12:41:08', at(12, 40, 0))).toBe(at(12, 41, 8));
+    expect(atOfClockTime('00:00:05', at(23, 59, 50))).toBe(at(23, 59, 50) + 15_000);
+    expect(atOfClockTime('soon', at(12, 0, 0))).toBeNull();
   });
 });
 
-describe('placeLine', () => {
-  it('adds each line at the end, in the order they crossed', () => {
-    const lines = [line('a', { at: at(12, 0, 2) }), line('b', { at: at(12, 0, 9) })];
-    let rows: Finish[] = [];
-    for (const l of lines) rows = placeLine(rows, l, context(lines));
-    expect(order(rows)).toEqual(['a', 'b']);
-    expect(rows.find((r) => r.id === 'a')).toMatchObject({ competitorId: 'a', finishTime: '12:00:02', sortOrder: 1, startPresent: true });
+describe('syncSuggestions', () => {
+  it('puts each suggestion on the sheet in the order they finished', () => {
+    const s = [suggestion('a', 'kestrel', at(12, 0, 9)), suggestion('b', 'gannet', at(12, 0, 2))];
+    const times = { [suggestionRowId('a')]: at(12, 0, 9), [suggestionRowId('b')]: at(12, 0, 2) };
+    const { rows, written } = syncSuggestions([], s, context(times));
+    expect(order(rows)).toEqual(['gannet', 'kestrel']);
+    expect(rows.find((r) => r.id === suggestionRowId('a'))).toMatchObject({ finishTime: '12:00:09', startPresent: true });
+    expect([...written.keys()]).toEqual([suggestionRowId('a'), suggestionRowId('b')]);
   });
 
-  it('moves a line when its time turns out to be earlier', () => {
-    // b was called first but crossed second: her "now" came later.
-    const a = line('a', { at: at(12, 0, 6), timeFrom: 'called' });
-    const b = line('b', { at: at(12, 0, 8) });
-    const lines = [a, b];
-    let rows = placeLine(placeLine([], a, context(lines)), b, context(lines));
-    expect(order(rows)).toEqual(['a', 'b']);
-    b.at = at(12, 0, 4);
-    rows = placeLine(rows, b, context(lines));
-    expect(order(rows)).toEqual(['b', 'a']);
-    expect(rows.find((r) => r.id === 'b')?.finishTime).toBe('12:00:04');
+  it('gives back the same rows when nothing has changed', () => {
+    const s = [suggestion('a', 'kestrel', at(12, 0, 9))];
+    const ctx = context({ [suggestionRowId('a')]: at(12, 0, 9) });
+    const first = syncSuggestions([], s, ctx).rows;
+    expect(syncSuggestions(first, s, ctx).rows).toBe(first);
   });
 
-  it('slots among rows typed by hand by their times', () => {
-    const typed = [
-      makeFinish(RACE, { id: 't1', competitorId: 'x', sortOrder: 1, finishTime: '11:59:00' }),
-      makeFinish(RACE, { id: 't2', competitorId: 'y', sortOrder: 2, finishTime: '12:10:00' }),
-    ];
-    const a = line('a', { at: at(12, 0, 2) });
-    expect(order(placeLine(typed, a, context([a])))).toEqual(['x', 'a', 'y']);
+  it('takes away a suggestion that has gone, and moves one whose time has', () => {
+    const typed = makeFinish(RACE, { id: 't', competitorId: 'tern', sortOrder: 1, finishTime: '12:00:05' });
+    const ctx1 = context({ [suggestionRowId('a')]: at(12, 0, 2), [suggestionRowId('b')]: at(12, 0, 8) });
+    const one = syncSuggestions([typed], [suggestion('a', 'kestrel', at(12, 0, 2)), suggestion('b', 'gannet', at(12, 0, 8))], ctx1).rows;
+    expect(order(one)).toEqual(['kestrel', 'tern', 'gannet']);
+    const ctx2 = context({ [suggestionRowId('a')]: at(12, 0, 7) });
+    const two = syncSuggestions(one, [suggestion('a', 'kestrel', at(12, 0, 7))], ctx2).rows;
+    expect(order(two)).toEqual(['tern', 'kestrel']);
   });
 
-  it('leaves the time off a boat scored on finishing order, and still orders her', () => {
-    const lines = [line('a', { at: at(12, 0, 9) }), line('b', { at: at(12, 0, 2) })];
-    let rows: Finish[] = [];
-    for (const l of lines) rows = placeLine(rows, l, context(lines, false));
-    expect(order(rows)).toEqual(['b', 'a']);
-    expect(rows.every((r) => r.finishTime === undefined)).toBe(true);
+  it('leaves out a competitor who already has a place, and files a NOW with no sail number under ?', () => {
+    const typed = makeFinish(RACE, { id: 't', competitorId: 'kestrel', sortOrder: 1, finishTime: '12:00:05' });
+    const { rows } = syncSuggestions([typed], [suggestion('a', 'kestrel', at(12, 0, 2)), suggestion('n', null, at(12, 0, 9))], context({}));
+    expect(order(rows)).toEqual(['kestrel', '??']);
+    expect(rows.find((r) => r.id === 't')).toBe(typed);
   });
 
-  it('files a call that fits several boats, or none, as an unknown boat', () => {
-    const choose = line('l1', { how: 'ambiguous', competitorId: null, couldBe: ['a', 'b'], digits: '144' });
-    const press = line('l2', { how: 'tap', competitorId: null, heardAt: null, heardUntil: null, at: at(12, 0, 30), timeFrom: 'tap' });
-    const lines = [choose, press];
-    let rows: Finish[] = [];
-    for (const l of lines) rows = placeLine(rows, l, context(lines));
-    expect(order(rows)).toEqual(['?144', '??']);
-  });
-
-  it('turns an unknown row into the boat once the line has one', () => {
-    const press = line('l1', { how: 'tap', competitorId: null, at: at(12, 0, 30), timeFrom: 'tap' });
-    let rows = placeLine([], press, context([press]));
-    const named = { ...press, how: 'whole' as const, competitorId: 'a' };
-    rows = placeLine(rows, named, context([named]));
-    expect(rows).toHaveLength(1);
-    expect(rows[0]).toMatchObject({ id: 'l1', competitorId: 'a', finishTime: '12:00:30' });
-    expect(rows[0].unknownSailNumber).toBeUndefined();
-  });
-
-  it('leaves a boat that already has a place where she is', () => {
-    const typed = [makeFinish(RACE, { id: 't1', competitorId: 'a', sortOrder: 1 })];
-    const a = line('l1', { competitorId: 'a' });
-    expect(placeLine(typed, a, context([a]))).toEqual(typed);
-  });
-
-  it('joins a crossing to the row a boat was given a code on', () => {
-    const coded = [makeFinish(RACE, { id: 't1', competitorId: 'a', resultCode: 'DNF' })];
-    const a = line('l1', { competitorId: 'a' });
-    const rows = placeLine(coded, a, context([a]));
-    expect(rows).toHaveLength(1);
-    expect(rows[0]).toMatchObject({ id: 'l1', competitorId: 'a', resultCode: 'DNF', sortOrder: 1, finishTime: '12:00:02' });
-  });
-
-  it('keeps a boat the recorder put to a row by hand', () => {
-    const choose = line('l1', { how: 'ambiguous', competitorId: null, couldBe: ['a', 'b'], digits: '144', timeFrom: 'called' });
-    let rows = placeLine([], choose, context([choose]));
-    rows = rows.map((r) => ({ ...r, competitorId: 'b', unknownSailNumber: undefined }));
-    // Her "now" arrives after the recorder resolved the row.
-    const timed = { ...choose, at: at(12, 0, 5), timeFrom: 'word' as const };
-    rows = placeLine(rows, timed, context([timed]));
-    expect(rows[0]).toMatchObject({ competitorId: 'b', finishTime: '12:00:05' });
+  it('gives an order-only fleet’s rows no time', () => {
+    const { rows } = syncSuggestions([], [suggestion('a', 'kestrel', at(12, 0, 2))], context({}, false));
+    expect(rows[0].finishTime).toBeUndefined();
   });
 });
 
-describe('removeLine', () => {
-  it('takes the row off and closes the order up', () => {
-    const lines = [line('a', { at: at(12, 0, 2) }), line('b', { at: at(12, 0, 4) }), line('c', { at: at(12, 0, 6) })];
-    let rows: Finish[] = [];
-    for (const l of lines) rows = placeLine(rows, l, context(lines));
-    rows = removeLine(rows, 'b');
-    expect(order(rows)).toEqual(['a', 'c']);
-    expect(rows.map((r) => r.sortOrder).sort()).toEqual([1, 2]);
+describe('handChanges', () => {
+  it('finds a suggested row changed by hand, and one deleted', () => {
+    const s = [suggestion('a', 'kestrel', at(12, 0, 2)), suggestion('b', 'gannet', at(12, 0, 8))];
+    const { rows, written } = syncSuggestions([], s, context({}));
+    const edited = rows
+      .filter((r) => r.id !== suggestionRowId('b'))
+      .map((r) => (r.id === suggestionRowId('a') ? { ...r, finishTime: '12:00:03' } : r));
+    expect(handChanges(edited, written)).toEqual({
+      changed: [{ key: 'a', row: expect.objectContaining({ finishTime: '12:00:03' }) }],
+      deleted: ['b'],
+    });
+    expect(handChanges(rows, written)).toEqual({ changed: [], deleted: [] });
   });
 });
 
-describe('marksOf', () => {
-  const timed = () => true;
-  const rowFor = (l: VoiceLine) => placeLine([], l, context([l]))[0];
-
-  it('asks for a sound-alike to be checked until someone has', () => {
-    const l = line('a', { how: 'sounds' });
-    expect(marksOf(l, rowFor(l), timed)).toEqual(['check']);
-    expect(marksOf({ ...l, boatSettled: true }, rowFor(l), timed)).toEqual([]);
+describe('placeFinish', () => {
+  it('replaces the suggestion it was accepted from, in the same place', () => {
+    const s = [suggestion('a', 'kestrel', at(12, 0, 2)), suggestion('b', 'gannet', at(12, 0, 8))];
+    const times = { [suggestionRowId('a')]: at(12, 0, 2), [suggestionRowId('b')]: at(12, 0, 8), f1: at(12, 0, 8) };
+    const { rows } = syncSuggestions([], s, context(times));
+    const out = placeFinish(rows, finish('f1', 'gannet', at(12, 0, 8)), context(times), suggestionRowId('b'));
+    expect(out.map((r) => r.id).sort()).toEqual(['f1', suggestionRowId('a')].sort());
+    expect(order(out)).toEqual(['kestrel', 'gannet']);
   });
 
-  it('asks for a time taken from the call to be kept or changed', () => {
-    const l = line('a', { timeFrom: 'called' });
-    expect(marksOf(l, rowFor(l), timed)).toEqual(['time']);
-    expect(marksOf({ ...l, timeSettled: true }, rowFor(l), timed)).toEqual([]);
-    // Not on a sheet that takes no times.
-    expect(marksOf(l, placeLine([], l, context([l], false))[0], () => false)).toEqual([]);
-    // Nor once the recorder has typed another time over it.
-    expect(marksOf(l, { ...rowFor(l), finishTime: '12:00:09' }, timed)).toEqual([]);
+  it('finishes a competitor on their row with no place, and leaves one with a place alone', () => {
+    const coded = makeFinish(RACE, { id: 'c', competitorId: 'kestrel', sortOrder: null, startPresent: true });
+    const out = placeFinish([coded], finish('f1', 'kestrel', at(12, 0, 2)), context({}));
+    expect(out).toEqual([expect.objectContaining({ id: 'f1', competitorId: 'kestrel', sortOrder: 1, startPresent: true, finishTime: '12:00:02' })]);
+    const placedRow = makeFinish(RACE, { id: 't', competitorId: 'kestrel', sortOrder: 1 });
+    expect(placeFinish([placedRow], finish('f1', 'kestrel', at(12, 0, 2)), context({}))).toEqual([placedRow]);
   });
 
-  it('says which kind of unknown boat a row is', () => {
-    const choose = line('l1', { how: 'ambiguous', competitorId: null, couldBe: ['a', 'b'] });
-    const unknown = line('l2', { how: 'unknown', competitorId: null, digits: '5555' });
-    const press = line('l3', { how: 'tap', competitorId: null, timeFrom: 'tap' });
-    expect(marksOf(choose, rowFor(choose), timed)).toEqual(['choose']);
-    expect(marksOf(unknown, rowFor(unknown), timed)).toEqual(['unknown']);
-    expect(marksOf(press, rowFor(press), timed)).toEqual(['no-boat']);
-  });
-
-  it('has nothing to say about a line taken back, or a row resolved by hand', () => {
-    const choose = line('l1', { how: 'ambiguous', competitorId: null, couldBe: ['a', 'b'] });
-    expect(marksOf({ ...choose, removed: true }, rowFor(choose), timed)).toEqual([]);
-    expect(marksOf(choose, undefined, timed)).toEqual([]);
-    expect(marksOf(choose, { ...rowFor(choose), competitorId: 'b' }, timed)).toEqual([]);
+  it('files a competitor not on the entry list under the sail number, and takes a removed finish off', () => {
+    const out = placeFinish([], finish('f1', null, at(12, 0, 2), { sailNumber: '44' }), context({}));
+    expect(out[0]).toMatchObject({ competitorId: null, unknownSailNumber: '44' });
+    expect(placeFinish(out, finish('f1', null, at(12, 0, 2), { removed: true }), context({}))).toEqual([]);
   });
 });
 
-describe('linesToSettle', () => {
-  it('lists the lines with something open, in crossing order', () => {
-    const lines = [
-      line('a', { at: at(12, 0, 9), how: 'sounds' }),
-      line('b', { at: at(12, 0, 2) }),
-      line('c', { at: at(12, 0, 5), timeFrom: 'called' }),
-    ];
-    let rows: Finish[] = [];
-    for (const l of lines) rows = placeLine(rows, l, context(lines));
-    expect(linesToSettle(lines, rows, () => true).map((x) => [x.line.id, x.marks])).toEqual([
-      ['c', ['time']],
-      ['a', ['check']],
-    ]);
+describe('removeRow and submittableRows', () => {
+  it('numbers the order again, and leaves suggestions behind', () => {
+    const { rows } = syncSuggestions(
+      [makeFinish(RACE, { id: 't', competitorId: 'tern', sortOrder: 1, finishTime: '12:00:05' })],
+      [suggestion('a', 'kestrel', at(12, 0, 2))],
+      context({ [suggestionRowId('a')]: at(12, 0, 2) }),
+    );
+    expect(removeRow(rows, suggestionRowId('a'))).toEqual([expect.objectContaining({ id: 't', sortOrder: 1 })]);
+    expect(submittableRows(rows).map((r) => r.id)).toEqual(['t']);
   });
 });

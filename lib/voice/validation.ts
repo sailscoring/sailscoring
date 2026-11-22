@@ -4,29 +4,30 @@ import { SAMPLE_RATE, SEGMENT_SECONDS, VOICE_DOCUMENT_FORMAT } from './types';
 
 /**
  * What the phone sends when a recording goes to the scorer with the sheet:
- * the list of calls, then the sound in pieces. The limits are generous for a
- * race's finish and small enough that nothing here can be used as storage.
+ * the document (what was heard and pressed, and what was decided), then the
+ * sound in pieces. The limits are generous for a race's finish and small
+ * enough that nothing here can be used as storage.
  */
 
 const epochMs = z.number().int().nonnegative();
 
-const lineSchema = z
+const pressSchema = z.object({ id: z.string().min(1).max(64), at: epochMs }).strict();
+
+const finishSchema = z
   .object({
-    id: z.string().min(1).max(64),
-    how: z.enum(['whole', 'ending', 'sounds', 'ambiguous', 'unknown', 'tap']),
+    id: z.uuid(),
     competitorId: z.uuid().nullable(),
-    couldBe: z.array(z.uuid()).max(50),
-    digits: z.string().max(20),
-    words: z.array(z.string().max(40)).max(20),
-    heardAt: epochMs.nullable(),
-    heardUntil: epochMs.nullable(),
+    sailNumber: z.string().max(20).nullable(),
     at: epochMs,
-    timeFrom: z.enum(['tap', 'word', 'called']),
-    calledAgainAt: z.array(epochMs).max(50),
-    boatSettled: z.boolean(),
-    timeSettled: z.boolean(),
+    timeFrom: z.enum(['press', 'spoken', 'called', 'hand']),
+    pressId: z.string().min(1).max(64).nullable(),
+    calledAt: epochMs.nullable(),
     removed: z.boolean(),
   })
+  .strict();
+
+const dismissalSchema = z
+  .object({ pressId: z.string().min(1).max(64).nullable(), spokenAt: epochMs.nullable(), calledAt: epochMs.nullable() })
   .strict();
 
 /** The longest take the server holds: three hours. */
@@ -49,8 +50,10 @@ export const voiceDocumentSchema = z
       .array(z.object({ index: z.number().int().min(0).max(499), startedAt: epochMs, samples: z.number().int().min(0).max(MAX_TAKE_SAMPLES) }).strict())
       .max(500),
     gaps: z.array(z.object({ from: epochMs, to: epochMs }).strict()).max(500),
-    lines: z.array(lineSchema).max(2000),
+    presses: z.array(pressSchema).max(2000),
     words: z.array(z.object({ w: z.string().max(40), at: epochMs }).strict()).max(100_000),
+    finishes: z.array(finishSchema).max(2000),
+    dismissals: z.array(dismissalSchema).max(2000),
   })
   .strict();
 

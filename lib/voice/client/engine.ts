@@ -1,7 +1,7 @@
 /**
  * The listening engine on the phone: finding out whether this server has
  * one, downloading it once, and running it in a worker. The engine's only
- * job is words with times (`HeardBatch`); what they mean is `session.ts`.
+ * job is words with times (`HeardBatch`); what they mean is `timeline.ts`.
  *
  * The engine is a release of the voice-engine repo, put beside the app by
  * `pnpm voice:sync`, which also writes the manifest read here. Its worker
@@ -13,7 +13,7 @@
  * engine from, so listening starts with no signal once they are there.
  */
 
-import type { HeardBatch } from '../session';
+import type { HeardBatch } from '../live';
 
 /** What `pnpm voice:sync` writes to /voice/engine/manifest.json. */
 export interface EngineManifest {
@@ -46,7 +46,7 @@ export type WordsBatch = HeardBatch & {
  *  test supplies its own. */
 export interface Listener {
   /** How long after a word is said its time lands; a test's stand-in may
-   *  leave it to the session's default. */
+   *  leave it to the default. */
   readonly lagSeconds?: number;
   /** A new take: the clock of the words that follow starts again. */
   begin(): void;

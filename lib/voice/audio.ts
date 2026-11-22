@@ -188,8 +188,8 @@ export async function clipOf(
   return out;
 }
 
-/** How much of the recording to play for a line: from a little before the
- *  call to a little after she crossed. */
+/** How much of the recording to play for a finish: from a little before
+ *  the sail number was called out to a little after they finished. */
 export function clipWindow(line: { heardAt: number | null; heardUntil: number | null; at: number }): { from: number; to: number } {
   const start = Math.min(line.heardAt ?? line.at, line.at);
   const end = Math.max(line.heardUntil ?? line.at, line.at);

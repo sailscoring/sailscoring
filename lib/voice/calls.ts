@@ -85,9 +85,11 @@ const TENS_WORDS = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seve
 const has = (table: object, w: string) => Object.prototype.hasOwnProperty.call(table, w);
 
 export const cleanWord = (w: string) => w.toLowerCase().replace(/[^a-z0-9]/g, '');
-const isNumberWord = (w: string) =>
+/** A word that is a number, or part of one, said aloud. */
+export const isNumberWord = (w: string) =>
   /^\d+$/.test(w) || has(UNIT, w) || has(TEEN, w) || has(TENS, w) || has(REPEAT, w) || w === 'hundred' || w === 'thousand';
-const soundsLikeDigit = (w: string) => has(SOUNDS_LIKE, w);
+/** A word a recogniser writes for a digit it heard ("to", "for"). */
+export const soundsLikeDigit = (w: string) => has(SOUNDS_LIKE, w);
 
 /**
  * Every digit string a run of number words could mean. "Twenty one" is 21 or

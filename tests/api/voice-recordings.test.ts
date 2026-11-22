@@ -44,7 +44,7 @@ describe.skipIf(!DATABASE_URL)('voice recording handlers', () => {
   const T0 = Date.UTC(2026, 10, 14, 12, 0, 0);
 
   const document = (recordingId: string, over: Partial<VoiceDocument> = {}): VoiceDocument => ({
-    format: 1,
+    format: 2,
     recordingId,
     raceId,
     sampleRate: 16000,
@@ -55,14 +55,15 @@ describe.skipIf(!DATABASE_URL)('voice recording handlers', () => {
     // Twelve seconds: two whole pieces and a short one.
     takes: [{ index: 0, startedAt: T0, samples: 16000 * 12 }],
     gaps: [],
-    lines: [
+    presses: [{ id: 'press-1', at: T0 + 5200 }],
+    words: [{ w: 'ten', at: T0 + 3500 }],
+    finishes: [
       {
-        id: 'row-1', how: 'sounds', competitorId: boat, couldBe: [], digits: '1002', words: ['ten', 'oh', 'too'],
-        heardAt: T0 + 3000, heardUntil: T0 + 4000, at: T0 + 5200, timeFrom: 'word',
-        calledAgainAt: [], boatSettled: false, timeSettled: false, removed: false,
+        id: uuid(), competitorId: boat, sailNumber: null, at: T0 + 5200, timeFrom: 'press',
+        pressId: 'press-1', calledAt: T0 + 3000, removed: false,
       },
     ],
-    words: [{ w: 'ten', at: T0 + 3500 }],
+    dismissals: [],
     ...over,
   });
   const upload = (recordingId: string, over: Partial<VoiceDocument> = {}) =>
@@ -195,7 +196,7 @@ describe.skipIf(!DATABASE_URL)('voice recording handlers', () => {
     expect(left).toEqual([]);
     // What stays behind says nothing of what was called.
     const [row] = await getDb().select().from(schema.voiceRecordings).where(eq(schema.voiceRecordings.id, id));
-    expect(row.document).toMatchObject({ lines: [], words: [], takes: [] });
+    expect(row.document).toMatchObject({ presses: [], words: [], finishes: [], dismissals: [], takes: [] });
     // The recorder's phone still has its copy, and tries again.
     await expect(sendRecording(recorder, id, upload(id))).rejects.toThrow('recording-deleted');
     await expect(listenToSegments(recorder, id, { take: 0, from: 0, to: 0 })).rejects.toThrow('not-found: recording');

@@ -1,8 +1,8 @@
 /**
  * What recording finishes by voice keeps on the phone, in IndexedDB: each
- * race's recording (its list of calls, and its sound in pieces), and the
- * sheet being taken down, so that neither is lost to a reload or to a phone
- * that put the page to sleep.
+ * race's recording (what was heard and pressed, what was decided, and the
+ * sound in pieces), and the sheet being taken down, so that neither is lost
+ * to a reload or to a phone that put the page to sleep.
  *
  * A database of its own, so the feature leaves nothing behind in the app's
  * storage if it is ever taken out.
@@ -13,9 +13,11 @@ import {
   SAMPLE_RATE,
   SEGMENT_SECONDS,
   VOICE_DOCUMENT_FORMAT,
+  type VoiceDismissal,
   type VoiceDocument,
+  type VoiceFinish,
   type VoiceGap,
-  type VoiceLine,
+  type VoicePress,
   type VoiceTake,
   type VoiceWord,
 } from '../types';
@@ -28,14 +30,17 @@ export interface LocalRecording {
   createdAt: number;
   takes: VoiceTake[];
   gaps: VoiceGap[];
-  lines: VoiceLine[];
+  presses: VoicePress[];
   words: VoiceWord[];
+  finishes: VoiceFinish[];
+  dismissals: VoiceDismissal[];
   engine: VoiceDocument['engine'];
   device: VoiceDocument['device'];
   /** Milliseconds the recogniser has worked, and seconds of sound it had. */
   cost: number;
   span: number;
-  /** Whether the recording goes to the scorer with the sheet. */
+  /** Whether the recording goes to the scorer with the sheet. On unless
+   *  the recorder turns it off. */
   send: boolean;
 }
 
@@ -47,8 +52,10 @@ export function newRecording(raceId: string, userId: string): LocalRecording {
     createdAt: Date.now(),
     takes: [],
     gaps: [],
-    lines: [],
+    presses: [],
     words: [],
+    finishes: [],
+    dismissals: [],
     engine: null,
     device: { userAgent: navigator.userAgent, microphone: null },
     cost: 0,
@@ -57,7 +64,7 @@ export function newRecording(raceId: string, userId: string): LocalRecording {
   };
 }
 
-/** The recording's list of calls, as it is saved and sent. */
+/** The recording as it is saved and sent. */
 export function documentOf(recording: LocalRecording): VoiceDocument {
   return {
     format: VOICE_DOCUMENT_FORMAT,
@@ -70,9 +77,23 @@ export function documentOf(recording: LocalRecording): VoiceDocument {
     realTimeFactor: recording.span > 0 ? Math.round((recording.cost / 1000 / recording.span) * 1000) / 1000 : null,
     takes: recording.takes,
     gaps: recording.gaps,
-    lines: recording.lines,
+    presses: recording.presses,
     words: recording.words,
+    finishes: recording.finishes,
+    dismissals: recording.dismissals,
   };
+}
+
+/**
+ * A recording kept by an earlier build of this page, which took lines down
+ * as it listened: its sound and its words stand, and its lines, which were
+ * rows of the sheet, stay there as ordinary rows.
+ */
+function upgraded(stored: LocalRecording & { lines?: unknown }): LocalRecording {
+  if (Array.isArray(stored.presses) && Array.isArray(stored.finishes)) return stored;
+  const rest: LocalRecording & { lines?: unknown } = { ...stored };
+  delete rest.lines;
+  return { ...rest, presses: [], finishes: [], dismissals: [], words: stored.words ?? [] };
 }
 
 /** When the phone's copy of a recording is removed. */
@@ -132,7 +153,8 @@ export async function recordingFor(raceId: string, userId: string): Promise<Loca
   const all = await request(
     db.transaction(RECORDINGS).objectStore(RECORDINGS).index('byRace').getAll([raceId, userId]) as IDBRequest<LocalRecording[]>,
   );
-  return all.sort((a, b) => b.createdAt - a.createdAt)[0];
+  const latest = all.sort((a, b) => b.createdAt - a.createdAt)[0];
+  return latest ? upgraded(latest) : undefined;
 }
 
 export async function saveRecording(recording: LocalRecording): Promise<void> {

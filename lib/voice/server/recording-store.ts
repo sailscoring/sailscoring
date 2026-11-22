@@ -177,7 +177,7 @@ export async function deleteRecordingForGood(workspaceId: string, id: string): P
   await getDb()
     .update(voiceRecordings)
     .set({
-      document: { ...row.document, takes: [], gaps: [], lines: [], words: [] },
+      document: { ...row.document, takes: [], gaps: [], presses: [], words: [], finishes: [], dismissals: [] },
       deletedAt: now,
       expiresAt: new Date(now.getTime() + (PHONE_KEEPS_DAYS + 1) * DAY_MS),
     })

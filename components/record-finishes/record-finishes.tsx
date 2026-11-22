@@ -1,7 +1,7 @@
 'use client';
 
 import { pointsSystemFields } from '@/lib/high-point';
-import { useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 
@@ -16,7 +16,7 @@ import { Switch } from '@/components/ui/switch';
 import { VoiceOffline } from '@/components/voice/offline';
 import { useKeptDraft, useSendWhenOnline, worthSendingAgain } from '@/components/voice/use-kept-draft';
 import { useVoiceRecording } from '@/components/voice/use-voice-recording';
-import { VoiceFinishes, VoiceRowMark } from '@/components/voice/voice-finishes';
+import { VoiceFinishes, VoiceRowMark, VoiceSending } from '@/components/voice/voice-finishes';
 import { useCompetitorsBySeries } from '@/hooks/use-competitors';
 import { useFinishInput } from '@/hooks/use-finish-input';
 import { useFinishRowOps } from '@/hooks/use-finish-row-ops';
@@ -43,6 +43,7 @@ import { groupRaces, raceWindow, sheetFromSubmission, uploadOf } from '@/lib/rec
 import { todayIsoDate } from '@/lib/race-schedule';
 import { normalizeTimeInput } from '@/lib/time-parse';
 import type { Finish } from '@/lib/types';
+import { submittableRows } from '@/lib/voice/sheet';
 
 /**
  * The Record finishes page: for whoever records finishes on the committee
@@ -239,33 +240,45 @@ function RaceRecording({ dated, userId, onBack }: { dated: DatedRace; userId: st
     stampTime: nowHms,
   });
 
+  // Suggested finishes nobody has accepted stay behind: the scorer gets
+  // them with the recording.
   const upload = uploadOf({
-    finishes: shown.finishes,
+    finishes: submittableRows(shown.finishes),
     startTimes: shown.startTimes,
     recordedBy: shown.recordedBy,
     complete: shown.complete,
     revision: (mine?.revision ?? 0) + 1,
   });
 
-  // The boats a call can name, how a line reads, and which rows carry a
-  // time of day: a boat in a fleet that isn't scored on finishing order
-  // alone, on a sheet kept by the clock.
+  // Which rows carry a time of day: a competitor in a fleet that isn't
+  // scored on finishing order alone, on a sheet kept by the clock.
   const byClock = race.finishRecording !== 'elapsed';
-  const timedBoat = (c: { fleetIds: string[] }) =>
-    c.fleetIds.some((id) => (raceFleets.size === 0 || raceFleets.has(id)) && (fleetById.get(id)?.scoringSystem ?? 'scratch') !== 'scratch');
-  const sheetTakesTimes = byClock && inRaceCompetitors.some(timedBoat);
-  const takesTime = (competitorId: string | null) => {
-    if (!byClock) return false;
-    const c = competitorId ? competitorMap.get(competitorId) : undefined;
-    return c ? timedBoat(c) : sheetTakesTimes;
-  };
-  const enabledFields = series?.enabledCompetitorFields ?? defaultEnabledCompetitorFields();
-  const boatLabel = (competitorId: string) => {
-    const c = competitorMap.get(competitorId);
-    return c
-      ? { sailNumber: c.sailNumber, name: displayCompetitorLabel(c, { enabledCompetitorFields: enabledFields, showCrew: false }) }
-      : undefined;
-  };
+  const takesTime = useCallback(
+    (competitorId: string | null) => {
+      if (!byClock) return false;
+      const timed = (c: { fleetIds: string[] }) =>
+        c.fleetIds.some((id) => (raceFleets.size === 0 || raceFleets.has(id)) && (fleetById.get(id)?.scoringSystem ?? 'scratch') !== 'scratch');
+      const c = competitorId ? competitorMap.get(competitorId) : undefined;
+      return c ? timed(c) : inRaceCompetitors.some(timed);
+    },
+    [byClock, raceFleets, fleetById, competitorMap, inRaceCompetitors],
+  );
+  // How the voice screens name a competitor: the sail number they sail in
+  // this race, and the series' own label for them.
+  const enabledFields = series?.enabledCompetitorFields;
+  const voiceCompetitors = useMemo(
+    () =>
+      inRaceCompetitors.map((c) => ({
+        id: c.id,
+        sailNumber: c.sailNumber,
+        name: displayCompetitorLabel(c, { enabledCompetitorFields: enabledFields ?? defaultEnabledCompetitorFields(), showCrew: false }),
+      })),
+    [inRaceCompetitors, enabledFields],
+  );
+  const voiceName = useCallback(
+    (competitorId: string) => voiceCompetitors.find((c) => c.id === competitorId),
+    [voiceCompetitors],
+  );
   const voice = useVoiceRecording({
     enabled: voiceOn,
     raceId: race.id,
@@ -282,7 +295,10 @@ function RaceRecording({ dated, userId, onBack }: { dated: DatedRace; userId: st
     setMessage(null);
     try {
       const receipt = await submit.mutateAsync({ raceId: race.id, submissionId, input: upload.input });
-      setDraft(null);
+      // With finishes by voice the sheet stays as it is on the phone, so its
+      // rows keep their link to the recording, and its suggestions stay.
+      if (voiceOn) setDraft((d) => (d ? { ...d, waiting: false } : d));
+      else setDraft(null);
       const { matched, unknownSailNumbers, skipped } = receipt.match;
       setMessage(
         `Submitted for review: ${matched} boat${matched === 1 ? '' : 's'} matched` +
@@ -357,15 +373,8 @@ function RaceRecording({ dated, userId, onBack }: { dated: DatedRace; userId: st
           voice={voice}
           entries={inRaceCompetitors}
           finishes={shown.finishes}
-          boat={boatLabel}
-          takesTime={takesTime}
-          reveal={(finish) => {
-            const key = finish.competitorId ?? finish.id;
-            rowOps.flashRow(key);
-            requestAnimationFrame(() => {
-              document.querySelector(`[data-entry-key="${key}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
-            });
-          }}
+          competitors={voiceCompetitors}
+          name={voiceName}
         />
       )}
 
@@ -397,14 +406,7 @@ function RaceRecording({ dated, userId, onBack }: { dated: DatedRace; userId: st
             saveFinish={KEPT_IN_THE_DRAFT}
             leave={onBack}
             seriesScoring={series ? { dnfScoring: series.dnfScoring, scoringCodes: series.scoringCodes, ...pointsSystemFields(series) } : undefined}
-            rowExtra={voiceOn ? (finish) => (
-              <VoiceRowMark
-                voice={voice}
-                finish={finish}
-                label={(finish.competitorId ? boatLabel(finish.competitorId)?.sailNumber : finish.unknownSailNumber) ?? 'this boat'}
-                takesTime={takesTime}
-              />
-            ) : undefined}
+            rowExtra={voiceOn ? (finish) => <VoiceRowMark voice={voice} finish={finish} name={voiceName} /> : undefined}
           />
         </div>
       )}
@@ -426,6 +428,7 @@ function RaceRecording({ dated, userId, onBack }: { dated: DatedRace; userId: st
               That’s every boat
             </label>
           </div>
+          {voiceOn && <VoiceSending voice={voice} />}
           {upload.problems.length > 0 && (
             <ul className="text-sm text-destructive space-y-0.5">
               {upload.problems.map((p) => <li key={p}>{p}</li>)}
