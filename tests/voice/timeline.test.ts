@@ -102,6 +102,20 @@ describe('suggestFinishes', () => {
     expect(suggestions.map(brief)).toEqual([{ who: 'kestrel', at: 0.7, from: 'spoken', check: null }]);
   });
 
+  it('pairs a word called out a few seconds after a sail number with it, not with one before', () => {
+    const { suggestions } = suggest([[0, 'sixteen thirteen'], [6, 'twenty sixteen'], [9.5, 'now']]);
+    expect(suggestions.map(brief)).toEqual([
+      { who: 'kestrel', at: 0, from: 'called', check: 'called-time' },
+      { who: 'merlin', at: 9.5, from: 'spoken', check: null },
+    ]);
+  });
+
+  it('shows what was heard in lower case', () => {
+    const { tl, suggestions } = suggest([[0, 'THIRTY NINE THIRTY NEIN'], [2, 'NOW']]);
+    expect(tl.snippets[0].words).toEqual(['thirty', 'nine', 'thirty', 'nein']);
+    expect(checkText(suggestions[0], (id) => id)).toBe('Close match: heard “thirty nine thirty nein”');
+  });
+
   it('pairs a NOW with the sail number called out just after it', () => {
     const { suggestions } = suggest([[0, 'NOW'], [1.5, 'that was sixteen thirteen']]);
     expect(suggestions.map(brief)).toEqual([{ who: 'kestrel', at: 0, from: 'press', check: null }]);

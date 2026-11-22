@@ -40,8 +40,6 @@ export const SNIPPET_GAP_SECONDS = 1.0;
 export const ANY_WORD_WITHIN = 6000;
 /** A press of NOW and a word called out this close together are one NOW. */
 const SAME_NOW = 1500;
-/** A word called out this soon after a sail number belongs to it first. */
-const STRAIGHT_AFTER = 2000;
 /** A NOW with no sail number before it takes one called out this soon after. */
 const NOW_THEN_NUMBER = 5000;
 /** The same competitor called out again within this is the same call. */
@@ -153,12 +151,22 @@ export function callsIn(ws: readonly string[], list: PreparedList, finished: (id
   }
   if (runs.some((r) => r.match.how === 'whole' || r.match.how === 'ending')) return runs;
   if (ws.length <= 9) {
-    // Without a last word that isn't a number: "thirty nine thirty nein now".
-    const tries = ws.length > 1 && !isNumberish(ws[ws.length - 1]) ? [ws.length - 1, ws.length] : [ws.length];
+    // The whole of it, and without a last word that isn't a number, and
+    // whichever sounds closer: "thirty nine thirty nein" is all one call,
+    // "thirty nine thirty nein now" a call and its NOW.
+    const tries = ws.length > 1 && !isNumberish(ws[ws.length - 1]) ? [ws.length, ws.length - 1] : [ws.length];
+    let best: Found | null = null;
+    let bestScore = Infinity;
     for (const to of tries) {
       const match = whoIs(ws.slice(0, to), list, { finished });
-      if (match.how !== 'none' && match.how !== 'unknown') return [{ from: 0, to, match }];
+      if (match.how === 'none' || match.how === 'unknown') continue;
+      const score = match.how === 'sounds' ? match.distance : match.how === 'ambiguous' ? 0.34 : -1;
+      if (score < bestScore) {
+        best = { from: 0, to, match };
+        bestScore = score;
+      }
     }
+    if (best) return [best];
   }
   return runs;
 }
@@ -187,7 +195,8 @@ export function readTimeline(
   const ms = (t: number) => Math.round(t * 1000);
 
   for (const u of utterances(heard, { maxGap: SNIPPET_GAP_SECONDS })) {
-    const words = u.words.map((x) => x.w);
+    // Recognisers write in capitals as often as not; it reads better without.
+    const words = u.words.map((x) => x.w.toLowerCase());
     const ws = words.map(cleanWord);
     const snippet: Snippet = { key: `s${ms(u.t)}`, at: ms(u.t), until: ms(u.tEnd), words, calls: [], nowWord: null, isNow: false };
     for (const f of callsIn(ws, list, (id) => called.has(id))) {
@@ -307,8 +316,9 @@ interface Group {
  * The finishes a timeline suggests, given what people have decided.
  *
  *   1. A sail number called out again before its NOW is the same call.
- *   2. A word said straight after a sail number is its NOW. (A press at the
- *      same moment is the same NOW, and the press gives the time.)
+ *   2. A word called out after a sail number, before the next one, is its
+ *      NOW. (A press at the same moment is the same NOW, and the press
+ *      gives the time.)
  *   3. Of what is left, sail numbers and NOWs pair in order, run by run,
  *      when their counts agree, however far apart they are. A run is some
  *      sail numbers followed by some NOWs.
@@ -358,15 +368,21 @@ export function suggestFinishes(tl: Timeline, options: SuggestOptions = {}): Sug
   const free = groups.filter((g) => g.mentions.every(callFree));
   const nows = tl.nows.filter(nowFree);
 
-  // Rule 2: a word said straight after a sail number belongs to it.
+  // Rule 2: a word called out after a sail number, before the next one,
+  // belongs to it: the caller's "now" for the competitor just called.
   const pairs = new Map<Group, TimelineNow | null>();
   const counts = new Map<Group, { numbers: number; nows: number }>();
   const taken = new Set<string>();
-  for (const g of free) {
-    for (const m of g.mentions) {
-      const n = nows.find((x) => x.word !== null && !taken.has(x.key) && x.at >= m.until && x.at - m.until <= STRAIGHT_AFTER);
-      if (n) { pairs.set(g, n); taken.add(n.key); break; }
-    }
+  const groupOf = new Map<TimelineCall, Group>();
+  for (const g of groups) for (const m of g.mentions) groupOf.set(m, g);
+  for (const n of nows) {
+    if (n.word === null) continue;
+    let before: TimelineCall | undefined;
+    for (const c of tl.calls) if (c.until <= n.at) before = c;
+    const g = before && groupOf.get(before);
+    if (!g || !free.includes(g) || pairs.has(g) || n.at - before!.until > ANY_WORD_WITHIN) continue;
+    pairs.set(g, n);
+    taken.add(n.key);
   }
 
   // Rule 3: runs of sail numbers followed by NOWs.
