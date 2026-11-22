@@ -4,6 +4,12 @@
 
 **Date:** 2026-11-13
 
+**Revised:** 2026-11-22, after a first trial of the check page (#776). The
+recording becomes what the feature makes, and finishes are made from it
+with hindsight: §3 to §6 are rewritten, and §5 is reversed, so the
+recording now goes to the scorer with the sheet unless the recorder turns
+that off.
+
 **Deciders:** Mark McLoughlin
 
 ## Context
@@ -22,8 +28,8 @@ Three things have changed.
   who isn't the scorer take a race's finishes down on a phone and hand them
   over for review. [ADR-016](016-authenticated-public-api.md) gives an
   outside app the same thing through the `submissions` scope. So this
-  decision is only about capture: how spoken calls become lines of that
-  sheet.
+  decision is only about capture: how spoken calls become finishes on
+  that sheet.
 - **We looked at what else does this.** Nothing recognises called sail
   numbers against an entry list. A voice recorder beside the paper sheet is
   already ordinary practice, and one app ships exactly that. The one
@@ -32,7 +38,7 @@ Three things have changed.
 - **We measured the horizon entry's design, on synthetic recordings.** It
   proposed a keyword spotter for the word "now" and a recogniser held to
   the entry list for the number, both in sherpa-onnx. The spotter caught
-  one "now" in sixteen at best. Given every boat's number as its keywords,
+  one "now" in sixteen at best. Given every competitor's sail number as its keywords,
   it took a little over half the calls. General recognisers took 60 to 80%
   when their words were read literally, and the best of them 86 to 93% when
   its words were read against the entry list by sound. See
@@ -40,7 +46,7 @@ Three things have changed.
   warning: those are text-to-speech voices and made-up wind.
 
 The requirement is narrow: **record finishes by voice, through a phone or a
-tablet.** Checking boats in at the start is the same listening with less to
+tablet.** Checking competitors in at the start is the same listening with less to
 do, and follows.
 
 What nobody knows yet is whether a phone can hear a person calling numbers
@@ -56,16 +62,18 @@ find that out early and cheaply.
 - **Nothing called is lost.** The recording is the authority, as the tape
   recorder beside the paper sheet is now. The software assists; it doesn't
   decide.
-- **A wrong boat taken down with confidence is the worst outcome.** A line
-  left open costs a moment. A wrong line nobody questioned costs a result.
+- **A wrong competitor recorded with confidence is the worst outcome.** A
+  finish left to check costs a moment. A wrong one nobody questioned costs
+  a result.
 - **No signal on the water.** Once it has started, it works without one.
 - **Eyes on the line.** The caller can't be reading a screen.
 - **The same ears everywhere.** A caller's phone, the next caller's
   different phone and a club tablet should hear a call the same way.
 - **It fits what exists.** The recorder's page, the scorer's review, and
   MIT licensing.
-- **Volunteers' voices are personal data.** What is said on the boat should
-  stay on the phone unless someone decides otherwise.
+- **Volunteers' voices are personal data.** What is said on the committee
+  boat reaches the workspace's scorers with the sheet, unless the recorder
+  turns that off, and nobody else.
 
 ## Considered Options
 
@@ -141,11 +149,11 @@ downloaded once.
   models. Its browser build was last released in 2022.
 - transformers.js runs models in a browser, but not in a native app.
 
-### Axis 3: How words become a line of the sheet
+### Axis 3: How words become a finish on the sheet
 
 **Spot "now", and hold the recogniser to the entry list.** The horizon's
 design. On the bench the spotter couldn't find "now", and the same spotter
-given the boats' numbers took 56% of calls: a number that begins another
+given the competitors' sail numbers took 56% of calls: a number that begins another
 fires early or never, look-alike numbers split the evidence, and every way
 of saying every number has to be listed. Biasing a recogniser towards the
 entry list, as distinct from spotting, was not tried.
@@ -154,10 +162,10 @@ entry list, as distinct from spotting, was not tried.
 "Four" arrives as "for", "oh" as "or", "ninety" as "nineteen".
 
 **Read a general recogniser's words against the entry list.** First as
-numbers: the whole number, or trailing digits only one boat has. Failing
-that, by which boat's number, said aloud, the words sound most like, and
+numbers: the whole number, or trailing digits only one competitor has.
+Failing that, by which competitor's sail number, said aloud, the words sound most like, and
 only as a suggestion. 86 to 93% with the best model, with nearly every
-wrong line among the suggestions. For the time, take any single word said
+wrong one among the suggestions. For the time, take any single word said
 after a number, whatever it was heard as: 82 to 92% caught, a steady half
 second late.
 
@@ -186,46 +194,52 @@ Nothing that is said leaves the phone to be recognised.
 
 The recogniser's only job is words with times. Deciding what was called is
 ours, in a module with no dependency on the engine or the browser, so the
-same reading runs on a page, in a test, on the bench, and in a native shell
-if there is one. Its rules:
+same reading runs on a page, in a test, on the bench, in voice-engine's
+check page and in a native shell if there is one. Its rules:
 
-- A number that is one boat's whole number, or the trailing digits of only
-  one boat's, is that boat.
-- Words that are no number on the list but sound like exactly one boat's
-  are that boat **as a suggestion**: the line is marked for checking until
-  a person confirms it.
-- Words that fit several boats, or a number on no entry, make an unknown
-  boat for a person to resolve, as a typed number does today.
-- A boat called a second time doesn't get a second line.
-- Anything else is talk, and ignored.
+- A number that is one competitor's whole sail number, or the trailing
+  digits of only one competitor's, is that competitor.
+- Words that are no number on the list but sound like exactly one
+  competitor's are that competitor **as a close match**, to check.
+- Words that fit several competitors, or a number on no entry, are marked
+  for a person to resolve, as a typed number is today.
+- A sail number inside talk ("first is four oh seven eight") is found; the
+  rest of the talk is kept, and is only talk.
 
-The app never invents a boat and never resolves a doubt silently.
+The app never invents a competitor and never resolves a doubt silently.
 
-### 4. The time comes from when the caller spoke, or from a tap
+### 4. Finishes are suggested with hindsight, and a person accepts them
 
-A line's time is, in order: a press of **Now**; the single word called
-after the number, whatever the recogniser took it for; or the moment the
-number was called, shown as such. The recogniser's delay is a measured
-constant and is subtracted.
+Nothing is decided while recording. A sail number is usually called out as
+the competitor approaches, often longer before they finish than any window
+a live reading could allow, so sail numbers are paired with NOWs over the
+whole recording: in order when their counts agree, however far apart; never
+when they don't. A NOW is a press of the button, or a single word called
+out after a sail number, whatever the recogniser took it for. A sail number
+with no NOW takes the time it was called out, to check where the fleet
+needs times. Every suggestion needs accepting before it is a finish, and a
+finish's competitor and time are set separately: the number never moves the
+time and the time never moves the number, which was the horizon entry's
+central point and stands. The rules are in [the flow](../ux/flows/voice-finish-recording.md#what-is-suggested).
 
-The number never moves the time and the time never moves the number. That
-was the horizon entry's central point, and it stands.
+### 5. The recording is always kept, and goes to the scorer with the sheet
 
-### 5. The recording is always kept, and stays on the phone for now
-
-The whole session is recorded against the phone's clock, with the list of
-what was heard. Every line can be played back from it, which is how a
-marked line gets checked. The recorder can save a copy.
-
-Sending the recording to the scorer with the sheet is a later step. It
-needs a retention rule and a change to the privacy policy, and is decided
-then.
+The whole session is recorded against the phone's clock, with the words
+heard and the presses of NOW. Every finish can be played back from it.
+Unless the recorder turns it off, the recording goes to the scorer with the
+finish sheet, so the scorer can resolve what the recorder left and answer a
+scoring inquiry from it. It is kept on the server for a set time, which has
+to outlast a scoring inquiry, and the privacy policy says so before the
+feature reaches anyone else.
 
 ### 6. What it produces is a finish sheet submission
 
-The lines fill the same draft the recorder types into, and it is submitted
-for review as it is now. The first version adds nothing to the server.
-Start check-ins need a submission to carry them, which it doesn't yet.
+Accepted finishes fill the same draft the recorder types into, and it is
+submitted for review as it is now. Suggestions sit on the draft, marked,
+and are not submitted: they go with the recording, and the scorer accepts
+them in the review, which adds them to what is applied. The submission's
+shape is unchanged. Start check-ins need a submission to carry them, which
+it doesn't yet.
 
 ### 7. The model is chosen on real recordings, from permissive licences
 
@@ -261,9 +275,11 @@ ADR-016 as a connected app. Two fully native apps are not proposed.
 - The part most likely to need rework, the recogniser, is behind the
   narrowest possible interface: words with times.
 - Each trial leaves a recording that makes the bench more truthful.
-- No sub-processor, no per-minute cost, and no speech leaving the phone.
-- Even where recognition fails, the page is still a timed voice recorder
-  with a **Now** button and a sheet to type into, which is more than a
+- No sub-processor and no per-minute cost. Speech leaves the phone only to
+  reach the workspace's scorers, with the sheet.
+- Even where recognition fails, or the recogniser isn't on the phone, the
+  page is still a timed voice recorder with a **NOW** button, a timeline to
+  make finishes from, and a sheet to type into, which is more than a
   dictaphone gives.
 
 ### Negative
@@ -273,8 +289,8 @@ ADR-016 as a connected app. Two fully native apps are not proposed.
 - An 85 MB download before first use (the engine and the model), which
   needs a signal.
 - A second, small build pipeline for the engine.
-- The reading relies on a pause between boats. A crowded finish may not
-  give one.
+- The reading relies on a pause between competitors. A crowded finish may
+  not give one.
 
 ### Risks
 
@@ -284,9 +300,10 @@ ADR-016 as a connected app. Two fully native apps are not proposed.
 - **The synthetic bench flatters or slanders an approach.** Its voices
   garble about one call in ten by themselves. The spotter and "now"
   results were decisive enough to act on; the ranking of models is not.
-- **The time rule catches talk.** Any single word after a number counts. A
-  real committee boat may say single words for other reasons. The **Now**
-  button and the time of the call are the fallbacks.
+- **The NOW rule catches talk.** Any single word soon after a sail number
+  counts as its NOW. A real committee boat may say single words for other
+  reasons. A pairing it upsets is a count that doesn't agree, which is
+  marked, not guessed.
 - **The phone's clock disagrees with the committee's.** Every time comes
   from it. Setup shows it for comparison.
 - **Training data terms.** The engine and the models named are permissively
