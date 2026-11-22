@@ -301,7 +301,7 @@ function RaceRecording({ dated, userId, onBack }: { dated: DatedRace; userId: st
       else setDraft(null);
       const { matched, unknownSailNumbers, skipped } = receipt.match;
       setMessage(
-        `Submitted for review: ${matched} boat${matched === 1 ? '' : 's'} matched` +
+        `Submitted for review: ${matched} competitor${matched === 1 ? '' : 's'} matched` +
           (unknownSailNumbers.length ? `, ${unknownSailNumbers.length} sail number${unknownSailNumbers.length === 1 ? '' : 's'} for the scorer to resolve` : '') +
           (skipped.length ? `, ${skipped.length} row${skipped.length === 1 ? '' : 's'} the review will leave out` : '') +
           '.',
@@ -425,7 +425,7 @@ function RaceRecording({ dated, userId, onBack }: { dated: DatedRace; userId: st
             </div>
             <label className="flex items-center gap-2 text-sm sm:self-end sm:pb-2">
               <Switch checked={shown.complete} onCheckedChange={(complete) => edit((d) => ({ ...d, complete }))} />
-              That’s every boat
+              That’s every competitor
             </label>
           </div>
           {voiceOn && <VoiceSending voice={voice} />}

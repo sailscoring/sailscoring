@@ -274,12 +274,12 @@ function ReviewDialog({
           )}
           <div>
             <p className="text-sm text-muted-foreground mb-1">
-              {changed === 0 ? 'No boat’s line changes.' : `${changed} boat${changed === 1 ? '’s line changes' : 's’ lines change'}.`}
+              {changed === 0 ? 'No competitor’s line changes.' : `${changed} competitor${changed === 1 ? '’s line changes' : 's’ lines change'}.`}
             </p>
             <Table data-testid="submission-diff">
               <TableHeader>
                 <TableRow>
-                  <TableHead>Boat</TableHead>
+                  <TableHead>Competitor</TableHead>
                   <TableHead>Now</TableHead>
                   <TableHead>Submitted</TableHead>
                   {voice.recording && <TableHead>Recording</TableHead>}

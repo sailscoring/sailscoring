@@ -153,14 +153,14 @@ baseTest('a recorder takes a race down on the Record finishes page; the scorer a
     await recorder.getByLabel('Recorded by').fill('Committee boat');
     await recorder.getByRole('button', { name: 'Submit for review' }).click();
     await expect(recorder.getByTestId('record-message')).toHaveText(
-      'Submitted for review: 2 boats matched, 1 sail number for the scorer to resolve.',
+      'Submitted for review: 2 competitors matched, 1 sail number for the scorer to resolve.',
     );
     await expect(recorder.getByTestId('submission-status')).toContainText('Waiting for the scorer');
 
     // A boat that retired: correct it, and submit again.
     await recorder.getByTestId('non-finisher-254').getByRole('combobox').click();
     await recorder.getByRole('option', { name: 'RET', exact: true }).click();
-    await recorder.getByText('That’s every boat').click();
+    await recorder.getByText('That’s every competitor').click();
     await recorder.getByRole('button', { name: 'Submit again' }).click();
     await expect(recorder.getByTestId('submission-status')).toContainText('revision 2');
 
