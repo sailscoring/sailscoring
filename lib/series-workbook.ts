@@ -503,14 +503,19 @@ function resultLines(sections: readonly ResultsSection[], lookups: Lookups): Res
       const timeOnTime = winnerCtSecs !== null && !race.isOrcTod;
       const seriesRace = seriesRaceOf(race, lookups);
       const seen = new Set<string>();
+      const raceLines: ResultLine[] = [];
       const push = (competitorId: string, score: RaceScoreData | undefined) => {
         seen.add(competitorId);
-        lines.push({ section, race, seriesRace, competitorId, score, result: byCompetitor.get(competitorId), winnerCtSecs, timeOnTime });
+        raceLines.push({ section, race, seriesRace, competitorId, score, result: byCompetitor.get(competitorId), winnerCtSecs, timeOnTime });
       };
-      // Standings order first, the way the race is read against the series;
-      // then anyone the race table has that the standings don't.
+      // Everyone the standings score in the race, then anyone the race table
+      // has that the standings don't; listed in finishing order, as the race
+      // is read, with the coded and the absent after the placed in standings
+      // order.
       for (const row of standings) if (row.competitorId) push(row.competitorId, row.raceScores[i]);
       for (const id of byCompetitor.keys()) if (!seen.has(id)) push(id, undefined);
+      const placeOf = (l: ResultLine) => l.result?.rank ?? Number.POSITIVE_INFINITY;
+      lines.push(...raceLines.sort((a, b) => placeOf(a) - placeOf(b)));
     });
   }
   return lines;
