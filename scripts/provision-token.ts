@@ -13,6 +13,7 @@
  *   pnpm provision-token create alice@example.com --name "alice laptop" --workspace hyc
  *   pnpm provision-token create alice@example.com --expires-in-days 90
  *   pnpm provision-token list alice@example.com
+ *   pnpm provision-token list                     # every key, with its owner
  *   pnpm provision-token revoke <key-id>
  */
 
@@ -182,6 +183,7 @@ export async function createToken(
 
 export interface TokenRow {
   id: string;
+  email: string;
   name: string | null;
   start: string | null;
   enabled: boolean;
@@ -192,13 +194,18 @@ export interface TokenRow {
 
 export async function listTokens(
   db: SailScoringDb,
-  args: { email: string },
+  args: { email?: string } = {},
 ): Promise<TokenRow[]> {
-  const u = await findUserByEmail(db, args.email);
-  if (!u) throw new Error(`user "${args.email}" not found`);
+  let userId: string | undefined;
+  if (args.email !== undefined) {
+    const u = await findUserByEmail(db, args.email);
+    if (!u) throw new Error(`user "${args.email}" not found`);
+    userId = u.id;
+  }
   const rows = await db
     .select({
       id: apikey.id,
+      email: user.email,
       name: apikey.name,
       start: apikey.start,
       enabled: apikey.enabled,
@@ -207,7 +214,8 @@ export async function listTokens(
       metadata: apikey.metadata,
     })
     .from(apikey)
-    .where(eq(apikey.referenceId, u.id))
+    .innerJoin(user, eq(user.id, apikey.referenceId))
+    .where(userId !== undefined ? eq(apikey.referenceId, userId) : undefined)
     .orderBy(apikey.createdAt);
   return rows.map((r) => {
     let defaultWorkspace: string | null = null;
@@ -223,6 +231,7 @@ export async function listTokens(
     }
     return {
       id: r.id,
+      email: r.email,
       name: r.name,
       start: r.start,
       enabled: r.enabled,
@@ -279,13 +288,14 @@ function usage(): string {
 
   create <email> [--name <label>] [--workspace <slug-or-id>] [--expires-in-days <n>]
          [--admin | --no-rate-limit | --rate-limit-max <n> --rate-limit-window-seconds <n>]
-  list <email>
+  list [<email>]
   revoke <key-id>
 
 create prints the plaintext key once — it is stored hashed and cannot be
 recovered, so copy it immediately. --workspace sets the key's default
 workspace (the client can still override per-request with the
 x-sailscoring-workspace header); the user must be a member of it.
+list with no email lists every key, with its owner's email.
 
 Rate limit (stored on the key, enforced per-request, no deploy needed):
   --admin                       near-unlimited (${ADMIN_RATE_LIMIT_MAX} / ${ADMIN_RATE_LIMIT_WINDOW_SECONDS}s) — for the
@@ -360,10 +370,9 @@ export async function runCli(argv: string[]): Promise<number> {
       }
       case 'list': {
         const [email] = positional;
-        if (!email) throw new Error('list: <email> is required');
         const tokens = await listTokens(db, { email });
         if (tokens.length === 0) {
-          console.log(`(no API keys for ${email})`);
+          console.log(email ? `(no API keys for ${email})` : '(no API keys)');
           return 0;
         }
         for (const t of tokens) {
@@ -372,8 +381,9 @@ export async function runCli(argv: string[]): Promise<number> {
             ? t.expiresAt.toISOString().slice(0, 10)
             : 'never';
           const status = t.enabled ? '' : ' [disabled]';
+          const owner = email ? '' : `${t.email}  `;
           console.log(
-            `  ${t.id}  ${(t.name || '(no name)').padEnd(24)}  ${
+            `  ${t.id}  ${owner}${(t.name || '(no name)').padEnd(24)}  ${
               t.start ? `${t.start}…` : ''
             }  ws:${t.defaultWorkspace ?? '-'}  created ${created}  expires ${expires}${status}`,
           );

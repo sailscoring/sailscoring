@@ -204,4 +204,19 @@ describe.skipIf(skip)('provision-token', () => {
     const after = await listTokens(db, { email });
     expect(after.some((t) => t.id === created.id)).toBe(false);
   });
+
+  test('lists every key with its owner when no email is given', async () => {
+    const a = await makeUserWithWorkspaces();
+    const b = await makeUserWithWorkspaces();
+    const keyA = await createToken(db, { email: a.email, name: 'a-key' });
+    const keyB = await createToken(db, { email: b.email, name: 'b-key' });
+
+    const all = await listTokens(db);
+    expect(all.find((t) => t.id === keyA.id)?.email).toBe(a.email);
+    expect(all.find((t) => t.id === keyB.id)?.email).toBe(b.email);
+
+    const onlyA = await listTokens(db, { email: a.email });
+    expect(onlyA.map((t) => t.id)).toContain(keyA.id);
+    expect(onlyA.map((t) => t.id)).not.toContain(keyB.id);
+  });
 });
