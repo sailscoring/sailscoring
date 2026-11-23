@@ -1789,7 +1789,8 @@ export function triggerBytesDownload(filename: string, bytes: Uint8Array) {
   triggerBlobDownload(filename, new Blob([bytes as BlobPart], { type: 'application/octet-stream' }));
 }
 
-function triggerBlobDownload(filename: string, blob: Blob) {
+/** Browser-only: download a blob under the given name. */
+export function triggerBlobDownload(filename: string, blob: Blob) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;

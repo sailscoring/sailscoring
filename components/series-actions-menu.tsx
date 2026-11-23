@@ -17,6 +17,7 @@ import {
   CopyPlus,
   FileDown,
   FileOutput,
+  FileSpreadsheet,
   FileUp,
   Loader2,
   MoreVertical,
@@ -37,7 +38,7 @@ import {
   encodeWindows1252,
   type SailwaveExportWarning,
 } from '@/lib/sailwave-export';
-import { triggerBytesDownload } from '@/lib/results-export';
+import { triggerBlobDownload, triggerBytesDownload } from '@/lib/results-export';
 import { seriesSlug } from '@/lib/series-name';
 import { describeOpenSeriesError, READ_ONLY_MESSAGES } from '@/lib/open-series-error';
 import { ArchivedApiError } from '@/lib/api-client';
@@ -78,6 +79,7 @@ const OPEN_ERROR_TITLE = 'Could not open file';
 const SAVE_ERROR_TITLE = 'Could not save the file';
 const SAVE_NOT_RECORDED_TITLE = 'File saved, but not recorded';
 const SAILWAVE_EXPORT_ERROR_TITLE = 'Could not export to Sailwave';
+const SPREADSHEET_EXPORT_ERROR_TITLE = 'Could not export the spreadsheet';
 
 /** The `error` step reports any of the menu's file actions, save included, so
  *  it carries its own title rather than assuming the file was being opened. */
@@ -182,7 +184,39 @@ export function SeriesActionsMenu({ series }: { series: Series }) {
     }
   }
 
+  // The whole series as a workbook for spreadsheet work. As-published
+  // archives hold printed tables, not the data a workbook is made of.
+  const canExportSpreadsheet = has('spreadsheet-export') && !asPublished;
+
+  async function handleExportSpreadsheet() {
+    try {
+      // Both modules are loaded on demand: the zip writer has no business in
+      // the series pages' bundle until a scorer asks for a spreadsheet.
+      const [{ buildSeriesWorkbook }, { workbookToBlob }] = await Promise.all([
+        import('@/lib/series-workbook'),
+        import('@/lib/series-workbook-xlsx'),
+      ]);
+      const workbook = await buildSeriesWorkbook(repos, seriesId);
+      if (!workbook) throw new Error('The series could not be read.');
+      triggerBlobDownload(workbook.fileName, await workbookToBlob(workbook));
+    } catch (err) {
+      setUpdateFlow({
+        step: 'error',
+        title: SPREADSHEET_EXPORT_ERROR_TITLE,
+        message: err instanceof Error ? err.message : 'The series could not be read.',
+      });
+    }
+  }
+
   useShortcuts([
+    {
+      key: 'X',
+      description: 'Export to spreadsheet',
+      section: 'Series',
+      displayKeys: ['⇧', 'X'],
+      when: () => canExportSpreadsheet,
+      handler: () => void handleExportSpreadsheet(),
+    },
     {
       key: 'S',
       description: 'Export to Sailwave',
@@ -364,6 +398,16 @@ export function SeriesActionsMenu({ series }: { series: Series }) {
               <FileOutput className="h-4 w-4" />
               Export to Sailwave…
               <DropdownMenuShortcut>⇧S</DropdownMenuShortcut>
+            </DropdownMenuItem>
+          )}
+          {canExportSpreadsheet && (
+            <DropdownMenuItem
+              data-testid="export-to-spreadsheet"
+              onSelect={() => void handleExportSpreadsheet()}
+            >
+              <FileSpreadsheet className="h-4 w-4" />
+              Export to spreadsheet
+              <DropdownMenuShortcut>⇧X</DropdownMenuShortcut>
             </DropdownMenuItem>
           )}
           {!asPublished && (canManageSeries || hasCopyTargets) && (
