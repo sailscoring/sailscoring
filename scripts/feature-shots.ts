@@ -1712,6 +1712,29 @@ const SHOTS: Shot[] = [
     },
   },
   {
+    // Inventory: Spreadsheet export — the workbook itself, not the menu item
+    // that makes it. The capture runs the real export, reads the downloaded
+    // file back, and draws its Results sheet as a spreadsheet grid, so the
+    // picture is the sample series' actual rows.
+    slug: 'spreadsheet-export',
+    group: 'Data in and out',
+    async capture({ page, seriesId, shot }) {
+      await ensureFeature(page, 'spreadsheet-export');
+      await page.goto(`${BASE}/series/${await seriesId()}/competitors`);
+      await settle(page);
+      const download = page.waitForEvent('download');
+      await page.getByRole('button', { name: 'Series actions' }).click();
+      await page.getByTestId('export-to-spreadsheet').click();
+      const path = await (await download).path();
+      const { default: readXlsxFile } = await import('read-excel-file/node');
+      const sheets = await readXlsxFile(await readFile(path));
+      const grid = await page.context().newPage();
+      await grid.setContent(renderWorkbookGrid(sheets, 'Results'));
+      await shot('spreadsheet-export.png', { page: grid });
+      await grid.close();
+    },
+  },
+  {
     // Inventory: rrs.org competitor push — the import dialog's rrs section.
     slug: 'rrs-push',
     group: 'Data in and out',
@@ -2893,6 +2916,61 @@ async function importYtcSample(page: Page): Promise<string> {
   });
   if (!res.ok()) throw new Error(`YTC sample import failed: HTTP ${res.status()} ${await res.text()}`);
   return ((await res.json()) as { id: string }).id;
+}
+
+/**
+ * One sheet of a workbook drawn the way a spreadsheet program shows it —
+ * column letters, row numbers, the sheet tabs along the bottom — for the
+ * spreadsheet-export shot. Cells print as the program would print them:
+ * a spreadsheet time as h:mm:ss, true/false as TRUE/FALSE.
+ */
+function renderWorkbookGrid(
+  sheets: Array<{ sheet: string; data: unknown[][] }>,
+  active: string,
+): string {
+  const data = sheets.find((s) => s.sheet === active)?.data ?? [];
+  const esc = (v: string) => v.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const cell = (v: unknown): { text: string; right: boolean } => {
+    if (v == null) return { text: '', right: false };
+    if (v instanceof Date) {
+      // A time or duration comes back as a time on day zero (1899-12-30).
+      const secs = Math.round((v.getTime() - Date.UTC(1899, 11, 30)) / 1000);
+      if (secs >= 0 && secs < 10 * 86_400) {
+        const h = Math.floor(secs / 3600);
+        const mm = String(Math.floor((secs % 3600) / 60)).padStart(2, '0');
+        const ss = String(secs % 60).padStart(2, '0');
+        return { text: `${h}:${mm}:${ss}`, right: true };
+      }
+      return { text: v.toISOString().slice(0, 10), right: true };
+    }
+    if (typeof v === 'boolean') return { text: v ? 'TRUE' : 'FALSE', right: false };
+    if (typeof v === 'number') return { text: String(Number(v.toFixed(4))), right: true };
+    return { text: String(v), right: false };
+  };
+  const letter = (i: number): string => (i < 26 ? '' : letter(Math.floor(i / 26) - 1)) + String.fromCharCode(65 + (i % 26));
+  const width = Math.max(...data.map((r) => r.length), 0);
+  const rows = data.slice(0, 40).map((row, r) => {
+    const tds = Array.from({ length: width }, (_, c) => {
+      const { text, right } = cell(row[c]);
+      return `<td class="${r === 0 ? 'head' : right ? 'num' : ''}">${esc(text)}</td>`;
+    }).join('');
+    return `<tr><th class="rownum">${r + 1}</th>${tds}</tr>`;
+  });
+  const letters = Array.from({ length: width }, (_, c) => `<th>${letter(c)}</th>`).join('');
+  const tabs = sheets.map((s) => `<span class="tab${s.sheet === active ? ' on' : ''}">${esc(s.sheet)}</span>`).join('');
+  return `<!doctype html><html><head><meta charset="utf-8"><style>
+    body { margin: 0; font: 13px/1.2 Calibri, Carlito, 'Segoe UI', Arial, sans-serif; color: #222; background: #fff; }
+    .grid { height: calc(100vh - 34px); overflow: hidden; }
+    table { border-collapse: collapse; white-space: nowrap; }
+    th { background: #f3f3f3; color: #555; font-weight: normal; border: 1px solid #d4d4d4; padding: 3px 6px; }
+    th.rownum { text-align: right; min-width: 26px; }
+    td { border: 1px solid #e1e1e1; padding: 3px 6px; max-width: 170px; overflow: hidden; text-overflow: clip; }
+    td.head { font-weight: bold; background: #fafafa; }
+    td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .tabs { position: fixed; bottom: 0; left: 0; right: 0; height: 34px; background: #f3f3f3; border-top: 1px solid #d4d4d4; display: flex; align-items: stretch; padding-left: 36px; }
+    .tab { padding: 8px 16px; color: #444; border-right: 1px solid #d4d4d4; }
+    .tab.on { background: #fff; color: #1d6f42; font-weight: bold; border-bottom: 3px solid #1d6f42; }
+  </style></head><body><div class="grid"><table><tr><th></th>${letters}</tr>${rows.join('')}</table></div><div class="tabs">${tabs}</div></body></html>`;
 }
 
 async function ensureFeature(page: Page, key: string): Promise<void> {

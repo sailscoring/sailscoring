@@ -2234,8 +2234,12 @@ second club to ask.
 Beyond the standings table itself, scorers and organisers want views that *interrogate*
 a series — how boats performed against their handicaps, how healthy the racing was, where
 a result was won or lost. HalSail ships a cluster of these (time-to-win, handicap
-analysis, turnout analysis), all exportable to spreadsheet. We have none yet; the
-standings page is the only analytical surface.
+analysis, turnout analysis), all exportable to spreadsheet. We have no in-app views yet;
+the standings page is the only analytical surface. The raw material is out, though:
+**Export to spreadsheet** (#779, gated `spreadsheet-export`) writes the whole series as a
+workbook whose Results sheet has one row per boat per race with the rating applied,
+elapsed and corrected times, time to win and the NHC/ECHO working, so a committee can
+do the handicap and turnout analyses below in a pivot table today.
 
 Candidate analyses, roughly in order of usefulness:
 
@@ -2259,12 +2263,20 @@ Candidate analyses, roughly in order of usefulness:
 
 Shape of the change: these are read-only derived views over data the engine already
 holds (finishes, ratings, results), so the work is computation + presentation, not
-schema. Open questions: which land in the app UI vs. only as exports (HalSail leans on
-spreadsheet export — we'd likely want at least time-to-win in-page); whether any belong
+schema. Open questions: which land in the app UI vs. only in the workbook export (HalSail
+leans on spreadsheet export — we'd likely want at least time-to-win in-page); whether any belong
 in the published `/p/...` output for competitors, or stay scorer/organiser-facing; and
 how they interact with multi-fleet series and discards (is time-to-win computed before or
 after discards?). Pairs with the operator-facing engagement metrics under Operator
 administration — those measure the *product*; these measure a *series*.
+
+### Spreadsheet export follow-ups
+
+The workbook export (#779) is scorer-side and complete, like a `.sailscoring` file. Left
+for later: a **Download as spreadsheet** link on published pages for sailors, built from
+the published view (ADR-015) so it carries only what the pages show; a CSV of the Results
+sheet alone for tools that don't read `.xlsx`; and the as-published archives, which hold
+printed tables rather than results and are left out of the export. None has been asked for.
 
 ### Sector time analysis (offshore tracker analytics)
 

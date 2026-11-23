@@ -316,6 +316,73 @@ export default function DataInAndOut() {
           </>
         </Section>
       )}
+      {has('spreadsheet-export') && (
+        <Section id="spreadsheet-export" title="Exporting to a spreadsheet">
+          <HelpShot
+            src="/help/shots/spreadsheet-export.webp"
+            alt="The Results sheet of an exported workbook: one row per boat per race, with ratings, elapsed and corrected times, points and discards"
+            caption="The Results sheet: one row per boat per race, ready to filter, sort or pivot."
+          />
+          <>
+            <p>
+              To work on a series in Excel, Google Sheets or Numbers, open the series&rsquo;{' '}
+              <strong className="text-foreground">Actions</strong> menu and click{' '}
+              <strong className="text-foreground">Export to spreadsheet</strong> (or press{' '}
+              <strong className="text-foreground">Shift+X</strong> on any tab of the series).
+              This downloads an Excel workbook (<code className="text-foreground text-sm">.xlsx</code>)
+              with everything the series holds and everything it scores. Use it for pivot
+              tables and charts, a handicap committee&rsquo;s review of how boats sailed
+              against their ratings, a club&rsquo;s own trophy sheet, or a cross-check against
+              another scoring program.
+            </p>
+            <p>The workbook has a sheet for each part of the series:</p>
+            <ul className="list-disc space-y-1 pl-5">
+              <li>
+                <strong className="text-foreground">About</strong>: the series and how it is
+                scored: points, discards, and any scoring codes of its own.
+              </li>
+              <li>
+                <strong className="text-foreground">Fleets</strong>,{' '}
+                <strong className="text-foreground">Competitors</strong> and{' '}
+                <strong className="text-foreground">Races</strong>: the setup, with every
+                competitor field, rating and certificate, and each start&rsquo;s gun, course
+                and conditions.
+              </li>
+              <li>
+                <strong className="text-foreground">Finishes</strong>: the finish sheets as
+                entered, in crossing order, unknown sail numbers included.
+              </li>
+              <li>
+                <strong className="text-foreground">Results</strong>: one row for each
+                competitor in each race in each fleet, as scored: place, code, points, whether
+                the score is discarded, the rating applied, elapsed and corrected times, and
+                time to win. For NHC and ECHO it also has the next rating and the working
+                behind it.
+              </li>
+              <li>
+                <strong className="text-foreground">Standings</strong>: the familiar table,
+                with rank, total, net and a points column for each race. Discarded scores
+                are grey.
+              </li>
+            </ul>
+            <p>
+              Results is laid out for analysis, so it can be filtered, sorted or pivoted
+              directly. Times are real spreadsheet times, so they add up and average, and
+              each time has a column in seconds beside it. Points are always numbers: a
+              code such as DNF has its own column, and discarded is true or false. Sail
+              numbers are kept as text, so leading zeros survive.
+            </p>
+            <p>
+              The workbook shows the series as currently scored, which may differ from what
+              was last published. Its columns don&rsquo;t follow the results columns chosen
+              for publishing: every column the series has data for is included. The export
+              is one-way, so Sail Scoring can&rsquo;t open a workbook. To keep a copy of the
+              series or move it, use{' '}
+              <strong className="text-foreground">Save to File</strong>.
+            </p>
+          </>
+        </Section>
+      )}
       <Section id="json-export" title="Open in Sail Scoring, and the data behind published results">
         <HelpShot
           src="/help/shots/open-in-sailscoring.webp"

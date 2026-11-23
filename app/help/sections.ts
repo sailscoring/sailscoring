@@ -147,6 +147,7 @@ export const HELP_GROUPS: HelpGroupDef[] = [
       { id: 'saving-and-sharing', title: 'Saving and sharing a series', keywords: ['file', 'sailscoring file', 'backup', 'save', 'send to another scorer', 'open a file'] },
       { id: 'sailwave-import', title: 'Importing from Sailwave', feature: 'sailwave-import', keywords: ['sailwave', 'blw', 'migrate', 'move from sailwave'] },
       { id: 'sailwave-export', title: 'Exporting to Sailwave', feature: 'sailwave-export', keywords: ['sailwave', 'blw', 'export'] },
+      { id: 'spreadsheet-export', title: 'Exporting to a spreadsheet', feature: 'spreadsheet-export', keywords: ['excel', 'xlsx', 'spreadsheet', 'export', 'analysis', 'pivot', 'google sheets', 'numbers'] },
       { id: 'json-export', title: 'Open in Sail Scoring, and the data behind published results', keywords: ['json', 'data', 'open in sail scoring', 'api', 'raw results', 'spectator', 'index.json', 'integration', 'developer'] },
       { id: 'results-api', title: 'Results for apps', keywords: ['api', 'app', 'race day app', 'clubhouse screen', 'widget', 'integration', 'developer'] },
     ],
