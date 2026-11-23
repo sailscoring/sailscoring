@@ -1867,13 +1867,14 @@ export interface PublicationStatus {
 export interface PublishedListItem {
   id: string;                     // publication id — the unpublish path param
   slug: string;
+  path: string;                   // its own pages' address below the workspace: the slug, or slug/folder when the slug is shared
   title: string;                  // live series name, or the slug for an orphan
-  url: string;                    // public series-index URL: {APP_URL}/p/{ws}/{slug}
+  url: string;                    // public URL of that address: {APP_URL}/p/{ws}/{path}
   seriesId: string | null;        // authoring link target; null for an orphan
   orphaned: boolean;              // the series was deleted (the snapshot lives on)
   publishedAt: number;            // Unix ms of the last publish
   editsSincePublish: number;      // series edits since the snapshot (0 if orphaned)
-  sharedWith: string[];           // titles of other publications sharing this slug
+  sharedWith: string[];           // titles of other publications at this path or below it
   fleetCount: number;             // published fleet pages under the slug's entry
   // Placement on the management page's sections (ListingPlacement) — this
   // publication's own series, unlike the public listing's per-slug

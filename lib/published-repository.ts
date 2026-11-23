@@ -1060,11 +1060,20 @@ export function assemblePublishedSeasonTree(
  * Unlike the public listing there is one row per publication, not per slug, so
  * the placement fields (category / archive / order / year) are each row's own
  * series — no representative fudge. An orphan has no placement at all.
+ *
+ * `path` is where the publication's own pages are, below the workspace: the
+ * bare slug while it has the slug to itself, else its event folder (see
+ * `publicationPath`). A series published into a season has the season as its
+ * slug, so showing the slug alone would give every series in the season the
+ * same address. `sharedWith` is decided by that path too: a row shares with
+ * the publications at its path or below it — the other series in its event
+ * folder, not the rest of the season.
  */
 export async function listPublishedForWorkspace(workspaceId: string): Promise<
   {
     id: string;
     slug: string;
+    path: string;
     title: string;
     seriesId: string | null;
     orphaned: boolean;
@@ -1128,16 +1137,27 @@ export async function listPublishedForWorkspace(workspaceId: string): Promise<
     }
     return r.slug;
   };
-  const bySlug = new Map<string, typeof rows>();
-  for (const r of rows) {
-    const list = bySlug.get(r.slug) ?? [];
-    list.push(r);
-    bySlug.set(r.slug, list);
-  }
+  const slugCounts = new Map<string, number>();
+  for (const r of rows) slugCounts.set(r.slug, (slugCounts.get(r.slug) ?? 0) + 1);
+  const pathOf = new Map(
+    rows.map((r) => [
+      r.id,
+      publicationPath(r.slug, r.pages, (slugCounts.get(r.slug) ?? 0) > 1),
+    ]),
+  );
+  const sharesWith = (r: (typeof rows)[number]) => {
+    const mine = pathOf.get(r.id)!;
+    return rows.filter((o) => {
+      if (o.id === r.id) return false;
+      const theirs = pathOf.get(o.id)!;
+      return theirs === mine || theirs.startsWith(`${mine}/`);
+    });
+  };
 
   return rows.map((r) => ({
     id: r.id,
     slug: r.slug,
+    path: pathOf.get(r.id)!,
     title: titleOf(r),
     seriesId: r.seriesId,
     orphaned: r.seriesId === null,
@@ -1146,9 +1166,7 @@ export async function listPublishedForWorkspace(workspaceId: string): Promise<
       r.seriesVersion === null
         ? 0
         : Math.max(0, r.seriesVersion - r.publishedVersion),
-    sharedWith: (bySlug.get(r.slug) ?? [])
-      .filter((o) => o.id !== r.id)
-      .map(titleOf),
+    sharedWith: sharesWith(r).map(titleOf),
     fleetCount: r.pages.length,
     archived: r.archived ?? false,
     categoryName: r.categoryName ?? null,

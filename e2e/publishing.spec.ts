@@ -692,6 +692,14 @@ test('season mode: Season + Folder compose the tree; a second event joins withou
   await expect(page.getByRole('heading', { name: '2026' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Spring Regatta' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Summer Regatta' })).toBeVisible();
+
+  // The workspace Published tab lists each event at its own folder, not at
+  // the season both share — so neither reads as sharing a URL with the other.
+  await page.goto('/workspace/published');
+  await expect(page.getByText('2 pages published')).toBeVisible();
+  await expect(page.getByRole('link', { name: /\/2026\/spring-regatta$/ })).toBeVisible();
+  await expect(page.getByRole('link', { name: /\/2026\/summer-regatta$/ })).toBeVisible();
+  await expect(page.getByText(/shares URL with/)).toHaveCount(0);
 });
 
 test('multi-fleet: the "Pages live under" path is the same before and after publishing', async ({ page }) => {

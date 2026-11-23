@@ -915,8 +915,10 @@ export async function getPublication(
 
 /**
  * Every publication in the workspace for the management page (#164), newest
- * first, each with its public series-index URL. Includes orphans — snapshots
- * whose series was deleted — which this page is the only place to manage.
+ * first, each with the public URL of its own pages — its event folder when it
+ * shares its slug, so a series in a season isn't shown at the season's
+ * address. Includes orphans — snapshots whose series was deleted — which this
+ * page is the only place to manage.
  */
 export async function listPublished(
   workspace: WorkspaceContext,
@@ -924,7 +926,7 @@ export async function listPublished(
   const rows = await listPublishedForWorkspace(workspace.workspaceId);
   return rows.map((r) => ({
     ...r,
-    url: `${appBase()}/p/${workspace.workspaceSlug}/${r.slug}`,
+    url: `${appBase()}/p/${workspace.workspaceSlug}/${r.path}`,
   }));
 }
 

@@ -165,9 +165,10 @@ export default function Publishing() {
         <p>
           <strong className="text-foreground">Managing published pages:</strong>{' '}
           the <strong className="text-foreground">Published</strong> tab on the workspace pages
-          lists every page your workspace has published, with its public URL, when it was last
-          published, how many edits have landed since, and whether it shares its URL with
-          another series. Pages are grouped for the scorer — active series
+          lists every page your workspace has published, with its public URL (for a series
+          published into a season, the URL of its event folder), when it was last
+          published, how many edits have landed since, and whether it shares that URL with
+          another series published into the same folder. Pages are grouped for the scorer — active series
           by category, archived ones under Past results by year — and you can search by name
           or URL and filter to active series’ pages with edits since publish (archiving a
           series or moving it between categories isn’t an edit — neither changes its

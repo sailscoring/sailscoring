@@ -155,7 +155,7 @@ export function PublishedList() {
     if (filter === 'stale' && !isStale(i)) return false;
     if (filter === 'orphaned' && !i.orphaned) return false;
     if (q === '') return true;
-    return i.title.toLowerCase().includes(q) || i.slug.toLowerCase().includes(q);
+    return i.title.toLowerCase().includes(q) || i.path.toLowerCase().includes(q);
   });
   const orphans = visible.filter((i) => i.orphaned);
   const { active, past } = groupWorkspaceListing(visible.filter((i) => !i.orphaned));
