@@ -29,9 +29,16 @@ export const SAMPLE_RATE = 16000;
 export const SEGMENT_SECONDS = 5;
 export const SEGMENT_SAMPLES = SAMPLE_RATE * SEGMENT_SECONDS;
 
-/** How long the phone keeps a recording, and how long the server does. */
+/** How long the phone keeps a recording. */
 export const PHONE_KEEPS_DAYS = 7;
-export const SERVER_KEEPS_DAYS = 30;
+/**
+ * How long the server keeps one: until this many days after the last race
+ * in its series, so it outlasts a scoring inquiry at the series' end. The
+ * date follows the series' schedule, so adding a race later keeps the
+ * recording longer. Counted from the day it was sent instead when that is
+ * later, and when no race in the series has a date.
+ */
+export const SERVER_KEEPS_DAYS_AFTER_LAST_RACE = 90;
 
 /** Format 1 held lines taken down while listening; it never left the
  *  branch it was built on, and nothing reads it. */

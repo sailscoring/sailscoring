@@ -13,7 +13,13 @@ import { fileStem, playSpan, recordingWav, saveFile, timelineFile, type ReadPiec
 import { clockTime } from '@/lib/voice/sheet';
 import { readTimeline, suggestFinishes, type Suggestion } from '@/lib/voice/timeline';
 import type { DismissTarget, FinishEdit, Nameable } from '@/lib/voice/timeline-rows';
-import { DEFAULT_LAG_SECONDS, SEGMENT_SAMPLES, type VoiceDismissal, type VoiceFinish } from '@/lib/voice/types';
+import {
+  DEFAULT_LAG_SECONDS,
+  SEGMENT_SAMPLES,
+  SERVER_KEEPS_DAYS_AFTER_LAST_RACE,
+  type VoiceDismissal,
+  type VoiceFinish,
+} from '@/lib/voice/types';
 
 import { TimelineView, type TimelineEditing, type TimelineSource } from './timeline-view';
 
@@ -28,7 +34,10 @@ import { TimelineView, type TimelineEditing, type TimelineSource } from './timel
 
 const recordingsKey = (raceId: string) => ['voiceRecordings', raceId] as const;
 
-const day = (at: number) => new Date(at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+/** The day a recording is deleted on the server. It goes at the start of
+ *  that day, UTC, and may be next year. */
+const deletedOn = (at: number) =>
+  new Date(at).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
 
 /** The race's recordings this user may hear. Nothing is asked for where the
  *  workspace doesn't have finishes by voice. */
@@ -302,7 +311,7 @@ export function VoiceReviewNote({ voice }: { voice: ReturnType<typeof useSubmiss
       ))}
       <div className="flex flex-wrap items-center gap-2">
         <Button size="sm" variant="outline" onClick={() => voice.setOpen(true)} data-testid="voice-review-open">Open the recording</Button>
-        <span className="text-muted-foreground">Kept until {day(recording.expiresAt)}, then deleted.</span>
+        <span className="text-muted-foreground">Deleted on {deletedOn(recording.expiresAt)}, {SERVER_KEEPS_DAYS_AFTER_LAST_RACE} days after the series’ last race.</span>
       </div>
     </div>
   );
@@ -373,7 +382,7 @@ function RecordingRow({ recording, competitors }: { recording: RecordingInfo; co
         <span className="min-w-0">
           <span className="font-medium">{recording.recordedBy.name ?? 'A recorder'}</span>
           <span className="text-muted-foreground">
-            {' '}· {finishes} finish{finishes === 1 ? '' : 'es'} · {formatRelativeTime(recording.createdAt)} · kept until {day(recording.expiresAt)}
+            {' '}· {finishes} finish{finishes === 1 ? '' : 'es'} · {formatRelativeTime(recording.createdAt)} · deleted on {deletedOn(recording.expiresAt)}
           </span>
         </span>
         <span className="flex flex-wrap gap-2">
@@ -401,7 +410,7 @@ function RecordingRow({ recording, competitors }: { recording: RecordingInfo; co
           competitors={nameables}
           name={name}
           title={`Recording from ${recording.recordedBy.name ?? 'the recorder'}`}
-          subtitle={`Recorded ${formatRelativeTime(recording.createdAt)}. Kept until ${day(recording.expiresAt)}.`}
+          subtitle={`Recorded ${formatRelativeTime(recording.createdAt)}. Deleted on ${deletedOn(recording.expiresAt)}.`}
           target={null}
           onClose={() => setOpen(false)}
         />

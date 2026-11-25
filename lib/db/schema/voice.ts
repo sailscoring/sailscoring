@@ -21,8 +21,9 @@ const bytea = customType<{ data: Buffer; default: false }>({
  * named by `submission_id`, which is a plain id rather than a foreign key:
  * the submission is the sheet's own business, and all this module needs is
  * to be found by it. `document` is the list of calls (see `VoiceDocument`).
- * `expires_at` is the retention rule: a recording is neither served nor kept
- * past it.
+ * How long it is kept isn't stored: it follows the dates of the races in
+ * the race's series (`recording-store.ts`), and a recording is neither
+ * served nor kept past it.
  *
  * The user column is plain text for the activity log's reason: the record
  * outlives an account.
@@ -42,7 +43,6 @@ export const voiceRecordings = pgTable(
     document: jsonb('document').$type<VoiceDocument>().notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
     // Set when a scorer deletes someone else's recording: its sound and its
     // list of calls go at once, and this row stays behind for a while so
     // that the phone it came from, which still has its own copy, can't
@@ -52,7 +52,6 @@ export const voiceRecordings = pgTable(
   (table) => [
     index('voice_recordings_race_idx').on(table.raceId),
     index('voice_recordings_submission_idx').on(table.submissionId),
-    index('voice_recordings_expires_idx').on(table.expiresAt),
   ],
 );
 

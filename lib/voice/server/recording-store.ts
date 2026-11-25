@@ -1,19 +1,20 @@
 import 'server-only';
-import { and, asc, desc, eq, gt, gte, isNull, lt, lte, sql, type SQL } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, isNull, lte, sql, type SQL } from 'drizzle-orm';
 
 import { getDb } from '@/lib/db/client';
 import { user } from '@/lib/db/schema/auth';
+import { races } from '@/lib/db/schema/series';
 import { voiceRecordingSegments, voiceRecordings } from '@/lib/db/schema/voice';
 
-import { PHONE_KEEPS_DAYS, SERVER_KEEPS_DAYS, type VoiceDocument } from '../types';
+import { PHONE_KEEPS_DAYS, SERVER_KEEPS_DAYS_AFTER_LAST_RACE, type VoiceDocument } from '../types';
 
 /**
  * Recordings of finishes taken by voice, as stored. Workspace-scoped like
  * every other read and write; `handlers.ts` decides who may do what.
  *
- * A recording past its `expires_at`, or one a scorer has deleted, is treated
- * as gone by every read here, whether or not the nightly sweep has removed
- * its row yet.
+ * A recording past its retention date, or one a scorer has deleted, is
+ * treated as gone by every read here, whether or not the nightly sweep has
+ * removed its row yet.
  */
 
 export interface StoredRecording {
@@ -34,18 +35,43 @@ export interface StoredSegment {
   audio: Buffer;
 }
 
-const DAY_MS = 24 * 60 * 60 * 1000;
+/**
+ * The last race date in the recording's series, as `YYYY-MM-DD`, or null
+ * when none of its races has a date.
+ */
+const lastRaceDay = sql`(
+  select max(r.date) from ${races} r
+  where r.series_id = (select own.series_id from ${races} own where own.id = ${voiceRecordings.raceId})
+    and r.date ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+)`;
 
-const live = () => and(gt(voiceRecordings.expiresAt, new Date()), isNull(voiceRecordings.deletedAt));
+/**
+ * When a recording goes: the start of the day (UTC) that is
+ * `SERVER_KEEPS_DAYS_AFTER_LAST_RACE` days after the last race in its
+ * series, or after the day it was sent if that is later. Worked out on
+ * every read rather than stored, so it follows the series' schedule. A
+ * deleted recording's emptied row goes the day after the phone it came from
+ * has removed its own copy.
+ */
+const expiresAt = sql<Date>`(case
+  when ${voiceRecordings.deletedAt} is not null
+    then ${voiceRecordings.deletedAt} + interval '${sql.raw(String(PHONE_KEEPS_DAYS + 1))} days'
+  else (
+    greatest(${lastRaceDay}::date, (${voiceRecordings.createdAt} at time zone 'UTC')::date)
+      + ${sql.raw(String(SERVER_KEEPS_DAYS_AFTER_LAST_RACE))}
+  )::timestamp at time zone 'UTC'
+end)`.mapWith(voiceRecordings.createdAt);
+
+const live = () => and(sql`${expiresAt} > now()`, isNull(voiceRecordings.deletedAt));
 
 async function select(workspaceId: string, where: SQL | undefined): Promise<StoredRecording[]> {
   const rows = await getDb()
-    .select({ row: voiceRecordings, name: user.name })
+    .select({ row: voiceRecordings, name: user.name, expiresAt })
     .from(voiceRecordings)
     .leftJoin(user, eq(voiceRecordings.recordedByUserId, user.id))
     .where(and(eq(voiceRecordings.workspaceId, workspaceId), live(), where))
     .orderBy(desc(voiceRecordings.createdAt));
-  return rows.map(({ row, name }) => ({
+  return rows.map(({ row, name, expiresAt }) => ({
     id: row.id,
     raceId: row.raceId,
     submissionId: row.submissionId,
@@ -53,7 +79,7 @@ async function select(workspaceId: string, where: SQL | undefined): Promise<Stor
     document: row.document,
     createdAt: row.createdAt.getTime(),
     updatedAt: row.updatedAt.getTime(),
-    expiresAt: row.expiresAt.getTime(),
+    expiresAt: expiresAt.getTime(),
   }));
 }
 
@@ -84,8 +110,8 @@ export async function recordingIdState(id: string): Promise<'free' | 'deleted' |
 
 /**
  * Store a recording's list of calls: a new recording, or the same one
- * brought up to date. The retention clock starts when it is first stored,
- * and bringing it up to date doesn't restart it.
+ * brought up to date. When it was first stored is kept, so bringing it up
+ * to date doesn't move its retention date.
  */
 export async function putRecording(
   workspaceId: string,
@@ -103,7 +129,6 @@ export async function putRecording(
       document: recording.document,
       createdAt: now,
       updatedAt: now,
-      expiresAt: new Date(now.getTime() + SERVER_KEEPS_DAYS * DAY_MS),
     })
     .onConflictDoUpdate({
       target: voiceRecordings.id,
@@ -179,7 +204,6 @@ export async function deleteRecordingForGood(workspaceId: string, id: string): P
     .set({
       document: { ...row.document, takes: [], gaps: [], presses: [], words: [], finishes: [], dismissals: [] },
       deletedAt: now,
-      expiresAt: new Date(now.getTime() + (PHONE_KEEPS_DAYS + 1) * DAY_MS),
     })
     .where(and(eq(voiceRecordings.id, id), eq(voiceRecordings.workspaceId, workspaceId)));
   return true;
@@ -199,7 +223,7 @@ export async function deleteRecordingsOfSubmission(workspaceId: string, submissi
 export async function sweepExpiredRecordings(now: Date = new Date()): Promise<number> {
   const gone = await getDb()
     .delete(voiceRecordings)
-    .where(lt(voiceRecordings.expiresAt, now))
+    .where(sql`${expiresAt} < ${now.toISOString()}::timestamptz`)
     .returning({ id: voiceRecordings.id });
   return gone.length;
 }

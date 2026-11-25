@@ -228,9 +228,9 @@ The whole session is recorded against the phone's clock, with the words
 heard and the presses of NOW. Every finish can be played back from it.
 Unless the recorder turns it off, the recording goes to the scorer with the
 finish sheet, so the scorer can resolve what the recorder left and answer a
-scoring inquiry from it. It is kept on the server for a set time, which has
-to outlast a scoring inquiry, and the privacy policy says so before the
-feature reaches anyone else.
+scoring inquiry from it. The server keeps it until 90 days after the last
+race in its series, so it outlasts a scoring inquiry at the series' end,
+and the privacy policy says so before the feature reaches anyone else.
 
 ### 6. What it produces is a finish sheet submission
 

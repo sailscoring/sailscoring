@@ -24,7 +24,8 @@ What the app does, which the wording has to match (see
 - A recording that is sent is stored with the workspace's other data
   (Neon). Whoever made it and the workspace's scorers can play it.
 - It is deleted when the sheet is withdrawn, when the recorder or a scorer
-  deletes it, and otherwise 30 days after it was sent. Its sound is never
+  deletes it, and otherwise 90 days after the last race in its series (or
+  after it was sent, if that is later). Its sound is never
   written to a backup.
 - No new sub-processor.
 
@@ -55,8 +56,9 @@ race data*:
 
 Under **How long we keep it**, a new item:
 
-> - **Recordings of finishes, and their transcripts:** 30 days after a
->   recording is sent, or sooner if the finish sheet it came with is
+> - **Recordings of finishes, and their transcripts:** until 90 days after
+>   the last race of the series the recording was made in (or after it was
+>   sent, if that is later), or sooner if the finish sheet it came with is
 >   withdrawn or the recording is deleted. Recordings are not included in
 >   database backups.
 
@@ -67,9 +69,9 @@ And the *Last updated* date.
 - **Is a legitimate interest the right basis**, or should the recorder be
   asked to confirm that everyone on the boat knows? Voices of volunteers
   who never opened the app are the unusual part.
-- **Thirty days and seven days are first guesses.** The server's copy has
-  to outlast a scoring inquiry or a request for redress, whose time limits
-  the sailing instructions set; tying it to the end of the series, not to
-  when it was sent, is the likely answer.
+- **The server's copy is tied to the end of the series**: 90 days after its
+  last race, so it outlasts a scoring inquiry or a request for redress,
+  whose time limits the sailing instructions set. Seven days on the phone
+  is still a first guess.
 - **The default is decided:** sending is on unless switched off, so the
   scorer has the recording when a problem or an inquiry comes up.

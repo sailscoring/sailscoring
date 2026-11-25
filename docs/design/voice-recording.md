@@ -89,13 +89,15 @@ and a review fetches only the pieces around what it plays.
 **Keeping it.** The recording goes to the scorer with the sheet unless the
 recorder turns that off. The phone removes its copy after 7 days. The
 server's copy goes when the sheet is withdrawn, when the recorder or a
-scorer deletes it, and in any case 30 days after it was sent, which a
-series longer than a month outlives: it has to outlast a scoring inquiry,
-and is still to be settled. A scorer's deletion is for good:
+scorer deletes it, and in any case 90 days after the last race in its
+series, so it outlasts a scoring inquiry at the series' end. The date
+follows the series' schedule: a race added later keeps the recording
+longer. (If the recording is sent after the last race, or no race has a
+date, the 90 days count from the day it was sent.) A scorer's deletion is for good:
 the phone it came from, which still has its own copy, is refused if it
 sends it again. Whoever made it and anyone who can score may hear it. The sound is in Postgres for now and is left out of
 the database backups, which are kept longer than a recording is. Both
-numbers are first guesses (`lib/voice/types.ts`).
+numbers are in `lib/voice/types.ts`.
 
 ## Trying it
 
@@ -188,9 +190,9 @@ fragile.
 
 The recording goes to the scorer with the sheet by default, the review
 plays each finish and lets the scorer accept what the recorder left, and
-the recording stays beside the race for a scoring inquiry. Built; what it
-still needs before it reaches anyone else is a retention rule that outlasts
-a scoring inquiry and the change to the privacy policy. It gives a protest
+the recording stays beside the race until 90 days after the series' last
+race, for a scoring inquiry. Built; what it still needs before it reaches
+anyone else is the change to the privacy policy. It gives a protest
 committee something to listen to.
 
 ### M4. More of what callers say

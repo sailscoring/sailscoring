@@ -8,7 +8,7 @@
  * Skipped when DATABASE_URL is unset; CI and `pnpm test:unit:db` provide it.
  */
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 
 import * as competitors from '@/lib/api-handlers/competitors';
 import * as fleets from '@/lib/api-handlers/fleets';
@@ -22,13 +22,14 @@ import { submitFinishesSchema } from '@/lib/validation/finish-submission';
 import { decodeMulaw, encodeMulaw, fromBase64, toBase64 } from '@/lib/voice/audio';
 import { listRecordings, listenToSegments, removeRecording, sendRecording, sendSegments } from '@/lib/voice/server/handlers';
 import { sweepExpiredRecordings } from '@/lib/voice/server/recording-store';
-import { SEGMENT_SAMPLES, SERVER_KEEPS_DAYS, type VoiceDocument } from '@/lib/voice/types';
+import { SEGMENT_SAMPLES, SERVER_KEEPS_DAYS_AFTER_LAST_RACE, type VoiceDocument } from '@/lib/voice/types';
 import { putRecordingSchema, putSegmentsSchema } from '@/lib/voice/validation';
 import { createOrg, preCreateUser } from '@/scripts/provision-org';
 
 const DATABASE_URL = process.env.DATABASE_URL;
 const uuid = () => crypto.randomUUID();
 const DAY_MS = 24 * 60 * 60 * 1000;
+const startOfDay = (at: number) => Math.floor(at / DAY_MS) * DAY_MS;
 
 describe.skipIf(!DATABASE_URL)('voice recording handlers', () => {
   let scorer!: WorkspaceContext;
@@ -143,7 +144,11 @@ describe.skipIf(!DATABASE_URL)('voice recording handlers', () => {
     const id = uuid();
     const sent = await sendRecording(recorder, id, upload(id));
     expect(sent).toMatchObject({ id, raceId, submissionId, recordedBy: { name: 'Rita Recorder' }, stored: [] });
-    expect(sent.expiresAt - sent.createdAt).toBe(SERVER_KEEPS_DAYS * DAY_MS);
+    // The series' only race was before it was sent, so its days count from the sending.
+    const firstRace = Date.UTC(2026, 10, 14);
+    expect(sent.expiresAt).toBe(
+      Math.max(firstRace, startOfDay(sent.createdAt)) + SERVER_KEEPS_DAYS_AFTER_LAST_RACE * DAY_MS,
+    );
 
     // The sound arrives in pieces, in any order, and a piece sent again replaces itself.
     await sendSegments(recorder, id, putSegmentsSchema.parse({ segments: [piece(0, 2, 16000 * 2), piece(0, 0)] }));
@@ -151,7 +156,7 @@ describe.skipIf(!DATABASE_URL)('voice recording handlers', () => {
     const again = await sendRecording(recorder, id, upload(id, { realTimeFactor: 0.3 }));
     expect(again.stored).toEqual([{ take: 0, indexes: [0, 2] }]);
     expect(again.document.realTimeFactor).toBe(0.3);
-    // Bringing it up to date doesn't restart the retention clock.
+    // Bringing it up to date doesn't move its retention date.
     expect(again.expiresAt).toBe(sent.expiresAt);
 
     const { segments } = await listenToSegments(scorer, id, { take: 0, from: 0, to: 5 });
@@ -214,18 +219,53 @@ describe.skipIf(!DATABASE_URL)('voice recording handlers', () => {
     expect(again.stored).toEqual([]);
   });
 
+  test('it is kept until 90 days after the series’ last race, as the schedule stands', async () => {
+    const id = uuid();
+    await sendRecording(recorder, id, upload(id));
+    const expiry = async () => (await listRecordings(scorer, raceId)).find((r) => r.id === id)?.expiresAt;
+    const before = await expiry();
+
+    // A race added later in the series keeps it longer; one without a date doesn't count.
+    const later = uuid();
+    const undated = uuid();
+    await races.generateRaces({ ...scorer, role: 'owner' }, seriesId, {
+      races: [
+        { id: later, seriesId, raceNumber: 2, name: null, date: '2027-06-01', createdAt: Date.now() },
+        { id: undated, seriesId, raceNumber: 3, name: null, date: '', createdAt: Date.now() },
+      ],
+      starts: [],
+    });
+    expect(await expiry()).toBe(Date.UTC(2027, 5, 1) + SERVER_KEEPS_DAYS_AFTER_LAST_RACE * DAY_MS);
+
+    // Taken out of the schedule again, it no longer counts.
+    await getDb().delete(schema.races).where(inArray(schema.races.id, [later, undated]));
+    expect(await expiry()).toBe(before);
+  });
+
   test('a recording past its date is gone, swept or not', async () => {
     const id = uuid();
     await sendRecording(recorder, id, upload(id));
-    await getDb().update(schema.voiceRecordings).set({ expiresAt: new Date(Date.now() - 1000) }).where(eq(schema.voiceRecordings.id, id));
-    expect((await listRecordings(scorer, raceId)).map((r) => r.id)).not.toContain(id);
-    await expect(listenToSegments(scorer, id, { take: 0, from: 0, to: 0 })).rejects.toThrow('not-found: recording');
-    // Its id can't be taken up again while the row waits for the sweep.
-    await expect(sendRecording(recorder, id, upload(id))).rejects.toThrow('already used');
+    // Sent long ago, of a series whose last race was long ago.
+    const db = getDb();
+    const [race] = await db.select({ date: schema.races.date }).from(schema.races).where(eq(schema.races.id, raceId));
+    const longAgo = new Date(Date.UTC(2020, 0, 1));
+    await db.update(schema.voiceRecordings).set({ createdAt: longAgo }).where(eq(schema.voiceRecordings.id, id));
+    await db.update(schema.races).set({ date: '2020-01-01' }).where(eq(schema.races.id, raceId));
+    try {
+      expect((await listRecordings(scorer, raceId)).map((r) => r.id)).not.toContain(id);
+      await expect(listenToSegments(scorer, id, { take: 0, from: 0, to: 0 })).rejects.toThrow('not-found: recording');
+      // Its id can't be taken up again while the row waits for the sweep.
+      await expect(sendRecording(recorder, id, upload(id))).rejects.toThrow('already used');
 
-    expect(await sweepExpiredRecordings()).toBeGreaterThanOrEqual(1);
-    const rows = await getDb().select().from(schema.voiceRecordings).where(eq(schema.voiceRecordings.id, id));
-    expect(rows).toEqual([]);
+      // The sweep goes by the same date: a day before it, the recording stays.
+      const due = Date.UTC(2020, 0, 1) + SERVER_KEEPS_DAYS_AFTER_LAST_RACE * DAY_MS;
+      expect(await sweepExpiredRecordings(new Date(due - DAY_MS))).toBe(0);
+      expect(await sweepExpiredRecordings()).toBeGreaterThanOrEqual(1);
+      const rows = await db.select().from(schema.voiceRecordings).where(eq(schema.voiceRecordings.id, id));
+      expect(rows).toEqual([]);
+    } finally {
+      await db.update(schema.races).set({ date: race.date }).where(eq(schema.races.id, raceId));
+    }
   });
 
   test('withdrawing the sheet takes its recording with it', async () => {

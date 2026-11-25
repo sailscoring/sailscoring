@@ -31,7 +31,8 @@ import {
  * - whoever made it, and anyone who can score, can listen to it and delete
  *   it. It is the people on the committee boat talking, so nobody else can;
  * - it is gone when its submission is withdrawn, and in any case
- *   `SERVER_KEEPS_DAYS` after it was first sent;
+ *   `SERVER_KEEPS_DAYS_AFTER_LAST_RACE` days after the last race in its
+ *   series;
  * - one a scorer deleted stays deleted: the phone that made it still has
  *   its own copy for a few days, and is refused if it sends it again.
  */

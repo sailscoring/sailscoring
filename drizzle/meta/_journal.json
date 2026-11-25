@@ -981,6 +981,13 @@
       "when": 1794861247770,
       "tag": "0139_voice_recordings",
       "breakpoints": true
+    },
+    {
+      "idx": 140,
+      "version": "7",
+      "when": 1795596570060,
+      "tag": "0140_voice_retention_follows_series",
+      "breakpoints": true
     }
   ]
 }

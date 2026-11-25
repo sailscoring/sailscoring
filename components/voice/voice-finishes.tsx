@@ -13,6 +13,7 @@ import { microphoneProblem, openMicrophone, rememberedMicrophone, type Microphon
 import { clockTime, isSuggestionRow } from '@/lib/voice/sheet';
 import { checkText, type Suggestion } from '@/lib/voice/timeline';
 import type { Nameable } from '@/lib/voice/timeline-rows';
+import { SERVER_KEEPS_DAYS_AFTER_LAST_RACE } from '@/lib/voice/types';
 
 import { RecordingScreen } from './recording-screen';
 import { VoiceSetupDialog } from './setup-dialog';
@@ -20,6 +21,10 @@ import { TimelineView, type NameOf, type TimelineEditing, type TimelineSource } 
 import type { VoiceRecording } from './use-voice-recording';
 
 const day = (at: number) => new Date(at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+/** The day a recording is deleted on the server. It goes at the start of
+ *  that day, UTC, and may be next year. */
+const deletedOn = (at: number) =>
+  new Date(at).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
 
 /** A suggestion's reason to check, short enough for a row of the sheet. */
 function shortWhy(s: Suggestion): string {
@@ -273,7 +278,7 @@ export function VoiceFinishes({
           <div className="space-y-2 border-t pt-3 text-sm">
             <p className="text-muted-foreground">
               Voice recordings are stored on this device until {day(phoneKeepsUntil(recording))}, and sent to the scorer with the finish
-              sheet unless you turn that off below.
+              sheet unless you turn that off below. The scorer’s copy is deleted {SERVER_KEEPS_DAYS_AFTER_LAST_RACE} days after the series’ last race.
             </p>
             <div className="flex flex-wrap gap-2">
               <Button size="sm" variant="outline" onClick={() => void voice.saveSound()}>Save the recording</Button>
@@ -368,7 +373,7 @@ export function VoiceSending({ voice }: { voice: VoiceRecording }) {
           {voice.send.kind === 'idle' && 'It goes when you submit the sheet.'}
           {voice.send.kind === 'sending' &&
             (voice.send.total > 0 ? `Sending the recording: ${Math.round((100 * voice.send.sent) / voice.send.total)}%` : 'Sending the recording…')}
-          {voice.send.kind === 'sent' && `The scorer has the recording, until ${day(voice.send.expiresAt)}.`}
+          {voice.send.kind === 'sent' && `The scorer has the recording. It is deleted on ${deletedOn(voice.send.expiresAt)}.`}
           {voice.send.kind === 'waiting' && 'No signal: the recording goes when there is one. Keep this page open.'}
           {voice.send.kind === 'refused' && `The recording wasn’t sent (${voice.send.message}). It is still on this device.`}
         </p>
