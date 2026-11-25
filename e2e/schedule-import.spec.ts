@@ -1,3 +1,4 @@
+import type { FileChooser } from '@playwright/test';
 import { signedInTest as test, expect } from './fixtures';
 import { createFleets, createSeriesQuick, enableFeatures } from './helpers';
 
@@ -78,12 +79,18 @@ test('a mapping that names a Start column and fleet columns is refused', async (
   await createFleets(page, ['ILCA 7']);
 
   await page.getByRole('link', { name: 'Races' }).click();
-  await expect(page.getByRole('button', { name: 'Add race' })).toBeVisible();
-
-  // The `t` shortcut opens the same picker.
-  const chooser = page.waitForEvent('filechooser');
-  await page.keyboard.press('t');
-  await (await chooser).setFiles({
+  // The `t` shortcut opens the same picker. It does nothing until the series
+  // row has loaded — the same wait that enables Add race — and the page
+  // takes up a new `when` only after rendering, so a press made too early is
+  // dropped: press again until the picker opens.
+  await expect(page.getByRole('button', { name: 'Add race' })).toBeEnabled();
+  let chooser!: FileChooser;
+  await expect(async () => {
+    const opened = page.waitForEvent('filechooser', { timeout: 2_000 });
+    await page.keyboard.press('t');
+    chooser = await opened;
+  }).toPass();
+  await chooser.setFiles({
     name: 'schedule.csv',
     mimeType: 'text/csv',
     buffer: Buffer.from(['Date,Start,ILCA 7', '2025-11-08,11:00,11:00'].join('\n')),
