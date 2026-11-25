@@ -267,7 +267,8 @@ export default function RatingSystems() {
           after a windward/leeward one, or a switch to curves is one change, and
           time-on-time is never swapped for time-on-distance by a misclick. A
           new start begins with the previous start’s option, so the usual race day
-          means changing the band, or nothing at all.
+          means changing the band, or nothing at all. A fleet’s default is chosen in
+          the same rows: click the option beside the fleet in Settings → Fleets.
         </p>
         <p>
           The options are named the way the certificate names them —{' '}

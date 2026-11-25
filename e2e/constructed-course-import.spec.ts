@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import type { Page } from '@playwright/test';
 
 import { signedInTest as test, expect } from './fixtures';
-import { createFleets, createSeriesQuick, downloadFleetHtml, enableFeatures, setScoringMode } from './helpers';
+import { createFleets, createSeriesQuick, downloadFleetHtml, enableFeatures, setFleetOrcOption, setScoringMode } from './helpers';
 
 /**
  * E2E for a race start's constructed course: legs typed in magnetic at the
@@ -69,8 +69,7 @@ async function openStartOnConstructedCourse(page: Page, seriesName: string, opts
   await page.locator('h2', { hasText: 'Fleets' }).locator('..').locator('button').click();
   await page.getByRole('combobox').filter({ hasText: /Scratch/i }).click();
   await page.getByRole('option', { name: 'ORC' }).click();
-  await page.getByRole('combobox').filter({ hasText: 'All-purpose · time-on-time' }).click();
-  await page.getByRole('option', { name: 'Constructed course at the recorded wind · time-on-time' }).click();
+  await setFleetOrcOption(page, { applied: 'Time-on-time', course: 'Constructed course at the recorded wind' });
   await page.getByRole('button', { name: 'Done' }).click();
   if (opts?.venue) {
     await page.getByTestId('venue-position-edit').click();

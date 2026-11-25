@@ -43,13 +43,110 @@ function pendingRow(selection: OrcChoiceSelection): string {
 }
 
 /**
- * The race-start dialog's scoring option, chosen in rows: how the rating is
- * applied, the course, how many numbers, and the band. A race day's change
- * — another band, a round-the-cans course after a windward/leeward one, a
- * switch to curves — is one row, and the rows below it keep their values
- * where the certificates allow. Time-on-time against time-on-distance is a
- * row of its own, so it is changed on purpose, not picked by mistake from a
- * list where the two kinds of one option sit side by side.
+ * A scoring option chosen in rows: how the rating is applied, the course,
+ * how many numbers, and the band. A race day's change — another band, a
+ * round-the-cans course after a windward/leeward one, a switch to curves —
+ * is one row, and the rows below it keep their values where the
+ * certificates allow. Time-on-time against time-on-distance is a row of its
+ * own, so it is changed on purpose, not picked by mistake from a list where
+ * the two kinds of one option sit side by side.
+ *
+ * The state behind the rows: `choose` settles what a row wants into what the
+ * certificates allow and reports the option, or '' with the row still to
+ * choose — so saving has something to refuse by name.
+ */
+export function useOrcChoice(
+  choices: ReadonlyArray<OrcOptionChoice>,
+  initialOption: string,
+  onChange: (option: string, pending: string | null) => void,
+) {
+  const [selection, setSelection] = useState<OrcChoiceSelection>(
+    () => orcChoiceOf(choices, initialOption) ?? { kind: 'tot' },
+  );
+  function choose(wanted: OrcChoiceSelection) {
+    const settled = orcSettleChoice(choices, wanted);
+    setSelection(settled.selection);
+    onChange(settled.option ?? '', settled.option ? null : pendingRow(settled.selection));
+  }
+  const pending = orcSettleChoice(choices, selection).option ? null : pendingRow(selection);
+  return { selection, choose, pending };
+}
+
+/** The rows themselves, for whichever caller holds their state. */
+export function OrcOptionRows({
+  choices,
+  selection,
+  onChoose,
+  testIdPrefix,
+  className = '',
+}: {
+  choices: ReadonlyArray<OrcOptionChoice>;
+  selection: OrcChoiceSelection;
+  onChoose: (wanted: OrcChoiceSelection) => void;
+  /** Prefixes the rows' and the course picker's test ids. */
+  testIdPrefix: string;
+  className?: string;
+}) {
+  const id = useId();
+  const rows = orcChoiceRows(choices, selection);
+  const officeGroups = [...new Set(rows.courses.map((c) => c.office))];
+  return (
+    <div className={`grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-2 ${className}`} data-testid={`${testIdPrefix}-rows`}>
+      <ChoiceRow
+        label="Applied"
+        values={rows.kinds.map((k) => ({ key: k, label: KIND_LABEL[k] }))}
+        selected={selection.kind}
+        onSelect={(kind) => onChoose({ ...selection, kind: kind as OrcKind })}
+      />
+
+      <span className="text-xs text-muted-foreground" id={`${id}-course`}>Course</span>
+      <Select
+        value={selection.course ?? ''}
+        onValueChange={(course) => onChoose({ ...selection, course })}
+      >
+        <SelectTrigger
+          className={`w-full h-8 text-sm ${selection.course ? '' : 'border-amber-500'}`}
+          aria-labelledby={`${id}-course`}
+          data-testid={`${testIdPrefix}-course`}
+        >
+          <SelectValue placeholder="Choose the course" />
+        </SelectTrigger>
+        <SelectContent>
+          {officeGroups.map((office) => (
+            <SelectGroup key={office}>
+              <SelectLabel>{officeHeading(office)}</SelectLabel>
+              {rows.courses.filter((c) => c.office === office).map((c) => (
+                <SelectItem key={c.key} value={c.key}>{c.label}</SelectItem>
+              ))}
+            </SelectGroup>
+          ))}
+        </SelectContent>
+      </Select>
+
+      {rows.numbers.length > 1 && (
+        <ChoiceRow
+          label="Numbers"
+          values={rows.numbers.map((n) => ({ key: String(n), label: orcNumbersLabel(n) }))}
+          selected={selection.numbers != null ? String(selection.numbers) : undefined}
+          onSelect={(n) => onChoose({ ...selection, numbers: Number(n) })}
+        />
+      )}
+
+      {rows.bands.length > 0 && (
+        <ChoiceRow
+          label="Band"
+          values={rows.bands}
+          selected={selection.band}
+          onSelect={(band) => onChoose({ ...selection, band })}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * The race-start dialog's scoring option: the fleet default, or this
+ * start's own, chosen in rows.
  *
  * `onChange` reports the option, or '' for the fleet default, and the row
  * still to choose when "This start" is incomplete — saving then has
@@ -73,16 +170,11 @@ export function OrcOptionPicker({
 }) {
   const id = useId();
   const [ownOption, setOwnOption] = useState(Boolean(value));
-  const [selection, setSelection] = useState<OrcChoiceSelection>(
-    () => orcChoiceOf(choices, value || fleetDefaultOption) ?? { kind: 'tot' },
+  const { selection, choose, pending: rowsPending } = useOrcChoice(
+    choices,
+    value || fleetDefaultOption,
+    onChange,
   );
-  const rows = orcChoiceRows(choices, selection);
-
-  function choose(wanted: OrcChoiceSelection) {
-    const settled = orcSettleChoice(choices, wanted);
-    setSelection(settled.selection);
-    onChange(settled.option ?? '', settled.option ? null : pendingRow(settled.selection));
-  }
 
   function chooseOwnOption(own: boolean) {
     setOwnOption(own);
@@ -90,8 +182,7 @@ export function OrcOptionPicker({
     else onChange('', null);
   }
 
-  const pending = ownOption && !orcSettleChoice(choices, selection).option ? pendingRow(selection) : null;
-  const officeGroups = [...new Set(rows.courses.map((c) => c.office))];
+  const pending = ownOption ? rowsPending : null;
 
   return (
     <div className="space-y-2">
@@ -119,56 +210,13 @@ export function OrcOptionPicker({
       </div>
 
       {ownOption && (
-        <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-2 pl-5" data-testid="start-orc-rows">
-          <ChoiceRow
-            label="Applied"
-            values={rows.kinds.map((k) => ({ key: k, label: KIND_LABEL[k] }))}
-            selected={selection.kind}
-            onSelect={(kind) => choose({ ...selection, kind: kind as OrcKind })}
-          />
-
-          <span className="text-xs text-muted-foreground" id={`${id}-course`}>Course</span>
-          <Select
-            value={selection.course ?? ''}
-            onValueChange={(course) => choose({ ...selection, course })}
-          >
-            <SelectTrigger
-              className={`w-full h-8 text-sm ${selection.course ? '' : 'border-amber-500'}`}
-              aria-labelledby={`${id}-course`}
-              data-testid="start-orc-course"
-            >
-              <SelectValue placeholder="Choose the course" />
-            </SelectTrigger>
-            <SelectContent>
-              {officeGroups.map((office) => (
-                <SelectGroup key={office}>
-                  <SelectLabel>{officeHeading(office)}</SelectLabel>
-                  {rows.courses.filter((c) => c.office === office).map((c) => (
-                    <SelectItem key={c.key} value={c.key}>{c.label}</SelectItem>
-                  ))}
-                </SelectGroup>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {rows.numbers.length > 1 && (
-            <ChoiceRow
-              label="Numbers"
-              values={rows.numbers.map((n) => ({ key: String(n), label: orcNumbersLabel(n) }))}
-              selected={selection.numbers != null ? String(selection.numbers) : undefined}
-              onSelect={(n) => choose({ ...selection, numbers: Number(n) })}
-            />
-          )}
-
-          {rows.bands.length > 0 && (
-            <ChoiceRow
-              label="Band"
-              values={rows.bands}
-              selected={selection.band}
-              onSelect={(band) => choose({ ...selection, band })}
-            />
-          )}
-        </div>
+        <OrcOptionRows
+          choices={choices}
+          selection={selection}
+          onChoose={choose}
+          testIdPrefix="start-orc"
+          className="pl-5"
+        />
       )}
 
       {pending && (

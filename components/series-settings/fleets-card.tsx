@@ -14,7 +14,9 @@ import { useCompetitorsBySeries, useSaveCompetitors } from '@/hooks/use-competit
 import { useDeleteRaceStart, useSaveRaceStart } from '@/hooks/use-race-starts';
 import { useUpdateSeries } from '@/hooks/use-series';
 import { OrcOptionItems, OrcOptionValue } from '@/components/orc-option-items';
-import { DEFAULT_ORC_PROFILE, ORC_STANDARD_OPTIONS, orcFleetProfile, orcOptionKind, orcSelectableOptions } from '@/lib/orc-certificate';
+import { FleetOrcOptionDialog } from './fleet-orc-option-dialog';
+import { DEFAULT_ORC_PROFILE, ORC_STANDARD_OPTIONS, orcFleetProfile, orcOptionKind, orcOptionLabel, orcSelectableOptions } from '@/lib/orc-certificate';
+import { orcOptionChoices } from '@/lib/orc-option-choices';
 import { ratingVariantLabels, ratingVariantsFor } from '@/lib/fleet-rating-variant';
 import type { Fleet, FleetRatingVariant, RaceStart, Series } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -70,6 +72,27 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
   const fleets = fleetsData ?? [];
   const saveFleet = useSaveFleet();
   const saveFleets = useSaveFleets();
+  // Chosen in rows, as a start's option is, wherever every option can be
+  // taken apart — the catalog names them all, and the fleet's option is one
+  // of them. Otherwise the single list, which shows whatever the fleet holds.
+  const orcChoices = orcOptionChoices(orcCertificateOptions, orcCatalog);
+  const orcRowsUsable = orcCertificateOptions.every((o) => orcCatalog?.[o.option]);
+  const orcOptionInRows = (fleet: Fleet) =>
+    orcRowsUsable && orcChoices.some((c) => c.option === orcFleetProfile(fleet).option);
+  const [editingOrcOptionFor, setEditingOrcOptionFor] = useState<Fleet | null>(null);
+  const commitOrcOption = (fleet: Fleet, option: string) => {
+    const current = orcFleetProfile(fleet);
+    const kind = option === current.option
+      ? current.kind
+      : (orcOptionKind(option) ?? 'tot');
+    // The APHT default stays implicit (no stored profile), matching how
+    // absent has always meant APHT.
+    void saveFleet.mutateAsync({
+      ...fleet,
+      orcProfile:
+        option === DEFAULT_ORC_PROFILE.option ? undefined : { option, kind },
+    });
+  };
   const deleteFleetMutation = useDeleteFleet();
   const saveCompetitors = useSaveCompetitors();
   const saveRaceStart = useSaveRaceStart();
@@ -536,26 +559,26 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
                     />
                   </label>
                 )}
-                {fleet.scoringSystem === 'orc' && (
+                {fleet.scoringSystem === 'orc' && orcOptionInRows(fleet) && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1 min-w-0 h-7 justify-start px-3 text-xs font-normal"
+                    title="The fleet's default scoring option — each race start can override it."
+                    data-testid={`orc-option-${fleet.id}`}
+                    onClick={() => setEditingOrcOptionFor(fleet)}
+                  >
+                    <span className="truncate">{orcOptionLabel(orcFleetProfile(fleet).option, orcCatalog)}</span>
+                  </Button>
+                )}
+                {fleet.scoringSystem === 'orc' && !orcOptionInRows(fleet) && (
                   <Select
                     // Keyed by the option name alone — the option determines
                     // the kind. (A serialized-object value would break here:
                     // the stored profile round-trips through jsonb, which
                     // re-orders object keys, so the string wouldn't match.)
                     value={orcFleetProfile(fleet).option}
-                    onValueChange={(option) => {
-                      const current = orcFleetProfile(fleet);
-                      const kind = option === current.option
-                        ? current.kind
-                        : (orcOptionKind(option) ?? 'tot');
-                      // The APHT default stays implicit (no stored profile),
-                      // matching how absent has always meant APHT.
-                      void saveFleet.mutateAsync({
-                        ...fleet,
-                        orcProfile:
-                          option === DEFAULT_ORC_PROFILE.option ? undefined : { option, kind },
-                      });
-                    }}
+                    onValueChange={(option) => commitOrcOption(fleet, option)}
                   >
                     <SelectTrigger
                       className="flex-1 min-w-0 h-7 text-xs"
@@ -718,6 +741,15 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {editingOrcOptionFor && (
+        <FleetOrcOptionDialog
+          fleetName={editingOrcOptionFor.name}
+          choices={orcChoices}
+          option={orcFleetProfile(editingOrcOptionFor).option}
+          onClose={() => setEditingOrcOptionFor(null)}
+          onSave={(option) => commitOrcOption(editingOrcOptionFor, option)}
+        />
+      )}
       <NhcProfileDialog
         open={editingNhcProfileFor !== null}
         fleetName={editingNhcProfileFor?.name ?? ''}

@@ -1308,3 +1308,21 @@ export async function clickOAuthButton(button: Locator): Promise<void> {
     await expect(ready).toHaveCount(0, { timeout: 1_000 });
   }).toPass({ timeout: 15_000 });
 }
+
+/** Set the one ORC fleet's default scoring option in its rows dialog, from
+ *  the Fleets card while it is open: how the rating is applied, then the
+ *  course where it changes. */
+export async function setFleetOrcOption(
+  page: Page,
+  { applied, course }: { applied: 'Time-on-time' | 'Time-on-distance' | 'Performance curves'; course?: string },
+) {
+  await page.locator('[data-testid^="orc-option-"]').click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByRole('radio', { name: applied, exact: true }).click();
+  if (course) {
+    await dialog.getByTestId('fleet-orc-course').click();
+    await page.getByRole('option', { name: course, exact: true }).click();
+  }
+  await dialog.getByRole('button', { name: 'Save' }).click();
+  await expect(dialog).toBeHidden();
+}

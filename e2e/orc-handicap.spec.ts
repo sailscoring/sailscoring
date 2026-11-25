@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { signedInTest as test, expect } from './fixtures';
-import { createFleets, createSeriesQuick, downloadFleetHtml, enableFeatures, setScoringMode } from './helpers';
+import { createFleets, createSeriesQuick, downloadFleetHtml, enableFeatures, setFleetOrcOption, setScoringMode } from './helpers';
 
 /**
  * E2E for ORC certificate import and scoring — APHT time-on-time and
@@ -257,12 +257,10 @@ test('opening the ORC step gives a series back the option names it lost', async 
     await page.locator('h2', { hasText: 'Fleets' }).locator('..').locator('button').click();
     await page.locator('[data-testid^="orc-option-"]').click();
   };
-  const named = page.getByRole('option', { name: '5-Band 50-50 Windward/Leeward Med · time-on-time' });
-
   // With no names, the fleet's picker offers raw field names.
   await openFleetOptions();
   await expect(page.getByRole('option', { name: 'IRL_5B_WL_M_TOT' })).toBeVisible();
-  await expect(named).toHaveCount(0);
+  await expect(page.getByRole('option', { name: '5-Band 50-50 Windward/Leeward Med · time-on-time' })).toHaveCount(0);
   await page.keyboard.press('Escape');
   await page.getByRole('button', { name: 'Done' }).click();
 
@@ -279,8 +277,22 @@ test('opening the ORC step gives a series back the option names it lost', async 
   await expect(page.getByRole('button', { name: 'Apply 0' })).toBeDisabled();
   await page.getByRole('button', { name: 'Cancel' }).click();
 
+  // With the names back, the fleet's option is chosen in rows, the Irish
+  // courses named as the certificate names them.
   await openFleetOptions();
-  await expect(named).toBeVisible();
+  await page.getByRole('dialog').getByTestId('fleet-orc-course').click();
+  await expect(page.getByRole('group', { name: 'Custom scoring options for Ireland' })).toBeVisible();
+  await page.getByRole('option', { name: '50-50 Windward/Leeward' }).click();
+  // Saving with a row still to choose is refused by name.
+  const dialog = page.getByRole('dialog');
+  await dialog.getByRole('button', { name: 'Save' }).click();
+  await expect(dialog.getByText(/Choose how many numbers for this fleet’s scoring option/)).toBeVisible();
+  await dialog.getByRole('radio', { name: '5-band' }).click();
+  await dialog.getByRole('radio', { name: 'Med', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Save' }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page.locator('[data-testid^="orc-option-"]'))
+    .toHaveText('5-Band 50-50 Windward/Leeward Med · time-on-time');
 });
 
 test('add to fleet: both divisions are offered, and the fleet picks the certificate', async ({ page }) => {
@@ -389,8 +401,7 @@ test('ORC fleet: performance curve scoring over the W/L model', async ({ page })
   // Windward/leeward performance-curve scoring.
   await page.getByRole('link', { name: 'Settings' }).click();
   await page.locator('h2', { hasText: 'Fleets' }).locator('..').locator('button').click();
-  await page.getByRole('combobox').filter({ hasText: 'All-purpose · time-on-time' }).click();
-  await page.getByRole('option', { name: 'Windward/leeward · performance curve (PCS)' }).click();
+  await setFleetOrcOption(page, { applied: 'Performance curves', course: 'Windward/leeward' });
   await page.getByRole('button', { name: 'Done' }).click();
 
   await page.getByRole('link', { name: 'Competitors' }).click();
@@ -439,8 +450,7 @@ test('ORC fleet: PCS over a constructed course entered leg by leg', async ({ pag
 
   await page.getByRole('link', { name: 'Settings' }).click();
   await page.locator('h2', { hasText: 'Fleets' }).locator('..').locator('button').click();
-  await page.getByRole('combobox').filter({ hasText: 'All-purpose · time-on-time' }).click();
-  await page.getByRole('option', { name: 'Constructed course · performance curve (PCS)' }).click();
+  await setFleetOrcOption(page, { applied: 'Performance curves', course: 'Constructed course' });
   await page.getByRole('button', { name: 'Done' }).click();
 
   // The stored selection survives a server round-trip: the profile comes
@@ -448,9 +458,7 @@ test('ORC fleet: PCS over a constructed course entered leg by leg', async ({ pag
   // still display it rather than rendering empty.
   await page.reload();
   await page.locator('h2', { hasText: 'Fleets' }).locator('..').locator('button').click();
-  await expect(
-    page.getByRole('combobox').filter({ hasText: 'Constructed course · performance curve (PCS)' }),
-  ).toBeVisible();
+  await expect(page.locator('[data-testid^="orc-option-"]')).toHaveText('Constructed course · performance curve (PCS)');
   await page.getByRole('button', { name: 'Done' }).click();
 
   await page.getByRole('link', { name: 'Competitors' }).click();
@@ -538,8 +546,7 @@ test('ORC fleet: a constructed course at the wind the committee recorded', async
 
   await page.getByRole('link', { name: 'Settings' }).click();
   await page.locator('h2', { hasText: 'Fleets' }).locator('..').locator('button').click();
-  await page.getByRole('combobox').filter({ hasText: 'All-purpose · time-on-time' }).click();
-  await page.getByRole('option', { name: 'Constructed course at the recorded wind · time-on-time' }).click();
+  await setFleetOrcOption(page, { applied: 'Time-on-time', course: 'Constructed course at the recorded wind' });
   await page.getByRole('button', { name: 'Done' }).click();
 
   await page.getByRole('link', { name: 'Competitors' }).click();
@@ -627,8 +634,7 @@ test('ORC fleet: a recorded-wind race is unscored until every leg has a wind spe
 
   await page.getByRole('link', { name: 'Settings' }).click();
   await page.locator('h2', { hasText: 'Fleets' }).locator('..').locator('button').click();
-  await page.getByRole('combobox').filter({ hasText: 'All-purpose · time-on-time' }).click();
-  await page.getByRole('option', { name: 'Constructed course at the recorded wind · time-on-time' }).click();
+  await setFleetOrcOption(page, { applied: 'Time-on-time', course: 'Constructed course at the recorded wind' });
   await page.getByRole('button', { name: 'Done' }).click();
 
   await page.getByRole('link', { name: 'Competitors' }).click();
@@ -898,8 +904,7 @@ test('ORC fleet: time-on-distance over the start course length', async ({ page }
   // Switch the fleet's rating option to all-purpose time-on-distance (APHD).
   await page.getByRole('link', { name: 'Settings' }).click();
   await page.locator('h2', { hasText: 'Fleets' }).locator('..').locator('button').click();
-  await page.getByRole('combobox').filter({ hasText: 'All-purpose · time-on-time' }).click();
-  await page.getByRole('option', { name: 'All-purpose · time-on-distance (APHD)' }).click();
+  await setFleetOrcOption(page, { applied: 'Time-on-distance' });
   await page.getByRole('button', { name: 'Done' }).click();
 
   await page.getByRole('link', { name: 'Competitors' }).click();
@@ -976,8 +981,7 @@ test('a race waiting on its course holds the publish until the scorer publishes 
   ]);
   await page.getByRole('link', { name: 'Settings' }).click();
   await page.locator('h2', { hasText: 'Fleets' }).locator('..').locator('button').click();
-  await page.getByRole('combobox').filter({ hasText: 'All-purpose · time-on-time' }).click();
-  await page.getByRole('option', { name: 'All-purpose · time-on-distance (APHD)' }).click();
+  await setFleetOrcOption(page, { applied: 'Time-on-distance' });
   await page.getByRole('button', { name: 'Done' }).click();
   await page.getByRole('link', { name: 'Competitors' }).click();
   await importCertificates(page, 2);
