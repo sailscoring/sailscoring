@@ -16,7 +16,7 @@ import { addCompetitor, createSeriesQuick, enableFeatures } from './helpers';
  * says what the test tells it to. The microphone is Chromium's fake one,
  * so sound really flows, is stored, sent and fetched back.
  *
- * Gated behind the operator-managed `voice-recording` feature.
+ * Gated behind the `voice-recording` feature.
  */
 
 test.use({

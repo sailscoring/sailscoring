@@ -173,11 +173,11 @@ second late.
 
 ### 1. A page in the web app first
 
-Voice is built into the Record finishes page, behind an operator-managed
-feature gate, `voice-recording`. It is the fastest way to a trial, and the
-trial is what tells us whether the rest is worth doing. The listening
-screen is described in
-[the flow](../ux/flows/voice-finish-recording.md).
+Voice is built into the Record finishes page, behind a feature gate,
+`voice-recording`, off by default, which a workspace turns on itself. It
+is the fastest way to a trial, and the trial is what tells us whether
+the rest is worth doing. The listening screen is described in [the
+flow](../ux/flows/voice-finish-recording.md).
 
 A native app is not ruled out. §8 says what would bring one.
 

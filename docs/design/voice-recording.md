@@ -12,12 +12,14 @@ with its recording, unless the recorder turns that off.
 - **What else does this, and what we measured:** [`notes/voice-recording/`](../notes/voice-recording/)
 - **The recogniser, its bench, and a page to try it on a phone:** [voice-engine](https://github.com/sailscoring/voice-engine)
 
-Status, November 2026: M1 to M3 are built as a proof of concept, behind the
-operator-managed `voice-recording` gate, to be tried on the water, and were
-rebuilt around the recording's timeline after a first trial of the check
-page (#776). M0 was not done first: nothing has heard a real caller, and
-the first trials are where its questions get answered. See [Trying it](#trying-it) and
-[What the proof of concept leaves rough](#what-the-proof-of-concept-leaves-rough).
+Status, November 2026: M1 to M3 are built as a proof of concept, behind
+the `voice-recording` gate (off by default; a workspace turns it on
+itself), to be tried on the water, and were rebuilt around the
+recording's timeline after a first trial of the check page (#776). M0
+was not done first: nothing has heard a real caller, and the first
+trials are where its questions get answered. See [Trying it](#trying-it)
+and [What the proof of concept leaves
+rough](#what-the-proof-of-concept-leaves-rough).
 
 ## How it works
 
