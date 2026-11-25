@@ -1,6 +1,6 @@
 # OSS Health Report: Lock-in Risks in Your Next.js / Vercel / Postgres Stack
 
-*Compiled April 2026; updated July 8, 2026 for the Vercel/Better Auth acquisition and September 11, 2026 for the Shopify/Tailwind Labs acquisition. Focus: the projects you'd find hardest to migrate away from.*
+*Compiled April 2026; updated July 8, 2026 for the Vercel/Better Auth acquisition and September 11, 2026 for the Shopify/Tailwind Labs acquisition, and November 25, 2026 for the speech recogniser behind recording finishes by voice. Focus: the projects you'd find hardest to migrate away from.*
 
 ## Scope and method
 
@@ -17,6 +17,8 @@ The seven things that actually pin you in are:
 7. **PostgreSQL on Neon** — Postgres itself is highly portable; *Neon* is a vendor commitment.
 
 Vercel is a hosting commitment rather than an OSS one, but it sits behind several of the above and its choices materially affect them, so it gets its own section.
+
+Recording finishes by voice (ADR-017) adds a speech recogniser that runs on the phone. It is not an eighth entry on that list — it sits behind a narrow interface and ships as pinned files — but it is the first dependency here from outside the JavaScript web ecosystem, so §9 covers it briefly.
 
 What follows is what I'd want to know about each before betting a multi-year project on them.
 
@@ -148,11 +150,27 @@ Brief, since it's not strictly an OSS project, but it's relevant context.
 - **The lesson** isn't that Vercel is uniquely insecure — supply-chain-via-OAuth-app is a category problem affecting every SaaS vendor — but it does reinforce that running on Vercel means depending on Vercel's operational security posture, and that environment variables marked merely "non-sensitive" should be treated as potentially readable in a worst case.
 - **Lock-in management.** The Next.js 16.2 stable Adapter API (March 2026) is the single most useful development for portability of the framework. Familiarize yourself with it now, even if you stay on Vercel. It is the seam along which OpenNext, sst, and a few self-host paths now operate.
 
+## 9. The voice engine — sherpa-onnx, ONNX Runtime, and a frozen model
+
+Recording finishes by voice doesn't add an npm dependency. It pins a release of our own `sailscoring/voice-engine` repo (`lib/voice/engine-release.json`), which `pnpm voice:sync` downloads at build time, checks against its manifest's SHA-256s, and serves from the app's own domain. A phone downloads it once, about 82 MB. What that release carries is three things from upstream:
+
+- **sherpa-onnx** — the streaming recogniser, compiled to WebAssembly with Emscripten. Apache 2.0. Part of **Next-gen Kaldi** (the `k2-fsa` GitHub org: k2, Lhotse, Icefall, Sherpa), the successor to Kaldi. Its development is led by Daniel Povey's speech team at **Xiaomi**, where Povey has been chief speech scientist since late 2019 (he was named an ISCA Fellow in July 2026), with Fangjun Kuang as sherpa-onnx's principal author. It is very active — frequent releases, bindings for a dozen languages, wide use on-device — but it is a **single-corporate-lab project**, much like Next.js is a Vercel project: no foundation, and its direction is whatever serves Xiaomi's research and products.
+- **ONNX Runtime** — Microsoft's inference engine, MIT, fetched as a prebuilt WebAssembly library by sherpa-onnx's CMake (pinned by SHA-256 there). Large, well funded, and used across Microsoft's own products; the ONNX format it runs is an LF AI & Data project. Low risk on its own terms.
+- **The model** — a streaming Zipformer English model (2023-06-26, int8), trained on LibriSpeech by the same Xiaomi team. Apache 2.0. A model is a frozen artefact: once a release carries it, nothing upstream can take it away or change it.
+
+**Why the lock-in is low.** The app talks to the engine only through the worker messages in voice-engine's `PROTOCOL.md` — sound in, words with times out — and reads the words as sail numbers in its own TypeScript. Any recogniser that produces timed words can sit behind that protocol; swapping one is a new voice-engine release, not an app change. And because every release is built from a pinned sherpa-onnx commit in a digest-pinned Emscripten container, the release the app has pinned keeps working whatever happens upstream. If sherpa-onnx stalled, what we'd lose is newer models and fixes, not a running feature — the same position as a frozen Tailwind (§3).
+
+**What does need watching:**
+
+- *Supply chain.* This is compiled third-party native code plus a prebuilt binary, running in our users' browsers. The pins and checksums make it reproducible and tamper-evident, not reviewed. Rebuilds should stay deliberate (voice-engine opens an issue when sherpa-onnx tags a newer release, rather than tracking it automatically) and each one goes through the bench.
+- *Licences.* Everything shipped today is Apache 2.0 or MIT, in keeping with the no-copyleft policy, and each release carries its licence texts. The best-performing model on the first bench, Kroko (Banafo), is **CC BY-SA** with commercial licences offered for its other models; voice-engine marks it not shippable until that is decided. Share-alike on a model file is not the GPL on code, but it is a licence decision to take on purpose, not by benchmark.
+- *Model age.* The shipped model is from 2023 and trained on read audiobooks, not called sail numbers over wind. Better models are likely to come from the same Xiaomi team (it has announced a Zipformer successor) — which deepens rather than spreads the dependence on one lab, even though any individual release stays swappable.
+
 ---
 
 ## Cross-cutting observations
 
-**Concentration around Vercel and Meta.** Vercel's footprint in your stack widened in July 2026: on top of Next.js (direct), React (Core team seats and Foundation board), and shadcn/ui (via employment), it now owns Better Auth — so the *auth* layer joined the *framework* and *component* layers under a single vendor. Better Auth had been one of the independent choices in this list; that's no longer true. Tailwind followed in September 2026 (Shopify), leaving **TanStack Query as the only meaningfully independent project in this stack** — Drizzle is PlanetScale-backed, Neon is Databricks-owned, and Next.js, React, shadcn/ui and Better Auth all sit inside Vercel's orbit. This is not unusual for modern JavaScript stacks — it is structural to that ecosystem — but the asymmetry is worth being clear-eyed about: the pieces you'd have called "independent" keep getting acquired.
+**Concentration around Vercel and Meta.** Vercel's footprint in your stack widened in July 2026: on top of Next.js (direct), React (Core team seats and Foundation board), and shadcn/ui (via employment), it now owns Better Auth — so the *auth* layer joined the *framework* and *component* layers under a single vendor. Better Auth had been one of the independent choices in this list; that's no longer true. Tailwind followed in September 2026 (Shopify), leaving **TanStack Query as the only meaningfully independent project in this stack** — Drizzle is PlanetScale-backed, Neon is Databricks-owned, and Next.js, React, shadcn/ui and Better Auth all sit inside Vercel's orbit. This is not unusual for modern JavaScript stacks — it is structural to that ecosystem — but the asymmetry is worth being clear-eyed about: the pieces you'd have called "independent" keep getting acquired. The voice engine (§9) adds a Xiaomi research lab and Microsoft to the list of corporate stewards, but behind a seam narrow enough that it doesn't change the picture.
 
 **Recent security pattern.** Two CVSS 9+ vulnerabilities in Next.js / React in 13 months (CVE-2025-29927, CVE-2025-55182), plus a hosting-provider supply-chain breach (April 2026), plus a maintainer transition in your auth library (Sept 2025). The stack itself is technically excellent; the *operational security posture* of running it requires more active vigilance than, say, a Rails or Django stack with a lower release velocity.
 
@@ -183,6 +201,8 @@ Brief, since it's not strictly an OSS project, but it's relevant context.
    - PlanetScale's treatment of Drizzle — does it remain genuinely vendor-neutral, or does Drizzle's MySQL dialect quietly start outpacing its Postgres one?
    - Better Auth under Vercel — now that Vercel owns it (July 2026), watch whether agent-identity / Vercel-platform priorities start shaping the OSS core, and whether a free-vs-paid boundary emerges around the hosted or agent-identity pieces. The "same open governance, still MIT" promises are worth holding them to.
 
+8. **Keep the voice engine behind its protocol.** Recognition stays in voice-engine and reading words as sail numbers stays in the app; nothing sherpa-onnx-specific should cross `PROTOCOL.md`. Rebuild on sherpa-onnx releases deliberately, bench every rebuild, and decide a model's licence before it ships, never after.
+
 ---
 
-*Sources and dates checked April 26, 2026. **Updated July 8, 2026** to reflect Vercel's acquisition of Better Auth (announced 7 July 2026) — see §5, §8, the concentration note, and recommendations 1 and 7. **Updated September 11, 2026** to reflect Shopify's acquisition of Tailwind Labs (announced 9–10 September 2026) — see §3, the concentration and funding notes, and recommendation 7. The rest of the report still reflects the April snapshot. The fast-moving ones — Vercel breach scope, React Foundation TSC formation, Better Auth's direction under Vercel, and now Tailwind's under Shopify — will continue to develop; this report reflects three points in time, not a live view.*
+*Sources and dates checked April 26, 2026. **Updated July 8, 2026** to reflect Vercel's acquisition of Better Auth (announced 7 July 2026) — see §5, §8, the concentration note, and recommendations 1 and 7. **Updated September 11, 2026** to reflect Shopify's acquisition of Tailwind Labs (announced 9–10 September 2026) — see §3, the concentration and funding notes, and recommendation 7. **Updated November 25, 2026** to cover the speech recogniser that voice-engine builds for recording finishes by voice — see the scope note, §9, the concentration note, and recommendation 8. The rest of the report still reflects the April snapshot. The fast-moving ones — Vercel breach scope, React Foundation TSC formation, Better Auth's direction under Vercel, and now Tailwind's under Shopify — will continue to develop; this report reflects four points in time, not a live view.*
