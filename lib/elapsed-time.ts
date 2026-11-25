@@ -56,6 +56,19 @@ export function elapsedSecondsOf(
 }
 
 /**
+ * Whether the row records the boat finishing at or before its gun: a time
+ * mistyped, or entered against the wrong start. It is a data error rather
+ * than a result, and the scoring engine refuses to score it as a finish.
+ */
+export function finishedBeforeStart(
+  finish: TimedFinish,
+  startSeconds: number | null,
+): boolean {
+  const et = elapsedSecondsOf(finish, startSeconds);
+  return et !== null && et <= 0;
+}
+
+/**
  * The unit a race's corrected times are worked out in.
  *
  * A race is scored at the precision it was timed at. A committee boat working

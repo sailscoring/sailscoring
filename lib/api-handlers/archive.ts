@@ -32,6 +32,7 @@ import {
   gcOrphanIdentities,
   workspaceCrewIdentityFeatureOn,
 } from '@/lib/competitor-identity-reconcile';
+import { mintCategorySlug } from '@/lib/category-slug';
 import { clusterCompetitors } from '@/lib/competitor-identity-cluster';
 import { mapWithConcurrency } from '@/lib/concurrency';
 import { getDb } from '@/lib/db/client';
@@ -43,6 +44,7 @@ import {
   savePublished,
   upsertPublishedFolder,
 } from '@/lib/published-repository';
+import { purgePublishedCache } from '@/lib/published-cache';
 import { contentHash, publishedBlobKey } from '@/lib/publishing';
 import { archivePageView, archiveSection } from '@/lib/public-api/archive-view';
 import { publicationFacts } from '@/lib/public-api/facts';
@@ -182,6 +184,7 @@ export async function putArchiveSeries(
           id: categoryId,
           workspaceId: workspace.workspaceId,
           name: doc.series.category,
+          slug: await mintCategorySlug(tx, workspace.workspaceId, doc.series.category),
           displayOrder: sql<number>`(select coalesce(max(${schema.categories.displayOrder}) + 1, 0) from ${schema.categories} where ${schema.categories.workspaceId} = ${workspace.workspaceId})`,
         });
       }
@@ -835,6 +838,9 @@ export async function applyArchiveIdentities(
     action: 'identities.archive-applied',
     summary: `Applied archive identities: ${applied.identitiesWritten} from the manifest, ${autoPass.identitiesCreated} drafted`,
   });
+  // Identities are the competitor pages, and as-published rankings link
+  // to them.
+  await purgePublishedCache(workspace.workspaceId);
 
   return {
     manifest: {
@@ -945,6 +951,9 @@ export async function putArchiveRanking(
     action: 'rankings.archive-ingested',
     summary: `${existing ? 'Updated' : 'Ingested'} as-published ranking “${doc.ranking.name}”`,
   });
+  // As-published rankings are always public: their own page, the ranking
+  // index, the listing's link, and the ranked seasons on competitor pages.
+  await purgePublishedCache(workspace.workspaceId);
 
   return { rankingId, unchanged: false, linkedRows, rankedCount };
 }
@@ -968,4 +977,5 @@ export async function deleteArchiveRanking(
     action: 'rankings.archive-removed',
     summary: `Deleted as-published ranking “${removed[0].name}”`,
   });
+  await purgePublishedCache(workspace.workspaceId);
 }

@@ -126,11 +126,20 @@ export const categories = pgTable(
       .references(() => organization.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
     displayOrder: integer('display_order').notNull(),
+    // The category's public page is `/p/{ws}/-/{slug}`. Minted from the name
+    // (`lib/category-slug.ts`) and re-derived on rename; the slugs it had
+    // before are kept in `former_slugs` and redirect to the current one.
+    slug: text('slug').notNull(),
+    formerSlugs: text('former_slugs').array().notNull().default([]),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),
   },
   (table) => [
+    uniqueIndex('categories_workspace_slug_uidx').on(
+      table.workspaceId,
+      table.slug,
+    ),
     index('categories_workspace_order_idx').on(
       table.workspaceId,
       table.displayOrder,

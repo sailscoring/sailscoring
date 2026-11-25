@@ -133,7 +133,11 @@ export async function parseWorkbookBytes(bytes: ArrayBuffer): Promise<WorkbookPa
   // Lazy-load the xlsx reader so CSV-only users never download it.
   const { default: readXlsxFile } = await import('read-excel-file/browser');
   try {
-    const sheets = await readXlsxFile(bytes);
+    // Hand over a view, not the bare buffer: the reader recognises a buffer
+    // with `instanceof ArrayBuffer`, which fails for one from another realm
+    // (a buffer made in Node, read under jsdom), while `ArrayBuffer.isView`
+    // accepts a view from anywhere.
+    const sheets = await readXlsxFile(new Uint8Array(bytes));
     return {
       kind: 'sheets',
       sheets: sheets.map((s) => ({ name: s.sheet, rows: normalizeSheetRows(s.data) })),

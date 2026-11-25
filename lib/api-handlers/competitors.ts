@@ -4,9 +4,9 @@ import { and, eq } from 'drizzle-orm';
 
 import { BadRequestError, NotFoundError } from '@/app/api/v1/_lib/handler';
 import {
-  relinkIdentitiesBestEffort,
-  sweepOrphanIdentitiesBestEffort,
-} from '@/lib/competitor-identity-reconcile';
+  relinkIdentitiesAfterCompetitorWrite,
+  sweepIdentitiesAfterCompetitorDelete,
+} from '@/lib/competitor-identity-after-write';
 import { trackChange } from '@/lib/revision-log';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
 import { getDb } from '@/lib/db/client';
@@ -90,7 +90,7 @@ export async function putCompetitor(
   // Lazy identity population (#222): resolve the row's cross-series identity
   // at the point it enters the series. No-op unless the workspace has adopted
   // the identity spine.
-  await relinkIdentitiesBestEffort(workspace.workspaceId);
+  await relinkIdentitiesAfterCompetitorWrite(workspace.workspaceId);
   return saved;
 }
 
@@ -104,7 +104,7 @@ export async function deleteCompetitor(
   const existing = await repos.competitors.get(competitorId);
   if (!existing || existing.seriesId !== seriesId) return;
   await repos.competitors.delete(competitorId);
-  await sweepOrphanIdentitiesBestEffort(workspace.workspaceId);
+  await sweepIdentitiesAfterCompetitorDelete(workspace.workspaceId);
   await trackChange(workspace, {
     action: 'competitor.deleted',
     seriesId,
@@ -145,7 +145,7 @@ export async function bulkPutCompetitors(
   });
   // Lazy identity population (#222). This is the import choke point: CSV,
   // Sailwave, and client-side `.sailscoring` imports all land here.
-  await relinkIdentitiesBestEffort(workspace.workspaceId);
+  await relinkIdentitiesAfterCompetitorWrite(workspace.workspaceId);
   return { count: competitors.length };
 }
 
@@ -495,7 +495,7 @@ export async function deleteCompetitors(
   const targets = existing.filter((c) => wanted.has(c.id));
   if (targets.length === 0) return { count: 0 };
   await repos.competitors.deleteMany(seriesId, targets.map((c) => c.id));
-  await sweepOrphanIdentitiesBestEffort(workspace.workspaceId);
+  await sweepIdentitiesAfterCompetitorDelete(workspace.workspaceId);
   await trackChange(workspace, {
     action: 'competitors.deleted',
     seriesId,

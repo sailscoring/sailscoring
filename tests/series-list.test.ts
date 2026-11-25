@@ -14,7 +14,7 @@ function s(partial: Partial<Series> & { id: string }): Series {
   return { name: partial.id, startDate: '', categoryId: null, ...partial } as unknown as Series;
 }
 function cat(id: string, displayOrder: number, name = id): Category {
-  return { id, name, displayOrder };
+  return { id, name, displayOrder, slug: id };
 }
 
 describe('seriesEventYear', () => {

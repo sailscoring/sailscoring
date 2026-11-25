@@ -147,7 +147,9 @@ describe.skipIf(skip)('the public directory (#670)', () => {
 
     // The directory lists every club in the database, and other test files
     // publish into the same database, so its ETag can move between any two
-    // requests. Replay a fresh ETag straight back until it holds still.
+    // requests. Replay a fresh ETag straight back until it holds still. The
+    // poll's default one-second deadline is shorter than a busy full run
+    // stays still for, so it gets longer.
     await expect
       .poll(async () => {
         const fresh = await get('/p/index.json');
@@ -158,7 +160,7 @@ describe.skipIf(skip)('the public directory (#670)', () => {
           { params: Promise.resolve({ slug: ['index.json'] }) },
         );
         return again.status;
-      })
+      }, { timeout: 15_000 })
       .toBe(304);
   });
 

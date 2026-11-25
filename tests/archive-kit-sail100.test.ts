@@ -51,7 +51,45 @@ const RACE = `<html><body><center>
 </table>
 </center></body></html>`;
 
+/** An older Sail100 page, shaped like Cork Week 2004's: no classes, no
+ *  `<h1>` — the heading is bold text in a layout table — and discards shaded
+ *  grey. */
+const OLDER_STANDINGS = `<HTML><BODY BGCOLOR="#FFFFFF"><Font Face=helvetica,arial>
+<Table border="0" Width="100%"><TR><TD Align="center"><Table border="0">
+<TR><TD Align="center"><Font Size="+1"><B>
+Cork Week IRC1</B></Font></TD></TR>
+<TR><TD Align="center"><Font Size="+1"><B>
+Provisional Results</B></Font></TD></TR>
+</Table></TD></TR></Table>
+<BR><center>
+<Table border="1">
+<TR>
+<TD ALIGN="right" BGCOLOR="#CCFFFF">Series Place</TD><TD>Sail No</TD>
+<TD BGCOLOR="#CCFFFF">Boat</TD><TD>Owner</TD>
+<TD ALIGN="right" BGCOLOR="#CCFFFF">Series Points</TD>
+<TD ALIGN="right"><A HREF="cwirc101.html">Race 1</A></TD>
+<TD ALIGN="right"><A HREF="cwirc102.html">Race 2</A></TD>
+</TR>
+<TR><TD ALIGN="right" BGCOLOR="#CCFFFF">1</TD><TD>IRL9779</TD><TD BGCOLOR="#CCFFFF">Wow</TD><TD>George Sisk</TD>
+<TD ALIGN="right" BGCOLOR="#CCFFFF"> 7 </TD><TD BGCOLOR="#999999" ALIGN="right"> 9 </TD><TD ALIGN="right"> 7 </TD></TR>
+<TR><TD ALIGN="right" BGCOLOR="#CCFFFF">2</TD><TD>GBR1776L</TD><TD BGCOLOR="#CCFFFF">Smile</TD><TD>Mr &amp; Mrs Smith</TD>
+<TD ALIGN="right" BGCOLOR="#CCFFFF"> 5.6 </TD><TD ALIGN="right"> APS5.6 </TD><TD BGCOLOR="#999999" ALIGN="right"> 13 </TD></TR>
+</Table></center></BODY></HTML>`;
+
 describe('sail100 parser', () => {
+  test('an older page: its bold heading is its title, and a grey cell is a discard', () => {
+    const { title, summaries, raceLinks } = parseSail100Html(OLDER_STANDINGS);
+    expect(title).toBe('Cork Week IRC1');
+    expect(summaries).toHaveLength(1);
+    const [section] = summaries;
+    expect(section.leadColumns.map((c) => c.label)).toEqual(['Sail No', 'Boat', 'Owner', 'Series Points']);
+    expect(raceLinks[0]).toEqual(['cwirc101.html', 'cwirc102.html']);
+    expect(section.rows.map((r) => r.raceCells)).toEqual([
+      [{ text: '9', discard: true, podium: 0 }, { text: '7', discard: false, podium: 0 }],
+      [{ text: 'APS5.6', discard: false, podium: 0 }, { text: '13', discard: true, podium: 0 }],
+    ]);
+  });
+
   test('a linked header after Series Points is a race column, whatever it reads', () => {
     const { title, summaries, raceLinks } = parseSail100Html(STANDINGS);
     expect(title).toBe('Saturday series 2023');
@@ -65,6 +103,46 @@ describe('sail100 parser', () => {
       { text: '1', discard: false, podium: 0 },
       { text: '2', discard: true, podium: 0 },
     ]);
+  });
+
+  test('a race page inside a layout table reads its results, and its last heading is the race', () => {
+    // Royal Cork's: the whole page sits in one table, the logos and headings
+    // in a single row of another inside it.
+    const race = parseSail100RaceHtml(`<body><center>
+<table border="0"><tr><th class="m"><center>
+<table border="0" width="100%"><tr>
+<th class="l"><img src="UK.jpg"/></th>
+<th class="m"><h1>UK Halsey</h1><h1>May League ECHO 2</h1><h1>Race 1</h1>
+<h2>Start: Fri 2 May 14 19:05:00</h2></th>
+<th class="n"><img src="RCYC.jpg"/></th>
+</tr></table></center></th></tr><tr><td class="m"><center>
+<table border="1">
+<tr><td class="q">Points</td><td class="o">Sail No</td><td class="o">Boat</td><td class="q">Corrected</td></tr>
+<tr><td class="i">1</td><td>GBR9896</td><td class="c">Magnet</td><td class="n">1:03:58</td></tr>
+</table></center></td></tr></table></center></body>`)!;
+    expect(race.title).toBe('Race 1');
+    expect(race.caption).toBe('Start: Fri 2 May 14 19:05:00');
+    expect(race.columns.map((c) => c.label)).toEqual(['Points', 'Sail No', 'Boat', 'Corrected']);
+    expect(race.rows).toEqual([['1', 'GBR9896', 'Magnet', '1:03:58']]);
+  });
+
+  test('an older race page reads its headings from bold lines and its start from plain text', () => {
+    // Cork Week 2004's: no <h1> or <h2>, the headings stacked a cell to a row.
+    const race = parseSail100RaceHtml(`<BODY><Table border="0" Width="100%"><TR>
+<TD><IMG SRC="2004 logo.jpg"></TD>
+<TD Align="center"><Table border="0">
+<TR><TD Align="center"><Font Size="+1"><B>Cork Week IRC1</B></Font></TD></TR>
+<TR><TD Align="center"><Font Size="+1"><B>Race 1</B></Font></TD></TR>
+<TR><TD Align="center">Start: Mon 12 Jul 04 11:10:00</TD></TR>
+<TR><TD Align="center">Provisional Result</TD></TR>
+</Table></TD></TR></Table>
+<Center><Table border="1">
+<TR><TD>Points</TD><TD>Sail No</TD><TD>Boat</TD><TD>Elapsed</TD></TR>
+<TR><TD>1</TD><TD>GBR2027</TD><TD><B>Eclipse</B></TD><TD>4:25:15</TD></TR>
+</Table></Center></BODY>`)!;
+    expect(race.title).toBe('Race 1');
+    expect(race.caption).toBe('Start: Mon 12 Jul 04 11:10:00');
+    expect(race.rows).toEqual([['1', 'GBR2027', 'Eclipse', '4:25:15']]);
   });
 
   test('a race page reads as a race table, keeping its repeated column', () => {

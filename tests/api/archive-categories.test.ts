@@ -165,6 +165,36 @@ describe.skipIf(skip)('archive + categories (#154)', () => {
     expect((await categories.listCategories(ctx)).items).toHaveLength(0);
   });
 
+  test('category slugs: minted from the name, suffixed on a clash, re-derived on rename', async () => {
+    const a = await categories.createCategory(ctx, { name: 'Cork Week' });
+    const b = await categories.createCategory(ctx, { name: 'Cork-Week' });
+    expect(a.slug).toBe('cork-week');
+    expect(b.slug).toBe('cork-week-2');
+
+    // A rename takes the new name's slug and keeps the old one as former.
+    const renamed = await categories.renameCategory(ctx, a.id, { name: 'Cork Week Regatta' });
+    expect(renamed.slug).toBe('cork-week-regatta');
+    const [row] = await db
+      .select({ formerSlugs: schema.categories.formerSlugs })
+      .from(schema.categories)
+      .where(eq(schema.categories.id, a.id));
+    expect(row.formerSlugs).toEqual(['cork-week']);
+
+    // A rename that reads the same keeps the slug and adds no former one; a
+    // rename back drops the current slug from the former list.
+    await categories.renameCategory(ctx, a.id, { name: 'Cork week regatta' });
+    const back = await categories.renameCategory(ctx, a.id, { name: 'Cork Week' });
+    expect(back.slug).toBe('cork-week');
+    const [after] = await db
+      .select({ formerSlugs: schema.categories.formerSlugs })
+      .from(schema.categories)
+      .where(eq(schema.categories.id, a.id));
+    expect(after.formerSlugs).toEqual(['cork-week-regatta']);
+
+    await categories.deleteCategory(ctx, a.id);
+    await categories.deleteCategory(ctx, b.id);
+  });
+
   test('moving a series to a category, and delete drops it to Uncategorized', async () => {
     const id = uuid();
     await series.putSeries(ctx, id, sampleSeries(id));

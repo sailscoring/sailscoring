@@ -9,6 +9,7 @@ import {
   type WorkspaceContext,
 } from '@/lib/auth/require-workspace';
 import { mintSlug } from '@/lib/competitor-slug';
+import { purgePublishedCache } from '@/lib/published-cache';
 import { getDb } from '@/lib/db/client';
 import { rankings } from '@/lib/db/schema/series';
 import { newRankingBucket, type RankingConfig } from '@/lib/ranking';
@@ -190,6 +191,10 @@ export async function putRanking(
       ),
     )
     .returning();
+  // A public ranking's name, slug and config are on `/p`: the ranking index,
+  // its own page, and the workspace listing's link to them. (A new ranking
+  // starts private, so creating one needs no purge.)
+  await purgePublishedCache(workspace.workspaceId);
   return toDto(row);
 }
 
@@ -206,6 +211,7 @@ export async function deleteRanking(
         eq(rankings.id, id),
       ),
     );
+  await purgePublishedCache(workspace.workspaceId);
 }
 
 /** The computed ladder for the in-app view — every config series counts,

@@ -1,0 +1,124 @@
+description: "ECHO — a finish time before the start is not scored as a finish"
+notes: |
+  Race 1 of fixture 04, with a fourth boat whose finish was mistyped: Delta is
+  recorded crossing at 11:55:00 for a 12:00:00 gun. Scored as a finish, that
+  is an elapsed time of −5 minutes, a negative corrected time and first place,
+  and it drags the fleet's aggregates with it — so every other boat's new
+  handicap comes out wrong too.
+
+  A finish at or before the start is a data error, not a result. Delta scores
+  as a boat with no time does — DNF, entries (4) + 1 = 5 points — and the
+  standings report it, naming the race, until the scorer puts the time right.
+  Delta is left out of the race's aggregates: three finishers, and ΣH and
+  Σ(1/T_E) are fixture 04's exactly, so Alpha, Bravo and Charlie's results
+  and new handicaps are fixture 04's too. Delta's handicap carries unchanged.
+
+series:
+  discardThresholds: []
+
+fleet:
+  scoringSystem: echo
+  alpha: 0.25
+
+competitors:
+  - sailNumber: "1"
+    name: "Alpha"
+    echoStartingTcf: 1.000
+  - sailNumber: "2"
+    name: "Bravo"
+    echoStartingTcf: 1.020
+  - sailNumber: "3"
+    name: "Charlie"
+    echoStartingTcf: 1.050
+  - sailNumber: "4"
+    name: "Delta"
+    echoStartingTcf: 0.980
+
+races:
+  - number: 1
+    startTime: "12:00:00"
+    finishes:
+      - sailor: "4"
+        finishTime: "11:55:00"   # before the gun — mistyped
+      - sailor: "1"
+        finishTime: "13:00:00"   # 60 min
+      - sailor: "2"
+        finishTime: "13:01:00"   # 61 min
+      - sailor: "3"
+        finishTime: "13:02:00"   # 62 min
+    rejected:
+      - sailor: "4"
+        reason: "finish_before_start"
+    aggregates:
+      alpha: 0.25
+      finisherCount: 3
+      ctAvg: 3746.333333
+      meanTcf: 1.023333333
+      sumH: 3.07
+      sumReciprocalEt: 0.000819819026
+      updateSuppressed: false
+    expected:
+      - sailor: "1"
+        rank: 1
+        points: 1
+        elapsedTime: 3600
+        correctedTime: 3600
+        tcfApplied: 1.000
+        pi: 1.040202
+        adjustment: 0.010051
+        newTcf: 1.010
+      - sailor: "2"
+        rank: 2
+        points: 2
+        elapsedTime: 3660
+        correctedTime: 3733
+        tcfApplied: 1.020
+        pi: 1.023150
+        adjustment: 0.000787
+        newTcf: 1.021
+      - sailor: "3"
+        rank: 3
+        points: 3
+        elapsedTime: 3720
+        correctedTime: 3906
+        tcfApplied: 1.050
+        pi: 1.006648
+        adjustment: -0.010838
+        newTcf: 1.039
+      - sailor: "4"
+        rank: null
+        points: 5             # entries (4) + 1
+        code: "DNF"
+        tcfApplied: 0.980
+        newTcf: 0.980          # unchanged
+
+expected:
+  standings:
+    - rank: 1
+      sailor: "1"
+      racePoints: [1]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 1
+      netPoints: 1
+    - rank: 2
+      sailor: "2"
+      racePoints: [2]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 2
+      netPoints: 2
+    - rank: 3
+      sailor: "3"
+      racePoints: [3]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 3
+      netPoints: 3
+    - rank: 4
+      sailor: "4"
+      racePoints: [5]
+      raceCodes: ["DNF"]
+      raceDiscards: [false]
+      totalPoints: 5
+      netPoints: 5

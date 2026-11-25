@@ -1384,6 +1384,71 @@ describe('calculateFleetStandings — NHC progressive handicap', () => {
   });
 });
 
+// ─── A finish at or before its start ─────────────────────────────────────────
+
+describe('a finish recorded at or before its start', () => {
+  const fleet = (scoringSystem: Fleet['scoringSystem']): Fleet => ({ id: 'fl-0', seriesId: 's1', name: 'F', displayOrder: 0, scoringSystem });
+  const comp = (id: string, rating: Partial<Competitor>): Competitor => ({
+    id, seriesId: 's1', fleetIds: ['fl-0'], sailNumber: id, names: [id], clubs: [], gender: '', age: null, createdAt: 0, ...rating,
+  });
+  const race = (id: string, raceNumber: number): Race => ({ id, seriesId: 's1', raceNumber, name: null, date: '2026-10-01', createdAt: 0 });
+  const start = (raceId: string): RaceStart => ({ id: `rs-${raceId}`, raceId, fleetIds: ['fl-0'], startTime: '12:17:00' });
+  const fin = (raceId: string, competitorId: string, timing: Partial<Finish>): Finish => ({
+    ...makeFinish(raceId, competitorId, null), id: `f-${raceId}-${competitorId}`, ...timing,
+  });
+
+  it('scores the boat DNF, not first, and reports the boat and race', () => {
+    const comps = ['A', 'B', 'C'].map((id) => comp(id, { ircTcc: 1.0 }));
+    const finishes = [
+      fin('r1', 'A', { finishTime: '12:15:30' }), // mistyped: before the 12:17:00 gun
+      fin('r1', 'B', { finishTime: '12:58:30' }),
+      fin('r1', 'C', { finishTime: '13:02:00' }),
+    ];
+    const { fleetStandings } = calculateFleetStandings([fleet('irc')], comps, [race('r1', 1)], finishes, [], 'seriesEntries', [start('r1')]);
+    const r = fleetStandings[0];
+    const a = r.standings.find((s) => s.competitor.id === 'A')!;
+    expect(a.raceCodes[0]).toBe('DNF');
+    expect(r.standings.find((s) => s.competitor.id === 'B')!.racePoints[0]).toBe(1);
+    expect(r.rejections).toEqual([{ competitorId: 'A', raceId: 'r1', reason: 'finish_before_start' }]);
+  });
+
+  it('treats a finish on the gun, and a zero elapsed time, the same way', () => {
+    const comps = ['A', 'B', 'C'].map((id) => comp(id, { ircTcc: 1.0 }));
+    const finishes = [
+      fin('r1', 'A', { finishTime: '12:17:00' }),
+      fin('r1', 'B', { elapsedSecs: 0 }),
+      fin('r1', 'C', { finishTime: '13:02:00' }),
+    ];
+    const { scores, finishedBeforeStart } = calculateHandicapRaceScores(finishes, comps, start('r1'), new Map(comps.map((c) => [c.id, 1.0])));
+    expect(finishedBeforeStart.sort()).toEqual(['A', 'B']);
+    expect(scores.get('A')!.resultCode).toBe('DNF');
+    expect(scores.get('B')!.resultCode).toBe('DNF');
+    expect(scores.get('C')!.place).toBe(1);
+  });
+
+  it('leaves the boat out of an ECHO fleet\'s race aggregates', () => {
+    const comps = ['A', 'B', 'C', 'D'].map((id) => comp(id, { echoStartingTcf: 1.0 }));
+    const clean = [
+      fin('r1', 'B', { finishTime: '12:58:30' }),
+      fin('r1', 'C', { finishTime: '13:02:00' }),
+      fin('r1', 'D', { finishTime: '13:05:00' }),
+    ];
+    const withError = [fin('r1', 'A', { finishTime: '12:15:30' }), ...clean];
+    const withoutA = [fin('r1', 'A', { resultCode: 'DNF' }), ...clean];
+    const score = (finishes: Finish[]) =>
+      calculateFleetStandings([fleet('echo')], comps, [race('r1', 1)], finishes, [], 'seriesEntries', [start('r1')]).fleetStandings[0];
+    const bad = score(withError);
+    const ref = score(withoutA);
+    const aggregates = bad.echoAggregatesByRaceId!.get('r1')!;
+    expect(aggregates.finisherCount).toBe(3);
+    expect(aggregates.ctAvg).toBe(ref.echoAggregatesByRaceId!.get('r1')!.ctAvg);
+    for (const id of ['B', 'C', 'D']) {
+      expect(bad.echoRaceScoresByRaceId!.get('r1')!.get(id)!.newTcf).toBe(ref.echoRaceScoresByRaceId!.get('r1')!.get(id)!.newTcf);
+    }
+    expect(bad.rejections).toEqual([{ competitorId: 'A', raceId: 'r1', reason: 'finish_before_start' }]);
+  });
+});
+
 // ─── Per-fleet stated RDG / DPI points (multi-fleet competitors) ─────────────
 
 describe('per-fleet stated RDG / DPI points', () => {

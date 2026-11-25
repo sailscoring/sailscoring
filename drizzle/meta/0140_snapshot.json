@@ -1,6 +1,6 @@
 {
-  "id": "7503fd71-8629-4003-8f5f-8c408719c849",
-  "prevId": "d0e7da0c-5871-4e14-8fe3-846367679d90",
+  "id": "d6e27e2f-d6dd-4067-be26-1f997b3c13dd",
+  "prevId": "7649eb1d-e0f0-42d0-8f5b-7ba1b6362541",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -2840,6 +2840,19 @@
           "primaryKey": false,
           "notNull": true
         },
+        "slug": {
+          "name": "slug",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "former_slugs": {
+          "name": "former_slugs",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'"
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -2849,6 +2862,27 @@
         }
       },
       "indexes": {
+        "categories_workspace_slug_uidx": {
+          "name": "categories_workspace_slug_uidx",
+          "columns": [
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "slug",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "categories_workspace_order_idx": {
           "name": "categories_workspace_order_idx",
           "columns": [

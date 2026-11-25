@@ -25,5 +25,7 @@ const _categoryShape: Category = undefined as unknown as {
   id: string;
   name: string;
   displayOrder: number;
+  slug: string;
+  publicPath?: string | null;
 };
 void _categoryShape;

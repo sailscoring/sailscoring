@@ -42,6 +42,7 @@ import { getDb } from '@/lib/db/client';
 import {
   isAuxiliaryPage,
   renderRankingIndexHtml,
+  workspaceIndexEvents,
   renderSeriesIndexHtml,
   renderWorkspaceIndexHtml,
   type SeriesIndexGroup,
@@ -65,19 +66,30 @@ import {
   getPublishedRedirect,
   assemblePublishedSeasonTree,
   readPublishedSeasonTreeRows,
-  getSeriesName,
   getWorkspaceBySlug,
   listPublishedByWorkspace,
   listPublishedByWorkspaceDigest,
   listPublishedSeriesIds,
   listPublicationsForIndex,
+  listPublishedCategories,
   readDirectoryRows,
   readPublicationPages,
 } from '@/lib/published-repository';
 import { buildPublicIndex, PUBLIC_INDEX_VERSION } from '@/lib/published-index-json';
+import {
+  CATEGORY_SEGMENT,
+  categoryPagePath,
+  positionCategoryLink,
+  renderCategoryIndexHtml,
+  resolveCategorySegment,
+  type CategoryLink,
+  type PublishedCategory,
+} from '@/lib/published-category';
 import type { OrgMetadata } from '@/lib/features';
-import type { PublishedSeasonTreeRows } from '@/lib/published-repository';
-import type { PublishedSeries } from '@/lib/types';
+import type {
+  PublishedGroupMember,
+  PublishedSeasonTreeRows,
+} from '@/lib/published-repository';
 
 export const dynamic = 'force-dynamic';
 
@@ -96,17 +108,26 @@ const CACHE_CONTROL = 'public, no-cache';
 // `Vercel-CDN-Cache-Control` is consumed at the edge and never forwarded, so
 // the browser still revalidates on every view and can never hold a stale copy.
 // That revalidation then terminates at the CDN, which answers 304 from its own
-// copy without waking a function or touching Postgres. Publishing purges the
-// tag below, so the guarantee above survives: browser asks, CDN has been
-// emptied, origin regenerates.
+// copy without waking a function or touching Postgres.
 //
-// 60s is a deliberate floor rather than a target. The purge covers everything
-// that writes through the publication repository; a series rename, a
-// re-ordering, or a feature flag flipped by an out-of-band script does not go
-// through it, and this is what picks those up without anything having to be
-// enumerated. No stale-while-revalidate: it would serve past the floor, which
-// is the property being bought.
-const CDN_CACHE_CONTROL = 'public, s-maxage=60';
+// The CDN keeps a page for a day, so a client polling every few minutes
+// doesn't keep the database awake. Freshness comes from the purge, not the
+// lifetime: every write that changes what these pages show deletes the
+// workspace's tag after it commits (publishing, seasons, series names and
+// placement, the logo, features, rankings), and a write made from a terminal
+// prints the `public-cache:purge:prod` command to run. So the guarantee above
+// survives: browser asks, CDN has been emptied, origin regenerates. A writer
+// that misses its purge leaves pages stale for up to the lifetime. A deploy
+// empties the CDN, so a renderer change never waits for it. No
+// stale-while-revalidate: it would serve a purged page's old copy once more.
+const CDN_CACHE_CONTROL = 'public, s-maxage=86400';
+
+// The exception: pages scored from the live series on every request (the
+// computed ranking ladder, the competitor timeline and index). Every
+// competitor, finish or setting written to a published series can change
+// them, and purging on all of those would empty the workspace's cache on
+// every race-day save. They keep a short lifetime instead.
+const LIVE_CDN_CACHE_CONTROL = 'public, s-maxage=60';
 
 /** The served ETag for an HTML page: the caller's content-derived tag plus the
  *  sponsor revision. The burgee footer is injected into every page this route
@@ -135,13 +156,14 @@ function htmlResponse(
   html: string,
   contentEtag: string,
   cacheTag: string,
+  cdnCacheControl: string = CDN_CACHE_CONTROL,
 ): Response {
   return new Response(injectBeforeBodyEnd(html, renderSponsorFooterHtml()), {
     status: 200,
     headers: {
       'content-type': 'text/html; charset=utf-8',
       'cache-control': CACHE_CONTROL,
-      'Vercel-CDN-Cache-Control': CDN_CACHE_CONTROL,
+      'Vercel-CDN-Cache-Control': cdnCacheControl,
       'Vercel-Cache-Tag': cacheTag,
       etag: pageEtag(contentEtag),
     },
@@ -193,6 +215,7 @@ function jsonResponse(json: string, etag: string, cacheTag: string): Response {
  *   /p/{ws}/{series}            → series index: that publication's fleet pages (rendered live)
  *   /p/{ws}/{series}/{subPath}  → a fleet's standings HTML (`standings` or `kebab(fleet)`;
  *                                 sub-series pages add a block segment, `{block}/{fleet}`)
+ *   /p/{ws}/-/{category}        → a category's events across every season
  *   /p/{ws}/index.json          → the workspace's publications as JSON (#669)
  *   /p/{ws}/{season}/index.json → the same, narrowed to one season
  *
@@ -272,6 +295,11 @@ async function dispatch(
   if (segments.length === 3 && segments[1] === 'ranking') {
     return rankingPage(req, segments[0], segments[2]);
   }
+  // `/p/{ws}/-/{category}` — a category's page. No published slug can be
+  // `-`, so the reserved segment never shadows a season or a folder.
+  if (segments.length === 3 && segments[1] === CATEGORY_SEGMENT) {
+    return categoryPage(req, segments[0], segments[2]);
+  }
   if (segments.length === 2) return seriesIndex(req, segments[0], segments[1]);
   // Page sub-paths are one segment per fleet page, two for a sub-series page
   // (`{kebab(block)}/{fleet}`); the stored subPath carries the slash.
@@ -296,10 +324,11 @@ async function workspaceIndex(
   // is read as rows and assembled below rather than fetched whole, because
   // assembling it needs the folder metadata and awaiting that first would put
   // these round trips back in a queue.
-  const [digest, folderMeta, seasonRows] = await Promise.all([
+  const [digest, folderMeta, seasonRows, categories] = await Promise.all([
     listPublishedByWorkspaceDigest(workspace.id),
     getPublishedFolderMeta(workspace.id),
     readPublishedSeasonTreeRows(workspace.id),
+    listPublishedCategories(workspace.id),
   ]);
   // Don't reveal that a workspace exists if it has published nothing.
   if (digest.length === 0) return NOT_FOUND;
@@ -347,10 +376,12 @@ async function workspaceIndex(
   // hashed above, so this is a sound basis. The lines are sorted because
   // `published_at` alone is not a total order over the rows.
   const etag = `"${await contentHash([
+    `name:${workspace.name}`,
     `logo:${workspace.logo}`,
     `competitors:${competitorsLink}`,
     `rankings:${rankingsLink}`,
     `current:${currentSeason ?? ''}`,
+    ...categoriesEtag(categories),
     ...[...folderMeta].map(
       ([p, m]) => `fmeta:${p}:${m.label ?? ''}:${m.season ?? ''}`,
     ),
@@ -371,6 +402,90 @@ async function workspaceIndex(
     currentSeason,
     folderMeta,
     indexJsonHref: `/p/${workspaceSlug}/index.json`,
+    categoryHrefs: new Map(
+      categories.map((c) => [c.name, categoryPagePath(workspaceSlug, c.slug)]),
+    ),
+  });
+  return htmlResponse(html, etag, publishedCacheTag(workspace.id));
+}
+
+/** The published categories' contribution to a listing's ETag: a rename, a
+ *  new slug, or a category gaining its first publication changes the links. */
+function categoriesEtag(categories: PublishedCategory[]): string[] {
+  return categories.map((c) => `cat:${c.id}:${c.name}:${c.slug}:${c.publishedCount}`);
+}
+
+/** A category link's contribution to a page ETag. */
+function categoryLinkEtag(link: CategoryLink | null): string {
+  return `catlink:${link ? `${link.href}~${link.label}` : ''}`;
+}
+
+/**
+ * `/p/{ws}/-/{category}` — every published event filed in a category, across
+ * every season. A former slug (the category was renamed) 301s to the current
+ * one. 404 for a category with nothing published, so creating a category in
+ * the app never quietly creates a public page.
+ */
+async function categoryPage(
+  req: NextRequest,
+  workspaceSlug: string,
+  segment: string,
+): Promise<Response> {
+  const workspace = await getWorkspaceBySlug(workspaceSlug);
+  if (!workspace) return NOT_FOUND;
+
+  const [digest, folderMeta, categories] = await Promise.all([
+    listPublishedByWorkspaceDigest(workspace.id),
+    getPublishedFolderMeta(workspace.id),
+    listPublishedCategories(workspace.id),
+  ]);
+  const resolved = resolveCategorySegment(categories, segment);
+  if (!resolved) return NOT_FOUND;
+  const { category } = resolved;
+  if (resolved.former) {
+    return new Response(null, {
+      status: 301,
+      headers: {
+        location: categoryPagePath(workspaceSlug, category.slug),
+        'cache-control': 'public, max-age=3600',
+      },
+    });
+  }
+
+  // The page is the workspace listing narrowed to one category, so it rests
+  // on the same inputs as the listing's own ETag.
+  const etag = `"${await contentHash([
+    `name:${workspace.name}`,
+    `logo:${workspace.logo}`,
+    `category:${category.id}:${category.name}:${category.slug}`,
+    ...[...folderMeta].map(
+      ([p, m]) => `fmeta:${p}:${m.label ?? ''}:${m.season ?? ''}`,
+    ),
+    ...digest
+      .map(
+        (d) =>
+          `${d.slug}:${d.seriesId ?? ''}:${d.publishedAt}:${d.publishedVersion}:${d.contentHash}:${d.pagesHash}:${d.seriesName ?? ''}:${d.seriesOrder}:${d.startYear ?? ''}:${d.categoryName ?? ''}`,
+      )
+      .sort(),
+  ])}"`;
+  const cached = notModified(req, etag);
+  if (cached) return cached;
+
+  const events = workspaceIndexEvents(
+    workspaceSlug,
+    await listPublishedByWorkspace(workspace.id),
+    folderMeta,
+  ).filter((e) => e.categoryName === category.name);
+  // Every publication in the category may share a slug filed under another
+  // category (a shared slug lands where its newest contributor sits).
+  if (events.length === 0) return NOT_FOUND;
+
+  const html = renderCategoryIndexHtml({
+    workspaceSlug,
+    workspaceName: workspace.name,
+    categoryName: category.name,
+    events,
+    logoUrl: workspace.logo,
   });
   return htmlResponse(html, etag, publishedCacheTag(workspace.id));
 }
@@ -435,10 +550,11 @@ async function indexJson(
   // Freshness first, as for the HTML listing: the digest condenses each
   // publication's pages and summary into hashes, so a poller holding the
   // current version is answered without reading every page list.
-  const [digest, folderMeta, seasonRows] = await Promise.all([
+  const [digest, folderMeta, seasonRows, categories] = await Promise.all([
     listPublishedByWorkspaceDigest(workspace.id),
     getPublishedFolderMeta(workspace.id),
     readPublishedSeasonTreeRows(workspace.id),
+    listPublishedCategories(workspace.id),
   ]);
   if (digest.length === 0) return NOT_FOUND;
   const seasonTree = assemblePublishedSeasonTree(seasonRows, folderMeta);
@@ -461,13 +577,14 @@ async function indexJson(
     `logo:${workspace.logo}`,
     `season:${season ?? ''}`,
     ...seasonTreeEtag(seasonTree),
+    ...categoriesEtag(categories),
     ...[...folderMeta].map(
       ([p, m]) => `fmeta:${p}:${m.label ?? ''}:${m.season ?? ''}`,
     ),
     ...digest
       .map(
         (d) =>
-          `${d.slug}:${d.seriesId ?? ''}:${d.publishedAt}:${d.contentHash}:${d.pagesHash}:${d.summaryHash}:${d.apiId ?? ''}:${d.seriesName ?? ''}:${d.seriesOrder}`,
+          `${d.slug}:${d.seriesId ?? ''}:${d.publishedAt}:${d.contentHash}:${d.pagesHash}:${d.summaryHash}:${d.apiId ?? ''}:${d.seriesName ?? ''}:${d.seriesOrder}:${d.categoryName ?? ''}`,
       )
       .sort(),
   ])}"`;
@@ -480,6 +597,7 @@ async function indexJson(
     seasonTree,
     folderMeta,
     publications: await listPublicationsForIndex(workspace.id),
+    categories,
     ...(season !== undefined ? { season } : {}),
   });
   return jsonResponse(
@@ -508,6 +626,7 @@ async function rankingIndex(
   if (entries.length === 0) return NOT_FOUND;
 
   const etag = `"${await contentHash([
+    `name:${workspace.name}`,
     `logo:${workspace.logo}`,
     ...entries.map((r) => `${r.slug}:${r.name}`),
   ])}"`;
@@ -549,6 +668,7 @@ async function rankingPage(
   // a contributing series, or a rename busts the cache while a repeat view
   // revalidates without re-rendering.
   const etag = `"${await contentHash([
+    `workspace:${workspace.name}`,
     `logo:${workspace.logo}`,
     `name:${ranking.name}`,
     `links:${competitorLinks}`,
@@ -576,7 +696,7 @@ async function rankingPage(
     standings,
     { competitorLinks, logoUrl: workspace.logo },
   );
-  return htmlResponse(html, etag, publishedCacheTag(workspace.id));
+  return htmlResponse(html, etag, publishedCacheTag(workspace.id), LIVE_CDN_CACHE_CONTROL);
 }
 
 /** The as-published fall-through for `/p/{ws}/ranking/{slug}` (#309): a
@@ -623,6 +743,7 @@ async function asPublishedRankingPage(
   );
 
   const etag = `"${await contentHash([
+    `name:${workspace.name}`,
     `logo:${workspace.logo}`,
     `links:${competitorLinks}`,
     `hash:${record.hash}`,
@@ -671,6 +792,7 @@ async function careerArc(
   // (which changes a deep-link) busts the cache, while a repeat view
   // revalidates without re-rendering.
   const etag = `"${await contentHash([
+    `name:${workspace.name}`,
     `logo:${workspace.logo}`,
     `label:${identity.label}`,
     ...identity.entries.map(
@@ -690,7 +812,7 @@ async function careerArc(
     identity,
     workspace.logo,
   );
-  return htmlResponse(html, etag, publishedCacheTag(workspace.id));
+  return htmlResponse(html, etag, publishedCacheTag(workspace.id), LIVE_CDN_CACHE_CONTROL);
 }
 
 /** `/p/{ws}/competitors` — the browsable, searchable index of every recurring
@@ -734,6 +856,7 @@ async function competitorIndex(
   // ETag over each row's identity (slug, name, sails, year span, counts) so a
   // rename, split, a newly linked series, or a new ranking busts the index.
   const etag = `"${await contentHash([
+    `name:${workspace.name}`,
     `logo:${workspace.logo}`,
     ...competitors.map(
       (c) =>
@@ -749,7 +872,7 @@ async function competitorIndex(
     competitors,
     workspace.logo,
   );
-  return htmlResponse(html, etag, publishedCacheTag(workspace.id));
+  return htmlResponse(html, etag, publishedCacheTag(workspace.id), LIVE_CDN_CACHE_CONTROL);
 }
 
 /** `/p/{ws}/{series}` — the fleet listing for a slug. A slug is a shared
@@ -763,10 +886,11 @@ async function seriesIndex(
   const workspace = await getWorkspaceBySlug(workspaceSlug);
   if (!workspace) return NOT_FOUND;
 
-  const [folderMeta, group, seasonRows] = await Promise.all([
+  const [folderMeta, group, seasonRows, categories] = await Promise.all([
     getPublishedFolderMeta(workspace.id),
     getPublishedGroupByWorkspaceSlug(workspace.id, seriesSlug),
     readPublishedSeasonTreeRows(workspace.id),
+    listPublishedCategories(workspace.id),
   ]);
   if (group.length === 0) {
     // No published slug of this name: the segment may name a season whose
@@ -781,36 +905,42 @@ async function seriesIndex(
     );
   }
 
-  // The listing changes only when a contributor re-publishes, so the members'
-  // content hashes compose a sound ETag — plus the workspace logo, which the
-  // hero shows, and the season tree and folder labels the cascade renders.
+  // The listing's pages change only when a contributor re-publishes, so the
+  // members' content hashes cover them. The rest is read live: the workspace
+  // name and logo the hero shows, each contributor's series name, and the
+  // season tree and folder labels the cascade renders.
   const seasonTree = assemblePublishedSeasonTree(seasonRows, folderMeta);
   const folderLabels = interiorFolderLabels(folderMeta, seriesSlug);
+  const categoryLink = positionCategoryLink({
+    workspaceSlug,
+    categories,
+    members: group,
+    seasonLabels: seasonTree.seasons.map((s) => s.label),
+  });
   const etag = `"${await contentHash([
+    `name:${workspace.name}`,
     `logo:${workspace.logo}`,
-    ...group.map((p) => p.contentHash),
+    ...group.map((p) => `${p.contentHash}:${p.seriesName ?? ''}`),
     ...seasonTreeEtag(seasonTree),
     ...[...folderLabels].map(([s, l]) => `flabel:${s}:${l}`),
+    categoryLinkEtag(categoryLink),
   ])}"`;
   const cached = notModified(req, etag);
   if (cached) return cached;
 
-  const groups: SeriesIndexGroup[] = await Promise.all(
-    group.map(async (p) => ({
-      seriesName:
-        (p.seriesId ? await getSeriesName(p.seriesId) : null) ?? seriesSlug,
-      pages: p.pages.map((pg) => ({
-        fleetName: pg.fleetName,
-        ...(pg.subSeriesName ? { subSeriesName: pg.subSeriesName } : {}),
-        ...(pg.isPrizes ? { isPrizes: true } : {}),
-        ...(pg.isEntryList ? { isEntryList: true } : {}),
-        ...(pg.isAuxiliary ? { isAuxiliary: true } : {}),
-        ...(pg.isNamedPage ? { isNamedPage: true } : {}),
-        ...(pg.isRaceResults ? { isRaceResults: true } : {}),
-        subPath: pg.subPath,
-      })),
+  const groups: SeriesIndexGroup[] = group.map((p) => ({
+    seriesName: p.seriesName ?? seriesSlug,
+    pages: p.pages.map((pg) => ({
+      fleetName: pg.fleetName,
+      ...(pg.subSeriesName ? { subSeriesName: pg.subSeriesName } : {}),
+      ...(pg.isPrizes ? { isPrizes: true } : {}),
+      ...(pg.isEntryList ? { isEntryList: true } : {}),
+      ...(pg.isAuxiliary ? { isAuxiliary: true } : {}),
+      ...(pg.isNamedPage ? { isNamedPage: true } : {}),
+      ...(pg.isRaceResults ? { isRaceResults: true } : {}),
+      subPath: pg.subPath,
     })),
-  );
+  }));
   // A slug that IS a season titles as the season, even with one contributor
   // so far — "2026", never the first series' name.
   const seasonForSlug = seasonTree.seasons.find(
@@ -834,6 +964,7 @@ async function seriesIndex(
       }),
       soleContributor: group.length === 1,
       folderLabels,
+      ...(categoryLink ? { categoryLink } : {}),
     },
     'block',
   );
@@ -865,10 +996,11 @@ async function fleetPage(
   // The navigation cascade (ADR-011) draws on the whole slug group, the
   // workspace's season tree, and any folder-label overrides, so all three are
   // needed either way — issued together rather than one after the other.
-  const [group, folderMeta, seasonRows] = await Promise.all([
+  const [group, folderMeta, seasonRows, categories] = await Promise.all([
     getPublishedGroupByWorkspaceSlug(workspace.id, seriesSlug),
     getPublishedFolderMeta(workspace.id),
     readPublishedSeasonTreeRows(workspace.id),
+    listPublishedCategories(workspace.id),
   ]);
   // The publication's data file (ADR-012): `{dataSubPath}` under the slug
   // serves the stored public export — the sanitized series data the pages
@@ -904,15 +1036,27 @@ async function fleetPage(
       group,
       folderMeta,
       seasonRows,
+      categories,
     );
   }
 
   const seasonTree = assemblePublishedSeasonTree(seasonRows, folderMeta);
   const folderLabels = interiorFolderLabels(folderMeta, seriesSlug);
+  const currentFolder = folderSegmentOf(subPath) ?? undefined;
+  const categoryLink = positionCategoryLink({
+    workspaceSlug,
+    categories,
+    members: group,
+    ...(currentFolder !== undefined ? { currentFolder } : { currentSubPath: subPath }),
+    seasonLabels: seasonTree.seasons.map((s) => s.label),
+  });
+  // The page itself is the stored blob; the injected nav also labels pages
+  // by their contributing series' names.
   const etag = `"${await contentHash([
-    ...group.map((p) => p.contentHash),
+    ...group.map((p) => `${p.contentHash}:${p.seriesName ?? ''}`),
     ...seasonTreeEtag(seasonTree),
     ...[...folderLabels].map(([s, l]) => `flabel:${s}:${l}`),
+    categoryLinkEtag(categoryLink),
   ])}"`;
   const cached = notModified(req, etag);
   if (cached) return cached;
@@ -926,11 +1070,12 @@ async function fleetPage(
       workspaceSlug,
       seasonTree,
       currentSlug: seriesSlug,
-      pages: await groupTreePages(group),
+      pages: groupTreePages(group),
       soleContributor: group.length === 1,
-      currentFolder: folderSegmentOf(subPath) ?? undefined,
+      currentFolder,
       currentSubPath: subPath,
       folderLabels,
+      ...(categoryLink ? { categoryLink } : {}),
     },
     'float',
   );
@@ -973,6 +1118,7 @@ async function seasonIndex(
   if (!season || season.folders.length === 0) return NOT_FOUND;
 
   const etag = `"${await contentHash([
+    `name:${workspace.name}`,
     `logo:${workspace.logo}`,
     `seasonindex:${season.label}`,
     ...seasonTreeEtag(seasonTree),
@@ -1004,14 +1150,8 @@ async function seasonIndex(
 
 /** The slug group's pages flattened into tree pages, each carrying its
  *  contributing series' name so labels can tell same-named pages apart. */
-async function groupTreePages(group: PublishedSeries[]): Promise<TreePage[]> {
-  const withNames = await Promise.all(
-    group.map(async (p) => ({
-      pages: p.pages,
-      ownerName: p.seriesId ? await getSeriesName(p.seriesId) : null,
-    })),
-  );
-  return withNames.flatMap((c) => {
+function groupTreePages(group: PublishedGroupMember[]): TreePage[] {
+  return group.flatMap((c) => {
     const single = c.pages.filter((pg) => !isAuxiliaryPage(pg)).length === 1;
     return c.pages.map((pg) => ({
       fleetName: pg.fleetName,
@@ -1022,7 +1162,7 @@ async function groupTreePages(group: PublishedSeries[]): Promise<TreePage[]> {
       ...(pg.isNamedPage ? { isNamedPage: true } : {}),
       ...(pg.isRaceResults ? { isRaceResults: true } : {}),
       subPath: pg.subPath,
-      ownerName: c.ownerName,
+      ownerName: c.seriesName,
       ownerSingle: single,
     }));
   });
@@ -1043,15 +1183,16 @@ async function folderIndex(
   workspaceSlug: string,
   seriesSlug: string,
   subPath: string,
-  group: PublishedSeries[],
+  group: PublishedGroupMember[],
   folderMeta: Map<string, { label: string | null; season: string | null }>,
   seasonRows: PublishedSeasonTreeRows,
+  categories: PublishedCategory[],
 ): Promise<Response> {
   // Folders are single segments; a two-segment miss is just a missing page.
   if (subPath.includes('/') || group.length === 0) return NOT_FOUND;
 
   const folderLabels = interiorFolderLabels(folderMeta, seriesSlug);
-  const pages = await groupTreePages(group);
+  const pages = groupTreePages(group);
   const folder = slugFolders(pages, folderLabels).find(
     (f) => f.segment === subPath,
   );
@@ -1061,12 +1202,21 @@ async function folderIndex(
   // change when a contributor re-publishes; the cascade adds the season
   // tree and label overrides.
   const seasonTree = assemblePublishedSeasonTree(seasonRows, folderMeta);
+  const categoryLink = positionCategoryLink({
+    workspaceSlug,
+    categories,
+    members: group,
+    currentFolder: subPath,
+    seasonLabels: seasonTree.seasons.map((s) => s.label),
+  });
   const etag = `"${await contentHash([
+    `name:${workspace.name}`,
     `logo:${workspace.logo}`,
     `folder:${subPath}`,
-    ...group.map((p) => p.contentHash),
+    ...group.map((p) => `${p.contentHash}:${p.seriesName ?? ''}`),
     ...seasonTreeEtag(seasonTree),
     ...[...folderLabels].map(([s, l]) => `flabel:${s}:${l}`),
+    categoryLinkEtag(categoryLink),
   ])}"`;
   const cached = notModified(req, etag);
   if (cached) return cached;
@@ -1079,8 +1229,7 @@ async function folderIndex(
   const slugTitle =
     seasonForSlug?.label ??
     (group.length === 1
-      ? ((group[0].seriesId ? await getSeriesName(group[0].seriesId) : null) ??
-        humanizeSlug(seriesSlug))
+      ? (group[0].seriesName ?? humanizeSlug(seriesSlug))
       : humanizeSlug(seriesSlug));
   const nav = renderTreeNav(
     {
@@ -1091,6 +1240,7 @@ async function folderIndex(
       soleContributor: group.length === 1,
       currentFolder: subPath,
       folderLabels,
+      ...(categoryLink ? { categoryLink } : {}),
     },
     'block',
   );

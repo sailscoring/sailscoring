@@ -121,6 +121,7 @@ export const HELP_GROUPS: HelpGroupDef[] = [
     blurb: 'From standings to public pages your club can link to.',
     sections: [
       { id: 'publishing-results', title: 'Publishing results', keywords: ['publish', 'public page', 'url', 'link', 'share results', 'website', 'ftp', 'upload'] },
+      { id: 'category-pages', title: 'A page for each category', keywords: ['category', 'category page', 'all years', 'every season', 'event history', 'link to all results', 'notice of race', 'club website'] },
       { id: 'public-directory', title: 'The public directory', keywords: ['directory', 'clubs', 'listing', 'showcase', 'unlisted', 'opt out', 'who uses sail scoring'] },
       { id: 'combined-pages', title: 'Extra pages', feature: 'combined-pages', keywords: ['overall page', 'one page', 'all fleets', 'extra page', 'race grid'] },
       { id: 'page-notes', title: 'A note on a published page', feature: 'page-notes', keywords: ['note', 'explain', 'correction', 'annotation', 'message on the page'] },
@@ -146,6 +147,7 @@ export const HELP_GROUPS: HelpGroupDef[] = [
       { id: 'saving-and-sharing', title: 'Saving and sharing a series', keywords: ['file', 'sailscoring file', 'backup', 'save', 'send to another scorer', 'open a file'] },
       { id: 'sailwave-import', title: 'Importing from Sailwave', feature: 'sailwave-import', keywords: ['sailwave', 'blw', 'migrate', 'move from sailwave'] },
       { id: 'sailwave-export', title: 'Exporting to Sailwave', feature: 'sailwave-export', keywords: ['sailwave', 'blw', 'export'] },
+      { id: 'spreadsheet-export', title: 'Exporting to a spreadsheet', feature: 'spreadsheet-export', keywords: ['excel', 'xlsx', 'spreadsheet', 'export', 'analysis', 'pivot', 'google sheets', 'numbers'] },
       { id: 'json-export', title: 'Open in Sail Scoring, and the data behind published results', keywords: ['json', 'data', 'open in sail scoring', 'api', 'raw results', 'spectator', 'index.json', 'integration', 'developer'] },
       { id: 'results-api', title: 'Results for apps', keywords: ['api', 'app', 'race day app', 'clubhouse screen', 'widget', 'integration', 'developer'] },
     ],

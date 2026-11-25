@@ -39,6 +39,7 @@ import {
   series,
 } from '@/lib/db/schema/series';
 import { purgePublishedCache } from '@/lib/published-cache';
+import { printPublicCacheReminder } from '@/scripts/public-cache-reminder';
 import {
   summariseArchive,
   summarisePublicExport,
@@ -184,6 +185,9 @@ export async function runCli(argv: string[]): Promise<number> {
     filled++;
   }
   for (const workspaceId of touched) await purgePublishedCache(workspaceId);
+  // Run from a terminal, that purge is a no-op: it only reaches the CDN
+  // from inside a Vercel function.
+  printPublicCacheReminder(touched);
 
   console.log(
     `\n${rows.length} publication${rows.length === 1 ? '' : 's'} without a summary: ` +

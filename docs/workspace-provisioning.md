@@ -54,6 +54,21 @@ The default sign-in flow already gives every user a personal workspace
    the `/p/hyc/...` segment every published URL carries. Slugs are
    URL-safe and unique across the platform.
 
+   The new workspace gets the same two sample series a personal
+   workspace gets at sign-up, in a *Samples* category, so the panel's
+   first sign-in lands on a populated list. In a club workspace the
+   samples — and any feature demo seeded later — take the workspace's
+   name as their venue. Pass `--no-samples` for a
+   workspace that will only hold ingested archives (ADR-010).
+   `fulfil-request` seeds them the same way and takes the same flag.
+   A workspace created empty — before creation seeded them, or with
+   `--no-samples` — can be backfilled; it is skipped if it already
+   holds any series:
+
+   ```bash
+   pnpm provision-org seed-samples --org hyc
+   ```
+
    Got the name wrong? `rename-org` fixes it:
 
    ```bash
@@ -214,6 +229,7 @@ The current gated keys are:
 |-----|---------|-----------------|
 | `sailwave-import` | off | the "Sailwave export" option in the home Import dialog |
 | `sailwave-export` | off | **Export to Sailwave…** on the series ⋯ menu (and its `S` shortcut), #516: downloads the series as a Sailwave `.blw` — fleets, entries, ratings, starts, finishes and codes, the discard profile — so a scorer wary of depending on the app has Sailwave as a fallback at any moment. Only scoring inputs travel and Sailwave rescores from them; anything Sailwave cannot express (sub-series, split-fleet rounds, per-race discard policies and multipliers, custom NHC parameters, ORC) is listed before the download. Off by default: it is an adoption aid we may retire, so the audience stays known. |
+| `spreadsheet-export` | off | **Export to spreadsheet** on the series Actions menu (and its `⇧X` shortcut), #779: downloads the whole series as an Excel `.xlsx` workbook for analysis — About, Fleets, Competitors, Races, Finishes (the sheets as entered), Results (one row per competitor per race per fleet, as scored: points, discards, rating applied, elapsed and corrected times, NHC/ECHO working) and Standings. Scorer-side and complete, like a `.sailscoring` file; one-way, nothing reads it back. Hidden on as-published archives. Self-service. |
 | `csv-finish-import` | off | the per-race "Import CSV" finish-sheet control |
 | `schedule-import` | off | **Import schedule…** in the Races tab's Add race menu (and its `t` shortcut): reads a .csv/.xlsx with one row per race — date (required, typed dates read day-first), optional name and race number, and the guns either in one Start column run through the default start sequence or in a column per fleet (blank or a dash sits that fleet out, ASAP/TBC is a start with no gun time). Appends the races with their starts in one go; rows that can't be read are named and left out. Off by default while the column conventions are proven against real club schedules. |
 | `racesense-import` | off, operator-managed | the Races tab's **Import from RaceSense** button (and its `i` shortcut): reads a Vakaros RaceSense regatta export — a workbook with a sheet per race — and offers each sheet against the race it matches, ticking only races with nothing in them yet. Also unlocks the **Publish RaceSense track data** toggle on the series Publishing card (off by default per series): with it on, the per-race tables publish the export's finish/elapsed times, distance sailed, average and max speed, and DTL at the start as sortable columns. The same gate puts the track data in front of the scorer, published or not: a count per sheet in the import dialog, a badge per race on the Races tab, and a marker on each finish row that opens the boat's figures. Operator-managed (never on the self-service card): the export format is still being learned from real championship exports, so the audience stays one event at a time. |
@@ -352,6 +368,26 @@ for the one run (see [account-admin.md](account-admin.md#production-usage)).
 Never prefix a command with `DATABASE_URL=…` by hand — the Bash guard
 blocks it, and the point of the `:prod` script is that it says out loud
 where it is going before it goes there.
+
+### Purging the public pages afterwards
+
+The public `/p` pages are cached at Vercel's edge until something purges
+them. The app purges on every change it makes itself, but a command run
+from a terminal can't reach the CDN. So `rename-org`, `enable-feature`,
+`disable-feature` and `delete-org` end by printing the purge command for
+the workspace they changed:
+
+```bash
+pnpm public-cache:purge:prod <workspace-id>
+```
+
+It takes ids, not slugs, so it needs only the Vercel token and works for
+a workspace that has just been deleted (`--dry-run` prints the Vercel CLI
+command instead of running it, `--directory` purges just `/p`). The same
+goes for anything else that writes what `/p` shows from outside the app:
+the publication backfills and `republish` print the command too. For a
+migration or a hand-run `db:psql` change, purge the workspaces it touched,
+or `pnpm vercel cache purge` to empty the project's whole CDN.
 
 ## What Phase 7 deliberately left out (since shipped in Phase 10)
 

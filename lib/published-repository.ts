@@ -6,6 +6,7 @@ import * as schema from './db/schema';
 import { listedInDirectory, parseOrgMetadata, type OrgMetadata } from './features';
 import { purgePublishedCache } from './published-cache';
 import { humanizeSlug, kebab } from './publishing';
+import type { PublishedCategory } from './published-category';
 import { publicationPath, seasonLikeSlug } from './published-tree';
 import type { PublicationSummary, PublishedSeries, PublishedSeriesPage } from './types';
 
@@ -118,6 +119,67 @@ export async function workspaceHasPublished(workspaceId: string): Promise<boolea
   return rows.length > 0;
 }
 
+/** Whether this series has a live publication. */
+export async function seriesHasPublication(seriesId: string): Promise<boolean> {
+  const rows = await getDb()
+    .select({ id: schema.publishedSeries.id })
+    .from(schema.publishedSeries)
+    .where(eq(schema.publishedSeries.seriesId, seriesId))
+    .limit(1);
+  return rows.length > 0;
+}
+
+/**
+ * Drop a workspace's public pages from the CDN after a write to a series row
+ * that has a publication. The public listings, the season tree and every
+ * page's navigation read the series' name, start date, order, category and
+ * archive flag live from the series row, not from the publication. A change
+ * to any of them shows on `/p` only once the cached copies go.
+ *
+ * Call this after the write has committed, never inside its transaction.
+ * A reader arriving between the purge and the commit would re-cache the old
+ * state for the full CDN lifetime.
+ */
+export async function purgePublishedCacheForSeries(
+  workspaceId: string,
+  seriesId: string,
+): Promise<void> {
+  if (await seriesHasPublication(seriesId)) await purgePublishedCache(workspaceId);
+}
+
+/** The same for a workspace-wide change that publications read (series
+ *  order, categories): purge only when there's something published. */
+export async function purgePublishedCacheIfPublished(workspaceId: string): Promise<void> {
+  if (await workspaceHasPublished(workspaceId)) await purgePublishedCache(workspaceId);
+}
+
+/** The workspace's categories that hold at least one publication, in display
+ *  order. A category with nothing published has no public page, so it is not
+ *  listed here and every link to it is left out. */
+export async function listPublishedCategories(
+  workspaceId: string,
+): Promise<PublishedCategory[]> {
+  const rows = await getDb()
+    .select({
+      id: schema.categories.id,
+      name: schema.categories.name,
+      slug: schema.categories.slug,
+      formerSlugs: schema.categories.formerSlugs,
+      displayOrder: schema.categories.displayOrder,
+      publishedCount: sql<number>`count(${schema.publishedSeries.id})::int`,
+    })
+    .from(schema.categories)
+    .innerJoin(schema.series, eq(schema.series.categoryId, schema.categories.id))
+    .innerJoin(
+      schema.publishedSeries,
+      eq(schema.publishedSeries.seriesId, schema.series.id),
+    )
+    .where(eq(schema.categories.workspaceId, workspaceId))
+    .groupBy(schema.categories.id)
+    .orderBy(asc(schema.categories.displayOrder));
+  return rows;
+}
+
 /** The set of series ids that have a live publication in the workspace. One
  *  query, used to filter the public competitor index down to published series
  *  (an unpublished series is the club's explicit "not public"). */
@@ -147,6 +209,15 @@ export async function getPublishedById(
   return row ? rowToPublished(row) : null;
 }
 
+/** A publication in a slug group, with its series' current name: null for
+ *  an orphan, whose series is gone. The public pages show the name, so it is
+ *  part of what their ETags must cover. */
+export type PublishedGroupMember = PublishedSeries & {
+  seriesName: string | null;
+  /** The contributing series' category; null when uncategorised or orphaned. */
+  categoryId: string | null;
+};
+
 /** Every publication sharing `(workspaceId, slug)`. A slug is a shared
  *  namespace, so this can be more than one series' publication; the public read
  *  path unions their pages (sub-heading each series in this order) and the
@@ -162,9 +233,11 @@ export async function getPublishedById(
 export async function getPublishedGroupByWorkspaceSlug(
   workspaceId: string,
   slug: string,
-): Promise<PublishedSeries[]> {
+): Promise<PublishedGroupMember[]> {
   const rows = await getDb()
     .select({
+      seriesName: schema.series.name,
+      categoryId: schema.series.categoryId,
       id: schema.publishedSeries.id,
       workspaceId: schema.publishedSeries.workspaceId,
       seriesId: schema.publishedSeries.seriesId,
@@ -193,7 +266,11 @@ export async function getPublishedGroupByWorkspaceSlug(
       asc(schema.series.displayOrder),
       desc(schema.publishedSeries.publishedAt),
     );
-  return rows.map(rowToPublished);
+  return rows.map(({ seriesName, categoryId, ...row }) => ({
+    ...rowToPublished(row),
+    seriesName,
+    categoryId: categoryId ?? null,
+  }));
 }
 
 /** Resolve a workspace from its public slug: id, display name, own logo, and
@@ -553,6 +630,8 @@ export interface IndexPublicationRow {
   publishedAt: number;
   /** The publication's id while its API resources exist (ADR-015). */
   apiId: string | null;
+  /** The series' category; null when uncategorised or orphaned. */
+  categoryId: string | null;
 }
 
 /**
@@ -578,6 +657,7 @@ export async function listPublicationsForIndex(
       publishedAt: schema.publishedSeries.publishedAt,
       id: schema.publishedSeries.id,
       apiView: schema.publishedSeries.apiView,
+      categoryId: schema.series.categoryId,
     })
     .from(schema.publishedSeries)
     .leftJoin(
@@ -590,6 +670,7 @@ export async function listPublicationsForIndex(
       desc(schema.publishedSeries.publishedAt),
     );
   return rows.map((r) => ({
+    categoryId: r.categoryId ?? null,
     slug: r.slug,
     seriesName: r.seriesName,
     pages: r.pages.map(({ blobUrl: _blobUrl, ...page }) => page),
@@ -979,11 +1060,20 @@ export function assemblePublishedSeasonTree(
  * Unlike the public listing there is one row per publication, not per slug, so
  * the placement fields (category / archive / order / year) are each row's own
  * series — no representative fudge. An orphan has no placement at all.
+ *
+ * `path` is where the publication's own pages are, below the workspace: the
+ * bare slug while it has the slug to itself, else its event folder (see
+ * `publicationPath`). A series published into a season has the season as its
+ * slug, so showing the slug alone would give every series in the season the
+ * same address. `sharedWith` is decided by that path too: a row shares with
+ * the publications at its path or below it — the other series in its event
+ * folder, not the rest of the season.
  */
 export async function listPublishedForWorkspace(workspaceId: string): Promise<
   {
     id: string;
     slug: string;
+    path: string;
     title: string;
     seriesId: string | null;
     orphaned: boolean;
@@ -1047,16 +1137,27 @@ export async function listPublishedForWorkspace(workspaceId: string): Promise<
     }
     return r.slug;
   };
-  const bySlug = new Map<string, typeof rows>();
-  for (const r of rows) {
-    const list = bySlug.get(r.slug) ?? [];
-    list.push(r);
-    bySlug.set(r.slug, list);
-  }
+  const slugCounts = new Map<string, number>();
+  for (const r of rows) slugCounts.set(r.slug, (slugCounts.get(r.slug) ?? 0) + 1);
+  const pathOf = new Map(
+    rows.map((r) => [
+      r.id,
+      publicationPath(r.slug, r.pages, (slugCounts.get(r.slug) ?? 0) > 1),
+    ]),
+  );
+  const sharesWith = (r: (typeof rows)[number]) => {
+    const mine = pathOf.get(r.id)!;
+    return rows.filter((o) => {
+      if (o.id === r.id) return false;
+      const theirs = pathOf.get(o.id)!;
+      return theirs === mine || theirs.startsWith(`${mine}/`);
+    });
+  };
 
   return rows.map((r) => ({
     id: r.id,
     slug: r.slug,
+    path: pathOf.get(r.id)!,
     title: titleOf(r),
     seriesId: r.seriesId,
     orphaned: r.seriesId === null,
@@ -1065,9 +1166,7 @@ export async function listPublishedForWorkspace(workspaceId: string): Promise<
       r.seriesVersion === null
         ? 0
         : Math.max(0, r.seriesVersion - r.publishedVersion),
-    sharedWith: (bySlug.get(r.slug) ?? [])
-      .filter((o) => o.id !== r.id)
-      .map(titleOf),
+    sharedWith: sharesWith(r).map(titleOf),
     fleetCount: r.pages.length,
     archived: r.archived ?? false,
     categoryName: r.categoryName ?? null,

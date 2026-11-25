@@ -55,7 +55,7 @@ import {
   type FeatureDef,
   type FeatureKey,
 } from '@/lib/features';
-import { seedFeatureSample } from '@/lib/sample-series/seed';
+import { seedFeatureSample, seedSampleSeries } from '@/lib/sample-series/seed';
 import {
   DEFAULT_SUPPORT_HOURS,
   findWorkspacesForEmail,
@@ -66,6 +66,7 @@ import {
 } from '@/lib/support-grants';
 
 import { ROLE_PERMISSIONS, type WorkspaceRole } from '@/lib/auth/permissions';
+import { printPublicCacheReminder } from '@/scripts/public-cache-reminder';
 
 export type Role = WorkspaceRole;
 
@@ -191,7 +192,6 @@ export async function preCreateUser(
   // Mirror the sign-up hook: seed the new personal workspace with the sample
   // series. Best-effort — a seeding failure shouldn't abort user provisioning.
   try {
-    const { seedSampleSeries } = await import('@/lib/sample-series/seed');
     await seedSampleSeries(orgId, db);
   } catch (err) {
     console.error(`[sample-series] seeding failed for ${email}'s workspace:`, err);
@@ -236,22 +236,52 @@ export async function seedSamplesForUser(
     .limit(1);
   if (!ws) throw new Error(`no personal workspace found for "${args.email}"`);
 
+  const outcome = await seedSamplesIfEmpty(db, ws.id);
+  return { email: u.email, workspaceId: ws.id, ...outcome };
+}
+
+/**
+ * Backfill the sample series into a club workspace — for workspaces created
+ * before `create-org` / `fulfil-request` started seeding them. Same guard as
+ * `seedSamplesForUser`: a workspace that already holds series is skipped.
+ */
+export async function seedSamplesForOrg(
+  db: SailScoringDb,
+  args: { orgSlugOrId: string },
+): Promise<{ org: { id: string; name: string; slug: string }; seeded: boolean; existingSeries: number }> {
+  const org = await findOrgBySlugOrId(db, args.orgSlugOrId);
+  if (!org) throw new Error(`org "${args.orgSlugOrId}" not found`);
+  const outcome = await seedSamplesIfEmpty(db, org.id);
+  return { org, ...outcome };
+}
+
+/** Seed the sample series unless the workspace already holds any series —
+ *  `seedSampleSeries` always inserts fresh copies, so this is what makes the
+ *  backfill commands safe to re-run. */
+async function seedSamplesIfEmpty(
+  db: SailScoringDb,
+  workspaceId: string,
+): Promise<{ seeded: boolean; existingSeries: number }> {
   const [{ n: existingSeries }] = await db
     .select({ n: sql<number>`count(*)::int` })
     .from(series)
-    .where(eq(series.workspaceId, ws.id));
-  if (existingSeries > 0) {
-    return { email: u.email, workspaceId: ws.id, seeded: false, existingSeries };
-  }
-
-  const { seedSampleSeries } = await import('@/lib/sample-series/seed');
-  await seedSampleSeries(ws.id, db);
-  return { email: u.email, workspaceId: ws.id, seeded: true, existingSeries: 0 };
+    .where(eq(series.workspaceId, workspaceId));
+  if (existingSeries > 0) return { seeded: false, existingSeries };
+  await seedSampleSeries(workspaceId, db);
+  return { seeded: true, existingSeries: 0 };
 }
 
 export async function createOrg(
   db: SailScoringDb,
-  args: { name: string; slug?: string; enabledFeatures?: FeatureKey[] },
+  args: {
+    name: string;
+    slug?: string;
+    enabledFeatures?: FeatureKey[];
+    /** Seed the sample series, as a personal workspace gets at sign-up. The
+     *  CLI turns this on unless `--no-samples` is passed; archive workspaces
+     *  hold only ingested results and want it off. */
+    seedSamples?: boolean;
+  },
 ): Promise<{ id: string; name: string; slug: string }> {
   const name = args.name.trim();
   if (!name) throw new Error('org name is required');
@@ -279,6 +309,16 @@ export async function createOrg(
     metadata,
     createdAt: new Date(),
   });
+  // Best-effort, like the sign-up hook: a seeding failure leaves an empty
+  // workspace rather than failing its creation. Seeded before the feature
+  // demos so the two samples head the Samples category.
+  if (args.seedSamples) {
+    try {
+      await seedSampleSeries(id, db);
+    } catch (err) {
+      console.error(`[sample-series] seeding failed for workspace ${slug}:`, err);
+    }
+  }
   // Features enabled at creation seed their worked example immediately, same
   // as a later enable-feature would. Best-effort per feature.
   const withSamples = (args.enabledFeatures ?? []).filter(
@@ -740,7 +780,7 @@ export async function listRequests(
  */
 export async function fulfilRequest(
   db: SailScoringDb,
-  args: { requestId: string; slug?: string; enabledFeatures?: FeatureKey[] },
+  args: { requestId: string; slug?: string; enabledFeatures?: FeatureKey[]; seedSamples?: boolean },
 ): Promise<{ org: { id: string; name: string; slug: string }; email: string }> {
   const [req] = await db
     .select()
@@ -757,6 +797,9 @@ export async function fulfilRequest(
       name: req.requestedName,
       slug: args.slug,
       enabledFeatures: args.enabledFeatures,
+      // A requested workspace is always for a scorer, so it gets the samples
+      // unless the caller says otherwise.
+      seedSamples: args.seedSamples ?? true,
     });
     await addMember(tx, { orgSlugOrId: org.id, email: req.userEmail, role: 'owner' });
     await tx
@@ -818,11 +861,11 @@ function parseArgs(argv: string[]): ParsedFlags {
 function usage(): string {
   return `provision-org — ADR-008 Phase 7 manual org administration
 
-  create-org <name> [--slug <slug>] [--enable-feature <key[,key...]>] [--owner <email>]
+  create-org <name> [--slug <slug>] [--enable-feature <key[,key...]>] [--owner <email>] [--no-samples]
   rename-org <org-slug-or-id> <new-name>
   delete-org <org-slug-or-id> [--force]
   pre-create-user <email> --name <full-name>
-  seed-samples <email>
+  seed-samples <email> | --org <org-slug-or-id>
   add-member <org-slug-or-id> <email> [--role owner|admin|member]
   set-role <org-slug-or-id> <email> <role> [--force]
   remove-member <org-slug-or-id> <email> [--force]
@@ -830,7 +873,7 @@ function usage(): string {
   personal-workspace <email>
   cancel-invitations <org-slug-or-id>
   list-requests [--all]
-  fulfil-request <request-id> [--slug <slug>] [--enable-feature <key[,key...]>]
+  fulfil-request <request-id> [--slug <slug>] [--enable-feature <key[,key...]>] [--no-samples]
   decline-request <request-id>
   enable-feature <org-slug-or-id> <feature>
   disable-feature <org-slug-or-id> <feature>
@@ -839,6 +882,10 @@ function usage(): string {
   support join <org-slug-or-id> <email> [--hours ${DEFAULT_SUPPORT_HOURS}] [--reason <text>] [--role member|scorer|admin|owner]
   support list [--all]
   support leave <org-slug-or-id> <email>
+
+create-org and fulfil-request seed the two sample series into the new
+workspace's Samples category, as sign-up does for a personal workspace.
+Pass --no-samples for a workspace that will only hold ingested archives.
 
 rename-org changes a workspace's display name only; the slug stays put, so
 published URLs are unaffected.
@@ -850,9 +897,10 @@ set-role and remove-member refuse to take away a workspace's only owner;
 --force overrides that for a workspace being wound down.
 
 seed-samples backfills the two sample series into a user's personal
-workspace (for accounts created before sign-up started seeding them). It
-skips any workspace that already holds series, so it's safe to re-run and
-won't touch anyone who's started real scoring.
+workspace, or with --org into a club workspace (for workspaces created
+before they were seeded at creation). It skips any workspace that already
+holds series, so it's safe to re-run and won't touch anyone who's started
+real scoring.
 
 personal-workspace resolves a user's own workspace from their email — they
 all share the name "My Workspace" and a slug derived from the user id, so
@@ -998,8 +1046,15 @@ export async function runCli(argv: string[]): Promise<number> {
         const [name] = positional;
         if (!name) throw new Error('create-org: <name> is required');
         const enabledFeatures = parseFeatureList(flags['enable-feature']);
-        const result = await createOrg(db, { name, slug: flags.slug, enabledFeatures });
+        const seedSamples = flags['no-samples'] !== 'true';
+        const result = await createOrg(db, {
+          name,
+          slug: flags.slug,
+          enabledFeatures,
+          seedSamples,
+        });
         console.log(`created org "${result.name}" (slug: ${result.slug}, id: ${result.id})`);
+        if (!seedSamples) console.log('  sample series: skipped (--no-samples)');
         if (enabledFeatures.length > 0) {
           console.log(`  features: ${enabledFeatures.join(', ')}`);
         }
@@ -1022,6 +1077,7 @@ export async function runCli(argv: string[]): Promise<number> {
         console.log(
           `renamed org "${result.previousName}" to "${result.name}" (slug: ${result.slug}, id: ${result.id})`,
         );
+        printPublicCacheReminder([result.id]);
         return 0;
       }
       case 'delete-org': {
@@ -1041,6 +1097,7 @@ export async function runCli(argv: string[]): Promise<number> {
         }
         await deleteOrg(db, { orgSlugOrId: org.id });
         console.log(`\ndeleted org "${org.slug}"`);
+        printPublicCacheReminder([org.id]);
         return 0;
       }
       case 'pre-create-user': {
@@ -1057,8 +1114,19 @@ export async function runCli(argv: string[]): Promise<number> {
         return 0;
       }
       case 'seed-samples': {
+        const orgSlugOrId = flags.org;
+        if (orgSlugOrId === 'true') throw new Error('seed-samples: --org needs <org-slug-or-id>');
+        if (orgSlugOrId) {
+          const result = await seedSamplesForOrg(db, { orgSlugOrId });
+          console.log(
+            result.seeded
+              ? `seeded sample series into ${result.org.slug} (${result.org.id})`
+              : `skipped ${result.org.slug}: workspace already has ${result.existingSeries} series`,
+          );
+          return 0;
+        }
         const [email] = positional;
-        if (!email) throw new Error('seed-samples: <email> is required');
+        if (!email) throw new Error('seed-samples: <email> or --org <org-slug-or-id> is required');
         const result = await seedSamplesForUser(db, { email });
         if (result.seeded) {
           console.log(
@@ -1179,6 +1247,7 @@ export async function runCli(argv: string[]): Promise<number> {
           requestId,
           slug: flags.slug,
           enabledFeatures,
+          seedSamples: flags['no-samples'] !== 'true',
         });
         console.log(
           `fulfilled: created "${org.name}" (slug: ${org.slug}, id: ${org.id}) and added ${email} as owner`,
@@ -1213,6 +1282,7 @@ export async function runCli(argv: string[]): Promise<number> {
             result.enabledFeatures.length > 0 ? result.enabledFeatures.join(', ') : '(none)'
           }`,
         );
+        printPublicCacheReminder([result.org.id]);
         return 0;
       }
       case 'list-feature': {

@@ -63,6 +63,14 @@ export const auth = betterAuth({
   appName: 'Sail Scoring',
   baseURL: process.env.BETTER_AUTH_URL,
   trustedOrigins: trustedOrigins(),
+  // The organization plugin's own update and delete routes are closed. Its
+  // default owner and admin roles may call them, and the update body takes
+  // `slug` and `metadata` wholesale. That would let a club owner move every
+  // published `/p` URL, switch on operator-managed features, or delete the
+  // workspace outside the operator's path. None of those changes reaches the
+  // public cache purge, either. Each change the app allows has its own route
+  // (`/api/v1/workspace`, the feature toggle, `provision-org`).
+  disabledPaths: ['/organization/update', '/organization/delete'],
   database: drizzleAdapter(lazyDb, {
     provider: 'pg',
     schema: authSchema,

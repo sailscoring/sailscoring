@@ -18,6 +18,7 @@ Scorers, race officers and sailors who have tried Sail Scoring, or told us how
 their club runs and scores its racing, and helped shape what it does:
 
 - **Kieran Barker** — Howth Yacht Club
+- **Patrick Blaney** — Lough Derg Yacht Club
 - **Ian Bowring** — Royal St George Yacht Club, Dublin Bay Sailing Club
 - **Fiona Cassidy** — Bray Sailing Club
 - **Gary Cullen** — Howth Yacht Club

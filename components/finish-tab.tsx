@@ -40,13 +40,14 @@ import { ordinal } from '@/lib/ordinal';
 import { hasTrackData, trackDataStrip } from '@/lib/track-data';
 import { courseLapsOf } from '@/lib/laps';
 import { useShortcuts } from '@/hooks/use-keyboard-shortcut';
-import { formatElapsedInput, normalizeTimeInput, parseElapsedInput } from '@/lib/time-parse';
+import { formatElapsedInput, normalizeTimeInput, parseElapsedInput, parseHmsToSeconds } from '@/lib/time-parse';
+import { finishedBeforeStart } from '@/lib/elapsed-time';
 import {
   deriveFinishState,
   entryKey,
   type FinishEntry,
 } from '@/lib/finish-entry';
-import type { Competitor, CompetitorFieldKey, DnfScoring, Finish, FinishRecording, Fleet, ResultCode, SeriesScoringCode } from '@/lib/types';
+import type { Competitor, CompetitorFieldKey, DnfScoring, Finish, FinishRecording, Fleet, RaceStart, ResultCode, SeriesScoringCode } from '@/lib/types';
 import { codesSummary } from '@/lib/scoring-codes-text';
 import { highPointOf, type PointsSystemFields } from '@/lib/high-point';
 
@@ -157,6 +158,9 @@ export interface FinishTabProps {
    *  multi-fleet boat only shows the tags relevant to the sheet being entered.
    *  Empty when no starts are recorded (every fleet implied racing). */
   raceFleetIds: Set<string>;
+  /** The race's starts, so a row timed at or before its boat's gun can be
+   *  flagged. Absent or empty, no row is. */
+  raceStarts?: readonly RaceStart[];
   showFleetBadge: boolean;
   showCrew: boolean;
   enabledCompetitorFields: CompetitorFieldKey[];
@@ -222,7 +226,22 @@ export function FinishTab(props: FinishTabProps) {
     finishSheetImportRef, applyCsvImport,
     setEditingPenaltyEntryId, openRedressDialog, setResolvingEntry,
     patchCache, saveFinish, leave, readOnly = false, recording = false, seriesScoring, raceFleets, rowExtra,
+    raceStarts,
   } = props;
+  // Each timed start's gun by fleet, for flagging a row recorded at or before
+  // its boat's start — which the standings refuse to score as a finish.
+  const gunsByFleetId = useMemo(() => {
+    const map = new Map<string, number[]>();
+    for (const s of raceStarts ?? []) {
+      const secs = parseHmsToSeconds(s.startTime);
+      if (secs === null) continue;
+      for (const id of s.fleetIds) map.set(id, [...(map.get(id) ?? []), secs]);
+    }
+    return map;
+  }, [raceStarts]);
+  const isBeforeStart = (competitor: Competitor, finish: Finish | undefined): boolean =>
+    finish != null &&
+    competitor.fleetIds.some((id) => (gunsByFleetId.get(id) ?? []).some((secs) => finishedBeforeStart(finish, secs)));
   // The series' own codes that replace the result, after the RRS codes in
   // both menus; and the RRS codes it scores differently, marked where they
   // stand.
@@ -1307,6 +1326,18 @@ export function FinishTab(props: FinishTabProps) {
                 ) : (
                   <span className="w-24 text-center text-sm font-mono text-muted-foreground shrink-0">—</span>
                 ))}
+                {isTimed && isBeforeStart(competitor, finish) && (
+                  // Not a result: the standings score it DNF until the time
+                  // is put right, and say so.
+                  <Badge
+                    variant="outline"
+                    className="text-xs shrink-0 border-destructive/50 text-destructive"
+                    title={`${byElapsed ? 'No time elapsed' : 'Finished at or before the start'} — scored DNF until the time is corrected`}
+                    data-testid={`before-start-${competitor.sailNumber}`}
+                  >
+                    Before start
+                  </Badge>
+                )}
                 {showLapsColumn && (() => {
                   if (!isTimed || !finish) return <span className="w-16 shrink-0" aria-hidden />;
                   const sailed = finish.laps ?? courseLaps!;

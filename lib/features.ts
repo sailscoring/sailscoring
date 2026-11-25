@@ -65,6 +65,13 @@ export const FEATURES = {
     label: 'Sailwave export',
     helpSectionIds: ['sailwave-export'],
   },
+  'spreadsheet-export': {
+    // The whole series as an Excel workbook for analysis — competitors,
+    // races, finishes as entered, every result as scored, the standings.
+    // One-way: nothing reads it back, so it can be retired cleanly.
+    label: 'Spreadsheet export',
+    helpSectionIds: ['spreadsheet-export'],
+  },
   'csv-finish-import': {
     label: 'Finish-sheet import (CSV / Excel)',
     helpSectionIds: ['importing-finish-sheet'],

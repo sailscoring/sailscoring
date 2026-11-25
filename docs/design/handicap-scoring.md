@@ -1178,6 +1178,167 @@ cross-checked against Nepean Sailing Club's
 The `SWECHO` / `EchoIndex` formulas are in
 [`docs/notes/sailwave/excel-handicap-protocol.md`](../notes/sailwave/excel-handicap-protocol.md).
 
+### Places-based progressive handicap (Garrykennedy SC) — not implemented
+
+Garrykennedy Sailing Club on Lough Derg moves handicaps by **finishing place**
+rather than by elapsed time
+([garrykennedysailing.org/sailing-handicap](https://garrykennedysailing.org/sailing-handicap/),
+read 2026-11-17; brought to our attention by Patrick Blaney, LDYC). The club
+chose this on purpose. Its fleet varies widely in boat type and crew
+consistency, and under an elapsed-time system that variation shows up as
+handicap anomalies which only subjective overrides can fix. Its stated aim is
+prizes "well spread across the fleet, largely pro-rata to participation". It
+is not trying to estimate boat speed.
+
+**The rule.** After each race, scored per class, the first five boats' handicaps
+go up by a fixed step, and the trophy winner gets one more:
+
+| Place | 1st | 2nd | 3rd | 4th | 5th | Trophy winner |
+|-------|-----|-----|-----|-----|-----|---------------|
+| Increase | 0.040 | 0.030 | 0.020 | 0.015 | 0.010 | +0.010 |
+
+The total handed out (0.125 in a trophy race) is then taken off every boat in
+the race in equal shares, so the class's sum of handicaps is unchanged. The gap
+between 1st and a boat outside the top five is always 0.050. How it divides
+depends on fleet size: in a 16-boat race the winner nets +0.042 and the others
+lose 0.008 each; in a 7-boat race it is +0.032 and −0.018. A boat racing alone
+nets zero. The numbers are TCF-style multipliers. A new boat (one that hasn't
+raced in either of the previous two years) starts at RYA NHC Base + 7.5%, and the
+committee may adjust it by hand after three races. The step table can change
+between series. White-sail racing has a separate set of handicaps, kept the same
+way.
+
+**Fit with the engine.** The pipeline shape is the same as NHC and ECHO: score
+the race, adjust handicaps, apply the new ones to the next race. Only step 1
+differs. Instead of computing a fair handicap from elapsed times (`Q_i`), the
+engine looks up each boat's place in a table and then subtracts an equal share
+from every boat. Outliers, blend rates and realignment don't apply. The
+zero-sum share is a realignment step that is built in. It is a third adjustment
+model alongside the `ProgressiveHandicapConfig` profiles, not another profile of
+the same formula.
+
+**Properties worth stating to a club adopting it:**
+
+- The steps are added rather than multiplied, so +0.040 is about 5% on a boat
+  at 0.800 but 3.6% on one at 1.100. Proportionally, the slow end of the fleet
+  moves further.
+- Downward correction is slow in a big fleet (−0.008 a race at 16 boats), and
+  upward correction is fast. Starting newcomers above base puts most errors on
+  the slow side.
+- Because the sum is conserved, the fleet's overall level is set by what
+  newcomers bring in. The +7.5% only makes sense relative to wherever the
+  established fleet sits.
+- In a class of four, 3rd and 4th still net a reduction for placing.
+
+**Not stated on the page,** and needed before any implementation: the "minor,
+special-case adjustments" for DNFs; which results count as participating for the
+share (DNS, OCS, DSQ, RET); how tied places split the steps; what "single class
+basis" means when classes share a start; which races are trophy races; and
+whether the handicap carries across series (it appears to). If built, the
+explainability columns would be Old H, Place, Increase, Share and New H. A past
+GSC results sheet with handicaps would serve as the gold fixture. Tracked in
+[`horizon.md`](horizon.md) → *Places-based progressive handicap*.
+
+**It is a known family.** TopYacht ships a "Place Based HC" recipe: rules per
+place, as an added amount or a percentage, with a fixed deduction for the rest
+of the fleet and for retirements. Ocean Racing WA's PHS works by place in
+percentages: +1.5% for a win, +0.75% for second, and the rest eased by
+0.15–0.45% according to which third of the fleet they finished in. GSC's
+equal-share deduction, which keeps the sum fixed, is the part neither of them
+has. TopYacht itself argues against the approach as the "knock back" method,
+with three-boat examples where a one-second win costs a minute next race and a
+6-minute winner keeps winning. See *PHS (Australia)* below. Captures are in
+`reference-docs:handicap-systems/club-progressive/`.
+
+### PHS (Australia) — not implemented
+
+**PHS** ("Performance Handicap System") is the usual club keelboat handicap in
+Australia, beside the measured systems (IRC, ORC Club, AMS) and Australian
+Sailing's class-based CBH for trailables and sports boats. It is a family, not a
+specification. The name covers whatever the club's results software does to
+move a TCF race by race. TopYacht's own guide says PHS "means different things
+to different users", from a "revolving door" to a quasi-measurement system that
+barely moves. Three implementations are documented:
+
+- **SailSys** (Sydney): John Maclurcan's method, begun 1971 and used by the CYCA
+  for PHS offshore racing, Sydney Hobart included, since 1993. The core is
+  proprietary, and SailSys deliberately doesn't publish the per-race TCF
+  (rTCF). The club gets five settings. *Races to consider* and *races to count*
+  set how many past rTCFs are averaged into the next handicap. The *upper* and
+  *lower limits* cap the rTCF committed to the record (with 4% limits, a boat
+  on 1.000 that sails to 1.045 is recorded as 1.040). The fifth setting says
+  whether a lower-limit breach is included at all. A race, a division or one
+  boat can be left out of the update. SailSys's selling point is allocating
+  starting handicaps from a cross-club history, on what it calls a consistent
+  scale.
+- **TopYacht**: documented in detail, with "over 20 parameters" per recipe.
+  Its five steps are below.
+- **Places-based variants**, such as ORWA's (above).
+
+**TopYacht's method**, from its technical papers, per handicap group:
+
+1. **Mark boat.** Rank the group by corrected time and take the boat 45% of the
+   way down (parameter 1). TopYacht says 45% has given the most stable
+   handicaps. Moving it down the list slows a downward drift.
+2. **BCH** (back-calculated handicap): `BCH_i = CT_mark / T_E_i`, the TCF that
+   would have tied the mark boat. The mark boat's BCH equals its AHC.
+3. **Clamp** (CBCH). A BCH beyond a *clamp* (±4% of the AHC by default) is
+   replaced by the clamp value, so 0.720 against a 0.800 AHC with a 5% clamp
+   becomes 0.760. Beyond a *limit* (e.g. 6%) it is ignored and the AHC is used
+   in its place.
+4. **CHC** (next handicap), by one of these methods:
+   - **Running average** of the last N CBCHs. N is 4 in the shipped PHC1
+     recipe, and TopYacht's tests rate it best. Until N races exist it blends
+     the starting AHC: `R1 = (N−1)/N·AHC₁ + 1/N·CBCH₁`, and so on. A boat can
+     win and still go down, when the result dropped from the window was better
+     than the one added.
+   - **Exponential**, with a "gain" (really a time constant).
+     `CHC = CBCH/gain + (1 − 1/gain)·AHC` for gains under 10. A gain of 10 or
+     more is read as the percentage of BCH. The default gain is 3, or 4 for
+     PHC1's settings. This is ECHO's blend with `α = 1/gain`.
+   - **Place-based**, and **place-biased exponential**, where α slides by place
+     from the winner and the last boat toward mid-fleet.
+   - **Trend-biased** and **boat performance ratio**, a comparison against the
+     boat's own past form. Not specified publicly.
+5. **Veto.** The handicapper may exclude a race's BCHs, for example when the
+   wind died before the mark boat finished.
+
+Handicaps can be time-on-time, time-on-distance, pursuit start offsets, or a
+flat time in minutes. They progress **within one series**. Concurrent series
+share progression through a parent series whose races the child series use,
+the same shape as our sub-series. A boat that doesn't start carries its AHC
+forward, so a fleet drifting down favours a boat returning from a break.
+TopYacht offers a drift report and a fleet-wide scale factor as the fix.
+Reprocessing an earlier race does **not** roll its new CHCs forward unless the
+scorer asks. That is the reverse of our choice to let retroactive edits
+propagate.
+
+**Fit with the engine.** TopYacht's exponential method is the shared
+progressive engine with three different choices:
+
+- **Reference:** a mark boat at a percentile of corrected time, where `Q_i`
+  uses the whole fleet.
+- **Outliers:** a clamp and limit relative to the boat's own AHC, where NHC
+  uses SD thresholds against the fleet.
+- **Realignment:** none.
+
+Each is a new option on `ProgressiveHandicapConfig`, not a new pipeline. The
+running average is the one real extension: the engine carries only the current
+handicap between races, and this needs each boat's last N results, including
+across a carry-over between series. SailSys's PHS can't be reproduced, because
+the algorithm and the rTCFs are both withheld, and we shouldn't claim to. Its
+five settings would map onto the same options. TopYacht's handicap results output
+lists AHC and BCH beside each boat. If its published results pages carry those
+columns, they are a public parity corpus. sailing-pf already imports those pages
+(see [`related-apps.md`](related-apps.md)). Not documented in the text captures: the
+full recipe screen (an image), the clamp/limit diagram's exact rule, and how
+non-finishers and the mark boat's rounding are treated. Sources are in
+`reference-docs:tool-manuals/topyacht/` (*How the Next Handicap is Calculated*,
+*Auto-adjusting Handicaps*, *Measured Performance Handicapping*, *Handicap
+Drift*, *PHS Handicapping ~ A Sailor's Guide*) and
+`reference-docs:tool-manuals/sailsys/`. Tracked in [`horizon.md`](horizon.md)
+→ *PHS (Australian performance handicap)*.
+
 ### Why Phase 2 is a significant jump
 
 Phase 1 is stateless: the same TCC/PY number applies to every race; results can be
@@ -1435,7 +1596,8 @@ All steps implemented. Key commits and issues for reference:
 
 The NHC1 algorithm was reverse-engineered from a copy of the SWNHC2015
 spreadsheet that produced a real race
-(`../hyc-archive/2026-club-racing/2026 Tues Series 1- Pup HPH R1.xls`)
+(`2026-club-racing/2026 Tues Series 1- Pup HPH R1.xls` in the `hyc-archive`
+repo's history, last at commit `a59e742`)
 and is now implemented (commit `e232d31`).
 See [`docs/notes/sailwave/nhc1-reverse-engineering.md`](../notes/sailwave/nhc1-reverse-engineering.md)
 for the algorithm, the verification across five HYC race-fleets at zero

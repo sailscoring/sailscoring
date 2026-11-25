@@ -20,7 +20,7 @@ import {
   type FeatureKey,
   type DirectorySettings,
 } from '@/lib/features';
-import { purgeDirectoryCache } from '@/lib/published-cache';
+import { purgeDirectoryCache, purgePublishedCache } from '@/lib/published-cache';
 import {
   directorySettingsSchema,
   featureToggleSchema,
@@ -111,6 +111,13 @@ export async function setWorkspaceFeature(
     .update(organization)
     .set({ metadata: serializeOrgMetadata(next) })
     .where(eq(organization.id, workspace.workspaceId));
+  // Features decide which public pages exist and what the workspace listing
+  // links to. The ones that do so today (competitor identity, rankings) are
+  // operator-managed, but a self-service one could join them unnoticed, and a
+  // toggle is rare enough to purge on every change.
+  if (next.enabledFeatures.includes(input.feature) !== wasEnabled) {
+    await purgePublishedCache(workspace.workspaceId);
+  }
   return {
     enabledFeatures: next.enabledFeatures,
     disabledFeatures: next.disabledFeatures,

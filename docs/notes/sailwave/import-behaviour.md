@@ -2,8 +2,10 @@
 
 `lib/sailwave-import.ts` is the source of truth; the rules below document what
 it does with a real HYC Sailwave 2.38 export. (The HYC reference data this was
-derived against now lives in the `hyc-archive` sibling repo —
-`../hyc-archive/2026-club-racing/`.)
+derived against lived in the `hyc-archive` sibling repo's `2026-club-racing/`
+until 2026-11; it is in that repo's history, last at commit `a59e742`. The
+Sailwave files themselves are the anonymised `.blw` fixtures under
+`tests/fixtures/sailwave/hyc-2026/`.)
 
 A Sailwave `.blw` file is the native series document — a flat, four-column CSV
 of `key,value,compHandle,raceHandle` records. The importer pivots it into the

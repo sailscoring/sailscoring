@@ -623,6 +623,7 @@ export default function ResultEntryPage({
           competitorMap={competitorMap}
           fleetById={fleetById}
           raceFleetIds={raceFleets}
+          raceStarts={raceStarts}
           showFleetBadge={showFleetBadge}
           showCrew={showCrew}
           enabledCompetitorFields={enabledCompetitorFields}

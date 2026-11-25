@@ -15,7 +15,6 @@ CREATE TABLE "voice_recordings" (
 	"document" jsonb NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"expires_at" timestamp with time zone NOT NULL,
 	"deleted_at" timestamp with time zone
 );
 --> statement-breakpoint
@@ -23,5 +22,4 @@ ALTER TABLE "voice_recording_segments" ADD CONSTRAINT "voice_recording_segments_
 ALTER TABLE "voice_recordings" ADD CONSTRAINT "voice_recordings_workspace_id_organization_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."organization"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "voice_recordings" ADD CONSTRAINT "voice_recordings_race_id_races_id_fk" FOREIGN KEY ("race_id") REFERENCES "public"."races"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "voice_recordings_race_idx" ON "voice_recordings" USING btree ("race_id");--> statement-breakpoint
-CREATE INDEX "voice_recordings_submission_idx" ON "voice_recordings" USING btree ("submission_id");--> statement-breakpoint
-CREATE INDEX "voice_recordings_expires_idx" ON "voice_recordings" USING btree ("expires_at");
+CREATE INDEX "voice_recordings_submission_idx" ON "voice_recordings" USING btree ("submission_id");

@@ -273,6 +273,9 @@ export interface TreeNavPosition {
   currentSubPath?: string;
   /** Interior-folder label overrides for the slug, keyed by segment. */
   folderLabels?: Map<string, string>;
+  /** The page of the category the position is filed in, when it has one
+   *  worth linking — every season's events in that category. */
+  categoryLink?: { label: string; href: string };
 }
 
 /** Inline links up to this many sibling pages; beyond it, a select. */
@@ -303,6 +306,7 @@ const NAV_STYLE = `<style>
 .sstreenav a { color: #073358; text-decoration: none; margin-left: 12px; white-space: nowrap; }
 .sstreenav a:hover { color: #fb3a3b; text-decoration: underline; }
 .sstreenav .sstreenav-current { color: #fb3a3b; font-weight: 600; margin-left: 12px; white-space: nowrap; }
+.sstreenav-block .sstreenav-cat { display: inline-block; margin: 4px 0 0; }
 @media print { .sstreenav { display: none; } }
 @media (max-width: 640px) { .sstreenav-float { float: none; text-align: center; margin: 10px 12px 0; max-width: none; } }
 </style>`;
@@ -476,9 +480,13 @@ export function renderTreeNav(
   variant: 'float' | 'block',
 ): string {
   const { selects, leaf } = buildTreeNav(position);
+  const cat = position.categoryLink;
   const parts = [
     ...selects.map(renderMenu),
     ...(leaf ? [renderLeaf(leaf)] : []),
+    ...(cat
+      ? [`<a class="sstreenav-cat" href="${esc(cat.href)}">${esc(cat.label)} &rarr;</a>`]
+      : []),
   ];
   if (parts.length === 0) return '';
   return `<div class="sstreenav sstreenav-${variant}">${NAV_STYLE}${MENU_SCRIPT}${parts.join('')}</div>`;

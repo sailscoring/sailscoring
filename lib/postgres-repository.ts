@@ -2,6 +2,7 @@ import 'server-only';
 import { and, asc, eq, getTableColumns, inArray, sql, type SQL } from 'drizzle-orm';
 import type { PgInsertValue, PgUpdateSetSource } from 'drizzle-orm/pg-core';
 
+import { formerSlugsAfterRename, mintCategorySlug } from './category-slug';
 import { cleanClubs } from './competitor-fields';
 import { decryptCredential, encryptCredential } from './crypto';
 import { getDb, type SailScoringDb } from './db/client';
@@ -2564,7 +2565,7 @@ export class PostgresLogoRepository {
 // ─── Categories ──────────────────────────────────────────────────────────────
 
 function categoryRowToType(row: typeof schema.categories.$inferSelect): Category {
-  return { id: row.id, name: row.name, displayOrder: row.displayOrder };
+  return { id: row.id, name: row.name, displayOrder: row.displayOrder, slug: row.slug };
 }
 
 /**
@@ -2606,21 +2607,36 @@ export class PostgresCategoryRepository {
         workspaceId: this.workspaceId,
         name,
         displayOrder: next,
+        slug: await mintCategorySlug(this.db, this.workspaceId, name),
       })
       .returning();
     return categoryRowToType(row);
   }
 
+  /** Renaming re-derives the slug, so the public page's URL reads as the new
+   *  name; the old slug joins `former_slugs` and redirects to it. */
   async rename(id: string, name: string): Promise<Category | undefined> {
+    const where = and(
+      eq(schema.categories.id, id),
+      eq(schema.categories.workspaceId, this.workspaceId),
+    );
+    const [current] = await this.db
+      .select({
+        slug: schema.categories.slug,
+        formerSlugs: schema.categories.formerSlugs,
+      })
+      .from(schema.categories)
+      .where(where);
+    if (!current) return undefined;
+    const slug = await mintCategorySlug(this.db, this.workspaceId, name, id);
     const [row] = await this.db
       .update(schema.categories)
-      .set({ name })
-      .where(
-        and(
-          eq(schema.categories.id, id),
-          eq(schema.categories.workspaceId, this.workspaceId),
-        ),
-      )
+      .set({
+        name,
+        slug,
+        formerSlugs: formerSlugsAfterRename(current.formerSlugs, current.slug, slug),
+      })
+      .where(where)
       .returning();
     return row ? categoryRowToType(row) : undefined;
   }

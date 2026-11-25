@@ -3,9 +3,10 @@ import 'server-only';
 import { BadRequestError, NotFoundError } from '@/app/api/v1/_lib/handler';
 import { recordActivity } from '@/lib/activity-log';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
-import { relinkIdentitiesBestEffort } from '@/lib/competitor-identity-reconcile';
+import { relinkIdentitiesAfterCompetitorWrite } from '@/lib/competitor-identity-after-write';
 import { assertSeriesWritable } from '@/lib/api-handlers/series-access';
 import { createRepos, seriesFileReposFor } from '@/lib/postgres-repository';
+import { purgePublishedCacheForSeries } from '@/lib/published-repository';
 import {
   captureRevision,
   exportRevisions,
@@ -84,6 +85,8 @@ export async function revertToRevision(
     revision.snapshot,
     seriesFileReposFor({ workspaceId: workspace.workspaceId }),
   );
+  // A restored name or start date shows on the public listings.
+  await purgePublishedCacheForSeries(workspace.workspaceId, seriesId);
 
   // Seal the pre-revert session so subsequent edits don't fold back into it,
   // then pin the restore as its own revision.
@@ -102,7 +105,7 @@ export async function revertToRevision(
 
   // Lazy identity population (#222): the replay rewrote the competitor rows,
   // so their workspace-local identity links are re-derived here.
-  await relinkIdentitiesBestEffort(workspace.workspaceId);
+  await relinkIdentitiesAfterCompetitorWrite(workspace.workspaceId);
 
   return { ok: true };
 }

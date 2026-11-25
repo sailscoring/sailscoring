@@ -363,11 +363,11 @@ test('published pages carry CDN cache headers and a workspace purge tag', async 
   expect(headers['etag']).toBeTruthy();
 
   // The CDN is told something different, and only the CDN sees it: it may
-  // answer that revalidation itself for a minute rather than waking a
-  // function. Vercel consumes this header at the edge, so it never reaches a
-  // real browser — it is visible here only because there is no CDN in front
-  // of the local test server.
-  expect(headers['vercel-cdn-cache-control']).toBe('public, s-maxage=60');
+  // answer that revalidation itself for a day, until a write purges the
+  // workspace's tag, rather than waking a function. Vercel consumes this
+  // header at the edge, so it never reaches a real browser — it is visible
+  // here only because there is no CDN in front of the local test server.
+  expect(headers['vercel-cdn-cache-control']).toBe('public, s-maxage=86400');
 
   // One tag per workspace, so publishing can drop every page it might have
   // changed — the navigation cascade means that is potentially all of them.
@@ -692,6 +692,14 @@ test('season mode: Season + Folder compose the tree; a second event joins withou
   await expect(page.getByRole('heading', { name: '2026' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Spring Regatta' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Summer Regatta' })).toBeVisible();
+
+  // The workspace Published tab lists each event at its own folder, not at
+  // the season both share — so neither reads as sharing a URL with the other.
+  await page.goto('/workspace/published');
+  await expect(page.getByText('2 pages published')).toBeVisible();
+  await expect(page.getByRole('link', { name: /\/2026\/spring-regatta$/ })).toBeVisible();
+  await expect(page.getByRole('link', { name: /\/2026\/summer-regatta$/ })).toBeVisible();
+  await expect(page.getByText(/shares URL with/)).toHaveCount(0);
 });
 
 test('multi-fleet: the "Pages live under" path is the same before and after publishing', async ({ page }) => {
@@ -1088,6 +1096,70 @@ test('the public workspace listing groups by season, expands the current one, an
   await expect(page.getByRole('link', { name: 'Lambay Race 2024', exact: true })).toBeVisible();
   await page.getByLabel('Search published pages').fill('nothing-matches-this');
   await expect(page.getByText('No pages match.')).toBeVisible();
+});
+
+test("a category's public page lists its events across every season", async ({ page }) => {
+  // The same event in two seasons, each published under its own folder.
+  await createSeriesWithData(page, { name: 'Cork Week 2024', sail: '24', date: '2024-07-08' });
+  await page.getByRole('button', { name: 'Publish' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Publish results' });
+  await dialog.getByLabel('Folder').fill('cork-week-24');
+  await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
+  const firstLink = dialog.getByRole('link', { name: /\/p\// });
+  await expect(firstLink).toBeVisible();
+  const workspaceSlug = new URL((await firstLink.getAttribute('href')) ?? '').pathname.split(
+    '/',
+  )[2];
+
+  await createSeriesWithData(page, { name: 'Cork Week 2026', sail: '26', date: '2026-07-13' });
+  await page.getByRole('button', { name: 'Publish' }).click();
+  await dialog.getByLabel('Folder').fill('cork-week-26');
+  await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
+  await expect(dialog.getByRole('link', { name: /\/cork-week-26\/standings$/ })).toBeVisible();
+
+  // File both under one category.
+  await page.goto('/workspace');
+  await page.getByRole('button', { name: 'Manage' }).click();
+  const catDialog = page.getByRole('dialog');
+  await catDialog.getByPlaceholder('New category name').fill('Cork Week');
+  await catDialog.getByRole('button', { name: 'Add' }).click();
+  await expect(catDialog.getByPlaceholder('New category name')).toHaveValue('');
+  await catDialog.getByRole('button', { name: 'Done' }).click();
+  await page.goto('/');
+  for (const name of ['Cork Week 2024', 'Cork Week 2026']) {
+    await page.getByRole('button', { name: `Actions for ${name}` }).click();
+    await page.getByRole('menuitem', { name: 'Move to category' }).click();
+    await Promise.all([
+      page.waitForResponse(
+        (r) => /\/category$/.test(r.url()) && r.request().method() !== 'GET' && r.ok(),
+      ),
+      page.getByRole('menuitemradio', { name: 'Cork Week' }).click(),
+    ]);
+  }
+
+  // Workspace settings link the published category's page.
+  await page.goto('/workspace');
+  await expect(
+    page.getByRole('link', { name: 'Cork Week — open its public page' }),
+  ).toHaveAttribute('href', `/p/${workspaceSlug}/-/cork-week`);
+
+  // The workspace index's category heading leads to the category page…
+  await page.goto(`/p/${workspaceSlug}`);
+  await page
+    .locator('details.season[open]')
+    .getByRole('heading', { name: 'Cork Week' })
+    .getByRole('link')
+    .click();
+  await expect(page).toHaveURL(new RegExp(`/p/${workspaceSlug}/-/cork-week$`));
+  await expect(page.getByRole('heading', { name: 'Cork Week', level: 1 })).toBeVisible();
+  // …which shows both seasons, newest first, every one open.
+  await expect(page.getByRole('heading', { level: 2 })).toHaveText(['2026', '2024']);
+  await page.getByRole('link', { name: 'Cork Week 2024', exact: true }).click();
+  await expect(page).toHaveURL(/\/cork-week-24$/);
+
+  // An event in the category links back to every season's.
+  await page.getByRole('link', { name: 'All Cork Week results →' }).click();
+  await expect(page).toHaveURL(new RegExp(`/p/${workspaceSlug}/-/cork-week$`));
 });
 
 test('keyboard shortcut p opens the publish dialog', async ({ page }) => {

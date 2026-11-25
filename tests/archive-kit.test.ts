@@ -779,6 +779,41 @@ describe("as-published race-results detail (#347)", () => {
     const noRaceTable = { ...RESULTS, raceTables: undefined };
     expect(archiveSeriesDocSchema.safeParse(doc(noRaceTable)).success).toBe(false);
   });
+
+  test('the ingest format carries a season ranking across every league, up to 100 races', async () => {
+    const { archiveSeriesDocSchema } = await import('@/lib/archive-kit/format');
+    const ranking = (races: number) => ({
+      formatVersion: 1,
+      series: { id: '99999999-8888-4777-8666-555555555553', name: 'Optimist Overall Results 2011', publishedSlug: '2011' },
+      fleets: [{
+        id: '11111111-2222-4333-8444-555555555555',
+        name: 'Overall',
+        subPath: 'optimist-overall-results',
+        results: {
+          leadColumns: [{ key: 'helm', label: 'Helm' }],
+          raceHeaders: Array.from({ length: races }, (_, i) => ({ label: `Race ${i + 1}` })),
+          summaryColumns: [],
+          rows: [{
+            competitorId: '11111111-2222-4333-8444-5555555555aa',
+            rank: 1,
+            rankLabel: '1',
+            leadCells: ['Luke McGrath'],
+            raceCells: Array.from({ length: races }, () => ({ text: '69', discard: true })),
+            summaryCells: [],
+          }],
+        },
+      }],
+      competitors: [{
+        id: '11111111-2222-4333-8444-5555555555aa',
+        name: 'Luke McGrath',
+        sailNumber: '1297',
+        fleetIds: ['11111111-2222-4333-8444-555555555555'],
+      }],
+    });
+    // Royal Cork's 2011 Optimist ranking is 95 races.
+    expect(archiveSeriesDocSchema.safeParse(ranking(95)).success).toBe(true);
+    expect(archiveSeriesDocSchema.safeParse(ranking(101)).success).toBe(false);
+  });
 });
 
 describe('race-only Sailwave pages (#355)', () => {

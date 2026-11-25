@@ -23,6 +23,7 @@ import {
   sha256Hex,
 } from '@/lib/flag-locker-storage';
 import { createRepos } from '@/lib/postgres-repository';
+import { purgePublishedCache } from '@/lib/published-cache';
 import {
   logoCopySchema,
   logoCreateSchema,
@@ -229,6 +230,8 @@ export async function setWorkspaceLogo(
   const input = workspaceLogoSchema.parse(body);
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   const logo = await repos.logos.setWorkspaceLogo(input.logo.trim());
+  // Every public page of the workspace shows it, as does the directory.
+  await purgePublishedCache(workspace.workspaceId);
   return { logo };
 }
 

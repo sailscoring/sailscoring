@@ -398,6 +398,21 @@ export function workspaceIndexEvents(
   return events;
 }
 
+/** The text of a link to a category's page. */
+export function categoryLinkLabel(name: string): string {
+  return `All ${name} results`;
+}
+
+/** One event row of a listing: the event's title linking its index, its
+ *  results pages beneath. The data attributes are the quick-jump picker's
+ *  filter keys. */
+export function renderIndexEventRow(e: IndexEvent): string {
+  const pageLinks = e.pages
+    .map((p) => `<a href="${esc(p.href)}">${esc(p.label)}</a>`)
+    .join(' &middot; ');
+  return `<li data-season="${esc(e.season ?? '')}" data-cat="${esc(e.categoryName ?? '')}" data-event="${esc(e.key)}"><a class="evt" href="${esc(e.href)}">${esc(e.label)}</a>${pageLinks ? `<span class="pages">${pageLinks}</span>` : ''}</li>`;
+}
+
 /**
  * Workspace listing at `/p/{ws}` (ADR-011). The unit is the *event* — a
  * season slug's interior folders and root pages, or a whole legacy top-level
@@ -425,6 +440,9 @@ export function renderWorkspaceIndexHtml(
     folderMeta?: Map<string, { label: string | null }>;
     /** The page's `index.json` twin (#669), declared in the head. */
     indexJsonHref?: string;
+    /** Each published category's page, by category name: a category's
+     *  heading links to it, as does the picker once filtered to it. */
+    categoryHrefs?: Map<string, string>;
   } = {},
 ): string {
   const head = opts.indexJsonHref ? jsonAlternateLink(opts.indexJsonHref) : '';
@@ -449,14 +467,8 @@ export function renderWorkspaceIndexHtml(
     );
   }
 
-  const row = (e: IndexEvent) => {
-    const pageLinks = e.pages
-      .map((p) => `<a href="${esc(p.href)}">${esc(p.label)}</a>`)
-      .join(' &middot; ');
-    return `<li data-season="${esc(e.season ?? '')}" data-cat="${esc(e.categoryName ?? '')}" data-event="${esc(e.key)}"><a class="evt" href="${esc(e.href)}">${esc(e.label)}</a>${pageLinks ? `<span class="pages">${pageLinks}</span>` : ''}</li>`;
-  };
   const list = (rows: IndexEvent[]) =>
-    `<ul class="listing">\n${rows.map(row).join('\n')}\n</ul>`;
+    `<ul class="listing">\n${rows.map(renderIndexEventRow).join('\n')}\n</ul>`;
   // Each heading + list pairs inside a `section.lgroup` so the quick-jump
   // picker can hide a section its filter empties, heading and all.
   const section = (heading: string, rows: IndexEvent[]) =>
@@ -476,10 +488,13 @@ export function renderWorkspaceIndexHtml(
           // the event-family-as-category shape, where most seasons hold one
           // event per family.
           (g.items.length === 1 && g.items[0].label === g.categoryName);
+        const name = g.categoryName ?? 'Uncategorized';
+        const href =
+          g.categoryName !== null ? opts.categoryHrefs?.get(g.categoryName) : undefined;
         return section(
           noHeading
             ? ''
-            : `<h3 class="cat">${esc(g.categoryName ?? 'Uncategorized')}</h3>\n`,
+            : `<h3 class="cat">${href ? `<a href="${esc(href)}">${esc(name)}</a>` : esc(name)}</h3>\n`,
           g.items,
         );
       })
@@ -505,7 +520,7 @@ export function renderWorkspaceIndexHtml(
       .join('\n');
   }
 
-  const picker = renderQuickJumpPicker(seasons);
+  const picker = renderQuickJumpPicker(seasons, opts.categoryHrefs);
 
   return renderPublicShell(
     `${workspaceName} — published results`,
@@ -533,6 +548,7 @@ export function renderWorkspaceIndexHtml(
  */
 function renderQuickJumpPicker(
   seasons: ListingSeasonGroup<IndexEvent>[],
+  categoryHrefs?: Map<string, string>,
 ): { controls: string; script: string } {
   // Display order: seasons newest first, matching the listing below.
   const events = seasons.flatMap((s) => s.groups.flatMap((g) => g.items));
@@ -554,8 +570,14 @@ function renderQuickJumpPicker(
   ].filter((c): c is string => c != null);
 
   const multiSeason = seasonValues.length >= 2;
+  const catLinks: Record<string, { href: string; label: string }> = {};
+  for (const c of cats) {
+    const href = categoryHrefs?.get(c);
+    if (href) catLinks[c] = { href, label: categoryLinkLabel(c) };
+  }
   const data = {
     multiSeason,
+    catLinks,
     events: events.map((e) => ({
       key: e.key,
       label: e.label,
@@ -575,7 +597,12 @@ function renderQuickJumpPicker(
           .map((c) => `<option value="${esc(c)}">${esc(c)}</option>`)
           .join('')}</select>`
       : '';
-  const controls = `<div class="picker" hidden>${seasonSelect}${catSelect}<select id="picker-series" aria-label="Event or series"><option value="">All events</option></select></div>\n`;
+  // Filtered to a category with a page of its own, the picker links it — the
+  // filter shows this listing's slice, the page shows every season's.
+  const catLink = catSelect
+    ? `<p class="browse picker-cat-link" id="picker-cat-link" hidden><a href=""></a></p>`
+    : '';
+  const controls = `<div class="picker" hidden>${seasonSelect}${catSelect}<select id="picker-series" aria-label="Event or series"><option value="">All events</option></select></div>\n${catLink}`;
 
   // `<` escaped so an adversarial series title can't close the script tag.
   const json = JSON.stringify(data).replace(/</g, '\\u003c');
@@ -638,6 +665,15 @@ const PICKER_SCRIPT = `(function () {
       });
       eventSel.value = keep;
       if (eventSel.value !== keep) eventSel.value = '';
+    }
+    var catLink = document.getElementById('picker-cat-link');
+    if (catLink) {
+      var link = c && data.catLinks[c];
+      catLink.hidden = !link;
+      if (link) {
+        catLink.firstChild.href = link.href;
+        catLink.firstChild.textContent = link.label + ' \u2192';
+      }
     }
     var sel = eventSel.disabled ? '' : eventSel.value;
     var filtering = !!(y || c || sel);

@@ -1745,6 +1745,46 @@ Further out:
   clubs. Workspaces are closed units, so this needs a consent model, though
   published results are already public.
 
+### Places-based progressive handicap
+
+Garrykennedy Sailing Club (Lough Derg) adjusts handicaps by finishing place.
+After each race the top five get fixed increases (+0.040 down to +0.010, and a
+further +0.010 for the trophy winner), and the total is then taken off every
+boat in equal shares, so the class's sum of handicaps doesn't change. Elapsed
+times play no part. Patrick Blaney (LDYC) brought it to our attention in
+November 2026. The rule, its properties and the open questions are in
+`handicap-scoring.md` → *Places-based progressive handicap (Garrykennedy SC)*.
+
+The engine's adjustment phase needs a step 1 that works from places rather than
+from `Q_i`. It also needs a per-race trophy-race flag, a step table on the
+fleet, and a rule for who shares the reduction. That is small next to NHC or
+ECHO. It is held back until a club asks to score with it. Before building we
+need GSC's DNF and participation rules and a past results sheet with handicaps
+to use as the fixture.
+
+TopYacht ships the same idea as its "Place Based HC" recipe, and Ocean Racing
+WA's PHS is a percentage version. See the PHS entry below.
+
+### PHS (Australian performance handicap)
+
+PHS is the usual club keelboat handicap in Australia. It is a family of club
+systems rather than one specification: SailSys's proprietary method (John
+Maclurcan's, used by the CYCA), TopYacht's documented recipes, and places-based
+variants such as ORWA's. TopYacht's method takes the mark boat 45% down the
+corrected-time order and back-calculates each boat's TCF against it. It clamps
+or rejects results beyond ±4–6% of the boat's handicap, then takes either a
+running average of the last four or an exponential blend (ECHO's α, as
+`1/gain`). The detail is in `handicap-scoring.md` → *PHS (Australia)*.
+
+TopYacht's exponential method needs three new options on the shared engine: a
+mark-boat reference, a clamp relative to the boat's own handicap, and no
+realignment. The running average needs a window of each boat's past results,
+which the engine doesn't keep today. SailSys's version can't be reproduced,
+because the algorithm and its per-race TCFs are withheld, so the goal would be
+TopYacht parity, checked against its public results pages if they carry AHC
+and BCH, as its handicap results output does. Held back until an Australian club wants to score with it; it would
+matter for Sail Scoring use in Australia.
+
 ### PHRF (time-on-distance)
 
 PHRF (Performance Handicap Racing Fleet) is the dominant North American keelboat
@@ -2194,8 +2234,12 @@ second club to ask.
 Beyond the standings table itself, scorers and organisers want views that *interrogate*
 a series — how boats performed against their handicaps, how healthy the racing was, where
 a result was won or lost. HalSail ships a cluster of these (time-to-win, handicap
-analysis, turnout analysis), all exportable to spreadsheet. We have none yet; the
-standings page is the only analytical surface.
+analysis, turnout analysis), all exportable to spreadsheet. We have no in-app views yet;
+the standings page is the only analytical surface. The raw material is out, though:
+**Export to spreadsheet** (#779, gated `spreadsheet-export`) writes the whole series as a
+workbook whose Results sheet has one row per boat per race with the rating applied,
+elapsed and corrected times, time to win and the NHC/ECHO working, so a committee can
+do the handicap and turnout analyses below in a pivot table today.
 
 Candidate analyses, roughly in order of usefulness:
 
@@ -2219,12 +2263,20 @@ Candidate analyses, roughly in order of usefulness:
 
 Shape of the change: these are read-only derived views over data the engine already
 holds (finishes, ratings, results), so the work is computation + presentation, not
-schema. Open questions: which land in the app UI vs. only as exports (HalSail leans on
-spreadsheet export — we'd likely want at least time-to-win in-page); whether any belong
+schema. Open questions: which land in the app UI vs. only in the workbook export (HalSail
+leans on spreadsheet export — we'd likely want at least time-to-win in-page); whether any belong
 in the published `/p/...` output for competitors, or stay scorer/organiser-facing; and
 how they interact with multi-fleet series and discards (is time-to-win computed before or
 after discards?). Pairs with the operator-facing engagement metrics under Operator
 administration — those measure the *product*; these measure a *series*.
+
+### Spreadsheet export follow-ups
+
+The workbook export (#779) is scorer-side and complete, like a `.sailscoring` file. Left
+for later: a **Download as spreadsheet** link on published pages for sailors, built from
+the published view (ADR-015) so it carries only what the pages show; a CSV of the Results
+sheet alone for tools that don't read `.xlsx`; and the as-published archives, which hold
+printed tables rather than results and are left out of the export. None has been asked for.
 
 ### Sector time analysis (offshore tracker analytics)
 

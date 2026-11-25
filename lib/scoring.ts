@@ -530,7 +530,8 @@ export function orcCertificateTodContext(
   const startSeconds = parseHmsToSeconds(raceStart.startTime);
   const finisherAllowances = finishes.flatMap((f) => {
     const allowance = f.competitorId !== null ? allowanceByCompetitorId.get(f.competitorId) : undefined;
-    return allowance != null && f.resultCode === null && elapsedSecondsOf(f, startSeconds) !== null
+    const et = elapsedSecondsOf(f, startSeconds);
+    return allowance != null && f.resultCode === null && et !== null && et > 0
       ? [allowance]
       : [];
   });
@@ -595,7 +596,12 @@ export function calculateHandicapRaceScores(
   appliedTcfByCompetitorId: Map<string, number>,
   dnfScoring: CodeScoring = 'seriesEntries',
   todContext?: TodCorrectionContext,
-): { scores: Map<string, HandicapRaceScore> } {
+): {
+  scores: Map<string, HandicapRaceScore>;
+  /** Boats whose recorded finish is at or before the gun: scored as if no
+   *  time were recorded, and for the caller to report. */
+  finishedBeforeStart: string[];
+} {
   finishes = oneFinishPerCompetitor(finishes);
   const startSeconds = parseHmsToSeconds(raceStart.startTime);
   const codes = codeTableOf(dnfScoring);
@@ -639,6 +645,7 @@ export function calculateHandicapRaceScores(
   }
 
   const candidates: Candidate[] = [];
+  const finishedBeforeStart: string[] = [];
   for (const competitor of competitors) {
     const finish = finishMap.get(competitor.id);
     const tcf = appliedTcfByCompetitorId.get(competitor.id);
@@ -657,7 +664,12 @@ export function calculateHandicapRaceScores(
       continue;
     }
     const et = elapsedSecondsOf(finish, startSeconds);
-    if (et === null) {
+    // A finish at or before the gun is a mistyped time, not a result: scored
+    // as a finish it comes out with a negative corrected time and wins the
+    // race, and drags a progressive fleet's mean corrected time with it. It
+    // scores as a boat with no time does, and the caller reports it.
+    if (et !== null && et <= 0) finishedBeforeStart.push(competitor.id);
+    if (et === null || et <= 0) {
       candidates.push({ competitorId: competitor.id, elapsedTime: null, correctedTime: null, tcfApplied: tcf, resultCode: 'DNF', isFinisher: false });
       continue;
     }
@@ -746,7 +758,7 @@ export function calculateHandicapRaceScores(
     });
   }
 
-  return { scores };
+  return { scores, finishedBeforeStart };
 }
 
 /** What {@link computeOrcCourseRace} hands the standings orchestration (and
@@ -2168,6 +2180,9 @@ function calculateHandicapStandings(
       correctedOverDistance = todContext != null;
       const phaseA = calculateHandicapRaceScores(raceFinishes, ratedCompetitors, raceStart, effectiveTcfMap, dnfScoring, todContext);
       let raceScores = phaseA.scores;
+      for (const competitorId of phaseA.finishedBeforeStart) {
+        allRejections.push({ competitorId, raceId: race.id, reason: 'finish_before_start' });
+      }
 
       // Attach the ORC audit block on every ORC race: the option that scored
       // it, plus the correction ingredients — the PCS computation's per-boat

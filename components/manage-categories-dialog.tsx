@@ -5,12 +5,13 @@
  * categories: add, rename, reorder (drag-and-drop), and delete.
  * "Uncategorized" is synthetic (not a row) so it never appears
  * here and can't be removed. Deleting a category drops its series back to
- * Uncategorized server-side.
+ * Uncategorized server-side. A category with something published in it has
+ * a public page, linked from its row.
  *
  * Surfaced from the home list header and from workspace settings.
  */
 import { useState } from 'react';
-import { Loader2, Plus, Trash2 } from 'lucide-react';
+import { ExternalLink, Loader2, Plus, Trash2 } from 'lucide-react';
 
 import { SortableList, DragHandle } from '@/components/ui/sortable-list';
 
@@ -107,6 +108,19 @@ export function ManageCategoriesDialog({
                   }}
                   onBlur={(e) => handleRename(c.id, e.target.value, c.name)}
                 />
+                {c.publicPath && (
+                  <Button variant="ghost" size="icon" asChild>
+                    <a
+                      href={c.publicPath}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={`Open the public page for ${c.name}`}
+                      title="Public page"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                    </a>
+                  </Button>
+                )}
                 <Button
                   variant="ghost"
                   size="icon"

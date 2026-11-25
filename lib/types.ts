@@ -152,6 +152,12 @@ export interface Category {
   id: string;
   name: string;
   displayOrder: number;
+  /** The last segment of the category's public page, `/p/{ws}/-/{slug}`. */
+  slug: string;
+  /** The public page's path, while anything in the category is published;
+   *  null while nothing is (the page 404s then). Set by the list endpoint
+   *  only — create and rename leave it out. */
+  publicPath?: string | null;
 }
 
 /** Where a series originally came from. Currently only Sailwave imports are
@@ -1861,13 +1867,14 @@ export interface PublicationStatus {
 export interface PublishedListItem {
   id: string;                     // publication id — the unpublish path param
   slug: string;
+  path: string;                   // its own pages' address below the workspace: the slug, or slug/folder when the slug is shared
   title: string;                  // live series name, or the slug for an orphan
-  url: string;                    // public series-index URL: {APP_URL}/p/{ws}/{slug}
+  url: string;                    // public URL of that address: {APP_URL}/p/{ws}/{path}
   seriesId: string | null;        // authoring link target; null for an orphan
   orphaned: boolean;              // the series was deleted (the snapshot lives on)
   publishedAt: number;            // Unix ms of the last publish
   editsSincePublish: number;      // series edits since the snapshot (0 if orphaned)
-  sharedWith: string[];           // titles of other publications sharing this slug
+  sharedWith: string[];           // titles of other publications at this path or below it
   fleetCount: number;             // published fleet pages under the slug's entry
   // Placement on the management page's sections (ListingPlacement) — this
   // publication's own series, unlike the public listing's per-slug
@@ -1963,11 +1970,18 @@ export type ScoringRejectionReason =
   | 'rdg_missing_fleet_points'
   // A multi-fleet boat has per-fleet DPI (or SCP) points but none set for
   // this fleet — no penalty applied until the scorer enters one.
-  | 'dpi_missing_fleet_points';
+  | 'dpi_missing_fleet_points'
+  // A finish recorded at or before the boat's start gun — a mistyped time.
+  // Scored as a finish with no time (DNF) until the scorer corrects it, and
+  // left out of a progressive fleet's race aggregates.
+  | 'finish_before_start';
 
 export interface ScoringRejection {
   competitorId: string;
   reason: ScoringRejectionReason;
+  /** The race the rejection is about, for a reason that concerns one race
+   *  rather than the whole series. */
+  raceId?: string;
 }
 
 /** Why a race isn't scored the way its fleet's rating system says it should

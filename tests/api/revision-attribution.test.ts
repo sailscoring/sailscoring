@@ -170,6 +170,7 @@ describe.skipIf(skip)('activity is attributed to the revision that captured it',
       workspaceId,
       name: 'Autumn',
       displayOrder: 0,
+      slug: 'autumn',
     });
     await series.setSeriesCategory(ctx, id, { categoryId });
 

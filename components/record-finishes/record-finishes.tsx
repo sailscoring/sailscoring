@@ -391,6 +391,7 @@ function RaceRecording({ dated, userId, onBack }: { dated: DatedRace; userId: st
             competitorMap={competitorMap}
             fleetById={fleetById}
             raceFleetIds={raceFleets}
+            raceStarts={raceStarts}
             showFleetBadge={showFleetBadge}
             showCrew={enabledCompetitorFields.includes('crewName')}
             enabledCompetitorFields={enabledCompetitorFields}

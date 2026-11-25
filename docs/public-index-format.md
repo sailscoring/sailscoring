@@ -20,6 +20,8 @@ published series with its pages and its data file.
 - Served with `Access-Control-Allow-Origin: *`, and `ETag` exposed
   (`Access-Control-Expose-Headers: ETag`), so a script can poll it with
   `If-None-Match` and get `304 Not Modified` while nothing has changed.
+  The CDN holds the index until something in it changes and answers that `304`
+  itself, so a poll costs nothing while nothing has changed.
 - Lists only what is already published. Unpublishing a series drops it from
   the index; a workspace with nothing published, or a season with nothing
   filed under it, is `404`.
@@ -49,6 +51,12 @@ Every URL is absolute.
       "index": "https://app.sailscoring.ie/p/hyc/2026/index.json"
     }
   ],
+  "categories": [                           // absent when no listed publication has one
+    {
+      "name": "Open Events",
+      "url": "https://app.sailscoring.ie/p/hyc/-/open-events"   // every season's events in it
+    }
+  ],
   "publications": [
     {
       "name": "Autumn League 2026",         // the series' name
@@ -75,6 +83,7 @@ Every URL is absolute.
       ],
       "data": "https://app.sailscoring.ie/p/hyc/autumn-league/autumn-league-2026.sailscoring.json",
       "api": "https://app.sailscoring.ie/api/public/v1/publications/0b8a6c84-…",   // absent until it exists
+      "category": { "name": "Club Racing", "url": "…/p/hyc/-/club-racing" },      // absent when uncategorised
       "fleets": [{ "name": "Class 1", "scoringSystem": "irc" }],
       "publishedAt": "2026-10-04T18:12:00.000Z",
       "firstRaceDate": "2026-09-06",
@@ -106,9 +115,17 @@ Field notes:
   contract. This is what an app should read; the data file is not a stable
   API. Absent on a publication made before the API, until it is published
   again.
-- **`publishedAt`.** When the series was last published. A poller can
-  compare it with what it last saw and skip fetching an unchanged series'
-  data file.
+- **`categories`, `category`.** The workspace's own grouping of its series
+  (Open Events and Club Racing, say, or one category per recurring event).
+  Each category's `url` is its page, listing every season's events filed in
+  it. The top-level list holds the categories this document's publications
+  are filed in, in the workspace's order; a publication's `category` is the
+  one its series is filed in. A category's URL follows its name: renaming
+  it moves the page, and the old URL redirects.
+- **`publishedAt`.** When the series was last published. A poller
+  holding the index compares it with what it last saw to find the
+  publications that moved, and fetches only those, through their `api`
+  link (see [Polling](public-api.md#polling)).
 - **`fleets`.** The series' fleets as scored, with each one's scoring system
   (`scratch`, `irc`, `py`, `nhc`, `echo`, `vprs`, `orc`, `tcf`) where known.
   A series that never defined a fleet has none. An as-published archive
@@ -125,7 +142,8 @@ Field notes:
   publication resource's own `resources` is the list to go by: see
   [the published results API](public-api.md#resources).
 - **A season index** has the same shape, narrowed: `seasons` holds just
-  that season and `publications` just the ones filed under it.
+  that season, `publications` just the ones filed under it, and
+  `categories` just theirs.
 
 ## The directory (`/p/index.json`)
 

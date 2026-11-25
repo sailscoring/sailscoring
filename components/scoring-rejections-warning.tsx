@@ -5,13 +5,17 @@ import { formatPrimaryNames } from '@/lib/competitor-fields';
 export interface ScoringRejectionsWarningProps {
   rejections: ScoringRejection[];
   competitors: Competitor[];
+  /** The race columns on screen, for naming the race a rejection is in. */
+  races?: { id: string; raceNumber: number; name?: string | null }[];
 }
 
 export function ScoringRejectionsWarning({
   rejections,
   competitors,
+  races = [],
 }: ScoringRejectionsWarningProps) {
   const competitorById = new Map(competitors.map((c) => [c.id, c]));
+  const raceById = new Map(races.map((r) => [r.id, r]));
   if (rejections.length === 0) return null;
 
   function nameOf(r: ScoringRejection): string {
@@ -19,10 +23,16 @@ export function ScoringRejectionsWarning({
     return c ? `${c.sailNumber} (${formatPrimaryNames(c.names)})` : r.competitorId;
   }
 
+  function inRace(r: ScoringRejection): string {
+    const race = r.raceId ? raceById.get(r.raceId) : undefined;
+    return race ? `${nameOf(r)} in race ${race.raceNumber}${race.name ? ` (${race.name})` : ''}` : nameOf(r);
+  }
+
   const noRating = rejections.filter((r) => r.reason === 'no_rating');
   const noStartingTcf = rejections.filter((r) => r.reason === 'no_starting_tcf');
   const rdgMissing = rejections.filter((r) => r.reason === 'rdg_missing_fleet_points');
   const dpiMissing = rejections.filter((r) => r.reason === 'dpi_missing_fleet_points');
+  const beforeStart = rejections.filter((r) => r.reason === 'finish_before_start');
 
   const messages: string[] = [];
   if (noRating.length > 0) {
@@ -37,10 +47,13 @@ export function ScoringRejectionsWarning({
   if (dpiMissing.length > 0) {
     messages.push(`${dpiMissing.length === 1 ? 'A DPI penalty has' : `${dpiMissing.length} DPI penalties have`} per-fleet points but none set for this fleet — no penalty applied pending a value: ${dpiMissing.map(nameOf).join(', ')}`);
   }
+  if (beforeStart.length > 0) {
+    messages.push(`${beforeStart.length === 1 ? 'A finish time is' : `${beforeStart.length} finish times are`} at or before the start, so scored DNF until corrected on the finish sheet: ${beforeStart.map(inRace).join(', ')}`);
+  }
   if (messages.length === 0) return null;
 
   return (
-    <div className="rounded-md border border-amber-500/50 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-400 flex items-start gap-2">
+    <div data-testid="scoring-rejections-warning" className="rounded-md border border-amber-500/50 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-400 flex items-start gap-2">
       <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
       <span>{messages.join(' · ')}</span>
     </div>

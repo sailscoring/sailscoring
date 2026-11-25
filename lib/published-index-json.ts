@@ -65,6 +65,9 @@ export interface PublicIndexPublication {
   /** Its resource in the published results API (ADR-015), the contract
    *  apps build on. Absent until the publication's API resources exist. */
   api?: string;
+  /** The category its series is filed in, and that category's page; absent
+   *  when uncategorised. */
+  category?: { name: string; url: string };
   /** Its fleets, with each one's scoring system where known. */
   fleets: { name: string; scoringSystem?: string }[];
   /** ISO time of the last publish — a poller can skip an unchanged series
@@ -85,6 +88,10 @@ export interface PublicIndex {
   timeZone: string;
   workspace: { slug: string; name: string; url: string; logo?: string };
   seasons: { label: string; current: boolean; url: string; index: string }[];
+  /** The categories the listed publications are filed in, in the workspace's
+   *  order, each with its page — every season's events in the category.
+   *  Absent when none is. */
+  categories?: { name: string; url: string }[];
   publications: PublicIndexPublication[];
 }
 
@@ -98,6 +105,8 @@ export interface PublicIndexInputRow {
   publishedAt: number;
   /** The publication's id while its API resources exist. */
   apiId?: string | null;
+  /** The series' category, when it has one. */
+  categoryId?: string | null;
 }
 
 function pageKind(page: Omit<PublishedSeriesPage, 'blobUrl'>): PublicIndexPageKind {
@@ -131,10 +140,18 @@ export function buildPublicIndex(input: {
   seasonTree: { seasons: PublishedSeason[]; undated: { slug: string; label: string }[] };
   folderMeta: Map<string, { label: string | null }>;
   publications: PublicIndexInputRow[];
+  /** The workspace's categories with something published, in display order. */
+  categories?: { id: string; name: string; slug: string }[];
   season?: string;
 }): PublicIndex {
   const { origin, workspace, seasonTree, folderMeta } = input;
   const base = `${origin}/p/${encodeURIComponent(workspace.slug)}`;
+  const categoryOf = new Map(
+    (input.categories ?? []).map((c) => [
+      c.id,
+      { name: c.name, url: `${base}/-/${encodeURIComponent(c.slug)}` },
+    ]),
+  );
 
   const bySlug = new Map<string, PublicIndexInputRow[]>();
   for (const p of input.publications) {
@@ -178,6 +195,7 @@ export function buildPublicIndex(input: {
             }
           : undefined;
       const summary = p.summary;
+      const category = p.categoryId ? categoryOf.get(p.categoryId) : undefined;
       return {
         name: p.seriesName ?? folder.label,
         season,
@@ -200,6 +218,7 @@ export function buildPublicIndex(input: {
         }),
         data: p.dataSubPath ? `${base}/${pathOf(folder.slug, p.dataSubPath)}` : null,
         ...(p.apiId ? { api: `${origin}/api/public/v1/publications/${p.apiId}` } : {}),
+        ...(category ? { category } : {}),
         fleets: summary
           ? summary.fleets.map((f) => ({
               name: f.name,
@@ -213,6 +232,13 @@ export function buildPublicIndex(input: {
       };
     });
   });
+
+  // Only the categories this document's publications are filed in: a season
+  // index lists the season's.
+  const listed = new Set(publications.map((p) => p.category?.url));
+  const categories = (input.categories ?? [])
+    .map((c) => categoryOf.get(c.id)!)
+    .filter((c) => listed.has(c.url));
 
   return {
     version: PUBLIC_INDEX_VERSION,
@@ -229,6 +255,7 @@ export function buildPublicIndex(input: {
       url: `${base}/${pathOf(s.segment)}`,
       index: `${base}/${pathOf(s.segment)}/index.json`,
     })),
+    ...(categories.length > 0 ? { categories } : {}),
     publications,
   };
 }

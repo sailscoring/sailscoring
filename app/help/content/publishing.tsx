@@ -165,9 +165,10 @@ export default function Publishing() {
         <p>
           <strong className="text-foreground">Managing published pages:</strong>{' '}
           the <strong className="text-foreground">Published</strong> tab on the workspace pages
-          lists every page your workspace has published, with its public URL, when it was last
-          published, how many edits have landed since, and whether it shares its URL with
-          another series. Pages are grouped for the scorer — active series
+          lists every page your workspace has published, with its public URL (for a series
+          published into a season, the URL of its event folder), when it was last
+          published, how many edits have landed since, and whether it shares that URL with
+          another series published into the same folder. Pages are grouped for the scorer — active series
           by category, archived ones under Past results by year — and you can search by name
           or URL and filter to active series’ pages with edits since publish (archiving a
           series or moving it between categories isn’t an edit — neither changes its
@@ -231,6 +232,38 @@ export default function Publishing() {
             </p>
           </>
         )}
+      </Section>
+      <Section id="category-pages" title="A page for each category">
+        <HelpShot
+          src="/help/shots/category-pages.webp"
+          alt="A category's public page: Cork Week listed under each season it was sailed in, each year's classes linked."
+          caption="One event across the years: every Cork Week on one page, newest first."
+        />
+        <p>
+          A category you file series under (see{' '}
+          <a href="/help/running-a-series#organising-series" className="underline">
+            organising the series list
+          </a>
+          ) gets a public page of its own once something in it is published, at{' '}
+          <code className="text-foreground text-sm">app.sailscoring.ie/p/hyc/-/open-events</code>.
+          It lists every published event in the category, newest season first, each with its
+          results pages linked — so the Cork Week from every year, or every Open Event the club
+          has run, is one address you can put in a Notice of Race or on the club website.
+        </p>
+        <p>
+          You don’t need to type it. The category’s heading on your workspace index
+          links to it, so does the index’s category filter once a category is chosen, and an
+          event in a category with more than one published series carries an{' '}
+          <strong className="text-foreground">All … results</strong> link to it. In the app,
+          the <strong className="text-foreground">Series categories</strong> card on Workspace
+          settings links each published category’s page, as does its row in{' '}
+          <strong className="text-foreground">Manage categories</strong>.
+        </p>
+        <p>
+          The address follows the category’s name. Rename the category and its page moves
+          to the new name; the old address keeps working and forwards to the new one. A category
+          with nothing published has no page.
+        </p>
       </Section>
       <Section id="public-directory" title="The public directory">
         <HelpShot
