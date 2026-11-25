@@ -742,7 +742,7 @@ test('ORC fleet: the wind band picked on the start re-scores the race', async ({
   // The courses are named as the certificate names them, under the issuing
   // office's heading.
   await expect(
-    page.getByRole('group', { name: 'Custom scoring options for IRL' }),
+    page.getByRole('group', { name: 'Custom scoring options for Ireland' }),
   ).toBeVisible();
   await page.getByRole('option', { name: '50-50 Windward/Leeward' }).click();
   // Saving with a row still to choose is refused by name, not saved as the

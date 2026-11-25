@@ -31,6 +31,7 @@
  * this module is also imported by the client for the certificate link.
  */
 
+import { lookupCode } from './nationality';
 import type { OrcAllowances, OrcCertData, OrcProfile, OrcRmsRecord, OrcScoringOptionCatalog } from './types';
 
 export type { OrcAllowances, OrcCertData, OrcProfile, OrcRmsRecord };
@@ -207,6 +208,13 @@ export function orcFieldKind(field: string): 'tot' | 'tod' | null {
  * rather than a hardcoded catalog, so any national office's options are
  * selectable the day its certificates carry them. Sorted by field name;
  * the wind-band choice is then just picking a sibling field per race.
+ *
+ * With a catalog, a national option is offered only where its office issued
+ * one of the certificates. Every certificate carries every office's national
+ * fields, and the stored catalog can name other offices' options too, so
+ * neither says which are this series' business; the certificates' issuing
+ * office does. An all-Irish series gets the Irish options, and a visiting
+ * Brazilian boat brings Brazil's.
  */
 export function orcSelectableOptions(
   competitors: ReadonlyArray<{ orcCert?: OrcCertData }>,
@@ -228,12 +236,35 @@ export function orcSelectableOptions(
   // which are this scorer's business. Without one — certificates imported
   // before the catalog was stored — everything discovered stays selectable,
   // which is what the picker always did.
+  const offices = orcIssuingOffices(competitors);
   const fields = catalog
-    ? [...byField.entries()].filter(([field]) => field in catalog)
+    ? [...byField.entries()].filter(([field]) => {
+        if (!catalog[field]) return false;
+        const office = catalog[field].countryId;
+        // International options, and any the catalog doesn't place, stay.
+        // Certificates that don't say who issued them narrow nothing.
+        return !office || office === 'ORC' || offices.size === 0 || offices.has(office);
+      })
     : [...byField.entries()];
   return fields
     .sort(([a], [b]) => optionSortKey(a, catalog).localeCompare(optionSortKey(b, catalog)))
     .map(([option, kind]) => ({ option, kind }));
+}
+
+/** The national offices that issued the given certificates (`NatAuth`). */
+function orcIssuingOffices(competitors: ReadonlyArray<{ orcCert?: OrcCertData }>): Set<string> {
+  const offices = new Set<string>();
+  for (const competitor of competitors) {
+    const office = competitor.orcCert?.record.NatAuth?.trim().toUpperCase();
+    if (office) offices.add(office);
+  }
+  return offices;
+}
+
+/** What to call an issuing office in a heading: the country's name where
+ *  the national-letters dataset knows the code, else the code. */
+export function orcOfficeName(countryId: string): string {
+  return lookupCode(countryId)?.name ?? countryId;
 }
 
 /** Grouped by issuing office, as the printed certificate's "Custom scoring

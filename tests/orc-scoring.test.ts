@@ -3,7 +3,7 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { mergeOrcScoringOptions, orcCourseGapClause, orcFieldKind, orcScoringOptionsWouldChange, orcFleetProfile, orcOptionLabel, orcSelectableOptions, orcTotRating, parseOrcRmsJson } from '@/lib/orc-certificate';
+import { mergeOrcScoringOptions, orcCourseGapClause, orcFieldKind, orcScoringOptionsWouldChange, orcFleetProfile, orcOfficeName, orcOptionLabel, orcSelectableOptions, orcTotRating, parseOrcRmsJson } from '@/lib/orc-certificate';
 import { scorePcsRace, type PcsAllowances } from '@/lib/orc-pcs';
 import { calculateFleetStandings, calculateHandicapRaceScores } from '@/lib/scoring';
 import type { Competitor, Finish, Fleet, OrcCertData, Race, RaceStart } from '@/lib/types';
@@ -681,6 +681,43 @@ describe('ORC wind-band selection (per-start option)', () => {
     const offered = orcSelectableOptions([impFull, mojoFull], catalog);
     expect(offered.length).toBeLessThan(discovered.length);
     for (const o of offered) expect(catalog[o.option]).toBeDefined();
+  });
+
+  it('offers a national office\'s options only where that office issued a certificate', () => {
+    // The stored catalog can name other offices' options too, and an Irish
+    // certificate carries values for them, so it is the certificates' issuer
+    // that decides.
+    const { scoringOptions } = parseOrcRmsJson(
+      readFileSync(join(process.cwd(), 'tests/fixtures/orc/downrms-irl-sample.json'), 'utf-8'),
+    );
+    const catalog = mergeOrcScoringOptions(undefined, [
+      ...scoringOptions,
+      { CountryId: 'USA', Kind: 'TOT', Fieldname: 'US_APH_TOT', Name: 'All Purpose' },
+    ]);
+    expect(impFull.orcCert!.record.US_APH_TOT).toBeGreaterThan(0);
+    const irish = orcSelectableOptions([impFull, mojoFull], catalog).map((o) => o.option);
+    expect(irish).not.toContain('US_APH_TOT');
+    expect(irish).toContain('IRL_5B_WL_M_TOT');
+
+    // A visiting boat's certificate brings its office's options with it.
+    const visitor: Competitor = {
+      ...mojoFull,
+      id: 'visitor',
+      orcCert: { ...mojoFull.orcCert!, record: { ...mojoFull.orcCert!.record, NatAuth: 'USA' } },
+    };
+    expect(orcSelectableOptions([impFull, visitor], catalog).map((o) => o.option)).toContain('US_APH_TOT');
+
+    // Certificates that don't name their issuer narrow nothing.
+    const unnamed = [impFull, mojoFull].map((c) => ({
+      ...c,
+      orcCert: { ...c.orcCert!, record: { ...c.orcCert!.record, NatAuth: undefined } },
+    }));
+    expect(orcSelectableOptions(unnamed, catalog).map((o) => o.option)).toContain('US_APH_TOT');
+  });
+
+  it('names an issuing office by its country', () => {
+    expect(orcOfficeName('IRL')).toBe('Ireland');
+    expect(orcOfficeName('ZZZ')).toBe('ZZZ');
   });
 
   it('lists every time-on-time option before any time-on-distance one, so twins are not neighbours', () => {

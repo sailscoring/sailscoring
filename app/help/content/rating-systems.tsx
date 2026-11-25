@@ -275,9 +275,10 @@ export default function RatingSystems() {
           <code className="font-mono text-xs">IRL_5B_AP_LM_TOT</code> — and grouped by
           the office that issues them, under a heading matching the certificate’s own{' '}
           <em>Custom scoring options for Ireland</em> section. A certificate carries
-          every country’s national fields, not just its issuer’s, so only the options
-          the imported certificates’ own catalog names are offered: the several hundred
-          belonging to offices on other continents stay out of the list. The names come
+          every country’s national fields, not just its issuer’s, so only the international
+          options and those of the offices that issued the series’ certificates are
+          offered: an all-Irish series lists Ireland’s, and a visiting boat’s certificate
+          adds its own office’s. The names come
           from the ORC database each time Update handicaps reads it, so an office adding
           an option needs nothing here. A series showing field names instead gets the names
           back by opening Update handicaps on its ORC certificates, even when there is

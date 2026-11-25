@@ -3,20 +3,19 @@
 import { Fragment } from 'react';
 
 import { SelectGroup, SelectItem, SelectLabel } from '@/components/ui/select';
-import { orcOptionLabel } from '@/lib/orc-certificate';
+import { orcOfficeName, orcOptionLabel } from '@/lib/orc-certificate';
 import type { OrcProfile, OrcScoringOptionCatalog } from '@/lib/types';
 
 /** The heading one group of certificate options sits under. The printed
  *  certificate heads its own national block "Custom scoring options for
- *  Ireland"; this is the same idea with the country code we have, and with
- *  how the group's options are applied, since each office's list is split
- *  that way. */
+ *  Ireland"; this is the same idea, with how the group's options are
+ *  applied, since each office's list is split that way. */
 function groupHeading(countryId: string | undefined, kind: OrcProfile['kind']): string {
   const office = !countryId
     ? 'Other certificate options'
     : countryId === 'ORC'
       ? 'International scoring options'
-      : `Custom scoring options for ${countryId}`;
+      : `Custom scoring options for ${orcOfficeName(countryId)}`;
   return `${office} · ${ORC_KIND_HEADING[kind]}`;
 }
 

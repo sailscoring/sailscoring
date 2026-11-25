@@ -12,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { orcOfficeName } from '@/lib/orc-certificate';
 import {
   orcChoiceOf,
   orcChoiceRows,
@@ -30,7 +31,7 @@ const KIND_LABEL: Record<OrcKind, string> = {
 
 function officeHeading(office: string): string {
   if (office === 'ORC') return 'International';
-  return office ? `Custom scoring options for ${office}` : 'Other certificate options';
+  return office ? `Custom scoring options for ${orcOfficeName(office)}` : 'Other certificate options';
 }
 
 /** The row a selection still needs, as the hint and the save refusal name it. */
