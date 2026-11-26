@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ValidationApiError } from '@/lib/api-client';
 import {
+  getLeftoverPages,
   getPublication,
   publishSeries,
   retractPublishedPage,
@@ -51,7 +52,14 @@ import { useFeatures } from '@/components/features-provider';
 import { FtpSettingsPane } from '@/components/ftp-settings-pane';
 import { configuredFtpPaths, resolveFtpServerId } from '@/lib/ftp-publish';
 import { useFtpServers } from '@/hooks/use-ftp-servers';
-import type { Fleet, FtpPublishOutcome, OrcScoringOptionCatalog, PublicationStatus, Series } from '@/lib/types';
+import type {
+  Fleet,
+  FtpPublishOutcome,
+  OrcScoringOptionCatalog,
+  PublicationStatus,
+  PublishResult,
+  Series,
+} from '@/lib/types';
 
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '');
 
@@ -249,6 +257,10 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, unscored 
   // other, so the "N edits since" line above lights up the moment it is
   // saved, which is exactly the prompt to re-publish.
   const [openNote, setOpenNote] = useState<string | null>(null);
+  // Live pages a publish no longer rebuilds — left behind by a deleted extra
+  // page or a renamed fleet. Asked for separately once the dialog has loaded,
+  // because the server builds the series' pages to answer it.
+  const [leftovers, setLeftovers] = useState<PublishResult['pages']>([]);
 
   const published = status?.published ?? null;
   const isPublished = published !== null;
@@ -301,10 +313,19 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, unscored 
     let cancelled = false;
     setError(null);
     setAllowUnscored(false);
+    setLeftovers([]);
     getPublication(series.id)
       .then((s) => {
         if (cancelled) return;
         const pub = s.published;
+        if (pub) {
+          getLeftoverPages(series.id)
+            .then((pages) => {
+              if (!cancelled) setLeftovers(pages);
+            })
+            // Best-effort: without the list the dialog is what it was before.
+            .catch(() => {});
+        }
         const publishedByName = new Map(
           (pub?.pages ?? []).map((p) => [p.fleetName, p.url]),
         );
@@ -475,13 +496,19 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, unscored 
   // slug when the page co-publishes into a shared slug.
   const multiFleet = defaultPage === null;
 
+  // Leftover pages are listed in a section of their own, so the lone results
+  // row never previews one or offers to re-path it.
+  const leftoverUrls = new Set(leftovers.map((p) => p.url));
+
   // The publication's live results pages when there are several in single-page
   // mode (a championship's standings + race-results + assignments); null means
   // one page and the `singlePreview` link renders alone. Blocks link their
   // index instead, and the prizes page keeps its dedicated row.
   const publishedResultPages = (() => {
     if (hasBlocks) return null;
-    const live = (published?.pages ?? []).filter((p) => !extraPageSet.has(p.fleetName));
+    const live = (published?.pages ?? []).filter(
+      (p) => !extraPageSet.has(p.fleetName) && !leftoverUrls.has(p.url),
+    );
     return live.length > 1 ? live : null;
   })();
 
@@ -492,7 +519,9 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, unscored 
     // preview is the results page. A publication that is *only* those (an
     // entry list published before race one) has no results page to preview,
     // and the lone row is left out rather than repeating a row below it.
-    const page = published?.pages.find((p) => !extraPageSet.has(p.fleetName));
+    const page = published?.pages.find(
+      (p) => !extraPageSet.has(p.fleetName) && !leftoverUrls.has(p.url),
+    );
     if (published && !page) return null;
     return {
       fleetName: page?.fleetName ?? fleets[0]?.name ?? 'Standings',
@@ -808,6 +837,8 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, unscored 
       setStatus((s) => (s ? { ...s, published: publication } : s));
       setFtpOutcome(ftp ?? null);
       setPhase('idle');
+      // A publish that rebuilds a leftover page's slot drops it, so ask again.
+      getLeftoverPages(series.id).then(setLeftovers).catch(() => {});
     } catch (e) {
       setPhase('idle');
       if (e instanceof ValidationApiError) {
@@ -922,6 +953,56 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, unscored 
       // Seed the now-editable field with the segment the page just had: the
       // scorer is shortening a URL, not composing one from nothing.
       reseed(lastSegment(url));
+      setPhase('idle');
+    } catch (e) {
+      setPhase('idle');
+      if (
+        e instanceof ValidationApiError &&
+        (e.issues as { code?: string } | undefined)?.code === 'last-page'
+      ) {
+        setError(onlyPage);
+        return;
+      }
+      setError(e instanceof Error ? e.message : 'Taking the page down failed.');
+    }
+  }
+
+  /**
+   * Take down a live page the series no longer builds. Publishing would never
+   * update it again, so unlike Change URL nothing brings it back: the page is
+   * gone from the publication and from every page's navigation.
+   */
+  async function handleTakeDown(label: string, url: string) {
+    if (!published) return;
+    const onlyPage = `“${label}” is the only published page, so taking it down means taking the whole publication down. Use Unpublish.`;
+    if (published.pages.length === 1) {
+      setError(onlyPage);
+      return;
+    }
+    const ok = await confirm({
+      title: `Take “${label}” down?`,
+      description:
+        'The page goes offline now and is removed from the links on the other pages. Publishing will not bring it back.',
+      confirmLabel: 'Take the page down',
+      destructive: true,
+    });
+    if (!ok) return;
+    setPhase('retracting');
+    setError(null);
+    try {
+      await retractPublishedPage(series.id, subPathOf(url));
+      setStatus((s) =>
+        s?.published
+          ? {
+              ...s,
+              published: {
+                ...s.published,
+                pages: s.published.pages.filter((p) => p.url !== url),
+              },
+            }
+          : s,
+      );
+      setLeftovers((pages) => pages.filter((p) => p.url !== url));
       setPhase('idle');
     } catch (e) {
       setPhase('idle');
@@ -1477,6 +1558,52 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, unscored 
                 </div>
               );
             })}
+
+            {/* Live pages the series no longer builds — a deleted extra page,
+                a renamed fleet. A publish carries them unchanged, so they
+                would stay up for good; each can be taken down here. */}
+            {leftovers.length > 0 && (
+              <div className="space-y-1.5 border-t pt-2" data-testid="leftover-pages">
+                <p className="text-sm font-medium">No longer part of this series</p>
+                <p className="text-xs text-muted-foreground">
+                  {leftovers.length === 1 ? 'This page is' : 'These pages are'} still live,
+                  but publishing no longer updates {leftovers.length === 1 ? 'it' : 'them'}.
+                </p>
+                {leftovers.map((p) => {
+                  const label = p.subSeriesName ? `${p.subSeriesName} · ${p.fleetName}` : p.fleetName;
+                  return (
+                    <div
+                      key={p.url}
+                      className="flex flex-wrap sm:flex-nowrap items-center gap-x-2 gap-y-1"
+                    >
+                      <span className="w-24 sm:w-36 shrink-0 truncate text-sm" title={label}>
+                        {label}
+                      </span>
+                      <a
+                        href={p.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        title={p.url}
+                        className="flex-1 basis-40 min-w-0 truncate text-xs font-mono hover:underline"
+                        style={{ direction: 'rtl', textAlign: 'left' }}
+                      >
+                        {p.url}
+                      </a>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="shrink-0"
+                        aria-label={`Take down ${label}`}
+                        disabled={isPublishing || isUnpublishing || isRetracting}
+                        onClick={() => handleTakeDown(label, p.url)}
+                      >
+                        Take down
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
 
             {/* The note that goes on every page of the publication, and any
                 note left behind by a page the series no longer builds. */}

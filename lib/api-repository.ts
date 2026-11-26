@@ -936,6 +936,13 @@ export function getPublication(seriesId: string): Promise<PublicationStatus> {
   return apiFetch<PublicationStatus>(`/api/v1/series/${seriesId}/publish`);
 }
 
+/** The live pages of this series' publication that a publish no longer
+ *  rebuilds — left behind by a deleted extra page or fleet — for the publish
+ *  dialog to offer to take down. */
+export function getLeftoverPages(seriesId: string): Promise<PublishResult['pages']> {
+  return apiFetch<PublishResult['pages']>(`/api/v1/series/${seriesId}/publish/leftover-pages`);
+}
+
 /** Unpublish this series' live publication (the publish dialog's convenience
  *  path). Takes the public page down and frees the slug. */
 export async function unpublishSeries(seriesId: string): Promise<void> {

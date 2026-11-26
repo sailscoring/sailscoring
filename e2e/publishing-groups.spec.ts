@@ -450,3 +450,60 @@ test('per-division page: one table per division from a single fleet', async ({ p
   await expect(gold.locator('tr.summaryrow')).toHaveCount(2);
   await expect(gold.locator('tr.summaryrow').nth(1).locator('td').first()).toHaveText('2nd');
 });
+
+test('a deleted extra page stays live until it is taken down from the dialog', async ({ page, signedInEmail }) => {
+  await enableFeatures(page, signedInEmail, ['combined-pages']);
+  await createTwoFleetSeries(page, 'Leftover League 2026');
+  const seriesUrl = page.url();
+
+  // Publish an Overall page alongside the fleet pages.
+  await page.getByRole('link', { name: 'Settings' }).click();
+  let card = page.getByTestId('combined-pages-card');
+  await card.getByRole('button', { name: 'Edit ▸' }).click();
+  await card.getByRole('button', { name: '+ Add page' }).click();
+  await card.getByRole('button', { name: 'Done' }).click();
+  await expect(card.getByText('Overall (all fleets)')).toBeVisible();
+
+  await page.goto(seriesUrl);
+  await page.getByRole('button', { name: 'Publish' }).click();
+  let dialog = page.getByRole('dialog', { name: 'Publish results' });
+  await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
+  const overallLink = dialog.getByRole('link', { name: /\/overall$/ });
+  await expect(overallLink).toBeVisible();
+  const overallPath = new URL((await overallLink.getAttribute('href')) ?? '').pathname;
+  const ircPath = new URL(
+    (await dialog.getByRole('link', { name: /\/irc$/ }).getAttribute('href')) ?? '',
+  ).pathname;
+  await expect(dialog.getByTestId('leftover-pages')).toHaveCount(0);
+  await dialog.getByRole('button', { name: 'Close', exact: true }).first().click();
+
+  // Delete the extra page, then publish again: the page is still live.
+  await page.getByRole('link', { name: 'Settings' }).click();
+  card = page.getByTestId('combined-pages-card');
+  await card.getByRole('button', { name: 'Edit ▸' }).click();
+  await card.getByRole('button', { name: 'Remove Overall' }).click();
+  await card.getByRole('button', { name: 'Done' }).click();
+  await expect(card.getByText('No extra pages.')).toBeVisible();
+
+  await page.goto(seriesUrl);
+  await page.getByRole('button', { name: 'Publish' }).click();
+  dialog = page.getByRole('dialog', { name: 'Publish results' });
+  await dialog.getByRole('button', { name: 'Re-publish', exact: true }).click();
+  const leftovers = dialog.getByTestId('leftover-pages');
+  await expect(leftovers).toContainText('No longer part of this series');
+  await expect(leftovers.getByRole('link', { name: /\/overall$/ })).toBeVisible();
+  expect((await page.request.get(overallPath)).status()).toBe(200);
+
+  // Take it down: it goes, and the fleet pages stop linking to it. The
+  // confirm is modal, hiding the publish dialog from role queries while it is
+  // open, so wait for it to close and find the section by its test id.
+  await leftovers.getByRole('button', { name: 'Take down Overall' }).click();
+  const confirmTakeDown = page.getByRole('dialog', { name: 'Take “Overall” down?' });
+  await confirmTakeDown.getByRole('button', { name: 'Take the page down' }).click();
+  await expect(confirmTakeDown).toBeHidden();
+  await expect(page.getByTestId('leftover-pages')).toHaveCount(0);
+  expect((await page.request.get(overallPath)).status()).toBe(404);
+  const irc = await page.request.get(ircPath);
+  expect(irc.status()).toBe(200);
+  expect(await irc.text()).not.toContain(overallPath);
+});

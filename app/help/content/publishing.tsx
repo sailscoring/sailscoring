@@ -163,6 +163,16 @@ export default function Publishing() {
           the URL you want.
         </p>
         <p>
+          <strong className="text-foreground">Pages the series no longer has:</strong>{' '}
+          deleting an extra page, or renaming or deleting a fleet, doesn’t take its published
+          page down — publishing leaves alone any live page it isn’t updating. The{' '}
+          <strong className="text-foreground">Publish</strong> dialog lists such pages under{' '}
+          <strong className="text-foreground">No longer part of this series</strong>, each with a{' '}
+          <strong className="text-foreground">Take down</strong> button. The page goes offline
+          straight away and drops out of the links on the series’ other pages; every other page
+          stays live.
+        </p>
+        <p>
           <strong className="text-foreground">Managing published pages:</strong>{' '}
           the <strong className="text-foreground">Published</strong> tab on the workspace pages
           lists every page your workspace has published, with its public URL (for a series
