@@ -914,6 +914,47 @@ export async function getPublication(
 }
 
 /**
+ * The live pages of a series' publication that a publish no longer rebuilds —
+ * an extra page since deleted, a fleet since renamed or removed, a prize sheet
+ * whose prizes have gone. A publish carries every live page it doesn't build,
+ * so these stay up, unchanged, until the scorer takes them down one by one
+ * with `retractPage`; this is how the dialog finds them to offer that.
+ *
+ * Answered by building the series' pages, not by comparing its configuration:
+ * only the build knows every page it produces (the fleetless "Unknown" page
+ * appears from the competitor rows, and a configured page can render nothing),
+ * and "a publish would not update this page" is exactly the question. Pages
+ * are matched on the same (block, page) key the publish merge uses. Nothing
+ * is uploaded, and a series whose build produces nothing at all — which a
+ * publish refuses outright — reports no leftovers rather than every page.
+ */
+export async function listLeftoverPages(
+  workspace: WorkspaceContext,
+  seriesId: string,
+): Promise<PublishResult['pages']> {
+  const repos = createRepos({ workspaceId: workspace.workspaceId });
+  const series = await repos.series.get(seriesId);
+  if (!series) throw new NotFoundError('series');
+  const existing = await getPublishedBySeries(seriesId);
+  if (!existing) return [];
+
+  // Only which pages are built matters here, so the build is given just what
+  // decides that: the workspace features that add a page. Links and paths
+  // change what a page says, never whether it exists.
+  const build = await buildFleetHtmlFiles(exportReposFor(workspace.workspaceId), seriesId, undefined, {
+    includePrizes: workspace.features.includes('prizes'),
+    includeEntryList: workspace.features.includes('entry-list'),
+    includeSchedule: workspace.features.includes('schedule-page'),
+  });
+  if (!build || build.files.length === 0) return [];
+  const built = new Set(build.files.map(publishedPageKey));
+  // `toResult` lists the pages in the row's order, so index i is page i.
+  return toResult(workspace.workspaceSlug, existing).pages.filter(
+    (_, i) => !built.has(publishedPageKey(existing.pages[i])),
+  );
+}
+
+/**
  * Every publication in the workspace for the management page (#164), newest
  * first, each with the public URL of its own pages — its event folder when it
  * shares its slug, so a series in a season isn't shown at the season's
